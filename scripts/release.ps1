@@ -47,8 +47,8 @@ if ($innoPaths.Count -gt 0) {
 }
 
 Write-Host "==> 2/4 Preparando archivos y desbloqueadores SmartScreen..." -ForegroundColor Cyan
-$setupExe = Get-ChildItem -Path $distDir -Filter "OpenTV Setup *.exe" | Select-Object -First 1
-$portableExe = Get-ChildItem -Path $distDir -Filter "OpenTV Portable *.exe" | Select-Object -First 1
+$setupExe = Get-ChildItem -Path $distDir -Filter "OpenTV-Setup-*.exe" | Select-Object -First 1
+$portableExe = Get-ChildItem -Path $distDir -Filter "OpenTV-Portable-*.exe" | Select-Object -First 1
 $innoExe = Get-ChildItem -Path $distDir -Filter "OpenTV-InnoSetup-*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
 
 if ($setupExe) {
@@ -70,7 +70,7 @@ echo ========================================================
 echo   Preparando instalador de OpenTV (quitando bloqueo)...
 echo ========================================================
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -Path '%~dp0' -Recurse | Unblock-File -ErrorAction SilentlyContinue"
-for %%f in ("%~dp0OpenTV Setup *.exe") do (
+for %%f in ("%~dp0OpenTV-Setup-*.exe") do (
   echo Iniciando %%~nxf...
   start "" "%%~ff"
   exit /b 0
@@ -89,7 +89,7 @@ echo ========================================================
 echo   Abriendo OpenTV Portable (quitando bloqueo)...
 echo ========================================================
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -Path '%~dp0' -Recurse | Unblock-File -ErrorAction SilentlyContinue"
-for %%f in ("%~dp0OpenTV Portable *.exe") do (
+for %%f in ("%~dp0OpenTV-Portable-*.exe") do (
   echo Iniciando %%~nxf...
   start "" "%%~ff"
   exit /b 0
@@ -110,13 +110,13 @@ $leeme = @"
 
 OPCIÓN A — INSTALADOR CLÁSICO (Recomendado)
 1. Haz doble clic en: "1-Instalar-OpenTV-Sin-Bloqueo.bat"
-   (o directamente en "OpenTV Setup 1.0.0.exe").
+   (o directamente en "OpenTV-Setup-1.0.0.exe").
 2. El asistente creará el acceso directo "OpenTV" en tu Escritorio
    y en el Menú Inicio de Windows.
 
 OPCIÓN B — VERSIÓN PORTABLE (Sin instalar, ideal para USB)
 1. Haz doble clic en: "2-Abrir-Portable-Sin-Bloqueo.bat"
-   (o directamente en "OpenTV Portable 1.0.0.exe").
+   (o directamente en "OpenTV-Portable-1.0.0.exe").
 2. Tus favoritos e historial se guardarán automáticamente junto al
    programa en la carpeta "OpenTV - datos".
 
@@ -139,7 +139,12 @@ Windows SmartScreen puede mostrar un aviso preventivo:
 Get-ChildItem -Path $bundleDir -Recurse | Unblock-File -ErrorAction SilentlyContinue
 
 Write-Host "==> 3/4 Creando archivo .ZIP protegido con contraseña ($ZipPassword)..." -ForegroundColor Cyan
-$sevenZip = "C:\Users\DO-EdgarL\AppData\Local\electron-builder\Cache\7zip@1.0.0\7zip-win-x64-a34pt\bin\7za.exe"
+# 7-Zip que trae electron-builder (no hace falta instalarlo aparte).
+$sevenZip = Join-Path $projectRoot "node_modules\7zip-bin\win\x64\7za.exe"
+if (-not (Test-Path $sevenZip)) {
+  $found = Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA "electron-builder\Cache") -Recurse -Filter 7za.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($found) { $sevenZip = $found.FullName }
+}
 if (-not (Test-Path $sevenZip)) {
   $sevenZip = "7z"
 }

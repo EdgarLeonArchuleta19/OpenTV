@@ -70,18 +70,23 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "OpenTV",
-      "artifactName": "OpenTV Setup ${version}.exe"
+      "artifactName": "OpenTV-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "OpenTV Portable ${version}.exe"
+      "artifactName": "OpenTV-Portable-${version}.${ext}"
     },
     "publish": [
       {
         "provider": "github",
-        "owner": "TU_USUARIO_GITHUB",
+        "owner": "EdgarLeonArchuleta19",
         "repo": "OpenTV",
         "releaseType": "release"
       }
     ]
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EdgarLeonArchuleta19/OpenTV.git"
+  },
+  "homepage": "https://github.com/EdgarLeonArchuleta19/OpenTV"
 }

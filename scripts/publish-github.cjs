@@ -8,7 +8,7 @@
  * tests and uploads the installer, the portable .exe and latest.yml, which
  * is what the installed apps read to update themselves.
  * (The same happens on GitHub itself when a "v1.0.1" tag is pushed: see
- * .github/workflows/release.yml.)
+ * scripts/ci/github-release.yml, once copied to .github/workflows/.)
  */
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
