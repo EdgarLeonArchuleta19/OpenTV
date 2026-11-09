@@ -141,6 +141,10 @@ function renderPlaySettingQuality() {
   }
   heights.sort(function (a, b) { return b - a; });
   clear(psvQualityRow);
+  if (state.playerMode === 'vod' && heights.length < 2 && renderHlsQualityRow(psvQualityRow)) {
+    psvSecQuality.classList.remove('is-hidden');
+    return;
+  }
   if (state.playerMode !== 'vod' || heights.length < 2) {
     psvSecQuality.classList.add('is-hidden');
     return;

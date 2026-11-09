@@ -29,6 +29,7 @@
   "player/compat-mode.js",
   "player/media-info.js",
   "player/play-settings.js",
+  "player/quality.js",
   "player/episodes.js",
   "player/settings-dialog.js",
   "player/build.js",

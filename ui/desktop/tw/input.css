@@ -813,3 +813,67 @@ body.is-history-drawer-open .hd-item { animation: ot-slide-left .4s cubic-bezier
 @media (prefers-reduced-motion: reduce) {
   .desktop *, .desktop *::before, .desktop *::after, .ui-tooltip { animation: none !important; transition: none !important; }
 }
+
+/* =====================================================================
+   Imágenes: brillo de carga y aparición suave
+   ===================================================================== */
+@keyframes ot-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.desktop .poster:not(.is-loaded)::before,
+.desktop .bento:not(.is-loaded)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .06) 50%, transparent 80%);
+  animation: ot-shimmer 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+.desktop .p-img,
+.desktop .bento-img { opacity: 0; }
+.desktop .p-img.is-loaded,
+.desktop .bento-img.is-loaded { opacity: 1; }
+.desktop .p-img { transition: opacity .45s ease; }
+
+/* Banner principal: zoom lento (efecto Ken Burns) mientras se muestra. */
+@keyframes ot-kenburns { from { transform: scale(1); } to { transform: scale(1.07); } }
+.desktop .home-page.is-current > .bento:first-of-type .bento-img.is-loaded {
+  animation: ot-kenburns 9s ease-out both;
+}
+.desktop .home-page.is-current > .bento:first-of-type.is-sliding .bento-img { animation: none; }
+.desktop .bento-title { transition: opacity .25s ease, transform .35s cubic-bezier(.16, 1, .3, 1); }
+.desktop .bento.is-sliding .bento-title { transform: translateY(10px); }
+
+/* Lista de canales del inicio: entra en cascada y se desliza al pasar. */
+.desktop #screen-home.is-active .live-row { animation: ot-rise .45s cubic-bezier(.16, 1, .3, 1) backwards; }
+.desktop #screen-home.is-active .live-row:nth-child(2) { animation-delay: .04s; }
+.desktop #screen-home.is-active .live-row:nth-child(3) { animation-delay: .08s; }
+.desktop #screen-home.is-active .live-row:nth-child(4) { animation-delay: .12s; }
+.desktop #screen-home.is-active .live-row:nth-child(5) { animation-delay: .16s; }
+.desktop #screen-home.is-active .live-row:nth-child(n+6) { animation-delay: .2s; }
+.desktop .live-row { transition: background-color .18s ease, transform .25s cubic-bezier(.16, 1, .3, 1); }
+.desktop .live-row:hover { transform: translateX(6px); }
+.desktop .pc-row { transition: background-color .18s ease, transform .25s cubic-bezier(.16, 1, .3, 1); }
+.desktop .pc-row:hover { transform: translateX(6px); }
+
+/* Vista previa de la TV del inicio: aparece con un leve zoom. */
+.desktop .live-main.is-preview-playing .live-preview-video { animation: ot-pop .6s cubic-bezier(.16, 1, .3, 1); }
+/* Dock y países del inicio, en cascada. */
+.desktop #screen-home.is-active .live-dock-bar > * { animation: ot-rise .45s cubic-bezier(.16, 1, .3, 1) backwards; }
+.desktop #screen-home.is-active .live-dock-bar > :nth-child(2) { animation-delay: .03s; }
+.desktop #screen-home.is-active .live-dock-bar > :nth-child(3) { animation-delay: .06s; }
+.desktop #screen-home.is-active .live-dock-bar > :nth-child(n+4) { animation-delay: .09s; }
+
+/* Cambio de pestaña del inicio: la página entra con un fundido además del deslizamiento. */
+.desktop .home-page.is-entering { animation-duration: .38s !important; }
+
+/* Panel de canales y selector de categorías del reproductor. */
+.desktop .player-channels.is-active { animation: ot-slide-left .35s cubic-bezier(.16, 1, .3, 1); }
+.desktop .player-episodes { transition: transform .35s cubic-bezier(.16, 1, .3, 1); }
+
+/* Botón de calidad de la TV cuando hay varias resoluciones. */
+.desktop .pi-quality-btn:not([aria-disabled="true"]) { opacity: 1; }
+
+/* El banner principal siempre muestra su título (ya no depende del foco). */
+.desktop .home-page > .bento:first-of-type .bento-shade,
+.desktop .home-page > .bento:first-of-type .bento-title { opacity: 1; }
+.desktop .home-page > .bento:first-of-type.is-sliding .bento-title { opacity: 0; }

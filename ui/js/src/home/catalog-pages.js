@@ -7,6 +7,7 @@
      mRecommend03..06 413x222 @ y 752, x 192/609/1028/1446
      pagination dots around 843,723 (screen) -> page coords subtract 173.5.
    The page grid is identical for DESTACADOS, PELICULA, SERIES and ANIME. */
+var BENTO_GAP = 9;
 var BENTO = {
   bigW: 831, bigH: 534, bigY: 38.5,
   smallW: 413, smallH: 222, smallY: 578.5,
@@ -17,12 +18,15 @@ var BENTO = {
 function makeBento(item, x, y, w, h, opts) {
   opts = opts || {};
   var t = el('div', 'bento focusable');
-  abs(t, x, y, w, h);
+  /* Desktop: a little air between the large tiles. */
+  var gap = window.XUPER_DESKTOP ? BENTO_GAP : 0;
+  abs(t, x + gap, y + gap, w - gap * 2, h - gap * 2);
   var art = item ? (item.landscape || item.poster) : '';
   if (art) {
     var img = el('img', 'bento-img');
     img.setAttribute('data-poster-src', art);
     img.onerror = posterImageError;
+    img.onload = posterImageLoaded;
     t.appendChild(img);
   }
   if (opts.shade) { t.appendChild(el('div', 'bento-shade')); }
@@ -123,7 +127,7 @@ function showBannerSlide(c, k) {
     var art = item.landscape || item.poster;
     var img = hero.querySelector('.bento-img');
     if (art) {
-      if (!img) { img = el('img', 'bento-img'); img.onerror = posterImageError; hero.insertBefore(img, hero.firstChild); }
+      if (!img) { img = el('img', 'bento-img'); img.onerror = posterImageError; img.onload = posterImageLoaded; hero.insertBefore(img, hero.firstChild); }
       img.style.display = '';
       img._posterRetries = 0;
       img.setAttribute('data-poster-src', art);

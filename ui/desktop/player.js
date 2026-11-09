@@ -22,6 +22,50 @@
     currentHls = null;
     attachedUrl = '';
     ready = null;
+    levelsChanged();
+  }
+  // Quality levels of the current HLS stream, for the player menus (app.js).
+  var QUALITY_PREF_KEY = 'xuper_quality_pref_v1';
+  function levelsChanged() {
+    document.dispatchEvent(new CustomEvent('xuper:hls-levels'));
+  }
+  function preferredHeight() {
+    try { return parseInt(JSON.parse(localStorage.getItem(QUALITY_PREF_KEY) || '0'), 10) || 0; } catch (_) { return 0; }
+  }
+  window.__opentvHls = {
+    // Distinct heights, highest first: [{ height, index }]
+    levels: function () {
+      if (!currentHls || !currentHls.levels) return [];
+      var seen = {}, out = [];
+      currentHls.levels.forEach(function (l, i) {
+        if (!l.height || seen[l.height]) return;
+        seen[l.height] = true;
+        out.push({ height: l.height, index: i });
+      });
+      return out.sort(function (a, b) { return b.height - a.height; });
+    },
+    // { auto, height }: the chosen mode and the height playing now.
+    current: function () {
+      if (!currentHls) return null;
+      var lvl = currentHls.levels && currentHls.levels[currentHls.currentLevel];
+      return { auto: currentHls.autoLevelEnabled, height: lvl ? lvl.height : 0 };
+    },
+    // height 0 = automatic. The choice is remembered for later videos.
+    choose: function (height) {
+      try { localStorage.setItem(QUALITY_PREF_KEY, JSON.stringify(height || 0)); } catch (_) { /* optional */ }
+      if (!currentHls) return;
+      currentHls.currentLevel = height ? levelForHeight(height) : -1;
+      levelsChanged();
+    }
+  };
+  function levelForHeight(height) {
+    var best = -1, bestH = 0;
+    (currentHls.levels || []).forEach(function (l, i) {
+      // The closest level at or below the wanted height (or the lowest one).
+      if (l.height && l.height <= height && l.height > bestH) { best = i; bestH = l.height; }
+    });
+    if (best < 0 && currentHls.levels && currentHls.levels.length) best = 0;
+    return best;
   }
   HTMLMediaElement.prototype.load = function () {
     if (this.id !== 'player-video') return nativeLoad.call(this);
@@ -53,8 +97,19 @@
     timeline(video, 'hls', false, 0);
     attachedUrl = hlsUrl;
     currentHls = new Hls({ enableWorker: true, maxBufferLength: 25,
-      maxMaxBufferLength: 60, backBufferLength: 30, xhrSetup: function (xhr) { xhr.withCredentials = false; } });
+      maxMaxBufferLength: 60, backBufferLength: 30,
+      // Start from a broadband estimate (4 Mbps) instead of 500 kbps, so the
+      // picture does not begin blurry and climb up for the first seconds.
+      abrEwmaDefaultEstimate: 4000000,
+      xhrSetup: function (xhr) { xhr.withCredentials = false; } });
     var instance = currentHls;
+    instance.on(Hls.Events.MANIFEST_PARSED, function () {
+      if (currentHls !== instance) return;
+      var pref = preferredHeight();
+      if (pref && instance.levels && instance.levels.length > 1) instance.currentLevel = levelForHeight(pref);
+      levelsChanged();
+    });
+    instance.on(Hls.Events.LEVEL_SWITCHED, function () { if (currentHls === instance) levelsChanged(); });
     // A stream with picture but no audio track: app.js offers compatibility mode.
     instance.on(Hls.Events.BUFFER_CODECS, function (_, data) {
       if (currentHls === instance && data && data.video && !data.audio && !data.audiovideo) video._xuperNoAudio = true;

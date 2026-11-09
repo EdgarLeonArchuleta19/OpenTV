@@ -17,7 +17,15 @@ function showScreen(name) {
       /* Back from the full-screen TV player: keep the same video playing
          in the home preview instead of reloading the channel. */
       if (liveHandoff && liveHandoff.type === 'preview') { returnPreviewHome(); }
-      else if (previousScreen === 'player') { borrowPlayerIntoHome(); }
+      else if (previousScreen === 'player' && !borrowPlayerIntoHome() && state.playerMode === 'live' &&
+               !(liveHandoff && liveHandoff.type === 'player') && !keepFloatingVideo()) {
+        /* The channel had not started yet (or was buffering), so it could not
+           move into the home preview. Stop it: otherwise it kept playing,
+           unseen, with sound, next to the preview. */
+        liveChannelSeq++;
+        if (liveChannelDebounceTimer) { clearTimeout(liveChannelDebounceTimer); liveChannelDebounceTimer = null; }
+        stopPlayerVideo();
+      }
     } else if (name !== 'player') {
       /* The home preview must not keep playing (with sound) behind other screens. */
       stopLivePreview();

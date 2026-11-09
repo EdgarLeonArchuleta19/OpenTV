@@ -1386,7 +1386,15 @@
         /* Back from the full-screen TV player: keep the same video playing
            in the home preview instead of reloading the channel. */
         if (liveHandoff && liveHandoff.type === 'preview') { returnPreviewHome(); }
-        else if (previousScreen === 'player') { borrowPlayerIntoHome(); }
+        else if (previousScreen === 'player' && !borrowPlayerIntoHome() && state.playerMode === 'live' &&
+                 !(liveHandoff && liveHandoff.type === 'player') && !keepFloatingVideo()) {
+          /* The channel had not started yet (or was buffering), so it could not
+             move into the home preview. Stop it: otherwise it kept playing,
+             unseen, with sound, next to the preview. */
+          liveChannelSeq++;
+          if (liveChannelDebounceTimer) { clearTimeout(liveChannelDebounceTimer); liveChannelDebounceTimer = null; }
+          stopPlayerVideo();
+        }
       } else if (name !== 'player') {
         /* The home preview must not keep playing (with sound) behind other screens. */
         stopLivePreview();
@@ -2163,6 +2171,12 @@
 
   /* A poster that fails to download (slow CDN, a dropped connection) is
      retried twice on desktop before the placeholder is shown. */
+  /* Desktop: images fade in once loaded; the tile shows a soft shimmer until then. */
+  function posterImageLoaded() {
+    this.classList.add('is-loaded');
+    if (this.parentNode && this.parentNode.classList) { this.parentNode.classList.add('is-loaded'); }
+  }
+
   function posterImageError() {
     var img = this;
     var tries = img._posterRetries || 0;
@@ -2177,6 +2191,7 @@
       return;
     }
     img.style.display = 'none';
+    if (img.parentNode && img.parentNode.classList) { img.parentNode.classList.add('is-loaded'); }
   }
 
   function makePoster(item, x, y, w, h, opts) {
@@ -2189,6 +2204,7 @@
       var pimg = el('img', 'p-img');
       pimg.setAttribute('data-poster-src', item.poster);
       pimg.onerror = posterImageError;
+      pimg.onload = posterImageLoaded;
       p.appendChild(pimg);
     }
     /* sel_poster_nohalo items (free, search, related) draw their own title,
@@ -3119,6 +3135,7 @@
        mRecommend03..06 413x222 @ y 752, x 192/609/1028/1446
        pagination dots around 843,723 (screen) -> page coords subtract 173.5.
      The page grid is identical for DESTACADOS, PELICULA, SERIES and ANIME. */
+  var BENTO_GAP = 9;
   var BENTO = {
     bigW: 831, bigH: 534, bigY: 38.5,
     smallW: 413, smallH: 222, smallY: 578.5,
@@ -3129,12 +3146,15 @@
   function makeBento(item, x, y, w, h, opts) {
     opts = opts || {};
     var t = el('div', 'bento focusable');
-    abs(t, x, y, w, h);
+    /* Desktop: a little air between the large tiles. */
+    var gap = window.XUPER_DESKTOP ? BENTO_GAP : 0;
+    abs(t, x + gap, y + gap, w - gap * 2, h - gap * 2);
     var art = item ? (item.landscape || item.poster) : '';
     if (art) {
       var img = el('img', 'bento-img');
       img.setAttribute('data-poster-src', art);
       img.onerror = posterImageError;
+      img.onload = posterImageLoaded;
       t.appendChild(img);
     }
     if (opts.shade) { t.appendChild(el('div', 'bento-shade')); }
@@ -3235,7 +3255,7 @@
       var art = item.landscape || item.poster;
       var img = hero.querySelector('.bento-img');
       if (art) {
-        if (!img) { img = el('img', 'bento-img'); img.onerror = posterImageError; hero.insertBefore(img, hero.firstChild); }
+        if (!img) { img = el('img', 'bento-img'); img.onerror = posterImageError; img.onload = posterImageLoaded; hero.insertBefore(img, hero.firstChild); }
         img.style.display = '';
         img._posterRetries = 0;
         img.setAttribute('data-poster-src', art);
@@ -6745,6 +6765,10 @@
     }
     heights.sort(function (a, b) { return b - a; });
     clear(psvQualityRow);
+    if (state.playerMode === 'vod' && heights.length < 2 && renderHlsQualityRow(psvQualityRow)) {
+      psvSecQuality.classList.remove('is-hidden');
+      return;
+    }
     if (state.playerMode !== 'vod' || heights.length < 2) {
       psvSecQuality.classList.add('is-hidden');
       return;
@@ -6837,6 +6861,87 @@
       })(r, ranges[r]);
     }
     psvEpisodesRow.appendChild(rangeRow);
+  }
+
+  /* ---- player/quality.js ----------------------------------------------------- */
+  /* player/quality.js — Calidad de imagen del stream HLS: fila del menú VOD y botón de calidad en la TV.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* Many portal streams carry several resolutions inside one HLS playlist.
+     desktop/player.js exposes them as window.__opentvHls; here they become
+     choices: "Automática" (adapts to the connection) or a fixed height. The
+     choice is remembered for later videos and channels. */
+  function hlsQualityApi() {
+    return window.XUPER_DESKTOP && window.__opentvHls ? window.__opentvHls : null;
+  }
+
+  function hlsQualityLabel(height) {
+    if (height >= 2000) { return '4K'; }
+    return height + 'p';
+  }
+
+  /* Fills the VOD "Calidad" row from the stream levels. Returns false when the
+     stream has a single resolution (the row stays hidden). */
+  function renderHlsQualityRow(row) {
+    var api = hlsQualityApi();
+    var levels = api ? api.levels() : [];
+    if (levels.length < 2) { return false; }
+    var cur = api.current() || { auto: true, height: 0 };
+    var options = [{ h: 0, label: 'Automática' + (cur.auto && cur.height ? ' · ' + hlsQualityLabel(cur.height) : '') }];
+    levels.forEach(function (l) { options.push({ h: l.height, label: hlsQualityLabel(l.height) }); });
+    var selected = cur.auto ? 0 : cur.height;
+    options.forEach(function (opt) {
+      var b = el('button', 'psv-btn focusable' + (opt.h === selected ? ' is-selected' : ''));
+      b.appendChild(el('span', 'psv-check', '✔'));
+      b.appendChild(document.createTextNode(opt.label));
+      b._activate = function () {
+        api.choose(opt.h);
+        renderPlaySettingQuality();
+        schedulePlaySettingHide();
+      };
+      row.appendChild(b);
+    });
+    return true;
+  }
+
+  /* Live TV: the quality button cycles Automática → highest → … → lowest. */
+  function cycleHlsQuality(btn) {
+    var api = hlsQualityApi();
+    var levels = api ? api.levels() : [];
+    if (levels.length < 2) { return; }
+    var cur = api.current() || { auto: true };
+    var order = [0].concat(levels.map(function (l) { return l.height; }));
+    var at = cur.auto ? 0 : order.indexOf(cur.height);
+    var next = order[(at + 1) % order.length];
+    api.choose(next);
+    setPlayerStatus('Calidad: ' + (next ? hlsQualityLabel(next) : 'Automática'));
+    setTimeout(function () { if (/^Calidad:/.test((playerStatus && playerStatus.textContent) || '')) { setPlayerStatus(''); } }, 1600);
+    updateLiveQualityButton();
+  }
+
+  function updateLiveQualityButton() {
+    var btn = document.querySelector('.pi-quality-btn');
+    if (!btn) { return; }
+    var api = hlsQualityApi();
+    var levels = api ? api.levels() : [];
+    var cur = api ? api.current() : null;
+    if (levels.length < 2 || state.playerMode !== 'live') {
+      btn.setAttribute('aria-disabled', 'true');
+      setButtonText(btn, cur && cur.height ? 'Calidad ' + hlsQualityLabel(cur.height) + ' (única disponible)' : 'Calidad automática');
+      return;
+    }
+    btn.removeAttribute('aria-disabled');
+    setButtonText(btn, 'Calidad: ' + (cur && !cur.auto ? hlsQualityLabel(cur.height)
+      : 'Automática' + (cur && cur.height ? ' · ' + hlsQualityLabel(cur.height) : '')) + ' — clic para cambiar');
+    btn.classList.toggle('is-selected', !!(cur && !cur.auto));
+  }
+
+  function installQualityControls() {
+    if (!window.XUPER_DESKTOP) { return; }
+    document.addEventListener('xuper:hls-levels', function () {
+      updateLiveQualityButton();
+      if (playSettingViewOpen) { renderPlaySettingQuality(); }
+    });
   }
 
   /* ---- player/episodes.js ---------------------------------------------------- */
@@ -7807,6 +7912,7 @@
           'Favorito': 'Añadir a favoritos', 'Reproductor 1': 'Reintentar señal', 'Bloquear': 'Bloqueo (no disponible)',
           'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)' };
         iconizeButton(b, piIcons[d.label], piTips[d.label]);
+        if (d.label === 'HD') { b.classList.add('pi-quality-btn'); }
       }
       b._activate = (function (label) {
         return function () {
@@ -7824,7 +7930,8 @@
               setButtonText(this, ch.fav ? (this._iconized ? 'Quitar de favoritos' : 'En favoritos')
                 : (this._iconized ? 'Añadir a favoritos' : 'Favorito'));
             }
-          } else if (label === 'Canales') { openChannelPanel(); }
+          } else if (label === 'HD' && window.XUPER_DESKTOP) { cycleHlsQuality(this); }
+          else if (label === 'Canales') { openChannelPanel(); }
           else if (label === 'Ventana flotante') { togglePictureInPicture(); }
           else if (label === 'Feedback') { openDesktopDiagnostic(); }
           else if (label === 'Reproductor 1') { startLiveChannel(CHANNELS[state.channel], true); }
@@ -8905,6 +9012,8 @@
       var resolveParams = ch.streamUrl ? { streamUrl: ch.streamUrl } : { channelCode: ch.channelCode };
       portalServiceCall('resolveLive', resolveParams, function (err, payload) {
         if (mySeq !== liveChannelSeq) { return; }
+        /* Desktop: the viewer left the player while the signal was resolving. */
+        if (window.XUPER_DESKTOP && state.screen !== 'player') { return; }
         if (err || !payload || payload.returnValue === false) {
           state.streamError = 'No se pudo conectar con la señal' + (err ? ': ' + err : '');
           setPlayerStatus(state.streamError);
@@ -9333,7 +9442,7 @@
   }
 
   /* ---- desktop/navigation.js ------------------------------------------------- */
-  /* desktop/navigation.js — Botones flotantes Volver / Historial y modo cine al reproducir.
+  /* desktop/navigation.js — Botón flotante Volver y modo cine al reproducir.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   function installDesktopNavigation() {
@@ -9346,14 +9455,8 @@
     button.addEventListener('click', desktopBack);
     document.body.appendChild(button);
 
-    var historyBtn = el('button', 'desktop-native-control');
-    historyBtn.id = 'desktop-history';
-    historyBtn.type = 'button';
-    historyBtn.setAttribute('data-tip', 'Historial (Ctrl+J)');
-    historyBtn.setAttribute('aria-label', 'Historial de lo que has visto');
-    historyBtn.innerHTML = UI_ICONS.history;
-    historyBtn.addEventListener('click', openHistoryView);
-    document.body.appendChild(historyBtn);
+    /* No floating Historial button: history lives in Ajustes → Mi lista
+       (and Ctrl+J still opens it). */
 
     /* While a video plays, the floating buttons and the cursor get out of
        the way. They come back with the player controls (mouse move, a key,
@@ -9370,9 +9473,6 @@
       button.hidden = state.screen === 'welcome' ||
         (state.screen === 'home' && !dialogAddonsOpen && !historyDrawerOpen);
       button.disabled = false;
-      historyBtn.hidden = state.screen === 'welcome' || onPlayer || state.screen === 'home';
-      var onHistory = historyDrawerOpen;
-      historyBtn.classList.toggle('is-active', onHistory);
     }, 150);
   }
 
@@ -10114,7 +10214,7 @@
       settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); }
     };
 
-    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); startCatalogAutoRefresh(); }
+    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); startCatalogAutoRefresh(); }
 
     applyQuery();
   }

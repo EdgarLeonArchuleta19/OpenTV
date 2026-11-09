@@ -267,6 +267,7 @@ function buildPlayer() {
         'Favorito': 'Añadir a favoritos', 'Reproductor 1': 'Reintentar señal', 'Bloquear': 'Bloqueo (no disponible)',
         'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)' };
       iconizeButton(b, piIcons[d.label], piTips[d.label]);
+      if (d.label === 'HD') { b.classList.add('pi-quality-btn'); }
     }
     b._activate = (function (label) {
       return function () {
@@ -284,7 +285,8 @@ function buildPlayer() {
             setButtonText(this, ch.fav ? (this._iconized ? 'Quitar de favoritos' : 'En favoritos')
               : (this._iconized ? 'Añadir a favoritos' : 'Favorito'));
           }
-        } else if (label === 'Canales') { openChannelPanel(); }
+        } else if (label === 'HD' && window.XUPER_DESKTOP) { cycleHlsQuality(this); }
+        else if (label === 'Canales') { openChannelPanel(); }
         else if (label === 'Ventana flotante') { togglePictureInPicture(); }
         else if (label === 'Feedback') { openDesktopDiagnostic(); }
         else if (label === 'Reproductor 1') { startLiveChannel(CHANNELS[state.channel], true); }

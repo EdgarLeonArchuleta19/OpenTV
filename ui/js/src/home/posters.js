@@ -66,6 +66,12 @@ function refreshPosterMemory() {
 
 /* A poster that fails to download (slow CDN, a dropped connection) is
    retried twice on desktop before the placeholder is shown. */
+/* Desktop: images fade in once loaded; the tile shows a soft shimmer until then. */
+function posterImageLoaded() {
+  this.classList.add('is-loaded');
+  if (this.parentNode && this.parentNode.classList) { this.parentNode.classList.add('is-loaded'); }
+}
+
 function posterImageError() {
   var img = this;
   var tries = img._posterRetries || 0;
@@ -80,6 +86,7 @@ function posterImageError() {
     return;
   }
   img.style.display = 'none';
+  if (img.parentNode && img.parentNode.classList) { img.parentNode.classList.add('is-loaded'); }
 }
 
 function makePoster(item, x, y, w, h, opts) {
@@ -92,6 +99,7 @@ function makePoster(item, x, y, w, h, opts) {
     var pimg = el('img', 'p-img');
     pimg.setAttribute('data-poster-src', item.poster);
     pimg.onerror = posterImageError;
+    pimg.onload = posterImageLoaded;
     p.appendChild(pimg);
   }
   /* sel_poster_nohalo items (free, search, related) draw their own title,

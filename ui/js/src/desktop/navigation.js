@@ -1,4 +1,4 @@
-/* desktop/navigation.js — Botones flotantes Volver / Historial y modo cine al reproducir.
+/* desktop/navigation.js — Botón flotante Volver y modo cine al reproducir.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 function installDesktopNavigation() {
@@ -11,14 +11,8 @@ function installDesktopNavigation() {
   button.addEventListener('click', desktopBack);
   document.body.appendChild(button);
 
-  var historyBtn = el('button', 'desktop-native-control');
-  historyBtn.id = 'desktop-history';
-  historyBtn.type = 'button';
-  historyBtn.setAttribute('data-tip', 'Historial (Ctrl+J)');
-  historyBtn.setAttribute('aria-label', 'Historial de lo que has visto');
-  historyBtn.innerHTML = UI_ICONS.history;
-  historyBtn.addEventListener('click', openHistoryView);
-  document.body.appendChild(historyBtn);
+  /* No floating Historial button: history lives in Ajustes → Mi lista
+     (and Ctrl+J still opens it). */
 
   /* While a video plays, the floating buttons and the cursor get out of
      the way. They come back with the player controls (mouse move, a key,
@@ -35,8 +29,5 @@ function installDesktopNavigation() {
     button.hidden = state.screen === 'welcome' ||
       (state.screen === 'home' && !dialogAddonsOpen && !historyDrawerOpen);
     button.disabled = false;
-    historyBtn.hidden = state.screen === 'welcome' || onPlayer || state.screen === 'home';
-    var onHistory = historyDrawerOpen;
-    historyBtn.classList.toggle('is-active', onHistory);
   }, 150);
 }

@@ -20,6 +20,8 @@ function startLiveChannel(ch, immediate) {
     var resolveParams = ch.streamUrl ? { streamUrl: ch.streamUrl } : { channelCode: ch.channelCode };
     portalServiceCall('resolveLive', resolveParams, function (err, payload) {
       if (mySeq !== liveChannelSeq) { return; }
+      /* Desktop: the viewer left the player while the signal was resolving. */
+      if (window.XUPER_DESKTOP && state.screen !== 'player') { return; }
       if (err || !payload || payload.returnValue === false) {
         state.streamError = 'No se pudo conectar con la señal' + (err ? ': ' + err : '');
         setPlayerStatus(state.streamError);
