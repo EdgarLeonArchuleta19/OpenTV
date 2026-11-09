@@ -102,7 +102,13 @@ function updatePlayer() {
         var epTitle = state.playerEpisode.title || state.playerEpisode.name;
         var epNum = state.playerEpisode.number || state.playerEpisode.seriesNumber;
         var epLabel = epTitle || (epNum ? ('Capítulo ' + epNum) : '');
-        vodInfobarTitle.textContent = epLabel ? (item.title + ' - ' + epLabel) : item.title;
+        if (window.XUPER_DESKTOP) {
+          /* "Serie  E3 · Nombre", without repeating the series name. */
+          var named = epTitle && norm(epTitle).indexOf(norm(item.title)) === -1 && !/^(episodio|capítulo|cap\.?)\s*\d+$/i.test(epTitle) ? ' · ' + epTitle : '';
+          vodInfobarTitle.textContent = item.title + (epNum ? '  E' + epNum : '') + named;
+        } else {
+          vodInfobarTitle.textContent = epLabel ? (item.title + ' - ' + epLabel) : item.title;
+        }
       } else {
         vodInfobarTitle.textContent = item.title;
       }

@@ -180,13 +180,17 @@ function bindDesktopPlayback() {
   });
   var tips = document.querySelector('.vod-infobar-tips');
   clear(tips);
+  /* Netflix-like bar: Volver alone at the top left; play, -10 s, +10 s and
+     the volume on the left; the title in the middle; the rest on the right. */
   var defs = [
-    { id: 'vod-back', group: 'left', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
-    { id: 'vod-rewind', group: 'center', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
-    { id: 'vod-toggle', group: 'center', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
-    { id: 'vod-forward', group: 'center', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
+    { id: 'vod-back', group: 'top', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
+    { id: 'vod-toggle', group: 'left', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
+    { id: 'vod-rewind', group: 'left', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
+    { id: 'vod-forward', group: 'left', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
+    { id: 'vod-next', group: 'right', icon: UI_ICONS.next, tip: 'Siguiente episodio', run: function () { hideNextEpisodePrompt(); advanceToNextEpisode(); } },
     { id: 'vod-episodes', group: 'right', icon: UI_ICONS.episodes, tip: 'Episodios', run: openEpisodeBrowser },
-    { id: 'vod-settings', group: 'right', icon: UI_ICONS.settings, tip: 'Ajustes de reproducción (↓)', run: openPlaySettingView }
+    { id: 'vod-speed', group: 'right', icon: UI_ICONS.speed, tip: 'Velocidad', run: function () { toggleSpeedMenu($('vod-speed')); } },
+    { id: 'vod-settings', group: 'right', icon: UI_ICONS.settings, tip: 'Audio, subtítulos y más (↓)', run: openPlaySettingView }
   ];
   if (document.pictureInPictureEnabled) {
     defs.push({ id: 'vod-pip', group: 'right', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
@@ -194,10 +198,13 @@ function bindDesktopPlayback() {
   defs.push({ id: 'vod-quality', group: 'right', icon: UI_ICONS.quality, tip: 'Calidad', run: function () { toggleQualityMenu($('vod-quality')); } });
   defs.push({ id: 'vod-fullscreen', group: 'right', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
   /* Three zones: Volver on the left, seek/play in the middle, the rest on the right. */
-  var groups = { left: el('div', 'vt-group vt-left'), center: el('div', 'vt-group vt-center'), right: el('div', 'vt-group vt-right') };
+  var groups = { left: el('div', 'vt-group vt-left'), center: el('div', 'vt-group vt-center'), right: el('div', 'vt-group vt-right'), top: el('div', 'vod-topbar') };
   tips.appendChild(groups.left);
   tips.appendChild(groups.center);
   tips.appendChild(groups.right);
+  document.querySelector('.vod-infobar-content').appendChild(groups.top);
+  var titleNode = $('vod-infobar-title');
+  if (titleNode) { groups.center.appendChild(titleNode); }
   for (var i = 0; i < defs.length; i++) {
     var b = el('button', 'vod-tip focusable');
     b.type = 'button'; b.id = defs[i].id;
@@ -213,6 +220,7 @@ function bindDesktopPlayback() {
       setButtonText(toggle, showPlay ? 'Reproducir (Espacio)' : 'Pausa (Espacio)', showPlay ? UI_ICONS.play : UI_ICONS.pause);
     }
     $('vod-episodes').hidden = !isSeriesItem(state.playerItem);
+    $('vod-next').hidden = !(isSeriesItem(state.playerItem) && upcomingEpisode(state.playerItem));
     updateQualityButton();
     var canSkip = state.playerMode === 'vod' && !!(playerVideo.currentSrc || playerVideo.getAttribute('src'));
     $('vod-forward').disabled = !canSkip;

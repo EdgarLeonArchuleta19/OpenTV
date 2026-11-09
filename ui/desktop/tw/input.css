@@ -1925,3 +1925,104 @@ body.has-titlebar:not(.is-window-fullscreen) .history-drawer { top: 36px; }
 }
 .desktop .top10-cell .poster { z-index: 1; }
 .desktop .top10-cell:hover .top10-num { -webkit-text-stroke-color: #fff; }
+
+/* =====================================================================
+   Tarjeta ampliada sobre los pósteres (px reales)
+   ===================================================================== */
+.hover-card {
+  position: fixed; left: 0; top: 0; z-index: 10300;
+  border-radius: 12px; overflow: hidden;
+  background: #18181d; color: #fff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .06);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  opacity: 0; transform: scale(.72); pointer-events: none;
+  transition: opacity .18s ease, transform .32s cubic-bezier(.16, 1, .3, 1);
+}
+.hover-card.is-open { opacity: 1; transform: none; pointer-events: auto; }
+.hover-card.is-measuring { visibility: hidden; transition: none; }
+.hover-card .hc-art { position: relative; aspect-ratio: 16 / 9; background: #23232a; cursor: pointer; overflow: hidden; }
+.hover-card .hc-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s ease; }
+.hover-card .hc-art.is-loaded img { opacity: 1; }
+.hover-card .hc-art-shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0, 0, 0, .75), rgba(0, 0, 0, 0) 55%); }
+.hover-card .hc-art-title {
+  position: absolute; left: 14px; right: 14px; bottom: 10px;
+  font-size: 18px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 6px rgba(0, 0, 0, .7);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.hover-card .hc-body { padding: 12px 14px 14px; }
+.hover-card .hc-buttons { display: flex; gap: 8px; margin-bottom: 10px; }
+.hover-card .hc-btn {
+  width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); background: rgba(30, 30, 36, .9); color: #fff; cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, transform .15s ease;
+}
+.hover-card .hc-btn svg { width: 19px; height: 19px; }
+.hover-card .hc-btn:hover { border-color: #fff; transform: scale(1.06); }
+.hover-card .hc-btn.is-play { background: #fff; border-color: #fff; color: #0e0e11; }
+.hover-card .hc-btn.is-play svg { fill: currentColor; margin-left: 2px; }
+.hover-card .hc-btn.is-play:hover { background: rgba(255, 255, 255, .85); }
+.hover-card .hc-btn.is-info { margin-left: auto; }
+.hover-card .hc-meta { font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, .85); }
+.hover-card .hc-genres { margin-top: 5px; font-size: 12.5px; color: rgba(255, 255, 255, .6); }
+
+/* =====================================================================
+   Pantalla de arranque
+   ===================================================================== */
+.boot-splash {
+  position: fixed; inset: 0; z-index: 99999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: radial-gradient(60% 60% at 50% 45%, #1b1b21 0%, #0e0e11 70%);
+  color: #fff; font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  transition: opacity .5s ease, transform .5s cubic-bezier(.16, 1, .3, 1);
+}
+.boot-splash.is-leaving { opacity: 0; transform: scale(1.03); pointer-events: none; }
+.boot-splash .bs-logo { width: 150px; height: 154px; background: url("../images/loader-tv.svg") center / contain no-repeat; animation: bs-in .6s cubic-bezier(.16, 1, .3, 1) both; }
+.boot-splash .bs-name { margin-top: 8px; font-size: 34px; font-weight: 700; letter-spacing: -.01em; animation: bs-in .6s .08s cubic-bezier(.16, 1, .3, 1) both; }
+.boot-splash .bs-sub { font-size: 14px; color: rgba(255, 255, 255, .5); animation: bs-in .6s .16s cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes bs-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+body.has-titlebar .boot-splash { top: 36px; }
+
+/* =====================================================================
+   Reproductor estilo Netflix
+   ===================================================================== */
+/* Volver arriba a la izquierda, sobre un degradado. (position: fixed is
+   relative to the scaled #app canvas, i.e. the window.) */
+.desktop .player-vod-infobar::before {
+  content: ""; position: fixed; left: 0; top: 0; width: var(--cw, 1920px); height: 230px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, .7), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+.desktop .vod-topbar { position: fixed; left: 44px; top: 34px; z-index: 5; display: flex; align-items: center; gap: 16px; }
+.desktop .vod-topbar #vod-back.vod-tip {
+  width: 72px; height: 72px; padding: 0; border-radius: 50%;
+  background: rgba(0, 0, 0, .25); border: 0; box-shadow: none;
+}
+.desktop .vod-topbar #vod-back svg { width: 40px; height: 40px; }
+.desktop .vod-topbar #vod-back:hover { background: rgba(255, 255, 255, .16); transform: scale(1.06); }
+/* Abajo: [play −10 +10 volumen] · título · [resto] */
+.desktop .vod-infobar-tips { grid-template-columns: 1fr minmax(0, auto) 1fr !important; }
+.desktop .vt-left { gap: 10px; }
+.desktop .vt-center { justify-self: center; min-width: 0; max-width: 600px; gap: 0; padding: 0 20px; }
+.desktop .vt-center .vod-infobar-title {
+  position: static !important; margin: 0 !important; order: 0 !important;
+  font-size: 26px !important; line-height: 1.2 !important; font-weight: 600 !important; color: rgba(255, 255, 255, .92);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; max-width: 560px;
+}
+.desktop .vt-left .vod-tip.is-icon-btn:not(#vod-toggle),
+.desktop .vt-right .vod-tip.is-icon-btn {
+  width: 64px; height: 64px; padding: 0; border-radius: 50%;
+  background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none;
+}
+.desktop .vt-left .vod-tip.is-icon-btn:not(#vod-toggle) svg,
+.desktop .vt-right .vod-tip.is-icon-btn svg { width: 34px; height: 34px; }
+.desktop .vt-left .vod-tip.is-icon-btn:not(#vod-toggle):hover,
+.desktop .vt-right .vod-tip.is-icon-btn:hover { background: rgba(255, 255, 255, .14); transform: scale(1.08); }
+.desktop .vod-infobar-tips #vod-toggle.is-icon-btn { width: 72px; height: 72px; margin-right: 6px; }
+.desktop .vod-infobar-tips #vod-toggle svg { width: 36px; height: 36px; }
+.desktop .vt-right { gap: 6px; }
+.desktop #vod-speed { position: relative; }
+.desktop #vod-speed .speed-badge:not(:empty) {
+  position: absolute; right: 2px; bottom: 4px; padding: 1px 5px; border-radius: 6px;
+  background: #fff; color: #0e0e11; font-size: 13px; font-weight: 800; line-height: 1.2;
+}
+.desktop .vod-volume .vod-mute { width: 64px; border-radius: 50%; background: transparent !important; border-color: transparent !important; box-shadow: none !important; }

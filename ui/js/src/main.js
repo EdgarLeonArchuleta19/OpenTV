@@ -3,7 +3,7 @@
 
 /* ------------------------------------------------------------------ boot */
 function boot() {
-  if (window.XUPER_DESKTOP) { installTitleBar(); }
+  if (window.XUPER_DESKTOP) { installTitleBar(); showBootSplash(); }
   fitDesignViewport();
   window.addEventListener('resize', fitDesignViewport, false);
   window.addEventListener('orientationchange', fitDesignViewport, false);
@@ -86,7 +86,7 @@ function boot() {
     settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); }
   };
 
-  if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); startCatalogAutoRefresh(); }
+  if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); startCatalogAutoRefresh(); }
 
   applyQuery();
 }

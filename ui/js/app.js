@@ -86,7 +86,8 @@
     wifi: uiSvg('<path d="M2.5 9a14 14 0 0 1 19 0"/><path d="M5.5 12.5a9.5 9.5 0 0 1 13 0"/><path d="M8.7 16a5 5 0 0 1 6.6 0"/><path d="M12 19.5h.01"/>'),
     keyboard: uiSvg('<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8"/>'),
     check: uiSvg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
-    expand: uiSvg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>')
+    expand: uiSvg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>'),
+    speed: uiSvg('<path d="M12 14.5l4.5-4.5"/><path d="M3.6 18.5a9.5 9.5 0 1 1 16.8 0"/><circle cx="12" cy="14.5" r="1.2"/>')
   };
 
   /* Turns a text button into an icon button. The text becomes its tooltip
@@ -8960,27 +8961,31 @@
     setButtonText(btn, 'Calidad: ' + (chosen ? chosen.label + (chosen.note ? ' · ' + chosen.note : '') : 'Automática'));
   }
 
-  var qualityMenu = null;
-  function closeQualityMenu() {
-    if (qualityMenu) { qualityMenu.classList.remove('is-open'); }
+  /* One pop-up menu above a player button (quality, speed…), in real pixels. */
+  var playerMenu = null;
+  var playerMenuFor = null;
+  function closePlayerMenu() {
+    if (playerMenu) { playerMenu.classList.remove('is-open'); }
+    playerMenuFor = null;
   }
-  function toggleQualityMenu(btn) {
-    if (qualityMenu && qualityMenu.classList.contains('is-open')) { closeQualityMenu(); return; }
-    var opts = playerQualityOptions();
-    if (opts.length < 2 || !btn) { return; }
-    if (!qualityMenu) {
-      qualityMenu = el('div', 'quality-menu');
-      document.body.appendChild(qualityMenu);
+  function closeQualityMenu() { closePlayerMenu(); }
+
+  function togglePlayerMenu(btn, title, opts, after) {
+    if (playerMenu && playerMenu.classList.contains('is-open') && playerMenuFor === btn) { closePlayerMenu(); return; }
+    if (!btn || opts.length < 2) { return; }
+    if (!playerMenu) {
+      playerMenu = el('div', 'quality-menu');
+      document.body.appendChild(playerMenu);
       document.addEventListener('pointerdown', function (event) {
-        if (qualityMenu.classList.contains('is-open') && !qualityMenu.contains(event.target) &&
-            !(event.target.closest && event.target.closest('#vod-quality'))) { closeQualityMenu(); }
+        if (playerMenu.classList.contains('is-open') && !playerMenu.contains(event.target) &&
+            !(playerMenuFor && playerMenuFor.contains(event.target))) { closePlayerMenu(); }
       }, true);
       document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && qualityMenu.classList.contains('is-open')) { event.stopPropagation(); event.preventDefault(); closeQualityMenu(); }
+        if (event.key === 'Escape' && playerMenu.classList.contains('is-open')) { event.stopPropagation(); event.preventDefault(); closePlayerMenu(); }
       }, true);
     }
-    clear(qualityMenu);
-    qualityMenu.appendChild(el('div', 'qm-title', 'Calidad'));
+    clear(playerMenu);
+    playerMenu.appendChild(el('div', 'qm-title', title));
     opts.forEach(function (o) {
       var item = el('button', 'qm-item' + (o.selected ? ' is-selected' : ''));
       item.type = 'button';
@@ -8991,21 +8996,69 @@
       if (o.note) { item.appendChild(el('span', 'qm-note', o.note)); }
       item.addEventListener('click', function (event) {
         event.stopPropagation();
-        closeQualityMenu();
+        closePlayerMenu();
         o.apply();
-        setTimeout(updateQualityButton, 300);
+        if (after) { setTimeout(after, 300); }
       });
-      qualityMenu.appendChild(item);
+      playerMenu.appendChild(item);
     });
     var r = btn.getBoundingClientRect();
-    qualityMenu.classList.add('is-open');
-    var mw = qualityMenu.offsetWidth, mh = qualityMenu.offsetHeight;
-    qualityMenu.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - mw - 8, r.left + r.width / 2 - mw / 2))) + 'px';
-    qualityMenu.style.top = Math.round(Math.max(8, r.top - mh - 12)) + 'px';
+    playerMenuFor = btn;
+    playerMenu.classList.add('is-open');
+    var mw = playerMenu.offsetWidth, mh = playerMenu.offsetHeight;
+    playerMenu.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - mw - 8, r.left + r.width / 2 - mw / 2))) + 'px';
+    playerMenu.style.top = Math.round(Math.max(8, r.top - mh - 12)) + 'px';
+  }
+
+  function toggleQualityMenu(btn) {
+    togglePlayerMenu(btn, 'Calidad', playerQualityOptions(), updateQualityButton);
+  }
+
+  /* ------------------------------------------------------------- speed */
+  var PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  var playbackRate = 1;
+  var playbackRateItem = null;
+
+  function applyPlaybackRate() {
+    if (!playerVideo) { return; }
+    /* A new title starts at normal speed; episodes of the same series keep it. */
+    if (state.playerItem !== playbackRateItem) { playbackRate = 1; playbackRateItem = state.playerItem; }
+    var want = state.playerMode === 'vod' ? playbackRate : 1;
+    if (playerVideo.playbackRate !== want) { playerVideo.playbackRate = want; }
+    updateSpeedButton();
+  }
+
+  function rateLabel(r) { return r === 1 ? 'Normal' : String(r).replace('.', ',') + '×'; }
+
+  function updateSpeedButton() {
+    var btn = $('vod-speed');
+    if (!btn) { return; }
+    setButtonText(btn, 'Velocidad: ' + rateLabel(playbackRate));
+    btn.classList.toggle('is-selected', playbackRate !== 1);
+    var badge = btn.querySelector('.speed-badge');
+    if (!badge) { badge = el('span', 'speed-badge'); btn.appendChild(badge); }
+    badge.textContent = playbackRate === 1 ? '' : String(playbackRate).replace('.', ',') + '×';
+  }
+
+  function toggleSpeedMenu(btn) {
+    var opts = PLAYBACK_RATES.map(function (r) {
+      return { label: rateLabel(r), selected: r === playbackRate, apply: function () {
+        playbackRate = r;
+        playbackRateItem = state.playerItem;
+        applyPlaybackRate();
+        setPlayerStatus(r === 1 ? '' : 'Velocidad ' + rateLabel(r));
+        setTimeout(function () { if (/^Velocidad/.test((playerStatus && playerStatus.textContent) || '')) { setPlayerStatus(''); } }, 1200);
+      } };
+    });
+    togglePlayerMenu(btn, 'Velocidad', opts);
   }
 
   function installQualityControls() {
     if (!window.XUPER_DESKTOP) { return; }
+    if (playerVideo) {
+      playerVideo.addEventListener('loadedmetadata', applyPlaybackRate);
+      playerVideo.addEventListener('playing', applyPlaybackRate);
+    }
     document.addEventListener('xuper:hls-levels', function () {
       updateLiveQualityButton();
       updateQualityButton();
@@ -11385,7 +11438,13 @@
           var epTitle = state.playerEpisode.title || state.playerEpisode.name;
           var epNum = state.playerEpisode.number || state.playerEpisode.seriesNumber;
           var epLabel = epTitle || (epNum ? ('Capítulo ' + epNum) : '');
-          vodInfobarTitle.textContent = epLabel ? (item.title + ' - ' + epLabel) : item.title;
+          if (window.XUPER_DESKTOP) {
+            /* "Serie  E3 · Nombre", without repeating the series name. */
+            var named = epTitle && norm(epTitle).indexOf(norm(item.title)) === -1 && !/^(episodio|capítulo|cap\.?)\s*\d+$/i.test(epTitle) ? ' · ' + epTitle : '';
+            vodInfobarTitle.textContent = item.title + (epNum ? '  E' + epNum : '') + named;
+          } else {
+            vodInfobarTitle.textContent = epLabel ? (item.title + ' - ' + epLabel) : item.title;
+          }
         } else {
           vodInfobarTitle.textContent = item.title;
         }
@@ -11593,6 +11652,38 @@
     }
     var node = titleBarEl.querySelector('.atb-section');
     if (node.textContent !== label) { node.textContent = label; }
+  }
+
+  /* ---- desktop/splash.js ----------------------------------------------------- */
+  /* desktop/splash.js — Pantalla de arranque: la tele de OpenTV animada mientras se prepara el inicio.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* Covers the window from the very first frame and fades out once the home
+     screen is built (at least a short moment, so it never just flickers). */
+  var SPLASH_MIN_MS = 1100;
+  var SPLASH_MAX_MS = 8000;
+
+  function showBootSplash() {
+    if (!window.XUPER_DESKTOP || $('boot-splash')) { return; }
+    var started = Date.now();
+    var splash = el('div', 'boot-splash');
+    splash.id = 'boot-splash';
+    var logo = el('div', 'bs-logo');
+    splash.appendChild(logo);
+    splash.appendChild(el('div', 'bs-name', 'OpenTV'));
+    splash.appendChild(el('div', 'bs-sub', 'Preparando tu catálogo…'));
+    document.body.appendChild(splash);
+    function done() {
+      if (!splash.parentNode) { return; }
+      splash.classList.add('is-leaving');
+      setTimeout(function () { if (splash.parentNode) { splash.parentNode.removeChild(splash); } }, 520);
+    }
+    (function wait() {
+      var ready = homeBuilt && state.screen !== 'welcome';
+      var elapsed = Date.now() - started;
+      if ((ready && elapsed >= SPLASH_MIN_MS) || elapsed >= SPLASH_MAX_MS) { done(); return; }
+      setTimeout(wait, 120);
+    })();
   }
 
   /* ---- desktop/updates.js ---------------------------------------------------- */
@@ -12010,6 +12101,147 @@
     if (tooltipTimer) { clearTimeout(tooltipTimer); tooltipTimer = null; }
     tooltipTarget = null;
     if (tooltipEl) { tooltipEl.classList.remove('is-visible'); }
+  }
+
+  /* ---- desktop/hovercard.js -------------------------------------------------- */
+  /* desktop/hovercard.js — Tarjeta ampliada al dejar el ratón sobre un póster (como Netflix).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* After a short pause over a poster of the home pages, a bigger card grows
+     out of it with wide artwork, quick buttons (play, Mi lista, details),
+     rating, year, type and genres. It lives in real pixels on <body>, so it
+     can overflow rows and the screen edges are respected. */
+  var HOVER_DELAY_MS = 520;
+  var hoverCard = null;
+  var hoverCardFor = null;
+  var hoverTimer = null;
+  var hoverHideTimer = null;
+
+  function hoverPosterFrom(target) {
+    if (!target || !target.closest) { return null; }
+    var poster = target.closest('.poster');
+    if (!poster || !poster._item || !poster.closest('#screen-home .home-page.is-current')) { return null; }
+    return poster;
+  }
+
+  function installHoverCards() {
+    if (!window.XUPER_DESKTOP) { return; }
+    document.addEventListener('mouseover', function (event) {
+      if (hoverCard && hoverCard.contains(event.target)) { cancelHoverHide(); return; }
+      var poster = hoverPosterFrom(event.target);
+      if (!poster) { return; }
+      if (poster === hoverCardFor && hoverCard && hoverCard.classList.contains('is-open')) { cancelHoverHide(); return; }
+      if (hoverTimer) { clearTimeout(hoverTimer); }
+      hoverTimer = setTimeout(function () {
+        hoverTimer = null;
+        if (poster.matches(':hover') && state.screen === 'home') { openHoverCard(poster); }
+      }, HOVER_DELAY_MS);
+    }, true);
+    document.addEventListener('mouseout', function (event) {
+      var to = event.relatedTarget;
+      var poster = hoverPosterFrom(event.target);
+      if (poster && hoverTimer && !(to && poster.contains(to))) { clearTimeout(hoverTimer); hoverTimer = null; }
+      if (!hoverCard || !hoverCard.classList.contains('is-open')) { return; }
+      if (to && (hoverCard.contains(to) || (hoverCardFor && hoverCardFor.contains(to)))) { return; }
+      if (hoverCard.contains(event.target) || (hoverCardFor && hoverCardFor.contains(event.target))) { scheduleHoverHide(); }
+    }, true);
+    /* Anything that moves the page or changes the screen closes it. */
+    ['wheel', 'keydown', 'scroll'].forEach(function (type) {
+      document.addEventListener(type, function (event) {
+        if (type === 'scroll' && hoverCard && hoverCard.contains(event.target)) { return; }
+        closeHoverCard();
+      }, { capture: true, passive: true });
+    });
+    window.addEventListener('blur', closeHoverCard);
+    window.addEventListener('resize', closeHoverCard);
+  }
+
+  function scheduleHoverHide() {
+    cancelHoverHide();
+    hoverHideTimer = setTimeout(closeHoverCard, 120);
+  }
+  function cancelHoverHide() {
+    if (hoverHideTimer) { clearTimeout(hoverHideTimer); hoverHideTimer = null; }
+  }
+
+  function closeHoverCard() {
+    if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+    cancelHoverHide();
+    if (hoverCard) { hoverCard.classList.remove('is-open'); }
+    hoverCardFor = null;
+  }
+
+  function hoverButton(cls, icon, tip, run) {
+    var b = el('button', 'hc-btn ' + cls);
+    b.type = 'button';
+    b.innerHTML = icon;
+    b.setAttribute('data-tip', tip);
+    b.setAttribute('aria-label', tip);
+    b.addEventListener('click', function (event) { event.stopPropagation(); run(b); });
+    return b;
+  }
+
+  function openHoverCard(poster) {
+    var item = poster._item;
+    if (!hoverCard) {
+      hoverCard = el('div', 'hover-card');
+      hoverCard.setAttribute('data-no-gesture', '');
+      document.body.appendChild(hoverCard);
+    }
+    clear(hoverCard);
+    var art = el('div', 'hc-art');
+    var src = item.landscape || item.backdrop || item.poster;
+    if (src) {
+      var img = el('img');
+      img.alt = '';
+      img.decoding = 'async';
+      img.onload = function () { art.classList.add('is-loaded'); };
+      img.onerror = function () { img.remove(); art.classList.add('is-generic'); };
+      img.src = src;
+      art.appendChild(img);
+    }
+    art.appendChild(el('div', 'hc-art-shade'));
+    art.appendChild(el('div', 'hc-art-title', item.title));
+    art.addEventListener('click', function () { closeHoverCard(); openDetail(item); });
+    hoverCard.appendChild(art);
+
+    var body = el('div', 'hc-body');
+    var buttons = el('div', 'hc-buttons');
+    buttons.appendChild(hoverButton('is-play', UI_ICONS.play, 'Reproducir', function () { closeHoverCard(); playTitleNow(item); }));
+    var inList = !!state.favs[String(item.id)];
+    buttons.appendChild(hoverButton('is-list' + (inList ? ' is-on' : ''), inList ? UI_ICONS.check : UI_ICONS.mylist,
+      inList ? 'Quitar de Mi lista' : 'Añadir a Mi lista', function (b) {
+        var on = toggleFavorite(item);
+        b.classList.toggle('is-on', on);
+        b.innerHTML = on ? UI_ICONS.check : UI_ICONS.mylist;
+        b.setAttribute('data-tip', on ? 'Quitar de Mi lista' : 'Añadir a Mi lista');
+      }));
+    var info = hoverButton('is-info', UI_ICONS.info, 'Más información', function () { closeHoverCard(); openDetail(item); });
+    buttons.appendChild(info);
+    body.appendChild(buttons);
+    body.appendChild(el('div', 'hc-meta', itemMetaLine(item)));
+    var genres = itemGenres(item, 3);
+    if (genres.length) { body.appendChild(el('div', 'hc-genres', genres.join('  •  '))); }
+    hoverCard.appendChild(body);
+
+    /* Grow from the poster, wider than it, kept inside the window. */
+    var r = poster.getBoundingClientRect();
+    var w = Math.max(300, Math.min(420, r.width * 1.55));
+    hoverCard.style.width = w + 'px';
+    hoverCard.classList.add('is-measuring');
+    var h = hoverCard.offsetHeight;
+    hoverCard.classList.remove('is-measuring');
+    var left = r.left + r.width / 2 - w / 2;
+    var top = r.top + r.height / 2 - h / 2;
+    var minTop = (document.body.classList.contains('has-titlebar') ? 44 : 8);
+    left = Math.max(8, Math.min(window.innerWidth - w - 8, left));
+    top = Math.max(minTop, Math.min(window.innerHeight - h - 8, top));
+    hoverCard.style.left = Math.round(left) + 'px';
+    hoverCard.style.top = Math.round(top) + 'px';
+    hoverCard.style.transformOrigin = Math.round(r.left + r.width / 2 - left) + 'px ' + Math.round(r.top + r.height / 2 - top) + 'px';
+    hoverCardFor = poster;
+    void hoverCard.offsetWidth;
+    hoverCard.classList.add('is-open');
   }
 
   /* ---- desktop/window.js ----------------------------------------------------- */
@@ -12458,13 +12690,17 @@
     });
     var tips = document.querySelector('.vod-infobar-tips');
     clear(tips);
+    /* Netflix-like bar: Volver alone at the top left; play, -10 s, +10 s and
+       the volume on the left; the title in the middle; the rest on the right. */
     var defs = [
-      { id: 'vod-back', group: 'left', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
-      { id: 'vod-rewind', group: 'center', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
-      { id: 'vod-toggle', group: 'center', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
-      { id: 'vod-forward', group: 'center', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
+      { id: 'vod-back', group: 'top', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
+      { id: 'vod-toggle', group: 'left', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
+      { id: 'vod-rewind', group: 'left', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
+      { id: 'vod-forward', group: 'left', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
+      { id: 'vod-next', group: 'right', icon: UI_ICONS.next, tip: 'Siguiente episodio', run: function () { hideNextEpisodePrompt(); advanceToNextEpisode(); } },
       { id: 'vod-episodes', group: 'right', icon: UI_ICONS.episodes, tip: 'Episodios', run: openEpisodeBrowser },
-      { id: 'vod-settings', group: 'right', icon: UI_ICONS.settings, tip: 'Ajustes de reproducción (↓)', run: openPlaySettingView }
+      { id: 'vod-speed', group: 'right', icon: UI_ICONS.speed, tip: 'Velocidad', run: function () { toggleSpeedMenu($('vod-speed')); } },
+      { id: 'vod-settings', group: 'right', icon: UI_ICONS.settings, tip: 'Audio, subtítulos y más (↓)', run: openPlaySettingView }
     ];
     if (document.pictureInPictureEnabled) {
       defs.push({ id: 'vod-pip', group: 'right', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
@@ -12472,10 +12708,13 @@
     defs.push({ id: 'vod-quality', group: 'right', icon: UI_ICONS.quality, tip: 'Calidad', run: function () { toggleQualityMenu($('vod-quality')); } });
     defs.push({ id: 'vod-fullscreen', group: 'right', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
     /* Three zones: Volver on the left, seek/play in the middle, the rest on the right. */
-    var groups = { left: el('div', 'vt-group vt-left'), center: el('div', 'vt-group vt-center'), right: el('div', 'vt-group vt-right') };
+    var groups = { left: el('div', 'vt-group vt-left'), center: el('div', 'vt-group vt-center'), right: el('div', 'vt-group vt-right'), top: el('div', 'vod-topbar') };
     tips.appendChild(groups.left);
     tips.appendChild(groups.center);
     tips.appendChild(groups.right);
+    document.querySelector('.vod-infobar-content').appendChild(groups.top);
+    var titleNode = $('vod-infobar-title');
+    if (titleNode) { groups.center.appendChild(titleNode); }
     for (var i = 0; i < defs.length; i++) {
       var b = el('button', 'vod-tip focusable');
       b.type = 'button'; b.id = defs[i].id;
@@ -12491,6 +12730,7 @@
         setButtonText(toggle, showPlay ? 'Reproducir (Espacio)' : 'Pausa (Espacio)', showPlay ? UI_ICONS.play : UI_ICONS.pause);
       }
       $('vod-episodes').hidden = !isSeriesItem(state.playerItem);
+      $('vod-next').hidden = !(isSeriesItem(state.playerItem) && upcomingEpisode(state.playerItem));
       updateQualityButton();
       var canSkip = state.playerMode === 'vod' && !!(playerVideo.currentSrc || playerVideo.getAttribute('src'));
       $('vod-forward').disabled = !canSkip;
@@ -12611,7 +12851,7 @@
 
   /* ------------------------------------------------------------------ boot */
   function boot() {
-    if (window.XUPER_DESKTOP) { installTitleBar(); }
+    if (window.XUPER_DESKTOP) { installTitleBar(); showBootSplash(); }
     fitDesignViewport();
     window.addEventListener('resize', fitDesignViewport, false);
     window.addEventListener('orientationchange', fitDesignViewport, false);
@@ -12694,7 +12934,7 @@
       settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); }
     };
 
-    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); startCatalogAutoRefresh(); }
+    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); startCatalogAutoRefresh(); }
 
     applyQuery();
   }
