@@ -31,7 +31,7 @@ function buildCrPanel() {
 }
 
 function buildParentPanel() {
-  if (window.XUPER_DESKTOP) { return buildDesktopParentPanel(); }
+  /* (Desktop has no PIN lock and no menu entry for this panel.) */
   var p = el('div', 'settings-panel');
   p.appendChild(el('div', 'pl-title', 'Configuraciones del Control Parental'));
   p.appendChild(el('div', 'pl-tip', window.XUPER_DESKTOP ? 'Control parental no disponible en esta versión. No se aplica ningún bloqueo por PIN.' : 'Ingrese la contraseña de cuatro dígitos e ingrese viendo el programa de bloqueo.'));

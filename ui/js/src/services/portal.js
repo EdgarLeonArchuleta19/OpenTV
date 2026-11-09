@@ -352,6 +352,14 @@ function loadVodDetail(item, done) {
     item._detailWait = [done];
     portalServiceCall('detail', { contentId: item.id }, function (error, payload) {
       item._detailLoading = false;
+      /* portal100006 ("the episode list does not exist") is the portal's
+         normal answer for a movie: the catalogue record already has its
+         data, so the movie is ready to play. */
+      var noEpisodes = /portal100006/.test(String(error || (payload && payload.errorText) || ''));
+      if (noEpisodes && !isSeriesItem(item)) {
+        error = null;
+        payload = { item: item, episodes: [], seasons: [] };
+      }
       if (error || !payload || payload.returnValue === false || !payload.item) {
         item._detailError = error || (payload && payload.errorText) || 'El servidor no devolvió la ficha ni los capítulos';
         var failedWaiters = item._detailWait || [];

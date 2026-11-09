@@ -15,6 +15,8 @@ function runDesktopSearch(rawQ, localMatches) {
   if (searchRequestTimeout) { clearTimeout(searchRequestTimeout); searchRequestTimeout = null; }
   var seq = ++state.searchSeq;
   var query = rawQ.trim();
+  rememberRecentSearch(query);
+  hideSearchSuggest();
   var remote = vodApi.mode === 'portal' && norm(query).length >= 2;
   state.searchRemote = null;
   if (!remote) {

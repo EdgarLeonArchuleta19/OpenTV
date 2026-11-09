@@ -240,4 +240,5 @@ function bindDesktopPlayback() {
     if (state.screen === 'player' && !playSettingViewOpen && !dialogPlaySettingsOpen &&
         !state.episodeBrowserOpen && !state.categoryPickerOpen && !state.channelsOpen && !vodScrubbing) showInfobar();
   });
+  installPlayerVolume();
 }

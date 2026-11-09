@@ -1,4 +1,4 @@
-/* screens/settings-desktop.js — Paneles de Ajustes del escritorio: Compartir, Bloqueo, Ayuda y Acerca de.
+/* screens/settings-desktop.js — Paneles de Ajustes del escritorio: Compartir, Ayuda y Acerca de.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 /* One layout for every desktop settings page: a header (title + short
@@ -44,15 +44,6 @@ function buildDesktopSharePanel() {
     'Tu lista, el historial y tus preferencias están guardados solo en este equipo. En otro PC la app empieza con un perfil nuevo.'));
   page.body.appendChild(desktopSettingsCard(UI_ICONS.lock, 'Sin cuentas ni contraseñas',
     'No hay que registrarse: cada equipo crea su propio perfil local al abrir la app.'));
-  return page.panel;
-}
-
-function buildDesktopParentPanel() {
-  var page = desktopSettingsPage('sd-parent', 'Bloqueo', 'Control parental con PIN.');
-  var card = desktopSettingsCard(UI_ICONS.lock, 'Próximamente',
-    'El bloqueo por PIN todavía no está disponible en la versión de Windows. Ningún contenido está bloqueado.');
-  card.classList.add('is-muted');
-  page.body.appendChild(card);
   return page.panel;
 }
 

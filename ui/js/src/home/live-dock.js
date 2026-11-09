@@ -20,7 +20,8 @@ var LIVE_DOCK_ICONS = {
   minus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12"/></svg>',
   plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12M12 6v12"/></svg>',
   star: UI_ICONS.star,
-  full: UI_ICONS.fullscreen
+  full: UI_ICONS.fullscreen,
+  guide: uiSvg('<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18M9 9v11"/>')
 };
 var liveVolRange = null;
 var liveVolToast = null;
@@ -74,7 +75,7 @@ function startSystemVolumeSync() {
   syncFromSystemVolume();
   /* Follow changes made with the keyboard volume keys or the taskbar. */
   setInterval(function () {
-    if (state.screen === 'home' && state.tab === 0 && document.hasFocus()) { syncFromSystemVolume(); }
+    if (((state.screen === 'home' && state.tab === 0) || state.screen === 'player') && document.hasFocus()) { syncFromSystemVolume(); }
   }, 2500);
 }
 
@@ -110,6 +111,7 @@ function applyLiveAudio(save) {
     if (systemVolumeOn) { pushSystemVolume(); }
     else { safeLocalWrite('xuper_live_audio_v1', liveAudio); }
   }
+  if (window.XUPER_DESKTOP) { applyPlayerAudio(); }
 }
 function changeLiveVolume(delta) {
   liveAudio.volume = Math.max(0, Math.min(1, Math.round((liveAudio.volume + delta) * 20) / 20));
@@ -120,10 +122,12 @@ function changeLiveVolume(delta) {
 
 /* Small "volume" pill over the preview while it changes. */
 function showLiveVolumeToast() {
-  if (!window.XUPER_DESKTOP || !liveMain) { return; }
-  if (!liveVolToast || !liveVolToast.isConnected) {
+  var host = state.screen === 'player' ? playerStage : liveMain;
+  if (!window.XUPER_DESKTOP || !host) { return; }
+  if (!liveVolToast || liveVolToast.parentNode !== host) {
+    if (liveVolToast && liveVolToast.parentNode) { liveVolToast.parentNode.removeChild(liveVolToast); }
     liveVolToast = el('div', 'live-vol-toast');
-    liveMain.appendChild(liveVolToast);
+    host.appendChild(liveVolToast);
   }
   var off = liveAudio.muted || liveAudio.volume === 0;
   var pct = off ? 0 : Math.round(liveAudio.volume * 100);
@@ -197,10 +201,13 @@ function buildLiveDock(page) {
   liveFavBtn = dockButton('is-fav', LIVE_DOCK_ICONS.star, 'Favorito', 'Guardar canal en favoritos', function () {
     var ch = CHANNELS[state.channel];
     if (!ch) { return; }
-    ch.fav = toggleFavorite({ id: liveFavKey(ch) });
-    syncLiveFavButton();
+    toggleLiveFavorite(ch);
+    if (liveGuideOpen) { renderLiveGuideGrid(); }
   });
   bar.appendChild(liveFavBtn);
+  if (window.XUPER_DESKTOP) {
+    bar.appendChild(dockButton('is-guide', LIVE_DOCK_ICONS.guide, 'Guía', 'Guía de canales (G)', openLiveGuide));
+  }
   bar.appendChild(dockButton('', LIVE_DOCK_ICONS.full, 'Pantalla completa', 'Ver en pantalla completa', function () { openPlayer('live'); }));
   liveDock.appendChild(bar);
 
@@ -249,6 +256,11 @@ function renderLiveDockCats() {
     liveDockCats.appendChild(b);
   }
   if (all) { chip(all, 'Todos'); }
+  if (window.XUPER_DESKTOP) {
+    var saved = liveSaved();
+    if (saved.favs.length) { chip(LIVE_SAVED_CATS.favs, '★ Favoritos'); }
+    if (saved.recent.length) { chip(LIVE_SAVED_CATS.recent, 'Recientes'); }
+  }
   if (countries.length) {
     liveDockCats.appendChild(el('span', 'live-dock-label', 'Países'));
     for (var k = 0; k < countries.length; k++) { chip(countries[k]); }

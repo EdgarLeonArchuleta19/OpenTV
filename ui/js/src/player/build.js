@@ -244,6 +244,8 @@ function buildPlayer() {
     { label: 'Bloquear', right: 107, w: 67 },
     { label: 'Feedback', right: 50, w: 67 }
   ];
+  /* Desktop: no PIN lock (it never existed on Windows), so no dead button. */
+  if (window.XUPER_DESKTOP) actDefs = actDefs.filter(function (d) { return d.label !== 'Bloquear'; });
   if (window.XUPER_DESKTOP) actDefs.push({ label: 'Canales', right: 0, w: 90 });
   if (window.XUPER_DESKTOP && document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });
   for (var i = 0; i < actDefs.length; i++) {
@@ -280,7 +282,8 @@ function buildPlayer() {
         } else if (label === 'Favorito') {
           var ch = CHANNELS[state.channel];
           if (ch) {
-            ch.fav = toggleFavorite({ id: 'live:' + (ch.channelCode || ch.id || ch.name) });
+            if (window.XUPER_DESKTOP) { toggleLiveFavorite(ch); }
+            else { ch.fav = toggleFavorite({ id: 'live:' + (ch.channelCode || ch.id || ch.name) }); }
             this.classList.toggle('is-selected', ch.fav);
             setButtonText(this, ch.fav ? (this._iconized ? 'Quitar de favoritos' : 'En favoritos')
               : (this._iconized ? 'Añadir a favoritos' : 'Favorito'));

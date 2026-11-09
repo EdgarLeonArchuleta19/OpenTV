@@ -66,7 +66,11 @@ function bentoPage(page, items, opts) {
     var dots = bentoDots(848, 535.5, opts.dots, 0);
     page.appendChild(dots);
     if (window.XUPER_DESKTOP && opts.titles && source.length > 1) {
-      registerBannerCarousel(page, page.querySelector('.bento'), dots, source.slice(0, Math.min(opts.dots, source.length)));
+      /* The rotation must not repeat the titles already on the other tiles:
+         use the first title plus the ones after the six tiles when the
+         section has them. */
+      var spin = source.length > 6 ? [source[0]].concat(source.slice(6)) : source;
+      registerBannerCarousel(page, page.querySelector('.bento'), dots, spin.slice(0, Math.min(opts.dots, spin.length)));
     }
   }
 }
@@ -202,8 +206,17 @@ function buildFeaturedPage(page) {
   var all = allVodFor('destacado');
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
-  bentoPage(page, items, { titles: real, dots: real ? 4 : 0, shade: real });
+  bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
   var rest = all.slice(6);
+  if (window.XUPER_DESKTOP) {
+    /* Desktop: "Seguir viendo", then one row per portal shelf. */
+    var y = appendContinueRow(page, 830, '');
+    var rows = portalRowsFor('destacado', 4);
+    for (var r = 0; r < rows.length; r++) { y = appendPosterRow(page, y, rows[r].title, rows[r].items); }
+    if (rows.length) { return; }
+    if (rest.length) { appendCatalogGrid(page, rest, y + 30, 'Títulos destacados'); }
+    return;
+  }
   if (rest.length) {
     appendCatalogGrid(page, rest, 860, 'Títulos destacados');
   }
@@ -213,10 +226,11 @@ function buildMoviesPage(page) {
   var all = allVodFor('pelicula');
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
-  bentoPage(page, items, { titles: real, dots: real ? 4 : 0, shade: real });
+  bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
   var rest = all.slice(6);
+  var gridY = window.XUPER_DESKTOP ? appendContinueRow(page, 830, 'movie') + (page._continueCount ? 10 : 30) : 860;
   if (rest.length) {
-    appendCatalogGrid(page, rest, 860, 'Más películas');
+    appendCatalogGrid(page, rest, gridY, 'Más películas');
   }
 }
 
@@ -224,10 +238,11 @@ function buildSeriesPage(page) {
   var all = allVodFor('serie');
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
-  bentoPage(page, items, { titles: real, dots: real ? 3 : 2, shade: real });
+  bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
   var rest = all.slice(6);
+  var gridY = window.XUPER_DESKTOP ? appendContinueRow(page, 830, 'series') + (page._continueCount ? 10 : 30) : 860;
   if (rest.length) {
-    appendCatalogGrid(page, rest, 860, 'Más series');
+    appendCatalogGrid(page, rest, gridY, 'Más series');
   }
 }
 
@@ -235,7 +250,7 @@ function buildAnimePage(page) {
   var all = allVodFor('anime');
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
-  bentoPage(page, items, { titles: real, dots: real ? 3 : 2, shade: real });
+  bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
   var rest = all.slice(6);
   if (rest.length) {
     appendCatalogGrid(page, rest, 860, 'Anime y animación');
@@ -274,7 +289,7 @@ function buildNovelsPage(page) {
   } else {
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
-    bentoPage(page, items, { titles: real, dots: real ? 3 : 2, shade: real });
+    bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
     appendCatalogGrid(page, all, 860, 'Más novelas');
   }
 }
@@ -286,7 +301,7 @@ function buildKidsPage(page) {
     var allKids = allVodFor('infantil');
     var kidsTop = allKids.slice(0, 6);
     var realKids = !!(kidsTop[0] && kidsTop[0]._portal);
-    bentoPage(page, kidsTop, { titles: realKids, dots: realKids ? 4 : 0, shade: realKids });
+    bentoPage(page, window.XUPER_DESKTOP ? allKids : kidsTop, { titles: realKids, dots: realKids ? 4 : 0, shade: realKids });
     var kidsRest = allKids.slice(6);
     appendCatalogGrid(page, kidsRest.length ? kidsRest : allKids, 860, 'Para toda la familia');
     return;

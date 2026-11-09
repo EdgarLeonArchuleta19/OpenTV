@@ -64,6 +64,8 @@ var SETTINGS_MENU_ICONS = {
 /* Desktop: short labels that fit the menu and line icons like the rest of the app. */
 if (window.XUPER_DESKTOP) {
   var DESKTOP_SETTINGS_LABELS = { share: 'Compartir', playback: 'Reproducción', feedback: 'Ayuda', about: 'Acerca de' };
+  /* The PIN lock was never available on Windows: no menu entry for it. */
+  SETTINGS_ITEMS = SETTINGS_ITEMS.filter(function (it) { return it.id !== 'parent'; });
   SETTINGS_ITEMS.forEach(function (it) { if (DESKTOP_SETTINGS_LABELS[it.id]) { it.label = DESKTOP_SETTINGS_LABELS[it.id]; } });
   SETTINGS_MENU_ICONS = {
     profile: UI_ICONS.user, history: UI_ICONS.mylist, share: UI_ICONS.share, parent: UI_ICONS.lock,

@@ -104,6 +104,7 @@ function buildDetail(item) {
   detailButtons = $('detail-buttons');
   detailBottom = $('detail-bottom');
   clear(detailLeft); clear(detailButtons); clear(detailBottom);
+  if (window.XUPER_DESKTOP) { setDetailBackdrop(item); }
 
   /* left column: 806px at 80/50 */
   var tw = el('div', 'detail-titlewrap');
@@ -180,6 +181,7 @@ function buildDetail(item) {
   more._activate = toggleSynopsis;
   syn.appendChild(more);
   detailLeft.appendChild(syn);
+  if (desk) { fitDetailLeft(syn); }
 
   /* player window 765x430 at right 80 / top 50. */
   clear(detailPlayer);
@@ -592,4 +594,47 @@ function renderDetailBottom(item) {
     grid.appendChild(cell);
   }
   detailBottom.appendChild(grid);
+}
+
+/* Desktop: the title's artwork, blurred and dimmed, behind the whole page. */
+function setDetailBackdrop(item) {
+  var screen = $('screen-detail');
+  if (!screen) { return; }
+  var box = screen.querySelector('.detail-backdrop');
+  if (!box) {
+    box = el('div', 'detail-backdrop');
+    box.setAttribute('aria-hidden', 'true');
+    screen.insertBefore(box, screen.firstChild);
+  }
+  var art = item && (item.backdrop || item.landscape || item.poster);
+  var img = box.querySelector('img');
+  if (!art) { box.classList.remove('is-ready'); if (img) { img.removeAttribute('src'); } return; }
+  if (img && img.getAttribute('src') === art) { return; }
+  box.classList.remove('is-ready');
+  var next = el('img');
+  next.alt = '';
+  next.decoding = 'async';
+  next.onload = function () { if (next.parentNode) { box.classList.add('is-ready'); } };
+  next.onerror = function () { box.classList.remove('is-ready'); };
+  next.src = art;
+  clear(box);
+  box.appendChild(next);
+  box.appendChild(el('div', 'detail-backdrop-shade'));
+}
+
+/* Desktop: a two-line title leaves less room above the buttons. Give up
+   whole synopsis lines (3 → 2 → 1), then the credits, so nothing is cut in
+   half and "Leer más" stays visible. */
+function fitDetailLeft(syn) {
+  var text = syn.querySelector('.text');
+  function overflowing() { return detailLeft.scrollHeight > detailLeft.clientHeight + 1; }
+  function fit() {
+    if (!detailLeft.clientHeight || !text) { return; }
+    text.style.webkitLineClamp = '';
+    var rows = detailLeft.querySelectorAll('.detail-row');
+    for (var r = 0; r < rows.length; r++) { rows[r].style.display = ''; }
+    for (var lines = 2; overflowing() && lines >= 1; lines--) { text.style.webkitLineClamp = String(lines); }
+    for (var k = 0; overflowing() && k < rows.length; k++) { rows[k].style.display = 'none'; }
+  }
+  setTimeout(fit, 0);
 }

@@ -259,6 +259,7 @@ function switchLiveCategory(cat, done) {
   if (!cat) { return; }
   currentLiveCategory = cat;
   renderPlayerCategories();
+  if (cat.isSaved) { loadSavedChannels(cat.isSaved, done); return; }
   if (cat.isAddon) {
     loadAddonChannels(function () {
       if (done) { done(); }
@@ -510,6 +511,7 @@ function renderLiveRows(favOnly) {
     liveInfoText.textContent = CHANNELS[state.channel].name;
   }
   scrollLiveList();
+  if (liveGuideOpen) { renderLiveGuideGrid(); }
 }
 
 function scrollLiveList() {
@@ -539,6 +541,7 @@ function setChannel(index, immediate) {
   }
   scrollLiveList();
   syncLiveFavButton();
+  if (window.XUPER_DESKTOP && CHANNELS[index]) { rememberLiveChannel(CHANNELS[index]); }
   if (state.screen === 'player') {
     updatePlayerChannel();
     if (state.playerMode === 'live') {

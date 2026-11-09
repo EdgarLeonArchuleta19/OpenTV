@@ -42,7 +42,7 @@ function refreshPosterMemory() {
   var viewH = window.innerHeight || 1080;
   for (var i = 0; i < imgs.length; i++) {
     var img = imgs[i];
-    var tile = closest(img, '.poster, .bento');
+    var tile = closest(img, '.poster, .bento, .continue-card');
     var r = tile && tile.getBoundingClientRect ? tile.getBoundingClientRect() : null;
     var marginY = window.XUPER_DESKTOP ? viewH : 420;
     var marginX = window.XUPER_DESKTOP ? viewW / 2 : 320;

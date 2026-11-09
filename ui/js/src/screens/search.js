@@ -48,10 +48,14 @@ function buildSearch() {
       if (event.isComposing) return;
       state.searchQuery = searchInput.value;
       if (!state.searchQuery.trim()) { clearSearchState(); renderPopularSearch(); }
+      updateSearchSuggest();
     });
+    searchInput.addEventListener('focus', updateSearchSuggest);
+    searchInput.addEventListener('blur', function () { setTimeout(hideSearchSuggest, 120); });
     searchInput.addEventListener('compositionend', function () { state.searchQuery = searchInput.value; });
     searchInput.addEventListener('keydown', function (event) {
       if (event.isComposing) return;
+      if (searchSuggestKey(event)) { event.stopPropagation(); return; }
       if (event.key === 'Enter') { event.preventDefault(); state.searchQuery = searchInput.value; runSearch(); }
       if (event.key === 'Escape') { searchInput.blur(); back(); }
       event.stopPropagation();
@@ -161,6 +165,7 @@ function popularSearchItems() {
 function renderPopularSearch() {
   if (!searchHotGrid || state.searchQuery) { return; }
   clear(searchHotGrid);
+  renderRecentSearches();
   var hotItems = popularSearchItems();
   for (var h = 0; h < hotItems.length; h++) {
     searchHotGrid.appendChild(makeSearchCell(hotItems[h], h));
