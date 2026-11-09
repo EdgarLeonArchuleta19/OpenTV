@@ -1,0 +1,1332 @@
+/* =============================================================================
+   OpenTV · capa visual moderna
+   Se carga después de style.css y desktop.css. Solo afecta al modo escritorio
+   (body.desktop). Medidas en px del lienzo de 1920×1080.
+   ============================================================================= */
+body.desktop {
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --bg: #050505;
+  --surface: #111111;
+  --surface-2: #181818;
+  --surface-hover: #222222;
+  --line: rgba(255, 255, 255, .08);
+  --line-strong: rgba(255, 255, 255, .18);
+  --text: #f4f5f7;
+  --text-2: #c4c4c4;
+  --muted: #8a8a8a;
+  --accent: #ffffff;
+  --accent-soft: rgba(255, 255, 255, .12);
+  --accent-line: rgba(255, 255, 255, .55);
+  --on-accent: #000000;
+  --radius: 14px;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  font-family: var(--font);
+}
+
+/* ------------------------------------------------------------ ficha: fondo */
+.desktop #screen-detail {
+  background:
+    radial-gradient(1100px 620px at 78% -8%, rgba(255, 255, 255, .10), transparent 62%),
+    radial-gradient(900px 500px at 0% 0%, rgba(255, 255, 255, .03), transparent 60%),
+    var(--bg);
+}
+
+/* ------------------------------------------------------------ ficha: datos */
+.desktop .detail-left {
+  top: 56px;
+  width: 900px;
+  max-height: 432px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.desktop .detail-titlewrap { align-items: center; gap: 18px; flex-wrap: nowrap; }
+.desktop .detail-title {
+  font-size: 50px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -.5px;
+  max-width: 760px;
+  max-height: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.desktop .detail-score {
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.desktop .detail-score:empty { display: none; }
+.desktop .detail-score::before { content: "★ "; }
+.desktop .detail-meta {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--muted);
+}
+.desktop .detail-update {
+  align-self: flex-start;
+  margin: 0;
+  height: auto;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 19px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+.desktop .detail-genres {
+  margin: 0;
+  height: auto;
+  max-height: 84px;
+  flex-wrap: wrap;
+  gap: 8px;
+  white-space: normal;
+}
+.desktop .detail-genres .label { display: none; }
+.desktop .detail-genres .chip {
+  margin: 0;
+  height: auto;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .08);
+  color: var(--text-2);
+  font-size: 19px;
+  line-height: 1.25;
+}
+.desktop .detail-row {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+}
+.desktop .detail-row .row-label {
+  margin-right: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.desktop .detail-row .val { padding: 0; color: var(--text-2); }
+
+/* Sinopsis: 3 líneas y "Leer más" debajo, sin taparse con nada. */
+.desktop .detail-synopsis { margin: 2px 0 0; height: auto; overflow: visible; }
+.desktop .detail-synopsis .label {
+  position: static;
+  display: block;
+  margin-bottom: 6px;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.desktop .detail-synopsis .text {
+  text-indent: 0;
+  max-height: none;
+  font-size: 21px;
+  line-height: 1.55;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.desktop .detail-more {
+  position: static;
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 600;
+  border-radius: 6px;
+}
+.desktop .detail-more:hover { text-decoration: underline; }
+.desktop .detail-more.is-focused { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+/* Sinopsis completa: tarjeta centrada sobre un fondo oscurecido. */
+.desktop #screen-detail.is-synopsis-open .detail-synopsis {
+  position: fixed;
+  left: 50%; top: 50%;
+  width: 1040px;
+  height: auto;
+  max-height: 760px;
+  padding: 44px 56px 48px;
+  transform: translate(-50%, -50%);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 0 0 4000px rgba(0, 0, 0, .74), 0 30px 90px rgba(0, 0, 0, .6);
+  z-index: 60;
+  animation: dd-pop .22s var(--ease);
+}
+.desktop #screen-detail.is-synopsis-open .detail-synopsis .label { margin-bottom: 14px; font-size: 18px; }
+.desktop #screen-detail.is-synopsis-open .detail-synopsis .text {
+  display: block;
+  -webkit-line-clamp: unset;
+  font-size: 24px;
+  line-height: 1.65;
+  color: var(--text);
+}
+.desktop #screen-detail.is-synopsis-open .detail-more {
+  position: absolute;
+  top: 28px; right: 30px; bottom: auto;
+  margin: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .08);
+  color: var(--text);
+  font-size: 18px;
+}
+.desktop #screen-detail.is-synopsis-open .detail-more:hover { background: rgba(255, 255, 255, .16); text-decoration: none; }
+@keyframes dd-pop {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(.98); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* ------------------------------------------------- ficha: vista previa vídeo */
+.desktop #screen-player.is-mini .player-stage {
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .06);
+}
+.desktop .detail-player { border-radius: 18px; }
+.desktop .detail-player.is-focused::after {
+  border: 3px solid var(--accent);
+  border-image: none;
+  border-radius: 18px;
+}
+/* Los subtítulos de la vista previa se salían sobre la ficha. */
+.desktop #screen-player.is-mini .player-subtitles { display: none !important; }
+
+/* ------------------------------------------------------- ficha: botones */
+.desktop .detail-buttons {
+  top: 506px;
+  right: 80px;
+  height: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.desktop .detail-btn {
+  float: none;
+  width: auto;
+  height: 58px;
+  margin: 0;
+  padding: 0 24px 0 20px;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, .07);
+  color: var(--text);
+  transition: background .18s var(--ease), transform .18s var(--ease), border-color .18s var(--ease);
+}
+.desktop .detail-btn span {
+  width: auto;
+  overflow: visible;
+  text-align: left;
+  font-size: 21px;
+  line-height: 1;
+  font-weight: 600;
+  color: inherit;
+}
+.desktop .detail-btn-icon { display: block; width: 24px; height: 24px; flex-shrink: 0; }
+.desktop .detail-btn-icon svg { display: block; width: 100%; height: 100%; }
+.desktop .detail-btn:hover { background: rgba(255, 255, 255, .14); border-color: var(--line-strong); }
+.desktop .detail-btn:active { transform: scale(.97); }
+.desktop .detail-btn.is-focused {
+  background: rgba(255, 255, 255, .14);
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+/* Acción principal: Reproducir. */
+.desktop .detail-btn[data-kind="fullscreen"] {
+  background: var(--text);
+  color: #101114;
+  border-color: transparent;
+  padding: 0 30px 0 24px;
+}
+.desktop .detail-btn[data-kind="fullscreen"]:hover,
+.desktop .detail-btn[data-kind="fullscreen"].is-focused { background: #ffffff; }
+.desktop .detail-btn[data-kind="favorite"].is-selected {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.desktop .detail-btn[data-kind="favorite"].is-selected path { fill: currentColor; }
+/* Interruptor del Modo fluido. */
+.desktop .detail-switch {
+  position: relative;
+  width: 42px; height: 24px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .22);
+  transition: background .2s var(--ease);
+  flex-shrink: 0;
+}
+.desktop .detail-switch::after {
+  content: "";
+  position: absolute;
+  left: 3px; top: 3px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  transition: transform .2s var(--ease);
+}
+.desktop .detail-btn.is-on .detail-switch { background: var(--accent); }
+.desktop .detail-btn.is-on .detail-switch::after { transform: translateX(18px); }
+.desktop .detail-btn.is-on .detail-btn-icon { color: var(--accent); }
+
+/* ------------------------------------------- ficha: zona inferior deslizable */
+.desktop .detail-bottom.dd-flow {
+  top: 596px;
+  height: 484px;
+  padding: 18px 80px 64px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 36px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 36px), transparent 100%);
+}
+.desktop .dd-flow.scrollable::-webkit-scrollbar { width: 10px; height: 10px; }
+.desktop .dd-flow.scrollable::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .18); border: 2px solid transparent; background-clip: padding-box; border-radius: 999px; }
+.desktop .dd-flow.scrollable::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, .3); }
+.desktop .dd-flow.scrollable::-webkit-scrollbar-track { background: transparent; }
+
+.desktop .dd-section + .dd-section { margin-top: 40px; }
+.desktop .dd-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.desktop .dd-title,
+.desktop .dd-flow .detail-related {
+  position: static;
+  height: auto;
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -.2px;
+  color: var(--text);
+}
+.desktop .dd-flow .detail-related { margin-bottom: 16px; }
+.desktop .dd-count { font-size: 19px; color: var(--muted); }
+.desktop .dd-empty { padding: 24px 0; font-size: 20px; color: var(--muted); }
+
+/* Selector de temporada. */
+.desktop .dd-flow .detail-season {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 14px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  z-index: auto;
+  transition: background .18s var(--ease), border-color .18s var(--ease);
+}
+.desktop .dd-flow .detail-season .season-text {
+  position: static;
+  height: auto;
+  font-size: 19px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--text);
+}
+.desktop .dd-flow .detail-season .season-arrow {
+  position: static;
+  display: block;
+  width: 20px; height: 20px;
+  color: var(--muted);
+  transition: transform .2s var(--ease);
+}
+.desktop .dd-flow .detail-season .season-arrow svg { display: block; width: 100%; height: 100%; }
+.desktop .dd-flow .detail-season:not(.is-single):hover { background: var(--surface-hover); border-color: var(--line-strong); }
+.desktop .dd-flow .detail-season.is-single { cursor: default !important; padding-right: 18px; }
+.desktop .dd-flow .detail-season.is-focused { outline: 2px solid var(--text); outline-offset: 3px; border-color: var(--line-strong); }
+.desktop .dd-flow .season-popup {
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .6);
+}
+.desktop .dd-flow .season-popup-item {
+  width: auto;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: transparent;
+}
+.desktop .dd-flow .season-popup-item .season-item-text { font-size: 19px; line-height: 1; color: var(--text); }
+.desktop .dd-flow .season-popup-item.is-selected .season-item-text { color: var(--accent); }
+.desktop .dd-flow .season-popup-item .season-item-check { width: 20px; height: 20px; }
+.desktop .dd-flow .season-popup-item:hover,
+.desktop .dd-flow .season-popup-item.is-focused { background: rgba(255, 255, 255, .08); outline: none; }
+.desktop .dd-flow .season-popup-item.is-focused .season-item-text { color: var(--text); font-weight: 600; }
+
+/* Rangos de episodios como pastillas. */
+.desktop .dd-ranges {
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.desktop .dd-ranges .detail-range {
+  position: static;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  color: var(--text-2);
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+.desktop .dd-ranges .detail-range:hover { background: rgba(255, 255, 255, .13); color: var(--text); }
+.desktop .dd-ranges .detail-range.is-selected { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.desktop .dd-ranges .detail-range.is-focused { outline: 2px solid var(--text); outline-offset: 2px; }
+
+/* Cuadrícula de episodios. */
+.desktop .dd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  overflow: visible;
+}
+.desktop .dd-grid .detail-episode {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 80px;
+  padding: 0 16px 0 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+  overflow: hidden;
+  transition: background .18s var(--ease), border-color .18s var(--ease), transform .18s var(--ease);
+}
+.desktop .dd-grid .detail-episode .ep-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 78px;
+  height: 100%;
+  background: rgba(255, 255, 255, .035);
+  border-right: 1px solid var(--line);
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.desktop .dd-grid .ep-info { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+.desktop .dd-grid .ep-title {
+  font-size: 19px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.desktop .dd-grid .ep-meta { font-size: 16px; line-height: 1.2; color: var(--muted); }
+.desktop .dd-grid .ep-now {
+  display: none;
+  font-size: 14px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.desktop .dd-grid .ep-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .1);
+  color: var(--text);
+  opacity: 0;
+  transform: scale(.85);
+  transition: opacity .18s var(--ease), transform .18s var(--ease), background .18s var(--ease);
+}
+.desktop .dd-grid .ep-play svg { width: 16px; height: 16px; margin-left: 2px; }
+.desktop .dd-grid .detail-episode:hover,
+.desktop .dd-grid .detail-episode.is-focused {
+  background: var(--surface-hover);
+  border-color: var(--line-strong);
+  transform: translateY(-2px);
+}
+.desktop .dd-grid .detail-episode:hover .ep-play,
+.desktop .dd-grid .detail-episode.is-focused .ep-play { opacity: 1; transform: none; background: var(--accent); color: var(--on-accent); }
+.desktop .dd-grid .detail-episode.is-focused { outline: 2px solid var(--text); outline-offset: 2px; }
+.desktop .dd-grid .detail-episode.is-playing {
+  background: linear-gradient(90deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .05));
+  border-color: var(--accent-line);
+  color: var(--text);
+  font-weight: normal;
+}
+.desktop .dd-grid .detail-episode.is-playing .ep-num { color: var(--accent); background: rgba(255, 255, 255, .1); border-right-color: var(--accent-line); }
+.desktop .dd-grid .detail-episode.is-playing .ep-meta { display: none; }
+.desktop .dd-grid .detail-episode.is-playing .ep-now { display: block; }
+.desktop .dd-grid .detail-episode.is-playing .ep-play { opacity: 1; transform: none; background: var(--accent); color: var(--on-accent); }
+
+/* Recomendaciones. */
+.desktop .dd-related {
+  position: static;
+  display: flex;
+  gap: 22px;
+  width: auto;
+  height: auto;
+  padding: 4px 4px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: normal;
+}
+.desktop .dd-related::-webkit-scrollbar { height: 8px; }
+.desktop .dd-related::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .16); border-radius: 999px; }
+.desktop .dd-related .cell {
+  position: relative;
+  display: block;
+  flex: 0 0 190px;
+  width: 190px;
+  height: auto;
+  margin: 0;
+}
+.desktop .dd-related .cell .poster {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .35);
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+.desktop .dd-related .cell .poster img { width: 100%; height: 100%; object-fit: cover; }
+.desktop .dd-related .cell .poster:hover { transform: translateY(-4px); box-shadow: 0 16px 34px rgba(0, 0, 0, .5); }
+.desktop .dd-related .cell .poster.is-focused { outline: 3px solid var(--accent); outline-offset: 3px; }
+.desktop .dd-related .cell .poster.is-focused::after { display: none; }
+.desktop .dd-related .d-name {
+  position: static;
+  height: auto;
+  margin-top: 10px;
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--text-2);
+  text-align: left;
+}
+
+/* ------------------------------------------ menú de ajustes del reproductor */
+.desktop .player-playsetting-view {
+  padding: 120px 80px 56px;
+  background: linear-gradient(to top, rgba(8, 8, 8, .97) 0%, rgba(8, 8, 8, .9) 55%, rgba(8, 8, 8, .55) 82%, rgba(8, 8, 8, 0) 100%);
+}
+.desktop .psv-row { margin-bottom: 26px; }
+.desktop .psv-title,
+.desktop .psv-row.is-row-focused .psv-title {
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  color: var(--muted);
+}
+.desktop .psv-row.is-row-focused .psv-title { color: var(--text); }
+.desktop .psv-grid { margin-top: 12px; gap: 10px; padding: 4px; margin-left: -4px; }
+.desktop .psv-btn,
+.desktop #psv-btn-p1,
+.desktop #psv-btn-p2 {
+  width: auto;
+  min-width: 0;
+  height: 54px;
+  margin: 0;
+  padding: 0 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .08);
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 600;
+  transition: background .15s var(--ease), border-color .15s var(--ease);
+}
+.desktop .psv-btn:hover { background: rgba(255, 255, 255, .15); }
+.desktop .psv-btn.is-focused { background: rgba(255, 255, 255, .18); outline: 2px solid var(--text); outline-offset: 2px; }
+.desktop .psv-btn.is-selected,
+.desktop #psv-btn-p1.is-selected {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  border-bottom: 1px solid var(--accent-line);
+}
+.desktop .psv-check {
+  width: 20px; height: 20px;
+  margin-right: 10px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12px;
+  line-height: 20px;
+}
+#psv-sec-selection .psv-title,
+.desktop #psv-sec-selection #psv-episodes-row { margin-left: 0; }
+.desktop #psv-episodes-row { margin-top: 12px; }
+.desktop .psv-episode-numbers { gap: 8px; padding: 4px; margin: 0 0 12px -4px; }
+.desktop .psv-ep-btn {
+  width: 92px;
+  min-width: 92px;
+  height: 54px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .08);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.desktop .psv-ep-btn:hover { background: rgba(255, 255, 255, .16); }
+.desktop .psv-ep-btn.is-selected,
+.desktop .psv-ep-btn.is-current { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.desktop .psv-ep-btn.is-focused,
+.desktop .psv-ep-btn.is-selected.is-focused,
+.desktop .psv-ep-btn.is-current.is-focused {
+  transform: none;
+  box-shadow: none;
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.desktop .psv-ep-btn.is-focused:not(.is-current) { background: rgba(255, 255, 255, .2); color: var(--text); }
+.desktop .psv-episode-ranges { gap: 6px; padding: 4px; margin-left: -4px; }
+.desktop .psv-range-btn {
+  height: 36px;
+  min-width: 0;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.desktop .psv-range-btn:hover { background: rgba(255, 255, 255, .1); color: var(--text); }
+.desktop .psv-range-btn.is-selected { background: rgba(255, 255, 255, .16); color: var(--text); }
+.desktop .psv-range-btn.is-focused,
+.desktop .psv-range-btn.is-selected.is-focused { color: var(--text); outline: 2px solid var(--text); outline-offset: 2px; }
+/* Con el menú abierto, los subtítulos no deben pintarse encima. */
+.desktop #screen-player:has(#player-playsetting-view.is-active) .player-subtitles { opacity: 0; }
+
+/* ------------------------------------------------ panel de episodios */
+.desktop .pe-hint { display: none; }
+
+/* ------------------------------------------------ elementos globales */
+.desktop #desktop-back {
+  padding: 9px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(18, 18, 18, .78);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  font: 600 14px var(--font);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+  transition: background .15s var(--ease);
+}
+.desktop #desktop-back:hover:not(:disabled) { background: rgba(42, 42, 42, .9); }
+.desktop #desktop-status {
+  border-radius: 999px;
+  padding: 7px 14px;
+  background: rgba(18, 18, 18, .82);
+  border-color: var(--line);
+  font-family: var(--font);
+}
+.desktop #desktop-playback-message { border-radius: 14px; font-family: var(--font); }
+
+/* Panel de episodios: mismo color principal que el resto de la app. */
+.desktop .pe-season { border-radius: 12px; transition: background .15s var(--ease), border-color .15s var(--ease); }
+.desktop .pe-season:hover { background: rgba(255, 255, 255, .1); }
+.desktop .pe-season.is-selected { border-color: var(--accent-line); background: var(--accent-soft); color: var(--text); }
+.desktop .pe-season.is-focused { border-color: var(--text); background: var(--accent-soft); box-shadow: none; }
+.desktop .pe-ep { border-radius: 12px; border-left-width: 3px; cursor: pointer; transition: background .15s var(--ease); }
+.desktop .pe-ep:hover { background: rgba(255, 255, 255, .08); }
+.desktop .pe-ep.is-focused { background: rgba(255, 255, 255, .1); border-left-color: var(--text); box-shadow: none; }
+.desktop .pe-ep.is-current { border-left-color: var(--accent); background: linear-gradient(90deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, .03)); }
+.desktop .pe-ep.is-current .pe-num { color: var(--accent); }
+.desktop .pe-ep .pe-thumb { border-radius: 10px; }
+.desktop .pe-ep .pe-badge {
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 15px;
+  letter-spacing: .8px;
+}
+
+/* Barras de desplazamiento finas en el menú del reproductor. */
+.desktop .psv-episode-numbers.scrollable::-webkit-scrollbar,
+.desktop .psv-episode-ranges.scrollable::-webkit-scrollbar,
+.desktop .psv-grid.scrollable::-webkit-scrollbar,
+.desktop .pe-episodes.scrollable::-webkit-scrollbar { width: 8px; height: 8px; }
+.desktop .psv-episode-numbers.scrollable::-webkit-scrollbar-thumb,
+.desktop .psv-episode-ranges.scrollable::-webkit-scrollbar-thumb,
+.desktop .psv-grid.scrollable::-webkit-scrollbar-thumb,
+.desktop .pe-episodes.scrollable::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .2); border: 0; border-radius: 999px; }
+.desktop .psv-episode-numbers.scrollable::-webkit-scrollbar-track,
+.desktop .psv-episode-ranges.scrollable::-webkit-scrollbar-track,
+.desktop .psv-grid.scrollable::-webkit-scrollbar-track,
+.desktop .pe-episodes.scrollable::-webkit-scrollbar-track { background: transparent; }
+.desktop .psv-episode-numbers.scrollable::-webkit-scrollbar-button,
+.desktop .psv-episode-ranges.scrollable::-webkit-scrollbar-button,
+.desktop .pe-episodes.scrollable::-webkit-scrollbar-button,
+.desktop .dd-flow.scrollable::-webkit-scrollbar-button { display: none; }
+
+/* Chromium usa scrollbar-color/width por encima de ::-webkit-scrollbar. */
+.desktop .dd-flow.scrollable,
+.desktop .dd-related,
+.desktop .psv-episode-numbers.scrollable,
+.desktop .psv-episode-ranges.scrollable,
+.desktop .psv-grid.scrollable,
+.desktop .pe-episodes.scrollable,
+.desktop .pe-seasons.scrollable {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .22) transparent;
+}
+
+/* Como una app: el texto no se selecciona al arrastrar o hacer clic. */
+.desktop, .desktop * { -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }
+.desktop input, .desktop textarea { -webkit-user-select: text; user-select: text; }
+html.is-drag-scrolling, html.is-drag-scrolling * { cursor: grabbing !important; }
+
+/* ------------------------------------------------ botón Historial */
+.desktop #desktop-history {
+  position: fixed;
+  top: 12px; left: 118px;
+  z-index: 10100;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(18, 18, 18, .78);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font: 600 14px var(--font);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+  transition: background .15s var(--ease), border-color .15s var(--ease);
+}
+.desktop #desktop-history svg { width: 16px; height: 16px; display: block; }
+.desktop #desktop-history:hover { background: rgba(42, 42, 42, .9); }
+.desktop #desktop-history.is-active { background: var(--accent); border-color: transparent; color: var(--on-accent); }
+.desktop #desktop-history[hidden] { display: none; }
+.desktop #desktop-history:focus-visible { outline: 3px solid #ffffff; outline-offset: 4px; }
+
+/* ------------------------------------------------ pantalla de historial */
+.desktop .history-panel { background: transparent; }
+.desktop .history-tabs { left: 40px; top: 46px; gap: 8px; height: auto; }
+.desktop .history-tab {
+  height: auto;
+  margin: 0;
+  padding: 10px 22px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  color: var(--text-2);
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 600;
+  transition: background .15s var(--ease);
+}
+.desktop .history-tab:hover { background: rgba(255, 255, 255, .12); color: var(--text); }
+.desktop .history-tab.is-selected { background: var(--accent); color: var(--on-accent); }
+.desktop .history-tab.is-focused { outline: 2px solid var(--text); outline-offset: 2px; color: inherit; }
+.desktop .history-rule { display: none; }
+.desktop .history-total {
+  left: 40px; right: 40px; top: 128px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  color: var(--muted);
+}
+.desktop .history-total span { color: var(--text); margin: 0; font-weight: 700; }
+.desktop .history-clear {
+  margin-left: auto;
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .05);
+  color: var(--text-2);
+  font-size: 17px;
+  font-weight: 600;
+}
+.desktop .history-clear:hover { background: rgba(255, 255, 255, .14); border-color: rgba(255, 255, 255, .5); color: #ffffff; }
+.desktop .history-clear.is-focused { outline: 2px solid var(--text); outline-offset: 2px; }
+.desktop .history-grid {
+  left: 40px; right: 30px; top: 186px; bottom: 30px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 26px 22px;
+  align-content: start;
+  padding: 6px 10px 40px 4px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .22) transparent;
+}
+.desktop .history-card {
+  width: auto;
+  height: auto;
+  margin: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
+}
+.desktop .history-poster { width: 100%; height: auto; aspect-ratio: 2 / 3; }
+.desktop .history-bar { height: 5px; background: rgba(255, 255, 255, .12); }
+.desktop .history-bar i { display: block; height: 100%; background: var(--accent); border-radius: 0 3px 3px 0; }
+.desktop .history-card .history-card-title {
+  padding: 12px 14px 0;
+  font-size: 19px;
+  line-height: 1.25;
+  font-weight: 600;
+  color: var(--text);
+}
+.desktop .history-sub { padding: 4px 14px 0; font-size: 16px; line-height: 1.3; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .history-when { padding: 2px 14px 14px; font-size: 14px; line-height: 1.3; color: var(--muted); }
+.desktop .history-play {
+  position: absolute;
+  top: 12px; right: 12px;
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+  opacity: 0;
+  transform: scale(.85);
+  transition: opacity .18s var(--ease), transform .18s var(--ease);
+}
+.desktop .history-play svg { width: 20px; height: 20px; margin-left: 2px; }
+.desktop .history-card:hover,
+.desktop .history-card.is-focused {
+  transform: translateY(-4px);
+  border-color: var(--line-strong);
+  background: var(--surface-hover);
+  outline: none;
+}
+.desktop .history-card.is-focused { outline: 2px solid var(--text); outline-offset: 3px; }
+.desktop .history-card:hover .history-play,
+.desktop .history-card.is-focused .history-play { opacity: 1; transform: none; }
+.desktop .history-card.is-focused .history-card-title { color: var(--text); }
+.desktop .history-grid-empty { grid-column: 1 / -1; padding: 40px 0; font-size: 22px; color: var(--muted); }
+
+/* Cuadrícula de episodios compacta: caben más por fila. */
+.desktop .dd-grid {
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 8px;
+}
+.desktop .dd-grid .detail-episode { height: 58px; gap: 12px; padding-right: 10px; border-radius: 11px; }
+.desktop .dd-grid .detail-episode .ep-num { flex-basis: 54px; font-size: 21px; }
+.desktop .dd-grid .ep-info { gap: 2px; }
+.desktop .dd-grid .ep-title { font-size: 16px; }
+.desktop .dd-grid .ep-meta { font-size: 14px; }
+.desktop .dd-grid .is-generic .ep-meta { font-size: 15px; color: var(--text-2); }
+.desktop .dd-grid .ep-now { font-size: 12px; letter-spacing: .6px; }
+.desktop .dd-grid .ep-play { flex-basis: 28px; height: 28px; }
+.desktop .dd-grid .ep-play svg { width: 13px; height: 13px; }
+.desktop .dd-grid .detail-episode:hover,
+.desktop .dd-grid .detail-episode.is-focused { transform: none; }
+.desktop .dd-ranges { gap: 6px; margin-bottom: 14px; }
+.desktop .dd-ranges .detail-range { padding: 6px 13px; font-size: 16px; }
+.desktop .dd-grid .ep-meta,
+.desktop .dd-grid .ep-now { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .dd-grid .detail-episode.is-playing .ep-play { display: none; }
+.desktop .dd-grid .ep-play {
+  position: absolute;
+  right: 10px; top: 50%;
+  width: 28px;
+  margin-top: -14px;
+  box-shadow: 0 0 0 6px var(--surface-hover);
+}
+
+/* ------------------------------------------------------------------
+   Paneles sobre el vídeo (episodios y ajustes): misma transparencia.
+   Fondo oscuro al 62 % con desenfoque: se ve el vídeo y el texto se lee.
+   ------------------------------------------------------------------ */
+body.desktop {
+  --overlay-bg: rgba(8, 8, 8, .62);
+  --overlay-blur: blur(14px) saturate(115%);
+  --overlay-item: rgba(255, 255, 255, .07);
+}
+/* Panel de episodios: hoja inferior, más baja y compacta. */
+.desktop .player-episodes {
+  height: 600px;
+  padding: 28px 110px 22px;
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--overlay-blur);
+  backdrop-filter: var(--overlay-blur);
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, .45);
+}
+.desktop .pe-head { margin-bottom: 12px; }
+.desktop .pe-title { font-size: 32px; line-height: 1.2; font-weight: 700; text-shadow: 0 1px 8px rgba(0, 0, 0, .5); }
+.desktop .pe-sub { font-size: 17px; line-height: 1.4; color: var(--text-2); }
+.desktop .pe-seasons-col { height: 54px; min-height: 54px; margin-bottom: 10px; }
+.desktop .pe-season { height: 44px; font-size: 18px; padding: 0 18px; }
+.desktop .pe-col-label { margin-bottom: 8px; font-size: 14px; color: var(--text-2); }
+.desktop .pe-ep {
+  min-height: 58px;
+  padding: 8px 18px;
+  margin-bottom: 6px;
+  background: var(--overlay-item);
+  border-bottom: 0;
+}
+.desktop .pe-ep .pe-thumb { display: none; }
+.desktop .pe-ep .pe-num { width: 46px; min-width: 46px; font-size: 22px; line-height: 1; color: var(--text-2); }
+.desktop .pe-ep .pe-name { font-size: 18px; line-height: 1.25; font-weight: 600; }
+.desktop .pe-ep .pe-meta { margin-top: 2px; font-size: 14px; line-height: 1.3; color: var(--text-2); }
+.desktop .pe-ep .pe-desc { display: none; }
+.desktop .pe-ep .pe-badge { padding: 5px 12px; font-size: 12px; }
+.desktop .pe-ep:hover { background: rgba(255, 255, 255, .13); }
+
+/* Menú de ajustes: la misma hoja inferior y el mismo fondo. */
+.desktop .player-playsetting-view {
+  padding: 0;
+  background: transparent;
+}
+.desktop .psv-scroll {
+  padding: 28px 80px 36px;
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--overlay-blur);
+  backdrop-filter: var(--overlay-blur);
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, .45);
+}
+.desktop .psv-row { margin-bottom: 18px; }
+.desktop .psv-title,
+.desktop .psv-row.is-row-focused .psv-title { color: var(--text-2); text-shadow: 0 1px 6px rgba(0, 0, 0, .5); }
+.desktop .psv-btn,
+.desktop #psv-btn-p1,
+.desktop #psv-btn-p2,
+.desktop .psv-ep-btn { background: var(--overlay-item); }
+.desktop .psv-btn.is-selected,
+.desktop #psv-btn-p1.is-selected { background: var(--accent-soft); }
+.desktop .psv-ep-btn.is-selected,
+.desktop .psv-ep-btn.is-current { background: var(--accent); }
+
+/* ------------------------------------------------------------------
+   TV de Inicio: barra de controles y pastillas de países/temas
+   debajo del vídeo (en el espacio que antes quedaba vacío).
+   ------------------------------------------------------------------ */
+.desktop .live-dock {
+  position: absolute;
+  left: 192px; top: 738px;
+  width: 1280px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  z-index: 2;
+}
+.desktop #screen-home.is-rail-open .live-dock { left: 354px; top: 648px; width: 1118px; }
+.desktop .live-dock-bar { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
+.desktop .live-dock-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 20px 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .07);
+  color: var(--text);
+  font-size: 19px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background .15s var(--ease), border-color .15s var(--ease);
+}
+.desktop .live-dock-btn.is-icon { width: 52px; padding: 0; justify-content: center; }
+.desktop .live-dock-ico { display: block; width: 22px; height: 22px; flex-shrink: 0; }
+.desktop .live-dock-btn svg { display: block; width: 22px; height: 22px; }
+.desktop .live-dock-btn:hover { background: rgba(255, 255, 255, .14); border-color: var(--line-strong); }
+.desktop .live-dock-btn.is-focused { outline: 2px solid var(--text); outline-offset: 2px; }
+.desktop .live-dock-btn.is-off { color: #9a9a9a; }
+.desktop .live-dock-btn.is-fav.is-selected { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+.desktop .live-dock-btn.is-fav.is-selected path { fill: currentColor; }
+.desktop .live-dock-vol { min-width: 54px; text-align: center; font-size: 17px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.desktop .live-dock-sep { width: 1px; height: 30px; margin: 0 6px; background: var(--line-strong); }
+.desktop .live-dock-cats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .22) transparent;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+.desktop .live-dock-label {
+  flex-shrink: 0;
+  margin: 0 4px 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.desktop .live-chip {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .07);
+  color: var(--text-2);
+  font-size: 17px;
+  font-weight: 600;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+.desktop .live-chip:hover { background: rgba(255, 255, 255, .14); color: var(--text); }
+.desktop .live-chip.is-selected { background: var(--accent); color: var(--on-accent); }
+.desktop .live-chip.is-focused { outline: 2px solid var(--text); outline-offset: 2px; }
+
+/* Indicador de avance/retroceso al mantener pulsado un lado del vídeo. */
+.desktop .hold-seek {
+  position: absolute;
+  top: 50%;
+  z-index: 30;
+  min-width: 220px;
+  padding: 22px 34px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: rgba(8, 8, 8, .62);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font: 700 40px/1.25 var(--font);
+  text-align: center;
+  white-space: pre-line;
+  pointer-events: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .4);
+}
+.desktop .hold-seek.is-left { left: 9%; }
+.desktop .hold-seek.is-right { right: 9%; }
+.desktop .hold-seek[hidden] { display: none; }
+.desktop #screen-player.is-mini .hold-seek { display: none; }
+
+/* ------------------------------------------------------------------
+   Historial: panel lateral izquierdo sobre la pantalla actual.
+   ------------------------------------------------------------------ */
+.history-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10190;
+  background: rgba(0, 0, 0, .38);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s ease;
+}
+.history-drawer {
+  position: fixed;
+  top: 0; bottom: 0; left: 0;
+  z-index: 10200;
+  width: min(440px, 36vw);
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(14, 14, 14, .9);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+  backdrop-filter: blur(18px) saturate(115%);
+  border-right: 1px solid rgba(255, 255, 255, .1);
+  box-shadow: 20px 0 60px rgba(0, 0, 0, .5);
+  color: #f4f5f7;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  transform: translateX(-104%);
+  transition: transform .26s cubic-bezier(.2, .7, .2, 1);
+}
+body.is-history-drawer-open .history-drawer { transform: none; }
+body.is-history-drawer-open .history-drawer-backdrop { opacity: 1; pointer-events: auto; }
+.hd-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 14px 12px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+.hd-tabs { display: flex; gap: 6px; flex: 1; }
+.hd-tab {
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  color: #c4c4c4;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.hd-tab:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.hd-tab.is-selected { background: #ffffff; color: #000000; }
+.hd-tab.is-focused, .hd-close.is-focused, .hd-link.is-focused { outline: 2px solid #fff; outline-offset: 2px; }
+.hd-close {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  color: #c4c4c4;
+  cursor: pointer;
+}
+.hd-close svg { width: 18px; height: 18px; }
+.hd-close:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.hd-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 10px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .22) transparent;
+}
+.hd-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 34px 8px 8px;
+  margin-bottom: 4px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.hd-item:hover { background: rgba(255, 255, 255, .08); }
+.hd-item.is-focused { background: rgba(255, 255, 255, .1); outline: 2px solid #fff; outline-offset: -2px; }
+.hd-poster {
+  flex: 0 0 52px;
+  width: 52px; height: 74px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #1c1c1c;
+}
+.hd-info { flex: 1; min-width: 0; }
+.hd-title { font-size: 15px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd-sub { margin-top: 2px; font-size: 13px; color: #c4c4c4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd-bar { height: 4px; margin-top: 7px; border-radius: 999px; background: rgba(255, 255, 255, .12); overflow: hidden; }
+.hd-bar i { display: block; height: 100%; background: #ffffff; border-radius: 999px; }
+.hd-when { margin-top: 5px; font-size: 12px; color: #8a8a8a; }
+.hd-remove {
+  position: absolute;
+  top: 50%; right: 6px;
+  width: 26px; height: 26px;
+  margin-top: -13px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  color: #8a8a8a;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity .15s ease, background .15s ease;
+}
+.hd-remove svg { width: 14px; height: 14px; }
+.hd-item:hover .hd-remove, .hd-item.is-focused .hd-remove { opacity: 1; }
+.hd-remove:hover { background: rgba(255, 255, 255, .18); color: #ffffff; }
+.hd-empty { padding: 28px 14px; font-size: 14px; line-height: 1.5; color: #8a8a8a; }
+.hd-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 8px 4px; border-top: 1px solid rgba(255, 255, 255, .08); margin-top: 10px; }
+.hd-link { padding: 6px 8px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #ffffff; cursor: pointer; }
+.hd-link:hover { background: rgba(255, 255, 255, .06); }
+.hd-link.is-danger { color: #bdbdbd; }
+
+/* Botón ✕ de los paneles del reproductor (ajustes y episodios). */
+.desktop .panel-close {
+  position: absolute;
+  top: 18px; right: 26px;
+  z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .1);
+  color: #fff;
+  cursor: pointer;
+  transition: background .15s var(--ease);
+}
+.desktop .panel-close svg { width: 24px; height: 24px; }
+.desktop .panel-close:hover { background: rgba(255, 255, 255, .2); }
+.desktop .panel-close.is-focused { outline: 2px solid #fff; outline-offset: 2px; }
+.desktop .psv-scroll { position: relative; }
+
+/* ------------------------------------------------ búsqueda: estados */
+.desktop .search-state {
+  position: absolute;
+  left: 231px; right: 231px; top: 280px;
+  display: none;
+  text-align: center;
+}
+.desktop .search-state.is-active { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.desktop .search-state-title { font-size: 34px; font-weight: 600; color: var(--text); }
+.desktop .search-state-hint { font-size: 22px; color: var(--muted); }
+.desktop .search-spinner {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, .15);
+  border-top-color: var(--accent);
+  animation: search-spin .8s linear infinite;
+}
+.desktop .search-spinner.is-small { display: inline-block; width: 18px; height: 18px; border-width: 3px; margin-right: 10px; vertical-align: -3px; }
+@keyframes search-spin { to { transform: rotate(360deg); } }
+.desktop .search-retry {
+  margin-top: 10px;
+  padding: 12px 28px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.desktop .search-retry.is-focused { outline: 2px solid #fff; outline-offset: 3px; }
+.desktop .search-inline-state {
+  position: absolute;
+  left: 63px; top: 128px;
+  width: 1180px;
+  display: none;
+  text-align: center;
+  font-size: 20px;
+  color: var(--muted);
+}
+.desktop .search-inline-state.is-active { display: block; }
+.desktop .search-inline-state.is-error { color: #d0d0d0; }
+.desktop .search-retry-link { color: var(--accent); font-weight: 700; cursor: pointer; text-decoration: underline; }
+.desktop .search-retry-link.is-focused { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* El cuadro de búsqueda queda bajo los botones Volver / Historial. */
+.desktop #screen-search .search-keyboard { top: 46px; height: 1034px; }
+
+/* ------------------------------------------------------------------
+   Resultados de búsqueda: una sola página que se desplaza, con vista de
+   cuadrícula o de lista y títulos en dos líneas.
+   ------------------------------------------------------------------ */
+.desktop .sr-wrap { position: absolute; left: 44px; right: 44px; top: 64px; padding-bottom: 60px; }
+.desktop .sr-wrap[hidden] { display: none; }
+.desktop .sr-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.desktop .sr-count { font-size: 24px; font-weight: 600; color: var(--text-2); }
+.desktop .sr-toggle { display: flex; gap: 6px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, .06); }
+.desktop .sr-view {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 17px; font-weight: 600;
+  cursor: pointer;
+}
+.desktop .sr-view svg { width: 18px; height: 18px; }
+.desktop .sr-view:hover { color: var(--text); background: rgba(255, 255, 255, .08); }
+.desktop .sr-view.is-selected { background: var(--accent); color: var(--on-accent); }
+.desktop .sr-view.is-focused { outline: 2px solid #fff; outline-offset: 2px; }
+.desktop .sr-wrap .search-inline-state { position: static; width: auto; margin: -6px 0 14px; text-align: left; }
+
+.desktop .sr-card { cursor: pointer; border-radius: 14px; transition: background .15s var(--ease), transform .18s var(--ease); }
+.desktop .sr-art { position: relative; overflow: hidden; border-radius: 12px; background: #1c1c1c; aspect-ratio: 2 / 3; }
+.desktop .sr-poster { display: block; width: 100%; height: 100%; object-fit: cover; }
+.desktop .sr-title {
+  font-size: 19px; line-height: 1.28; font-weight: 600; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.desktop .sr-meta { margin-top: 4px; font-size: 15px; color: var(--muted); }
+.desktop .sr-genres { margin-top: 3px; font-size: 15px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .sr-desc {
+  margin-top: 6px; font-size: 15px; line-height: 1.4; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.desktop .sr-card.is-focused { outline: 2px solid #fff; outline-offset: 4px; }
+
+/* Cuadrícula */
+.desktop .sr-body.is-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 28px 20px; }
+.desktop .sr-body.is-grid .sr-info { padding: 10px 2px 0; }
+.desktop .sr-body.is-grid .sr-genres,
+.desktop .sr-body.is-grid .sr-desc { display: none; }
+.desktop .sr-body.is-grid .sr-card:hover { transform: translateY(-4px); }
+.desktop .sr-body.is-grid .sr-card:hover .sr-art { box-shadow: 0 14px 30px rgba(0, 0, 0, .45); }
+
+/* Lista mediana (como "Contenido" en el Explorador de Windows) */
+.desktop .sr-body.is-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(540px, 1fr)); gap: 10px 16px; }
+.desktop .sr-body.is-list .sr-card { display: flex; align-items: flex-start; gap: 16px; padding: 10px; background: rgba(255, 255, 255, .04); }
+.desktop .sr-body.is-list .sr-card:hover { background: rgba(255, 255, 255, .09); }
+.desktop .sr-body.is-list .sr-art { flex: 0 0 92px; width: 92px; border-radius: 9px; }
+.desktop .sr-body.is-list .sr-info { flex: 1; min-width: 0; padding-top: 4px; }
+.desktop .sr-body.is-list .sr-title { font-size: 21px; }
+
+/* Carga continua al final */
+.desktop .sr-more { display: none; padding: 26px 0 6px; text-align: center; font-size: 18px; color: var(--muted); }
+.desktop .sr-more.is-active { display: block; }
+
+/* Desplegable de temporadas con muchas temporadas: cuadrícula de números. */
+.desktop .dd-flow .season-popup.is-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  padding: 12px;
+  overflow: visible;
+}
+.desktop .dd-flow .season-popup.is-grid::before {
+  content: "Elige temporada";
+  grid-column: 1 / -1;
+  padding: 0 4px 6px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.desktop .dd-flow .season-popup.is-grid .season-popup-item {
+  height: 44px;
+  padding: 0;
+  justify-content: center;
+  background: rgba(255, 255, 255, .06);
+}
+.desktop .dd-flow .season-popup.is-grid .season-item-text { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.desktop .dd-flow .season-popup.is-grid .season-item-check { display: none; }
+.desktop .dd-flow .season-popup.is-grid .season-popup-item.is-selected { background: var(--accent); }
+.desktop .dd-flow .season-popup.is-grid .season-popup-item.is-selected .season-item-text { color: var(--on-accent); }
+.desktop .dd-flow .season-popup.is-grid .season-popup-item:hover { background: rgba(255, 255, 255, .14); }
+.desktop .dd-flow .season-popup.is-grid .season-popup-item.is-focused { outline: 2px solid #fff; outline-offset: 1px; }
+
+/* TV: el mismo vídeo pasa de la vista previa al reproductor grande y vuelve. */
+.desktop #player-stage > .live-preview-video.is-handoff {
+  position: absolute;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  background: #000;
+  z-index: 0;
+}
+.desktop .live-main > .player-video.is-handoff-home {
+  display: block !important;
+  position: absolute;
+  left: 0 !important; top: 0;
+  width: 100% !important; height: 100% !important;
+  object-fit: contain;
+  background: #000 !important;
+  z-index: 0;
+}
+
+/* Sobre nosotros: crédito de la versión modificada. */
+.desktop .sp-about-mod { margin-top: 10px; color: var(--accent); }

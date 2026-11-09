@@ -1,0 +1,484 @@
+/* =============================================================================
+   OpenTV · tema monocromo (negro y blanco)
+   Última capa de estilos: se carga después de style.css, desktop.css y
+   modern.css. Unifica todas las pantallas con un único lenguaje visual:
+     - fondo negro, superficies en grises neutros;
+     - foco      = cristal blanco translúcido + anillo blanco;
+     - seleccion = blanco;
+     - acción principal = relleno blanco con texto negro.
+   También hace que el lienzo de 1920×1080 llene cualquier ventana
+   (variables --cw/--ch/--ox/--oy calculadas en app.js).
+   ============================================================================= */
+body.desktop {
+  --t-bg: #000;
+  --t-surface: #111;
+  --t-surface-2: #181818;
+  --t-line: rgba(255, 255, 255, .1);
+  --t-line-strong: rgba(255, 255, 255, .22);
+  --t-text: #fff;
+  --t-text-2: #c4c4c4;
+  --t-muted: #8a8a8a;
+  --t-focus-bg: rgba(255, 255, 255, .16);
+  --t-ring: 0 0 0 2px #fff;
+  --t-ring-inset: inset 0 0 0 2px #fff;
+  --t-ease: cubic-bezier(.2, .7, .2, 1);
+  background: var(--t-bg);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+.desktop #app { background: var(--t-bg); }
+
+/* -------------------------------------------------------------------------
+   Lienzo que llena la ventana. Cada pantalla ocupa toda la ventana y su
+   contenido (1920×1080) queda centrado gracias a un borde transparente: los
+   hijos absolutos se colocan dentro del borde y el fondo pinta debajo.
+   ------------------------------------------------------------------------- */
+.desktop .screen,
+.desktop .dialog-playsettings-overlay,
+.desktop .dialog-addons-overlay {
+  width: var(--cw, 1920px);
+  height: var(--ch, 1080px);
+  border-style: solid;
+  border-color: transparent;
+  border-width: var(--oy, 0px) var(--ox, 0px);
+  box-sizing: border-box;
+  /* Gradients cover the whole window once instead of tiling into the border. */
+  background-origin: border-box;
+}
+/* Imágenes de "sin señal" heredadas (azuladas): en escala de grises. */
+.desktop .player-frame,
+.desktop .live-main .live-frame,
+.desktop .live-main .live-logo { filter: grayscale(1); }
+/* El marco de foco de la TV de Inicio sigue a la vista previa cuando el
+   rail está abierto (antes quedaba desplazado sobre la barra de controles). */
+.desktop #screen-home.is-rail-open .live-focus { left: 354px; width: 1118px; height: 629px; }
+/* El vídeo y las capas del reproductor salen hasta los bordes de la ventana. */
+.desktop #screen-player:not(.is-mini) .player-stage,
+.desktop .player-categories {
+  left: calc(var(--ox, 0px) * -1);
+  top: calc(var(--oy, 0px) * -1);
+  width: var(--cw, 1920px);
+  height: var(--ch, 1080px);
+}
+.desktop #screen-player:not(.is-mini) .player-frame,
+.desktop #screen-player:not(.is-mini) .player-video,
+.desktop #screen-player:not(.is-mini) .player-video.aspect-cover,
+.desktop #screen-player:not(.is-mini) .player-video.aspect-contain,
+.desktop #screen-player:not(.is-mini) .player-video.aspect-16-9,
+.desktop .next-episode-loading { width: 100%; height: 100%; left: 0; }
+.desktop #screen-player:not(.is-mini) .player-video.aspect-4-3 {
+  width: calc(var(--ch, 1080px) * 4 / 3);
+  height: 100%;
+  left: calc((var(--cw, 1920px) - var(--ch, 1080px) * 4 / 3) / 2);
+}
+.desktop .player-vod-infobar,
+.desktop .player-infobar,
+.desktop .player-episodes,
+.desktop .player-playsetting-view {
+  left: calc(var(--ox, 0px) * -1);
+  right: calc(var(--ox, 0px) * -1);
+  bottom: calc(var(--oy, 0px) * -1);
+  width: auto;
+}
+.desktop .player-playsetting-view { top: calc(var(--oy, 0px) * -1); }
+.desktop .player-channels {
+  left: calc(var(--ox, 0px) * -1);
+  top: calc(var(--oy, 0px) * -1);
+  height: var(--ch, 1080px);
+}
+/* La barra del VOD respira con la ventana: márgenes laterales generosos. */
+.desktop .player-vod-infobar .vod-infobar-poster { left: 72px; }
+
+/* -------------------------------------------------------------------------
+   Movimiento: transiciones cortas al cambiar de pantalla y al mostrar los
+   controles del reproductor.
+   ------------------------------------------------------------------------- */
+@keyframes t-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes t-rise-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.desktop #screen-home.is-active,
+.desktop #screen-detail.is-active,
+.desktop #screen-search.is-active,
+.desktop #screen-settings.is-active { animation: t-fade-in .22s var(--t-ease); }
+.desktop .player-vod-infobar.is-active,
+.desktop .player-infobar.is-active { animation: t-fade-in .2s ease-out; }
+.desktop .player-episodes[style*="block"],
+.desktop .player-episodes.is-active,
+.desktop .player-playsetting-view.is-active .psv-scroll { animation: t-rise-in .24s var(--t-ease); }
+@media (prefers-reduced-motion: reduce) {
+  .desktop *, .desktop *::before, .desktop *::after { animation: none !important; transition: none !important; }
+}
+
+/* -------------------------------------------------------------------------
+   Botones flotantes (Volver / Historial) y modo cine mientras se reproduce
+   ------------------------------------------------------------------------- */
+.desktop #desktop-back,
+.desktop #desktop-history {
+  top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px 0 10px;
+  border: 1px solid var(--t-line-strong);
+  border-radius: 999px;
+  background: rgba(10, 10, 10, .72);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: #fff;
+  font: 600 13px/1 var(--font, "Segoe UI", sans-serif);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .4);
+  transition: opacity .25s ease, background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.desktop #desktop-back { left: 14px; }
+.desktop #desktop-back svg { width: 16px; height: 16px; display: block; }
+.desktop #desktop-history { left: 112px; }
+.desktop #desktop-back:hover,
+.desktop #desktop-history:hover { background: rgba(40, 40, 40, .92); border-color: rgba(255, 255, 255, .4); }
+.desktop #desktop-back:active,
+.desktop #desktop-history:active { transform: scale(.96); }
+.desktop #desktop-history.is-active { background: #fff; color: #000; border-color: transparent; }
+.desktop #desktop-back:focus-visible,
+.desktop #desktop-history:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+/* En el reproductor solo aparece junto con los controles. */
+.desktop[data-screen="player"] #desktop-back { opacity: 1; }
+.desktop.is-playing-idle #desktop-back,
+.desktop.is-playing-idle #desktop-history,
+.desktop.is-playing-idle #desktop-playback-message { opacity: 0; pointer-events: none; }
+.desktop.is-playing-idle,
+.desktop.is-playing-idle * { cursor: none !important; }
+
+.desktop #desktop-status {
+  right: 16px; bottom: 14px;
+  padding: 6px 12px;
+  border: 1px solid var(--t-line);
+  border-radius: 999px;
+  background: rgba(10, 10, 10, .75);
+  color: var(--t-muted);
+  font-size: 11.5px;
+  letter-spacing: .2px;
+}
+.desktop #desktop-playback-message,
+.desktop #desktop-playback-message.is-error {
+  border-radius: 999px;
+  padding: 10px 20px;
+  border: 1px solid var(--t-line-strong);
+  background: rgba(14, 14, 14, .9);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font-size: 14px;
+  transition: opacity .25s ease;
+}
+.desktop #desktop-playback-message.is-error { border-color: rgba(255, 255, 255, .5); }
+
+/* -------------------------------------------------------------------------
+   Bienvenida
+   ------------------------------------------------------------------------- */
+.desktop #screen-welcome {
+  background: radial-gradient(900px 600px at 50% 46%, #141414 0%, #000 70%);
+}
+.desktop .welcome-logo {
+  position: absolute;
+  left: 50%; top: 330px;
+  width: 190px; height: 196px;
+  margin-left: -95px;
+  animation: t-rise-in .6s var(--t-ease) both;
+}
+.desktop .welcome-name {
+  top: 572px;
+  height: auto;
+  font-size: 76px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -1.5px;
+  animation: t-rise-in .6s .08s var(--t-ease) both;
+}
+.desktop .welcome-version {
+  top: 666px;
+  height: auto;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 3px;
+  color: var(--t-muted);
+  opacity: 1;
+  animation: t-fade-in .6s .16s ease both;
+}
+.desktop .welcome-loading {
+  left: 50%; top: 730px;
+  width: 260px; height: 3px;
+  margin-left: -130px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+  overflow: hidden;
+}
+.desktop .welcome-loading img { display: none; }
+.desktop .welcome-loading i {
+  display: block;
+  width: 100%; height: 100%;
+  border-radius: inherit;
+  background: #fff;
+  transform-origin: left center;
+  animation: t-load 2.4s cubic-bezier(.4, 0, .2, 1) forwards;
+}
+@keyframes t-load { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* -------------------------------------------------------------------------
+   Inicio
+   ------------------------------------------------------------------------- */
+.desktop #screen-home { background: var(--t-bg); }
+.desktop .home-port-credit {
+  left: 64px; top: 34px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #fff;
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -.4px;
+  text-shadow: none;
+}
+.desktop .home-port-credit img { width: 40px; height: 42px; }
+.desktop .home-sidebar-bg { background: linear-gradient(to right, #000 0%, rgba(0, 0, 0, .85) 45%, rgba(0, 0, 0, 0) 100%); }
+
+/* Rail de pestañas: píldora blanca con texto negro. */
+.desktop .tab-item .tab-pill {
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+}
+.desktop .tab-item .tab-icon,
+.desktop .tab-item .tab-title { transition: color .15s ease; }
+.desktop .tab-item .tab-icon { color: #7a7a7a; }
+.desktop .tab-item .tab-title { color: #a8a8a8; font-weight: 500; }
+.desktop .tab-item:hover .tab-icon,
+.desktop .tab-item:hover .tab-title,
+.desktop .tab-item.is-selected .tab-icon,
+.desktop .tab-item.is-selected .tab-title { color: #fff; }
+.desktop .tab-item.is-focused .tab-icon,
+.desktop .tab-item.is-focused .tab-title { color: #000; font-weight: 600; }
+.desktop .tab-item { cursor: pointer; }
+
+/* Barra de notificaciones (buscar, filtro, perfil). */
+.desktop .notify-item.is-small { background: rgba(255, 255, 255, .08); transition: background .15s ease; }
+.desktop .notify-item.is-small:hover { background: rgba(255, 255, 255, .16); }
+.desktop .notify-item.is-focused.is-small { background: #fff; }
+.desktop .notify-item.is-focused.is-small .n-normal { filter: invert(1); }
+.desktop .notify-divider { background: rgba(255, 255, 255, .2); }
+
+/* Pósteres y mosaicos: esquinas suaves y anillo blanco al enfocar. */
+.desktop .poster,
+.desktop .bento { border-radius: 12px; }
+.desktop .poster { transition: transform .2s var(--t-ease), box-shadow .2s var(--t-ease); }
+.desktop .poster:hover { transform: scale(1.03); z-index: 39; }
+.desktop .poster.is-focused::after {
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 3px #fff;
+}
+.desktop .poster.is-focused { box-shadow: 0 18px 40px rgba(0, 0, 0, .55); }
+.desktop .bento.is-focused::after,
+.desktop .live-focus.is-focused::after {
+  border: 3px solid #fff;
+  border-radius: inherit;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .4), 0 12px 34px rgba(0, 0, 0, .5);
+}
+.desktop .bento-dot { background: rgba(255, 255, 255, .35); }
+.desktop .bento-dot.is-active { background: #fff; }
+
+/* Listas de canales. */
+.desktop .live-row,
+.desktop .pc-row { border-radius: 14px; transition: background .15s ease; }
+.desktop .live-row:hover,
+.desktop .pc-row:hover { background: rgba(255, 255, 255, .06); }
+.desktop .live-row.is-focused,
+.desktop .pc-row.is-focused { background: var(--t-focus-bg); box-shadow: var(--t-ring-inset); }
+.desktop .live-chip.is-selected,
+.desktop .live-chip.is-selected:hover { background: #fff; color: #000; }
+
+/* -------------------------------------------------------------------------
+   Ficha (detalle)
+   ------------------------------------------------------------------------- */
+.desktop #screen-detail {
+  background:
+    radial-gradient(1100px 620px at 80% -10%, rgba(255, 255, 255, .06), transparent 62%),
+    var(--t-bg);
+}
+.desktop .detail-left { top: 96px; max-height: 396px; }
+.desktop .detail-score { background: rgba(255, 255, 255, .1); color: #fff; }
+.desktop .detail-more { color: #fff; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(255, 255, 255, .4); }
+.desktop .detail-update { background: rgba(255, 255, 255, .1); color: #fff; }
+.desktop .detail-btn.is-on .detail-switch { background: #fff; }
+.desktop .detail-btn.is-on .detail-switch::after { background: #000; }
+.desktop .detail-btn[data-kind="fullscreen"] { box-shadow: 0 10px 30px rgba(255, 255, 255, .08); }
+.desktop .detail-btn[data-kind="fullscreen"]:hover { transform: translateY(-1px); }
+
+/* -------------------------------------------------------------------------
+   Búsqueda
+   ------------------------------------------------------------------------- */
+.desktop #screen-search { background: var(--t-bg); }
+.desktop .search-keyboard { background: #0c0c0c; border-right: 1px solid var(--t-line); }
+.desktop .kb-edit { border: 1px solid var(--t-line-strong); border-radius: 14px; background: #141414; color: #fff; }
+.desktop .kb-edit:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .15); }
+.desktop .kb-key,
+.desktop .kb-action,
+.desktop .kb-feedback { border-radius: 12px; transition: background .12s ease; }
+.desktop .kb-key:hover,
+.desktop .kb-action:hover,
+.desktop .kb-feedback:hover { background-color: rgba(255, 255, 255, .08); }
+.desktop .search-hot-total span { color: #fff; }
+.desktop .search-hot-refresh { border-radius: 999px; }
+
+/* -------------------------------------------------------------------------
+   Ajustes
+   ------------------------------------------------------------------------- */
+.desktop #screen-settings { background: var(--t-bg); }
+.desktop .settings-menu { padding-top: 96px; background: #0c0c0c; border-right: 1px solid var(--t-line); }
+.desktop .settings-item { margin: 0 22px 6px; padding-left: 36px; border-radius: 16px; color: #9a9a9a; transition: background .15s ease, color .15s ease; cursor: pointer; }
+.desktop .settings-item:hover { background: rgba(255, 255, 255, .06); color: #fff; }
+.desktop .settings-item.is-selected { color: #fff; background: rgba(255, 255, 255, .06); }
+.desktop .settings-item.is-focused { color: #fff; background: var(--t-focus-bg); box-shadow: var(--t-ring-inset); }
+.desktop .sp-about-port,
+.desktop .sp-about-mod { color: var(--t-text-2); }
+
+/* -------------------------------------------------------------------------
+   Foco unificado para todos los controles heredados de la versión de TV:
+   cristal blanco + anillo blanco (el texto blanco sigue siendo legible).
+   ------------------------------------------------------------------------- */
+.desktop .detail-row .val.is-focused,
+.desktop .chip.is-focused,
+.desktop .kb-action.go.is-focused,
+.desktop .kb-action.is-focused,
+.desktop .kb-key.is-focused,
+.desktop .kb-feedback.is-focused,
+.desktop .pb-opt.is-focused,
+.desktop .sp-clear-row .btn.is-focused,
+.desktop .cr-btn.is-focused,
+.desktop .pl-box.is-focused,
+.desktop .pl-ok.is-focused,
+.desktop .fb-help.is-focused,
+.desktop .account-history-btn.is-focused,
+.desktop .pi-act.is-focused,
+.desktop .psv-group-btn.is-focused,
+.desktop .psv-season-btn.is-focused,
+.desktop .dps-btn.is-focused,
+.desktop .dps-exit-btn.is-focused,
+.desktop .pc-btn-addons.is-focused,
+.desktop .pcat-tile.is-focused,
+.desktop .pc-row-addon-promo.is-focused,
+.desktop .da-preset-btn.is-focused,
+.desktop .da-btn.is-focused,
+.desktop .da-exit-btn.is-focused,
+.desktop .da-del-btn.is-focused,
+.desktop .dg-btn.is-focused {
+  color: #fff !important;
+  background: var(--t-focus-bg) !important;
+  background-image: none !important;
+  box-shadow: var(--t-ring-inset) !important;
+  outline: none;
+}
+.desktop .sp-switch.is-focused,
+.desktop .cr-head .sw.is-focused { box-shadow: var(--t-ring-inset); }
+.desktop .da-input.is-focused { border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .15); }
+/* Seleccionado: blanco. */
+.desktop .pcat-tile.is-selected,
+.desktop .pc-cat-pill.is-selected { background: #fff; color: #000; }
+.desktop .psv-group-btn.is-selected,
+.desktop .psv-season-btn.is-selected { background: rgba(255, 255, 255, .12); border-bottom-color: #fff; }
+.desktop .psv-range-btn.is-selected,
+.desktop .psv-range-btn.is-selected.is-focused { color: #fff; }
+.desktop .pe-ep .pe-badge { background: #fff; color: #000; }
+.desktop .history-tab.is-selected { color: #000; border-bottom-color: transparent; }
+.desktop .history-total span { color: #fff; }
+.desktop .profile-history-row { border-left-color: rgba(255, 255, 255, .6); }
+.desktop .pc-row-addon-promo { background: rgba(255, 255, 255, .06); border-bottom-color: var(--t-line); }
+.desktop .dg-report { border-left-color: rgba(255, 255, 255, .5); }
+
+/* Diálogos */
+.desktop .dialog-playsettings-box,
+.desktop .dialog-addons-box {
+  border: 1px solid var(--t-line);
+  border-radius: 24px;
+  background: rgba(16, 16, 16, .96);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .7);
+}
+.desktop .dps-btn,
+.desktop .da-btn,
+.desktop .da-preset-btn,
+.desktop .dps-exit-btn,
+.desktop .da-exit-btn { border-radius: 12px; }
+.desktop .dps-btn.is-selected { background: #fff; color: #000; }
+.desktop .dps-switch { background: rgba(255, 255, 255, .18); }
+.desktop .dps-switch.is-on { background: #fff; }
+.desktop .dps-switch.is-on .dps-switch-dot { background: #000; }
+.desktop .dps-switch.is-on .dps-switch-text { color: #000; left: 16px; right: auto; }
+
+/* -------------------------------------------------------------------------
+   Reproductor
+   ------------------------------------------------------------------------- */
+.desktop .player-vod-infobar {
+  background: linear-gradient(to top, rgba(0, 0, 0, .92) 0%, rgba(0, 0, 0, .6) 45%, rgba(0, 0, 0, 0) 100%);
+}
+.desktop .vod-infobar-poster { border-radius: 12px; }
+.desktop .vod-seekbar { border-radius: 999px; }
+.desktop .vod-seek-progress { background: #fff; border-radius: 999px; }
+.desktop .vod-seek-buffered { background: rgba(255, 255, 255, .32); border-radius: 999px; }
+.desktop .vod-seek-thumb { background: #fff; box-shadow: 0 0 0 6px rgba(255, 255, 255, .18); }
+.desktop .vod-time-current { color: #fff; font-variant-numeric: tabular-nums; }
+.desktop .vod-time-total { color: var(--t-text-2); font-variant-numeric: tabular-nums; }
+.desktop .vod-infobar-tips .vod-tip {
+  min-height: 52px;
+  padding: 0 22px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .1);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font: 600 21px/1 var(--font, "Segoe UI", sans-serif);
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.desktop .vod-infobar-tips .vod-tip:hover { background: rgba(255, 255, 255, .2); border-color: rgba(255, 255, 255, .4); }
+.desktop .vod-infobar-tips .vod-tip:active { transform: scale(.97); }
+.desktop .vod-infobar-tips .vod-tip.is-focused { background: rgba(255, 255, 255, .22); box-shadow: var(--t-ring-inset); }
+.desktop .vod-infobar-tips #vod-toggle { background: #fff; color: #000; border-color: transparent; min-width: 150px; justify-content: center; }
+.desktop .vod-infobar-tips #vod-toggle:hover { background: #e9e9e9; }
+.desktop .vod-infobar-tips #vod-toggle.is-focused { box-shadow: 0 0 0 2px #000, 0 0 0 4px #fff; }
+.desktop .vod-duration-note { color: var(--t-text-2); }
+.desktop .player-infobar {
+  background: linear-gradient(to top, rgba(0, 0, 0, .94), rgba(0, 0, 0, .7));
+  border-top: 1px solid var(--t-line);
+}
+.desktop .pi-now { color: #fff; }
+.desktop .pi-act { border-radius: 999px !important; background: rgba(255, 255, 255, .08); }
+.desktop .pi-act:hover { background: rgba(255, 255, 255, .16); }
+.desktop .player-channels {
+  background: rgba(8, 8, 8, .82);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-right: 1px solid var(--t-line);
+}
+.desktop .player-categories { background: rgba(0, 0, 0, .9); }
+.desktop .player-status { font-family: var(--font, "Segoe UI", sans-serif); }
+
+/* -------------------------------------------------------------------------
+   Barras de desplazamiento finas y neutras en toda la app
+   ------------------------------------------------------------------------- */
+.desktop .scrollable,
+.desktop .live-list,
+.desktop .pc-list,
+.desktop .home-tabs,
+.desktop .search-results {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .22) transparent;
+}
+.desktop .scrollable::-webkit-scrollbar { width: 8px; height: 8px; }
+.desktop .scrollable::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .22); border: 0; border-radius: 999px; }
+.desktop .scrollable::-webkit-scrollbar-track { background: transparent; }
+.desktop .desktop-more,
+.desktop .desktop-search-page { border-color: var(--t-line-strong); background: rgba(255, 255, 255, .06); border-radius: 999px; }
+
+/* Pósteres sin imagen: fondo neutro con el isotipo tenue, sin estirarlo. */
+.desktop .poster {
+  background: #151515 url(../images/placeholder-mark.svg) center center / 34% auto no-repeat;
+}
+.desktop .live-main .live-logo { opacity: .35; }

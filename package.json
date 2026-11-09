@@ -1,0 +1,67 @@
+{
+  "name": "opentv",
+  "productName": "OpenTV",
+  "version": "1.0.0",
+  "description": "OpenTV Desktop — Reproductor de TV en vivo, películas y series para Windows",
+  "author": "TECHPOINT",
+  "license": "MIT",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.cjs -i ui/desktop/tw/input.css -o ui/desktop/tailwind.css --minify",
+    "watch:css": "tailwindcss -c tailwind.config.cjs -i ui/desktop/tw/input.css -o ui/desktop/tailwind.css --watch",
+    "start": "electron .",
+    "dev": "electron .",
+    "dist": "electron-builder --win nsis portable",
+    "dist:portable": "electron-builder --win portable",
+    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1",
+    "predist": "npm run build:css",
+    "predist:portable": "npm run build:css"
+  },
+  "dependencies": {
+    "hls.js": "^1.5.20"
+  },
+  "devDependencies": {
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12",
+    "tailwindcss": "^3.4.17"
+  },
+  "build": {
+    "appId": "com.techpoint.opentv",
+    "productName": "OpenTV",
+    "copyright": "Copyright © 2026 TECHPOINT",
+    "electronDist": "node_modules/electron/dist",
+    "electronVersion": "44.9.0",
+    "asar": false,
+    "files": [
+      "desktop/**/*",
+      "service/**/*",
+      "ui/**/*",
+      "bin/**/*",
+      "licenses/**/*",
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "!ui/desktop/tw/**",
+      "!ui/assets/*.bak"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "ui/images/icon-large.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OpenTV",
+      "artifactName": "OpenTV Setup ${version}.exe"
+    },
+    "portable": {
+      "artifactName": "OpenTV Portable ${version}.exe"
+    }
+  }
+}
