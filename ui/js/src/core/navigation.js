@@ -17,6 +17,7 @@ function showScreen(name) {
       /* Back from the full-screen TV player: keep the same video playing
          in the home preview instead of reloading the channel. */
       if (liveHandoff && liveHandoff.type === 'preview') { returnPreviewHome(); }
+      if (TABS[state.tab] && TABS[state.tab].page > 0) { ensurePageBuilt(TABS[state.tab].page); }
       else if (previousScreen === 'player' && !borrowPlayerIntoHome() && state.playerMode === 'live' &&
                !(liveHandoff && liveHandoff.type === 'player') && !keepFloatingVideo()) {
         /* The channel had not started yet (or was buffering), so it could not
@@ -263,6 +264,12 @@ function handleKey(e) {
   if (window.XUPER_DESKTOP && !e.ctrlKey && !e.altKey && !e.metaKey && state.screen !== 'search') {
     if (k === 70 || key === 'f' || key === 'F') {
       if (window.desktop && window.desktop.fullscreen) { window.desktop.fullscreen(); }
+      if (e.preventDefault) { e.preventDefault(); }
+      return;
+    }
+    if ((k === 77 || key === 'm' || key === 'M') && state.screen === 'home' && state.tab === 0 && liveMuteBtn) {
+      liveMuteBtn._activate();
+      showLiveVolumeToast();
       if (e.preventDefault) { e.preventDefault(); }
       return;
     }

@@ -6,10 +6,29 @@ var pageDefs = [buildLivePage, buildFeaturedPage, buildMoviesPage, buildSeriesPa
                 buildKidsPage, buildAnimePage, buildNovelsPage, buildExplorePage];
 var pagesBuilt = {};
 
+var pageBuiltAt = {};
+var catalogStaleAt = 0;
+
 function ensurePageBuilt(idx) {
+  if (pagesBuilt[idx] && (pageBuiltAt[idx] || 0) < catalogStaleAt && idx > 0) {
+    /* Built with an older catalog (or with covers that turned out broken). */
+    clear(pages[idx]);
+    pages[idx].scrollTop = 0;
+    pagesBuilt[idx] = false;
+  }
   if (pagesBuilt[idx] || !pages[idx] || !pageDefs[idx]) { return; }
   pagesBuilt[idx] = true;
+  pageBuiltAt[idx] = Date.now();
   pageDefs[idx](pages[idx]);
+}
+
+/* Desktop: a new catalog (or a broken cover) refreshes the VOD pages the
+   next time they are opened. The TV page and the page on screen are left
+   alone, so nothing reloads in front of the viewer. */
+function markCatalogPagesStale() {
+  catalogStaleAt = Date.now();
+  var current = TABS[state.tab] ? TABS[state.tab].page : 0;
+  if (state.screen !== 'home' && current > 0) { ensurePageBuilt(current); }
 }
 
 function buildHome() {
@@ -215,7 +234,9 @@ function selectTab(index, focusContent) {
     pg.classList.add('is-entering', def.page > prevPage ? 'from-right' : 'from-left');
     setTimeout(function () {
       pg.classList.remove('is-entering', 'from-left', 'from-right');
-    }, 320);
+      /* Posters that were off screen during the slide load now. */
+      schedulePosterMemoryPass();
+    }, window.XUPER_DESKTOP ? 400 : 320);
   }
   if (focusContent) {
     if (def.page === 0) {

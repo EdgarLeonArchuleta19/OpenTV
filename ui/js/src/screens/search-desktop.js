@@ -125,8 +125,13 @@ function makeDesktopSearchCard(item) {
     img.loading = 'lazy';
     img.decoding = 'async';
     img.src = item.poster;
-    img.onerror = function () { this.style.visibility = 'hidden'; };
+    img.onerror = function () {
+      if (window.XUPER_DESKTOP) { markCoverBroken(item); applyGenericCover(art, item); }
+      else { this.style.visibility = 'hidden'; }
+    };
     art.appendChild(img);
+  } else if (window.XUPER_DESKTOP) {
+    applyGenericCover(art, item);
   }
   card.appendChild(art);
   var info = el('div', 'sr-info');

@@ -34,6 +34,7 @@ function makeBento(item, x, y, w, h, opts) {
   if (opts.badge) { t.appendChild(el('div', 'bento-badge', opts.badge)); }
   t._item = item;
   if (item) { t._activate = function () { openDetail(item); }; }
+  if (window.XUPER_DESKTOP && item && !art) { applyGenericCover(t, item); }
   schedulePosterMemoryPass();
   return t;
 }
@@ -155,7 +156,7 @@ function allVodFor(category) {
       }
     }
   }
-  return out.length ? out : VOD;
+  return withCovers(out.length ? out : VOD);
 }
 
 function appendCatalogGrid(page, items, startY, titleText) {

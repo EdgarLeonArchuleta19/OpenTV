@@ -31,6 +31,11 @@ function boot() {
   });
   if (window.XUPER_DESKTOP) {
     document.addEventListener('scroll', schedulePosterMemoryPass, { capture: true, passive: true });
+    /* A page slides in when its tab opens: posters that were still off
+       screen at that moment are loaded once the slide ends. */
+    document.addEventListener('animationend', function (event) {
+      if (event.target && event.target.classList && event.target.classList.contains('home-page')) { schedulePosterMemoryPass(); }
+    }, true);
     window.addEventListener('resize', schedulePosterMemoryPass);
   }
   if (window.XUPER_DESKTOP) document.addEventListener('focusin', function (e) {

@@ -12,15 +12,19 @@ var liveDock = null, liveDockCats = null, liveMuteBtn = null, liveVolLabel = nul
 var liveAudio = { muted: false, volume: 0.8 };
 
 var LIVE_DOCK_ICONS = {
-  prev: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM9.5 12 18 6v12z"/></svg>',
-  next: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg>',
-  sound: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
-  mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" fill="currentColor"/><path d="m16 9.5 5 5M21 9.5l-5 5"/></svg>',
+  prev: UI_ICONS.prev,
+  next: UI_ICONS.next,
+  sound: uiSvg('<path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
+  soundLow: uiSvg('<path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/>'),
+  mute: uiSvg('<path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/>'),
   minus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12"/></svg>',
   plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12M12 6v12"/></svg>',
-  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
-  full: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>'
+  star: UI_ICONS.star,
+  full: UI_ICONS.fullscreen
 };
+var liveVolRange = null;
+var liveVolToast = null;
+var liveVolToastTimer = null;
 
 function loadLiveAudio() {
   var saved = safeLocalRead('xuper_live_audio_v1', null);
@@ -41,19 +45,42 @@ function applyLiveAudio(save) {
        preview's mute button. */
     if (liveHandoff && liveHandoff.type === 'player') { playerVideo.muted = liveAudio.muted; }
   }
+  var off = liveAudio.muted || liveAudio.volume === 0;
+  var pct = Math.round(liveAudio.volume * 100);
   if (liveMuteBtn) {
-    var off = liveAudio.muted || liveAudio.volume === 0;
-    liveMuteBtn.innerHTML = off ? LIVE_DOCK_ICONS.mute : LIVE_DOCK_ICONS.sound;
-    liveMuteBtn.title = off ? 'Activar sonido' : 'Silenciar';
+    liveMuteBtn.innerHTML = off ? LIVE_DOCK_ICONS.mute : (liveAudio.volume < 0.5 ? LIVE_DOCK_ICONS.soundLow : LIVE_DOCK_ICONS.sound);
+    liveMuteBtn.setAttribute('data-tip', off ? 'Activar sonido (M)' : 'Silenciar (M)');
     liveMuteBtn.classList.toggle('is-off', off);
   }
-  if (liveVolLabel) { liveVolLabel.textContent = Math.round(liveAudio.volume * 100) + '%'; }
+  if (liveVolLabel) { liveVolLabel.textContent = off ? 'Sin sonido' : pct + '%'; }
+  if (liveVolRange) {
+    var shown = off ? 0 : pct;
+    if (String(liveVolRange.value) !== String(shown)) { liveVolRange.value = shown; }
+    liveVolRange.style.setProperty('--vol', shown + '%');
+  }
   if (save) { safeLocalWrite('xuper_live_audio_v1', liveAudio); }
 }
 function changeLiveVolume(delta) {
-  liveAudio.volume = Math.max(0, Math.min(1, Math.round((liveAudio.volume + delta) * 10) / 10));
+  liveAudio.volume = Math.max(0, Math.min(1, Math.round((liveAudio.volume + delta) * 20) / 20));
   if (delta > 0) { liveAudio.muted = false; }
   applyLiveAudio(true);
+  showLiveVolumeToast();
+}
+
+/* Small "volume" pill over the preview while it changes. */
+function showLiveVolumeToast() {
+  if (!window.XUPER_DESKTOP || !liveMain) { return; }
+  if (!liveVolToast || !liveVolToast.isConnected) {
+    liveVolToast = el('div', 'live-vol-toast');
+    liveMain.appendChild(liveVolToast);
+  }
+  var off = liveAudio.muted || liveAudio.volume === 0;
+  var pct = off ? 0 : Math.round(liveAudio.volume * 100);
+  liveVolToast.innerHTML = (off ? LIVE_DOCK_ICONS.mute : LIVE_DOCK_ICONS.sound) +
+    '<i><b style="width:' + pct + '%"></b></i><span>' + (off ? 'Sin sonido' : pct + '%') + '</span>';
+  liveVolToast.classList.add('is-visible');
+  if (liveVolToastTimer) { clearTimeout(liveVolToastTimer); }
+  liveVolToastTimer = setTimeout(function () { liveVolToast.classList.remove('is-visible'); }, 1100);
 }
 
 function liveFavKey(ch) { return 'live:' + (ch.channelCode || ch.id || ch.name); }
@@ -91,10 +118,29 @@ function buildLiveDock(page) {
   });
   liveMuteBtn.innerHTML = '';
   bar.appendChild(liveMuteBtn);
-  bar.appendChild(dockButton('is-icon', LIVE_DOCK_ICONS.minus, '', 'Bajar volumen', function () { changeLiveVolume(-0.1); }));
+  /* Volume: a slider (drag, click or mouse wheel) and its value. */
+  var volWrap = el('div', 'live-dock-volume');
+  liveVolRange = document.createElement('input');
+  liveVolRange.type = 'range';
+  liveVolRange.min = '0';
+  liveVolRange.max = '100';
+  liveVolRange.step = '1';
+  liveVolRange.className = 'live-vol-range';
+  liveVolRange.setAttribute('aria-label', 'Volumen');
+  liveVolRange.addEventListener('input', function () {
+    liveAudio.volume = Math.max(0, Math.min(1, liveVolRange.value / 100));
+    liveAudio.muted = liveAudio.volume === 0;
+    applyLiveAudio(false);
+  });
+  liveVolRange.addEventListener('change', function () { applyLiveAudio(true); });
+  liveVolRange.addEventListener('wheel', function (event) {
+    event.preventDefault();
+    changeLiveVolume(event.deltaY < 0 ? 0.05 : -0.05);
+  }, { passive: false });
+  volWrap.appendChild(liveVolRange);
   liveVolLabel = el('span', 'live-dock-vol', '80%');
-  bar.appendChild(liveVolLabel);
-  bar.appendChild(dockButton('is-icon', LIVE_DOCK_ICONS.plus, '', 'Subir volumen', function () { changeLiveVolume(0.1); }));
+  volWrap.appendChild(liveVolLabel);
+  bar.appendChild(volWrap);
   bar.appendChild(el('i', 'live-dock-sep'));
   liveFavBtn = dockButton('is-fav', LIVE_DOCK_ICONS.star, 'Favorito', 'Guardar canal en favoritos', function () {
     var ch = CHANNELS[state.channel];
@@ -110,6 +156,15 @@ function buildLiveDock(page) {
   liveDockCats.setAttribute('data-wheel-x', '');
   liveDock.appendChild(liveDockCats);
   page.appendChild(liveDock);
+  /* Mouse wheel over the preview changes the volume. */
+  if (liveMain && !liveMain._wheelVolume) {
+    liveMain._wheelVolume = true;
+    liveMain.addEventListener('wheel', function (event) {
+      if (event.ctrlKey) { return; }
+      event.preventDefault();
+      changeLiveVolume(event.deltaY < 0 ? 0.05 : -0.05);
+    }, { passive: false });
+  }
   renderLiveDockCats();
   applyLiveAudio(false);
   syncLiveFavButton();

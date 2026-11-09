@@ -124,7 +124,7 @@ async function start() {
   windowRef = new BrowserWindow({
     title: 'OpenTV', width: 1360, height: 840, minWidth: 960, minHeight: 600,
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
-    backgroundColor: '#000000', show: false, autoHideMenuBar: true,
+    backgroundColor: '#0e0e11', show: false, autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, sandbox: true, nodeIntegration: false,

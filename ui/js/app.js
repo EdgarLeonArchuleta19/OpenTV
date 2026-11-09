@@ -456,6 +456,7 @@
         if (cats.indexOf(category) !== -1) { out.push(VOD[i]); }
       }
     }
+    out = withCovers(out);
     if (!out.length) { out = VOD.slice(fallbackStart, fallbackStart + count); }
     if (!out.length) { out = VOD.slice(0, count); }
     /* Fill short sections with other catalog entries so the sample never shows
@@ -478,6 +479,11 @@
   }
 
   function refreshVodViews() {
+    if (homeBuilt && window.XUPER_DESKTOP && pages.length) {
+      markCatalogPagesStale();
+      if (searchKeyboard) { buildSearch(); if (state.searchQuery) { runSearch(); } }
+      return;
+    }
     if (homeBuilt) {
       var rail = $('home-tabs');
       var railWasExpanded = !!(rail && rail.classList.contains('is-expanded') && !rail.classList.contains('is-collapsed'));
@@ -1386,6 +1392,7 @@
         /* Back from the full-screen TV player: keep the same video playing
            in the home preview instead of reloading the channel. */
         if (liveHandoff && liveHandoff.type === 'preview') { returnPreviewHome(); }
+        if (TABS[state.tab] && TABS[state.tab].page > 0) { ensurePageBuilt(TABS[state.tab].page); }
         else if (previousScreen === 'player' && !borrowPlayerIntoHome() && state.playerMode === 'live' &&
                  !(liveHandoff && liveHandoff.type === 'player') && !keepFloatingVideo()) {
           /* The channel had not started yet (or was buffering), so it could not
@@ -1635,6 +1642,12 @@
         if (e.preventDefault) { e.preventDefault(); }
         return;
       }
+      if ((k === 77 || key === 'm' || key === 'M') && state.screen === 'home' && state.tab === 0 && liveMuteBtn) {
+        liveMuteBtn._activate();
+        showLiveVolumeToast();
+        if (e.preventDefault) { e.preventDefault(); }
+        return;
+      }
       if ((k === 77 || key === 'm' || key === 'M') && playerVideo) {
         playerVideo.muted = !playerVideo.muted;
         setPlayerStatus(playerVideo.muted ? 'Audio silenciado (M)' : '');
@@ -1877,10 +1890,29 @@
                   buildKidsPage, buildAnimePage, buildNovelsPage, buildExplorePage];
   var pagesBuilt = {};
 
+  var pageBuiltAt = {};
+  var catalogStaleAt = 0;
+
   function ensurePageBuilt(idx) {
+    if (pagesBuilt[idx] && (pageBuiltAt[idx] || 0) < catalogStaleAt && idx > 0) {
+      /* Built with an older catalog (or with covers that turned out broken). */
+      clear(pages[idx]);
+      pages[idx].scrollTop = 0;
+      pagesBuilt[idx] = false;
+    }
     if (pagesBuilt[idx] || !pages[idx] || !pageDefs[idx]) { return; }
     pagesBuilt[idx] = true;
+    pageBuiltAt[idx] = Date.now();
     pageDefs[idx](pages[idx]);
+  }
+
+  /* Desktop: a new catalog (or a broken cover) refreshes the VOD pages the
+     next time they are opened. The TV page and the page on screen are left
+     alone, so nothing reloads in front of the viewer. */
+  function markCatalogPagesStale() {
+    catalogStaleAt = Date.now();
+    var current = TABS[state.tab] ? TABS[state.tab].page : 0;
+    if (state.screen !== 'home' && current > 0) { ensurePageBuilt(current); }
   }
 
   function buildHome() {
@@ -2086,7 +2118,9 @@
       pg.classList.add('is-entering', def.page > prevPage ? 'from-right' : 'from-left');
       setTimeout(function () {
         pg.classList.remove('is-entering', 'from-left', 'from-right');
-      }, 320);
+        /* Posters that were off screen during the slide load now. */
+        schedulePosterMemoryPass();
+      }, window.XUPER_DESKTOP ? 400 : 320);
     }
     if (focusContent) {
       if (def.page === 0) {
@@ -2171,6 +2205,59 @@
 
   /* A poster that fails to download (slow CDN, a dropped connection) is
      retried twice on desktop before the placeholder is shown. */
+  /* Covers that fail to load are remembered for a few days on desktop: those
+     titles are left out of the home sections, and wherever they still appear
+     (search, related titles) they get an OpenTV generic cover. */
+  var BROKEN_COVERS_KEY = 'opentv_broken_covers_v1';
+  var BROKEN_COVER_DAYS = 3;
+  var brokenCovers = null;
+  function loadBrokenCovers() {
+    if (brokenCovers) { return brokenCovers; }
+    brokenCovers = {};
+    try {
+      var saved = JSON.parse(localStorage.getItem(BROKEN_COVERS_KEY) || '{}') || {};
+      var limit = Date.now() - BROKEN_COVER_DAYS * 86400000;
+      for (var id in saved) {
+        if (Object.prototype.hasOwnProperty.call(saved, id) && saved[id] > limit) { brokenCovers[id] = saved[id]; }
+      }
+    } catch (eLoad) { /* storage off */ }
+    return brokenCovers;
+  }
+  function markCoverBroken(item) {
+    if (!window.XUPER_DESKTOP || !item || item.id === undefined) { return; }
+    var all = loadBrokenCovers();
+    if (all[item.id]) { return; }
+    all[item.id] = Date.now();
+    try { localStorage.setItem(BROKEN_COVERS_KEY, JSON.stringify(all)); } catch (eSave) { /* storage full */ }
+    catalogStaleAt = Date.now();
+  }
+  function hasUsableCover(item) {
+    if (!item || !(item.poster || item.landscape)) { return false; }
+    return !loadBrokenCovers()[item.id];
+  }
+  /* Home lists on desktop skip titles without a working cover. */
+  function withCovers(list) {
+    if (!window.XUPER_DESKTOP || !list) { return list; }
+    var out = [];
+    for (var i = 0; i < list.length; i++) { if (hasUsableCover(list[i])) { out.push(list[i]); } }
+    return out.length ? out : list;
+  }
+  /* OpenTV generic cover: dark card, logo and the title. */
+  function applyGenericCover(tile, item) {
+    if (!window.XUPER_DESKTOP || !tile || tile._generic) { return; }
+    tile._generic = true;
+    var imgs = tile.querySelectorAll('img');
+    for (var i = 0; i < imgs.length; i++) { imgs[i].style.display = 'none'; }
+    tile.classList.add('is-generic', 'is-loaded');
+    var cover = el('div', 'generic-cover');
+    var mark = el('img', 'gc-mark');
+    mark.src = 'images/logo-mark.svg';
+    mark.alt = '';
+    cover.appendChild(mark);
+    cover.appendChild(el('div', 'gc-title', (item && item.title) || 'OpenTV'));
+    tile.insertBefore(cover, tile.firstChild);
+  }
+
   /* Desktop: images fade in once loaded; the tile shows a soft shimmer until then. */
   function posterImageLoaded() {
     this.classList.add('is-loaded');
@@ -2190,8 +2277,14 @@
       }, 1500 * (tries + 1));
       return;
     }
+    var tile = img.parentNode;
+    if (window.XUPER_DESKTOP && tile && tile.classList) {
+      markCoverBroken(tile._item);
+      applyGenericCover(tile, tile._item);
+      return;
+    }
     img.style.display = 'none';
-    if (img.parentNode && img.parentNode.classList) { img.parentNode.classList.add('is-loaded'); }
+    if (tile && tile.classList) { tile.classList.add('is-loaded'); }
   }
 
   function makePoster(item, x, y, w, h, opts) {
@@ -2214,6 +2307,7 @@
       p.appendChild(el('div', 'p-title', item.title));
     }
     p._item = item;
+    if (window.XUPER_DESKTOP && !item.poster) { applyGenericCover(p, item); }
     p._activate = function () { openDetail(item); };
     schedulePosterMemoryPass();
     return p;
@@ -2324,15 +2418,19 @@
   var liveAudio = { muted: false, volume: 0.8 };
 
   var LIVE_DOCK_ICONS = {
-    prev: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM9.5 12 18 6v12z"/></svg>',
-    next: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg>',
-    sound: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
-    mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" fill="currentColor"/><path d="m16 9.5 5 5M21 9.5l-5 5"/></svg>',
+    prev: UI_ICONS.prev,
+    next: UI_ICONS.next,
+    sound: uiSvg('<path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
+    soundLow: uiSvg('<path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/>'),
+    mute: uiSvg('<path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/>'),
     minus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12M12 6v12"/></svg>',
-    star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
-    full: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>'
+    star: UI_ICONS.star,
+    full: UI_ICONS.fullscreen
   };
+  var liveVolRange = null;
+  var liveVolToast = null;
+  var liveVolToastTimer = null;
 
   function loadLiveAudio() {
     var saved = safeLocalRead('xuper_live_audio_v1', null);
@@ -2353,19 +2451,42 @@
          preview's mute button. */
       if (liveHandoff && liveHandoff.type === 'player') { playerVideo.muted = liveAudio.muted; }
     }
+    var off = liveAudio.muted || liveAudio.volume === 0;
+    var pct = Math.round(liveAudio.volume * 100);
     if (liveMuteBtn) {
-      var off = liveAudio.muted || liveAudio.volume === 0;
-      liveMuteBtn.innerHTML = off ? LIVE_DOCK_ICONS.mute : LIVE_DOCK_ICONS.sound;
-      liveMuteBtn.title = off ? 'Activar sonido' : 'Silenciar';
+      liveMuteBtn.innerHTML = off ? LIVE_DOCK_ICONS.mute : (liveAudio.volume < 0.5 ? LIVE_DOCK_ICONS.soundLow : LIVE_DOCK_ICONS.sound);
+      liveMuteBtn.setAttribute('data-tip', off ? 'Activar sonido (M)' : 'Silenciar (M)');
       liveMuteBtn.classList.toggle('is-off', off);
     }
-    if (liveVolLabel) { liveVolLabel.textContent = Math.round(liveAudio.volume * 100) + '%'; }
+    if (liveVolLabel) { liveVolLabel.textContent = off ? 'Sin sonido' : pct + '%'; }
+    if (liveVolRange) {
+      var shown = off ? 0 : pct;
+      if (String(liveVolRange.value) !== String(shown)) { liveVolRange.value = shown; }
+      liveVolRange.style.setProperty('--vol', shown + '%');
+    }
     if (save) { safeLocalWrite('xuper_live_audio_v1', liveAudio); }
   }
   function changeLiveVolume(delta) {
-    liveAudio.volume = Math.max(0, Math.min(1, Math.round((liveAudio.volume + delta) * 10) / 10));
+    liveAudio.volume = Math.max(0, Math.min(1, Math.round((liveAudio.volume + delta) * 20) / 20));
     if (delta > 0) { liveAudio.muted = false; }
     applyLiveAudio(true);
+    showLiveVolumeToast();
+  }
+
+  /* Small "volume" pill over the preview while it changes. */
+  function showLiveVolumeToast() {
+    if (!window.XUPER_DESKTOP || !liveMain) { return; }
+    if (!liveVolToast || !liveVolToast.isConnected) {
+      liveVolToast = el('div', 'live-vol-toast');
+      liveMain.appendChild(liveVolToast);
+    }
+    var off = liveAudio.muted || liveAudio.volume === 0;
+    var pct = off ? 0 : Math.round(liveAudio.volume * 100);
+    liveVolToast.innerHTML = (off ? LIVE_DOCK_ICONS.mute : LIVE_DOCK_ICONS.sound) +
+      '<i><b style="width:' + pct + '%"></b></i><span>' + (off ? 'Sin sonido' : pct + '%') + '</span>';
+    liveVolToast.classList.add('is-visible');
+    if (liveVolToastTimer) { clearTimeout(liveVolToastTimer); }
+    liveVolToastTimer = setTimeout(function () { liveVolToast.classList.remove('is-visible'); }, 1100);
   }
 
   function liveFavKey(ch) { return 'live:' + (ch.channelCode || ch.id || ch.name); }
@@ -2403,10 +2524,29 @@
     });
     liveMuteBtn.innerHTML = '';
     bar.appendChild(liveMuteBtn);
-    bar.appendChild(dockButton('is-icon', LIVE_DOCK_ICONS.minus, '', 'Bajar volumen', function () { changeLiveVolume(-0.1); }));
+    /* Volume: a slider (drag, click or mouse wheel) and its value. */
+    var volWrap = el('div', 'live-dock-volume');
+    liveVolRange = document.createElement('input');
+    liveVolRange.type = 'range';
+    liveVolRange.min = '0';
+    liveVolRange.max = '100';
+    liveVolRange.step = '1';
+    liveVolRange.className = 'live-vol-range';
+    liveVolRange.setAttribute('aria-label', 'Volumen');
+    liveVolRange.addEventListener('input', function () {
+      liveAudio.volume = Math.max(0, Math.min(1, liveVolRange.value / 100));
+      liveAudio.muted = liveAudio.volume === 0;
+      applyLiveAudio(false);
+    });
+    liveVolRange.addEventListener('change', function () { applyLiveAudio(true); });
+    liveVolRange.addEventListener('wheel', function (event) {
+      event.preventDefault();
+      changeLiveVolume(event.deltaY < 0 ? 0.05 : -0.05);
+    }, { passive: false });
+    volWrap.appendChild(liveVolRange);
     liveVolLabel = el('span', 'live-dock-vol', '80%');
-    bar.appendChild(liveVolLabel);
-    bar.appendChild(dockButton('is-icon', LIVE_DOCK_ICONS.plus, '', 'Subir volumen', function () { changeLiveVolume(0.1); }));
+    volWrap.appendChild(liveVolLabel);
+    bar.appendChild(volWrap);
     bar.appendChild(el('i', 'live-dock-sep'));
     liveFavBtn = dockButton('is-fav', LIVE_DOCK_ICONS.star, 'Favorito', 'Guardar canal en favoritos', function () {
       var ch = CHANNELS[state.channel];
@@ -2422,6 +2562,15 @@
     liveDockCats.setAttribute('data-wheel-x', '');
     liveDock.appendChild(liveDockCats);
     page.appendChild(liveDock);
+    /* Mouse wheel over the preview changes the volume. */
+    if (liveMain && !liveMain._wheelVolume) {
+      liveMain._wheelVolume = true;
+      liveMain.addEventListener('wheel', function (event) {
+        if (event.ctrlKey) { return; }
+        event.preventDefault();
+        changeLiveVolume(event.deltaY < 0 ? 0.05 : -0.05);
+      }, { passive: false });
+    }
     renderLiveDockCats();
     applyLiveAudio(false);
     syncLiveFavButton();
@@ -2824,6 +2973,15 @@
             }
           }
           liveChannelsLoaded = true;
+          var firstPage = pageNum === 1;
+          if (window.XUPER_DESKTOP && !firstPage) {
+            /* Later pages: redraw the list in batches instead of on every page
+               (it flickered and kept restarting the preview for ~15 s). */
+            scheduleLiveRowsRender(payload && payload.hasMore);
+            if (!(payload && payload.hasMore)) { liveChannelsLoading = false; }
+            if (payload && payload.hasMore) { pageNum++; setTimeout(fetchNextPage, 25); }
+            return;
+          }
           renderLiveRows(false);
           renderPlayerChannels();
           if (state.channel >= CHANNELS.length) { state.channel = 0; }
@@ -2863,9 +3021,28 @@
     fetchNextPage();
   }
 
+  var liveRowsRenderTimer = null;
+  var liveRowsRenderedAt = 0;
+  function scheduleLiveRowsRender(more) {
+    /* While pages keep arriving, redraw only if the viewer is near the end of
+       the list and needs more rows; otherwise once, when all have arrived. */
+    var nearEnd = liveList && liveList.scrollHeight - liveList.scrollTop - liveList.clientHeight < 400;
+    if (more && !nearEnd) { return; }
+    var wait = more ? Math.max(0, 2500 - (Date.now() - liveRowsRenderedAt)) : 0;
+    if (liveRowsRenderTimer) { if (more) { return; } clearTimeout(liveRowsRenderTimer); }
+    liveRowsRenderTimer = setTimeout(function () {
+      liveRowsRenderTimer = null;
+      renderLiveRows(false);
+      renderPlayerChannels();
+    }, wait);
+  }
+
   function renderLiveRows(favOnly) {
     if (!liveList) { return; }
+    liveRowsRenderedAt = Date.now();
+    var keepScroll = window.XUPER_DESKTOP ? liveList.scrollTop : 0;
     clear(liveList);
+    if (keepScroll) { setTimeout(function () { liveList.scrollTop = keepScroll; }, 0); }
     liveRows = [];
     if (!CHANNELS.length) {
       liveList.appendChild(el('div', 'live-list-status',
@@ -2890,8 +3067,34 @@
       row.appendChild(name);
       if (i === state.channel) { row.classList.add('is-current'); }
       row._activate = (function (idx) {
-        return function () { setChannel(idx, true); openPlayer('live'); };
+        return function () {
+          if (window.XUPER_DESKTOP) {
+            /* Desktop: a click only switches the home preview. Enter on the
+               channel already playing (keyboard) opens it big. */
+            if (idx === state.channel) { if (focusRingVisible) { openPlayer('live'); } return; }
+            setChannel(idx, true);
+            return;
+          }
+          setChannel(idx, true); openPlayer('live');
+        };
       })(i);
+      if (window.XUPER_DESKTOP) {
+        (function (idx, r) {
+          r.addEventListener('dblclick', function () { setChannel(idx, true); openPlayer('live'); });
+          var open = el('button', 'row-open');
+          open.type = 'button';
+          open.innerHTML = UI_ICONS.fullscreen;
+          open.setAttribute('data-tip', 'Ver en pantalla grande');
+          open.setAttribute('aria-label', 'Ver ' + (CHANNELS[idx].name || 'canal') + ' en pantalla grande');
+          open.addEventListener('click', function (event) {
+            event.stopPropagation();
+            setChannel(idx, true);
+            openPlayer('live');
+          });
+          r.appendChild(open);
+          r.setAttribute('data-tip', 'Clic: ver aquí · Doble clic: pantalla grande');
+        })(i, row);
+      }
       row._onMove = (function (rowIdx) {
         return function (dir) {
           if (dir === 'left') {
@@ -3162,6 +3365,7 @@
     if (opts.badge) { t.appendChild(el('div', 'bento-badge', opts.badge)); }
     t._item = item;
     if (item) { t._activate = function () { openDetail(item); }; }
+    if (window.XUPER_DESKTOP && item && !art) { applyGenericCover(t, item); }
     schedulePosterMemoryPass();
     return t;
   }
@@ -3283,7 +3487,7 @@
         }
       }
     }
-    return out.length ? out : VOD;
+    return withCovers(out.length ? out : VOD);
   }
 
   function appendCatalogGrid(page, items, startY, titleText) {
@@ -4446,8 +4650,13 @@
       img.loading = 'lazy';
       img.decoding = 'async';
       img.src = item.poster;
-      img.onerror = function () { this.style.visibility = 'hidden'; };
+      img.onerror = function () {
+        if (window.XUPER_DESKTOP) { markCoverBroken(item); applyGenericCover(art, item); }
+        else { this.style.visibility = 'hidden'; }
+      };
       art.appendChild(img);
+    } else if (window.XUPER_DESKTOP) {
+      applyGenericCover(art, item);
     }
     card.appendChild(art);
     var info = el('div', 'sr-info');
@@ -10166,6 +10375,11 @@
     });
     if (window.XUPER_DESKTOP) {
       document.addEventListener('scroll', schedulePosterMemoryPass, { capture: true, passive: true });
+      /* A page slides in when its tab opens: posters that were still off
+         screen at that moment are loaded once the slide ends. */
+      document.addEventListener('animationend', function (event) {
+        if (event.target && event.target.classList && event.target.classList.contains('home-page')) { schedulePosterMemoryPass(); }
+      }, true);
       window.addEventListener('resize', schedulePosterMemoryPass);
     }
     if (window.XUPER_DESKTOP) document.addEventListener('focusin', function (e) {

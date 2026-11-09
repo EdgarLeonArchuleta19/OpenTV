@@ -66,6 +66,59 @@ function refreshPosterMemory() {
 
 /* A poster that fails to download (slow CDN, a dropped connection) is
    retried twice on desktop before the placeholder is shown. */
+/* Covers that fail to load are remembered for a few days on desktop: those
+   titles are left out of the home sections, and wherever they still appear
+   (search, related titles) they get an OpenTV generic cover. */
+var BROKEN_COVERS_KEY = 'opentv_broken_covers_v1';
+var BROKEN_COVER_DAYS = 3;
+var brokenCovers = null;
+function loadBrokenCovers() {
+  if (brokenCovers) { return brokenCovers; }
+  brokenCovers = {};
+  try {
+    var saved = JSON.parse(localStorage.getItem(BROKEN_COVERS_KEY) || '{}') || {};
+    var limit = Date.now() - BROKEN_COVER_DAYS * 86400000;
+    for (var id in saved) {
+      if (Object.prototype.hasOwnProperty.call(saved, id) && saved[id] > limit) { brokenCovers[id] = saved[id]; }
+    }
+  } catch (eLoad) { /* storage off */ }
+  return brokenCovers;
+}
+function markCoverBroken(item) {
+  if (!window.XUPER_DESKTOP || !item || item.id === undefined) { return; }
+  var all = loadBrokenCovers();
+  if (all[item.id]) { return; }
+  all[item.id] = Date.now();
+  try { localStorage.setItem(BROKEN_COVERS_KEY, JSON.stringify(all)); } catch (eSave) { /* storage full */ }
+  catalogStaleAt = Date.now();
+}
+function hasUsableCover(item) {
+  if (!item || !(item.poster || item.landscape)) { return false; }
+  return !loadBrokenCovers()[item.id];
+}
+/* Home lists on desktop skip titles without a working cover. */
+function withCovers(list) {
+  if (!window.XUPER_DESKTOP || !list) { return list; }
+  var out = [];
+  for (var i = 0; i < list.length; i++) { if (hasUsableCover(list[i])) { out.push(list[i]); } }
+  return out.length ? out : list;
+}
+/* OpenTV generic cover: dark card, logo and the title. */
+function applyGenericCover(tile, item) {
+  if (!window.XUPER_DESKTOP || !tile || tile._generic) { return; }
+  tile._generic = true;
+  var imgs = tile.querySelectorAll('img');
+  for (var i = 0; i < imgs.length; i++) { imgs[i].style.display = 'none'; }
+  tile.classList.add('is-generic', 'is-loaded');
+  var cover = el('div', 'generic-cover');
+  var mark = el('img', 'gc-mark');
+  mark.src = 'images/logo-mark.svg';
+  mark.alt = '';
+  cover.appendChild(mark);
+  cover.appendChild(el('div', 'gc-title', (item && item.title) || 'OpenTV'));
+  tile.insertBefore(cover, tile.firstChild);
+}
+
 /* Desktop: images fade in once loaded; the tile shows a soft shimmer until then. */
 function posterImageLoaded() {
   this.classList.add('is-loaded');
@@ -85,8 +138,14 @@ function posterImageError() {
     }, 1500 * (tries + 1));
     return;
   }
+  var tile = img.parentNode;
+  if (window.XUPER_DESKTOP && tile && tile.classList) {
+    markCoverBroken(tile._item);
+    applyGenericCover(tile, tile._item);
+    return;
+  }
   img.style.display = 'none';
-  if (img.parentNode && img.parentNode.classList) { img.parentNode.classList.add('is-loaded'); }
+  if (tile && tile.classList) { tile.classList.add('is-loaded'); }
 }
 
 function makePoster(item, x, y, w, h, opts) {
@@ -109,6 +168,7 @@ function makePoster(item, x, y, w, h, opts) {
     p.appendChild(el('div', 'p-title', item.title));
   }
   p._item = item;
+  if (window.XUPER_DESKTOP && !item.poster) { applyGenericCover(p, item); }
   p._activate = function () { openDetail(item); };
   schedulePosterMemoryPass();
   return p;

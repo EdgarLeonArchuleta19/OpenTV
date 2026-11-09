@@ -877,3 +877,156 @@ body.is-history-drawer-open .hd-item { animation: ot-slide-left .4s cubic-bezier
 .desktop .home-page > .bento:first-of-type .bento-shade,
 .desktop .home-page > .bento:first-of-type .bento-title { opacity: 1; }
 .desktop .home-page > .bento:first-of-type.is-sliding .bento-title { opacity: 0; }
+
+/* =====================================================================
+   Fondo: negro suave en vez de negro puro (se distinguen las capas)
+   ===================================================================== */
+body.desktop { --t-bg: #0e0e11; --bg: #0e0e11; background: #0e0e11; }
+.desktop #app,
+.desktop #screen-home,
+.desktop #screen-search,
+.desktop #screen-settings { background-color: #0e0e11; }
+.desktop #screen-detail {
+  background:
+    radial-gradient(1100px 620px at 80% -10%, rgba(255, 255, 255, .06), transparent 62%),
+    #0e0e11;
+  background-origin: border-box;
+}
+.desktop #screen-welcome { background: radial-gradient(900px 600px at 50% 46%, #1b1b20 0%, #0e0e11 70%); background-origin: border-box; }
+.desktop .settings-menu,
+.desktop #screen-search .search-keyboard { background-color: #141418; }
+.desktop .history-drawer { background: rgba(20, 20, 24, .92); }
+
+/* =====================================================================
+   TV del inicio: vídeo con esquinas redondeadas
+   ===================================================================== */
+.desktop .live-main {
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .06);
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+}
+.desktop .live-focus.is-focused::after { border-radius: 24px; }
+
+/* Volumen en el pie de la vista previa (rueda del ratón o tecla M). */
+.desktop .live-vol-toast {
+  position: absolute;
+  left: 50%; top: 28px;
+  z-index: 6;
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 22px;
+  transform: translate(-50%, -8px);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(10, 10, 12, .7);
+  backdrop-filter: blur(16px);
+  color: #fff;
+  font-size: 22px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .3s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .live-vol-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.desktop .live-vol-toast svg { width: 30px; height: 30px; }
+.desktop .live-vol-toast i { display: block; width: 180px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .22); overflow: hidden; }
+.desktop .live-vol-toast b { display: block; height: 100%; border-radius: inherit; background: #fff; transition: width .15s ease; }
+.desktop .live-vol-toast span { min-width: 92px; }
+
+/* Barra de volumen del dock. */
+.desktop .live-dock-volume { display: flex; align-items: center; gap: 14px; padding: 0 8px 0 4px; }
+.desktop .live-vol-range {
+  -webkit-appearance: none; appearance: none;
+  width: 190px; height: 28px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  --vol: 80%;
+}
+.desktop .live-vol-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #fff 0, #fff var(--vol), rgba(255, 255, 255, .2) var(--vol), rgba(255, 255, 255, .2) 100%);
+  transition: height .15s ease;
+}
+.desktop .live-vol-range:hover::-webkit-slider-runnable-track { height: 8px; }
+.desktop .live-vol-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px; height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .5);
+  transition: transform .15s ease;
+}
+.desktop .live-vol-range:hover::-webkit-slider-thumb { transform: scale(1.15); margin-top: -7px; }
+.desktop .live-vol-range:focus-visible { outline: 2px solid #fff; outline-offset: 6px; border-radius: 999px; }
+.desktop .live-dock-vol { min-width: 120px; text-align: left; font-size: 18px; color: rgba(255, 255, 255, .7); }
+.desktop .live-dock-btn.is-off { color: rgba(255, 255, 255, .55); }
+
+/* Lista de canales: botón "pantalla grande" al pasar y canal en reproducción. */
+.desktop .live-row { position: relative; }
+.desktop .live-row .row-open {
+  position: absolute;
+  right: 14px; top: 50%;
+  width: 52px; height: 52px;
+  margin-top: -26px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 14px;
+  background: rgba(20, 20, 24, .85);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(.85);
+  transition: opacity .18s ease, transform .22s cubic-bezier(.16, 1, .3, 1), background-color .15s ease;
+}
+.desktop .live-row .row-open svg { width: 26px; height: 26px; }
+.desktop .live-row:hover .row-open { opacity: 1; transform: none; }
+.desktop .live-row .row-open:hover { background: #fff; color: #000; }
+.desktop .live-row.is-current { background: rgba(255, 255, 255, .08); }
+.desktop .live-row.is-current .row-name { font-weight: 600; }
+@keyframes ot-eq { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
+.desktop .live-row.is-current .row-play {
+  background: none !important;
+  display: flex; align-items: flex-end; gap: 4px;
+}
+.desktop .live-row.is-current .row-play::before,
+.desktop .live-row.is-current .row-play::after {
+  content: "";
+  width: 5px; height: 24px;
+  border-radius: 2px;
+  background: #fff;
+  transform-origin: bottom;
+  animation: ot-eq .9s ease-in-out infinite;
+}
+.desktop .live-row.is-current .row-play::after { animation-delay: .3s; height: 18px; }
+
+/* =====================================================================
+   Portada genérica de OpenTV (títulos sin imagen o con imagen rota)
+   ===================================================================== */
+.desktop .generic-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px;
+  padding: 22px;
+  box-sizing: border-box;
+  border-radius: inherit;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, .09), transparent 60%),
+    linear-gradient(160deg, #1d1d22 0%, #111114 100%);
+  text-align: center;
+}
+.desktop .generic-cover .gc-mark { width: 34%; max-width: 120px; opacity: .3; }
+.desktop .generic-cover .gc-title {
+  font-size: 22px; line-height: 1.25; font-weight: 600;
+  color: rgba(255, 255, 255, .85);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.desktop .bento .generic-cover .gc-title { font-size: 30px; }
+.desktop .sr-art .generic-cover .gc-title { font-size: 17px; }
+.desktop .poster.is-generic .p-title { display: none !important; }
+
+.desktop #screen-search .search-keyboard { background-color: transparent; }

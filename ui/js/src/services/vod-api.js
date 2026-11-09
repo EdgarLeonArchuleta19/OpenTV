@@ -301,6 +301,7 @@ function vodFor(category, count, fallbackStart) {
       if (cats.indexOf(category) !== -1) { out.push(VOD[i]); }
     }
   }
+  out = withCovers(out);
   if (!out.length) { out = VOD.slice(fallbackStart, fallbackStart + count); }
   if (!out.length) { out = VOD.slice(0, count); }
   /* Fill short sections with other catalog entries so the sample never shows
@@ -323,6 +324,11 @@ function vodFor(category, count, fallbackStart) {
 }
 
 function refreshVodViews() {
+  if (homeBuilt && window.XUPER_DESKTOP && pages.length) {
+    markCatalogPagesStale();
+    if (searchKeyboard) { buildSearch(); if (state.searchQuery) { runSearch(); } }
+    return;
+  }
   if (homeBuilt) {
     var rail = $('home-tabs');
     var railWasExpanded = !!(rail && rail.classList.contains('is-expanded') && !rail.classList.contains('is-collapsed'));

@@ -359,6 +359,15 @@ function loadLiveChannels(columnId, done) {
           }
         }
         liveChannelsLoaded = true;
+        var firstPage = pageNum === 1;
+        if (window.XUPER_DESKTOP && !firstPage) {
+          /* Later pages: redraw the list in batches instead of on every page
+             (it flickered and kept restarting the preview for ~15 s). */
+          scheduleLiveRowsRender(payload && payload.hasMore);
+          if (!(payload && payload.hasMore)) { liveChannelsLoading = false; }
+          if (payload && payload.hasMore) { pageNum++; setTimeout(fetchNextPage, 25); }
+          return;
+        }
         renderLiveRows(false);
         renderPlayerChannels();
         if (state.channel >= CHANNELS.length) { state.channel = 0; }
@@ -398,9 +407,28 @@ function loadLiveChannels(columnId, done) {
   fetchNextPage();
 }
 
+var liveRowsRenderTimer = null;
+var liveRowsRenderedAt = 0;
+function scheduleLiveRowsRender(more) {
+  /* While pages keep arriving, redraw only if the viewer is near the end of
+     the list and needs more rows; otherwise once, when all have arrived. */
+  var nearEnd = liveList && liveList.scrollHeight - liveList.scrollTop - liveList.clientHeight < 400;
+  if (more && !nearEnd) { return; }
+  var wait = more ? Math.max(0, 2500 - (Date.now() - liveRowsRenderedAt)) : 0;
+  if (liveRowsRenderTimer) { if (more) { return; } clearTimeout(liveRowsRenderTimer); }
+  liveRowsRenderTimer = setTimeout(function () {
+    liveRowsRenderTimer = null;
+    renderLiveRows(false);
+    renderPlayerChannels();
+  }, wait);
+}
+
 function renderLiveRows(favOnly) {
   if (!liveList) { return; }
+  liveRowsRenderedAt = Date.now();
+  var keepScroll = window.XUPER_DESKTOP ? liveList.scrollTop : 0;
   clear(liveList);
+  if (keepScroll) { setTimeout(function () { liveList.scrollTop = keepScroll; }, 0); }
   liveRows = [];
   if (!CHANNELS.length) {
     liveList.appendChild(el('div', 'live-list-status',
@@ -425,8 +453,34 @@ function renderLiveRows(favOnly) {
     row.appendChild(name);
     if (i === state.channel) { row.classList.add('is-current'); }
     row._activate = (function (idx) {
-      return function () { setChannel(idx, true); openPlayer('live'); };
+      return function () {
+        if (window.XUPER_DESKTOP) {
+          /* Desktop: a click only switches the home preview. Enter on the
+             channel already playing (keyboard) opens it big. */
+          if (idx === state.channel) { if (focusRingVisible) { openPlayer('live'); } return; }
+          setChannel(idx, true);
+          return;
+        }
+        setChannel(idx, true); openPlayer('live');
+      };
     })(i);
+    if (window.XUPER_DESKTOP) {
+      (function (idx, r) {
+        r.addEventListener('dblclick', function () { setChannel(idx, true); openPlayer('live'); });
+        var open = el('button', 'row-open');
+        open.type = 'button';
+        open.innerHTML = UI_ICONS.fullscreen;
+        open.setAttribute('data-tip', 'Ver en pantalla grande');
+        open.setAttribute('aria-label', 'Ver ' + (CHANNELS[idx].name || 'canal') + ' en pantalla grande');
+        open.addEventListener('click', function (event) {
+          event.stopPropagation();
+          setChannel(idx, true);
+          openPlayer('live');
+        });
+        r.appendChild(open);
+        r.setAttribute('data-tip', 'Clic: ver aquí · Doble clic: pantalla grande');
+      })(i, row);
+    }
     row._onMove = (function (rowIdx) {
       return function (dir) {
         if (dir === 'left') {
