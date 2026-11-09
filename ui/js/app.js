@@ -7941,6 +7941,10 @@
     var exit = el('div', 'nep-btn focusable');
     exit.innerHTML = UI_ICONS.back + '<span>Salir</span>';
     exit._activate = function () { hideNextEpisodePrompt(); desktopBack(); };
+    /* The card stops clicks from reaching the video, so the buttons handle
+       their own clicks. */
+    go.addEventListener('click', function () { go._activate(); });
+    exit.addEventListener('click', function () { exit._activate(); });
     actions.appendChild(go);
     actions.appendChild(exit);
     nextEpisodePrompt.appendChild(actions);
