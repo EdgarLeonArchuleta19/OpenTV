@@ -15,6 +15,17 @@
 const { app } = require('electron');
 
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
+const PLACEHOLDER_OWNER = 'TU_USUARIO_GITHUB';
+
+/* The GitHub repository the versions are published to (package.json →
+   build.publish). Null while it still has the placeholder owner. */
+function feed() {
+  try {
+    const publish = [].concat(require('../package.json').build.publish || [])[0];
+    if (!publish || publish.provider !== 'github' || !publish.owner || publish.owner === PLACEHOLDER_OWNER) return null;
+    return { owner: publish.owner, repo: publish.repo, releases: 'https://github.com/' + publish.owner + '/' + publish.repo + '/releases/latest' };
+  } catch { return null; }
+}
 let updater = null;
 let send = () => {};
 let status = { state: 'idle' };
@@ -37,6 +48,7 @@ function explain(error) {
 function start(sendStatus) {
   send = sendStatus || send;
   if (!app.isPackaged) { setStatus({ state: 'dev' }); return; }
+  if (!feed()) { setStatus({ state: 'unconfigured' }); return; }
   const portable = Boolean(process.env.PORTABLE_EXECUTABLE_DIR);
   try {
     ({ autoUpdater: updater } = require('electron-updater'));
@@ -78,4 +90,7 @@ function install() {
 
 function current() { return status; }
 
-module.exports = { start, check, install, current };
+/* Opens the download page (portable copies update by hand). */
+function releasesUrl() { const f = feed(); return f ? f.releases : null; }
+
+module.exports = { start, check, install, current, releasesUrl };

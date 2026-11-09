@@ -71,23 +71,21 @@ npm run dist
 npm run release     # catálogo + build + pruebas + instaladores y paquete
 ```
 
-## Actualizaciones automáticas
+## Actualizaciones automáticas (GitHub Releases)
 
-La versión **instalada** (NSIS) busca una versión nueva al abrirse y cada 6 horas, la descarga en segundo plano y la instala al cerrar la app (o al pulsar *Reiniciar y actualizar* en el aviso o en *Ajustes → Acerca de*). La versión **portable** solo avisa de que hay una nueva.
+La versión **instalada** busca una versión nueva al abrirse y cada 6 horas, la descarga en segundo plano y la instala al cerrar la app (o al pulsar *Reiniciar y actualizar*). La **portable** avisa y ofrece *Descargar versión nueva* (abre la página de la release).
 
-Para activarlas hace falta un sitio donde publicar las versiones. Con GitHub Releases (gratis), añade en `package.json → build`:
+**Conectarlo a tu GitHub (una sola vez):**
 
-```json
-"publish": [{ "provider": "github", "owner": "TU_USUARIO", "repo": "opentv-releases" }]
-```
+1. Crea el repositorio (por ejemplo `OpenTV`) y sube el proyecto.
+2. En `package.json → build.publish` cambia `TU_USUARIO_GITHUB` por tu usuario (y `repo` si lo llamaste distinto). Mientras siga el marcador, la app dice que las actualizaciones no están conectadas y no consulta nada.
 
-y publica cada versión subiendo el número en `package.json → version` y ejecutando (con un token de GitHub en `GH_TOKEN`):
+**Publicar una versión nueva** (sube antes `version` en `package.json`, por ejemplo `1.0.1`):
 
-```bash
-npx electron-builder --win nsis --publish always
-```
+- *Automático en GitHub*: `git tag v1.0.1 && git push origin v1.0.1`. El workflow `.github/workflows/release.yml` compila en Windows, pasa las pruebas y publica el instalador, la portable y `latest.yml`.
+- *Desde tu PC*: con un token en `GH_TOKEN`, `npm run release:github`.
 
-Sirve también cualquier servidor de archivos: `{ "provider": "generic", "url": "https://tu-servidor/opentv/" }` y copiar allí el instalador, su `.blockmap` y `latest.yml` de `dist/`. Sin `publish` la app funciona igual y *Acerca de* indica que las actualizaciones no están configuradas. La primera versión con actualizador se instala a mano; las siguientes llegan solas.
+Las copias instaladas ven la release nueva en sus próximas 6 horas (o al pulsar *Buscar actualizaciones*). La primera versión con actualizador se instala a mano. Sin firma de código, Windows SmartScreen puede advertir al instalar.
 
 ## Licencia
 

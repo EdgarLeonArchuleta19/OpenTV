@@ -1,0 +1,43 @@
+# Builds and publishes a release when a version tag is pushed:
+#   git tag v1.0.1 && git push origin v1.0.1
+# The tag must match "version" in package.json. Installed copies of OpenTV
+# find the new latest.yml in the release and update themselves.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check the tag matches package.json
+        shell: bash
+        run: |
+          v=$(node -p "require('./package.json').version")
+          if [ "v$v" != "${GITHUB_REF_NAME}" ]; then echo "La etiqueta ${GITHUB_REF_NAME} no coincide con la versión $v de package.json"; exit 1; fi
+
+      - run: npm ci
+
+      - name: Catalogue copy (optional)
+        run: npm run snapshot
+        continue-on-error: true
+
+      - run: npm run build
+      - run: npm test
+
+      - name: Build and publish
+        run: npx electron-builder --win nsis portable --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

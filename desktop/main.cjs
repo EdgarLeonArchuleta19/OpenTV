@@ -134,6 +134,11 @@ async function start() {
   });
   ipcMain.handle('desktop:update', (event, command) => {
     if (!trusted(event)) return null;
+    if (command === 'releases') {
+      const url = updates.releasesUrl();
+      if (url && /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/releases\/latest$/.test(url)) shell.openExternal(url);
+      return Boolean(url);
+    }
     if (command === 'check') return updates.check();
     if (command === 'install') return updates.install();
     return updates.current();

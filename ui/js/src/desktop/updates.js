@@ -20,7 +20,7 @@ function updateStatusText(s) {
     case 'downloading': return 'Descargando la versión ' + (s.version || 'nueva') + (s.percent ? ' · ' + s.percent + ' %' : '…');
     case 'ready': return 'La versión ' + (s.version || 'nueva') + ' está lista. Se instalará al cerrar la app.';
     case 'available-portable': return 'Hay una versión nueva (' + (s.version || '') + '). La versión portable no se actualiza sola: descarga la nueva y reemplaza el .exe.';
-    case 'unconfigured': return 'Las actualizaciones automáticas no están configuradas en esta compilación.';
+    case 'unconfigured': return 'Las actualizaciones automáticas aún no están conectadas a GitHub en esta compilación.';
     case 'dev': return 'Modo desarrollo: las actualizaciones solo funcionan en la versión instalada.';
     case 'error': return 'No se pudo comprobar: ' + (s.error || 'error desconocido');
     default: return 'La app busca actualizaciones al abrirse y cada 6 horas.';
@@ -34,6 +34,7 @@ function buildUpdateCard() {
     var api = updatesApi();
     if (!api) { return; }
     if (updateStatus.state === 'ready') { api.install(); return; }
+    if (updateStatus.state === 'available-portable') { if (api.releases) { api.releases(); } return; }
     updateStatus = { state: 'checking' };
     renderUpdateUi();
     api.check().then(function (s) { if (s && s.state !== 'idle' && updateStatus.state === 'checking' && s.state !== 'checking') { updateStatus = s; renderUpdateUi(); } }).catch(function () {});
@@ -54,10 +55,11 @@ function renderUpdateUi() {
     if (text) { text.textContent = updateStatusText(s); }
     var btn = updateCards[i].querySelector('.sd-update-btn');
     if (btn) {
-      btn.lastChild.textContent = s.state === 'ready' ? 'Reiniciar y actualizar' : 'Buscar actualizaciones';
+      btn.lastChild.textContent = s.state === 'ready' ? 'Reiniciar y actualizar'
+        : s.state === 'available-portable' ? 'Descargar versión nueva' : 'Buscar actualizaciones';
       var busy = s.state === 'checking' || s.state === 'downloading';
       btn.classList.toggle('is-disabled', busy || s.state === 'dev' || s.state === 'unconfigured');
-      btn.classList.toggle('is-primary', s.state === 'ready');
+      btn.classList.toggle('is-primary', s.state === 'ready' || s.state === 'available-portable');
     }
   }
   showUpdateNotice();
