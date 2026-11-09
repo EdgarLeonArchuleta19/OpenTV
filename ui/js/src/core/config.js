@@ -37,6 +37,9 @@ var TABS = [
    (and lives in Mi lista), so the rail only lists the main catalogues. */
 if (window.XUPER_DESKTOP) {
   TABS = TABS.filter(function (t) { return t.icon !== 'novel' && t.icon !== 'compass' && t.action !== 'history'; });
+  /* Top bar labels, like the big streaming apps. */
+  var DESKTOP_TAB_LABELS = { 'TV': 'TV en vivo', 'DESTACADOS': 'Inicio', 'PELICULA': 'Películas', 'SERIES': 'Series', 'KIDS': 'Kids', 'ANIME': 'Anime' };
+  TABS.forEach(function (t) { if (DESKTOP_TAB_LABELS[t.label]) { t.label = DESKTOP_TAB_LABELS[t.label]; } });
 }
 
 var SETTINGS_ITEMS = [

@@ -1025,6 +1025,9 @@
      (and lives in Mi lista), so the rail only lists the main catalogues. */
   if (window.XUPER_DESKTOP) {
     TABS = TABS.filter(function (t) { return t.icon !== 'novel' && t.icon !== 'compass' && t.action !== 'history'; });
+    /* Top bar labels, like the big streaming apps. */
+    var DESKTOP_TAB_LABELS = { 'TV': 'TV en vivo', 'DESTACADOS': 'Inicio', 'PELICULA': 'Películas', 'SERIES': 'Series', 'KIDS': 'Kids', 'ANIME': 'Anime' };
+    TABS.forEach(function (t) { if (DESKTOP_TAB_LABELS[t.label]) { t.label = DESKTOP_TAB_LABELS[t.label]; } });
   }
 
   var SETTINGS_ITEMS = [
@@ -1354,6 +1357,8 @@
       if (c === state.focus) { continue; }
       /* Don't let sidebar tabs intercept left navigation while inside page content */
       if (inPage && closest(c, '.home-tabs')) { continue; }
+      /* Desktop: from the page, up goes to the tab bar, not the icons. */
+      if (inPage && window.XUPER_DESKTOP && closest(c, '.home-notify')) { continue; }
       /* Don't let page content intercept navigation while inside sidebar tabs */
       if (inSidebar && !closest(c, '.home-tabs')) { continue; }
 
@@ -1394,8 +1399,12 @@
       return;
     }
 
+    if (window.XUPER_DESKTOP && dir === 'up' && inPage) {
+      if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
+      return;
+    }
     /* Leftmost limit reached in page content: now focus sidebar tab */
-    if (dir === 'left' && inPage) {
+    if (dir === 'left' && inPage && !window.XUPER_DESKTOP) {
       if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
     }
   }
@@ -1422,7 +1431,7 @@
         /* Back from the full-screen TV player: keep the same video playing
            in the home preview instead of reloading the channel. */
         if (liveHandoff && liveHandoff.type === 'preview') { returnPreviewHome(); }
-        if (previousScreen !== 'home') { refreshContinueRows(); }
+        if (previousScreen !== 'home') { refreshContinueRows(); if (TABS[state.tab]) { showHeroForPage(TABS[state.tab].page); } }
         if (TABS[state.tab] && TABS[state.tab].page > 0) { ensurePageBuilt(TABS[state.tab].page); }
         else if (previousScreen === 'player' && !borrowPlayerIntoHome() && state.playerMode === 'live' &&
                  !(liveHandoff && liveHandoff.type === 'player') && !keepFloatingVideo()) {
@@ -1962,6 +1971,12 @@
     /* Create placeholder wrappers for each tab, but build DOM only on demand */
     for (var i = 0; i < pageDefs.length; i++) {
       var page = el('div', 'home-page scrollable');
+      if (window.XUPER_DESKTOP) {
+        /* Top bar: solid once the page scrolls (pages without a hero too). */
+        page.addEventListener('scroll', function () {
+          if (this.classList.contains('is-current')) { document.body.classList.toggle('is-home-scrolled', this.scrollTop > 140); }
+        }, { passive: true });
+      }
       if (i === 0) { page.classList.add('is-current'); }
       pagesEl.appendChild(page);
       pages.push(page);
@@ -2012,6 +2027,19 @@
       })(i);
       item._onMove = (function (idx) {
         return function (dir) {
+          /* Desktop: the tabs are a horizontal bar at the top (left/right
+             change tab, down goes into the page). */
+          if (window.XUPER_DESKTOP) {
+            if (dir === 'up') { return true; }
+            if (dir === 'down') { dir = 'right'; }
+            else if (dir === 'left') {
+              if (idx > 0 && tabEls[idx - 1]) { setFocus(tabEls[idx - 1]); selectTab(idx - 1, false); }
+              return true;
+            } else if (dir === 'right') {
+              if (idx < tabEls.length - 1 && tabEls[idx + 1]) { setFocus(tabEls[idx + 1]); selectTab(idx + 1, false); }
+              return true;
+            }
+          }
           if (dir === 'up') {
             if (idx > 0 && tabEls[idx - 1]) {
               setFocus(tabEls[idx - 1]);
@@ -2139,6 +2167,7 @@
     }
     if (def.page >= 0) {
       ensurePageBuilt(def.page);
+      if (window.XUPER_DESKTOP) { showHeroForPage(def.page); }
     }
     if (def.page === 0) {
       scheduleLivePreview(CHANNELS[state.channel]);
@@ -4306,6 +4335,7 @@
 
   function buildFeaturedPage(page) {
     var all = allVodFor('destacado');
+    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: '', top10: 'destacado', rows: 'destacado', gridTitle: 'Títulos destacados' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
     bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
@@ -4326,6 +4356,7 @@
 
   function buildMoviesPage(page) {
     var all = allVodFor('pelicula');
+    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', gridTitle: 'Todas las películas' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
     bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
@@ -4338,6 +4369,7 @@
 
   function buildSeriesPage(page) {
     var all = allVodFor('serie');
+    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', gridTitle: 'Todas las series' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
     bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
@@ -4350,6 +4382,7 @@
 
   function buildAnimePage(page) {
     var all = allVodFor('anime');
+    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { gridTitle: 'Anime y animación' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
     bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
@@ -4400,12 +4433,7 @@
      horizontal poster row (7 columns, last one clipped by the screen edge). */
   function buildKidsPage(page) {
     if (window.XUPER_DESKTOP) {
-      var allKids = allVodFor('infantil');
-      var kidsTop = allKids.slice(0, 6);
-      var realKids = !!(kidsTop[0] && kidsTop[0]._portal);
-      bentoPage(page, window.XUPER_DESKTOP ? allKids : kidsTop, { titles: realKids, dots: realKids ? 4 : 0, shade: realKids });
-      var kidsRest = allKids.slice(6);
-      appendCatalogGrid(page, kidsRest.length ? kidsRest : allKids, 860, 'Para toda la familia');
+      buildDesktopSection(page, allVodFor('infantil'), { gridTitle: 'Para toda la familia' });
       return;
     }
     var source = vodFor('infantil', 12, 0);
@@ -4453,6 +4481,34 @@
       strip.appendChild(cell);
     }
     page.appendChild(strip);
+  }
+
+  /* Desktop section: big hero, "Seguir viendo", Top 10, the portal shelves
+     and the full catalogue grid. Falls back to the tile mosaic when no title
+     of the section has wide artwork. */
+  function buildDesktopSection(page, all, opts) {
+    var y = buildHero(page, all);
+    if (!y) {
+      var real = !!(all[0] && all[0]._portal);
+      bentoPage(page, all, { titles: real, dots: real ? 4 : 0, shade: real });
+      y = 830;
+    }
+    if (opts.continueFilter !== undefined) { y = appendContinueRow(page, y, opts.continueFilter); }
+    var shelves = opts.rows ? portalRowsFor(opts.rows, 4) : [];
+    if (opts.top10) {
+      var regular = [];
+      for (var t = 0; t < shelves.length; t++) {
+        if (/top\s*1[05]|clasificad/i.test(shelves[t].title)) {
+          var isSeries = shelves[t].items.length && isSeriesItem(shelves[t].items[0]);
+          y = appendTop10Row(page, y, isSeries ? 'Top 10 series hoy' : 'Top 10 películas hoy', shelves[t].items.slice(0, 10));
+        } else {
+          regular.push(shelves[t]);
+        }
+      }
+      shelves = regular;
+    }
+    for (var r = 0; r < shelves.length; r++) { y = appendPosterRow(page, y, shelves[r].title, shelves[r].items); }
+    if (!shelves.length || !opts.rows) { appendCatalogGrid(page, all, y + 20, opts.gridTitle || 'Catálogo'); }
   }
 
   /* ---- home/rows.js ---------------------------------------------------------- */
@@ -4732,6 +4788,233 @@
         pages[current].scrollTop = keep;
       }
     }
+  }
+
+  /* ------------------------------------------------------------------ Top 10 */
+  /* Big outlined rank number behind each poster, like the streaming apps. The
+     ranking comes from the portal's own "TOP 15" shelves. */
+  var TOP10_STEP = 410;
+  function appendTop10Row(page, y, titleText, items) {
+    if (!items || !items.length) { return y; }
+    var height = ROW_TITLE_H + 360 + ROW_PAD * 2 + 26;
+    var host = makeRowShell(page, y, height, titleText, 'is-top10');
+    for (var i = 0; i < items.length; i++) {
+      var cell = el('div', 'top10-cell');
+      abs(cell, ROW_PAD + i * TOP10_STEP, ROW_PAD, TOP10_STEP - 20, 360);
+      var num = el('div', 'top10-num', String(i + 1));
+      cell.appendChild(num);
+      cell.appendChild(makePoster(items[i], 140, 0, 250, 360, { gold: true }));
+      host._strip.appendChild(cell);
+    }
+    var tail = el('div', 'd-row-tail');
+    abs(tail, ROW_PAD + items.length * TOP10_STEP, 0, ROW_PAD, 1);
+    host._strip.appendChild(tail);
+    return y + height;
+  }
+
+  /* ---- home/hero.js ---------------------------------------------------------- */
+  /* home/hero.js — Escritorio: portada grande de cada sección (imagen a todo el ancho, título y botones).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* The artwork is one layer behind the whole home screen (under the
+     transparent top bar, edge to edge) and moves up with the page's scroll.
+     The text and buttons live inside the page, so keyboard focus and scroll
+     work as for any other tile. It rotates through a few titles. */
+  var HERO_INTERVAL_MS = 9000;
+  var HERO_MAX = 6;
+  var HERO_TEXT_H = 640;           /* page height used by the hero block */
+  var heroLayer = null;
+  var heroPages = {};              /* page index -> { items, index, info } */
+  var heroTimer = null;
+  var heroShownPage = -1;
+  var heroHoverAt = 0;
+
+  var GENRE_ES = {
+    'action': 'Acción', 'adventure': 'Aventura', 'animation': 'Animación', 'cartoon': 'Animación', 'comedy': 'Comedia',
+    'crime': 'Crimen', 'documentary': 'Documental', 'drama': 'Drama', 'family': 'Familia', 'fantasy': 'Fantasía',
+    'history': 'Historia', 'horror': 'Terror', 'music': 'Música', 'musical': 'Musical', 'mystery': 'Misterio',
+    'romance': 'Romance', 'sci-fi': 'Ciencia ficción', 'science fiction': 'Ciencia ficción', 'sport': 'Deporte',
+    'thriller': 'Suspenso', 'war': 'Bélica', 'western': 'Western', 'biography': 'Biografía', 'reality-tv': 'Reality',
+    'anime': 'Anime', 'short': 'Corto', 'tv movie': 'Película de TV', 'game show': 'Concurso', 'news': 'Noticias'
+  };
+  function genreName(g) {
+    var k = String(g || '').trim().toLowerCase();
+    return GENRE_ES[k] || String(g || '').trim();
+  }
+
+  function heroArt(item) { return item ? (item.backdrop || item.landscape || '') : ''; }
+
+  function itemMetaLine(item) {
+    var bits = [];
+    var score = parseFloat(item.score);
+    if (score > 0) { bits.push('★ ' + score.toFixed(1)); }
+    var year = String(item.year || item.releaseDate || '').match(/\d{4}/);
+    if (year) { bits.push(year[0]); }
+    bits.push(isSeriesItem(item) ? 'Serie' : 'Película');
+    var secs = durationToSeconds(item.duration);
+    if (!isSeriesItem(item) && secs > 600) {
+      var h = Math.floor(secs / 3600), m = Math.round((secs % 3600) / 60);
+      bits.push(h ? h + ' h ' + (m ? m + ' min' : '') : m + ' min');
+    }
+    return bits.join('   ·   ');
+  }
+
+  function itemGenres(item, max) {
+    var out = [];
+    var list = item.genres || [];
+    for (var i = 0; i < list.length && out.length < (max || 3); i++) {
+      var g = genreName(list[i]);
+      if (g && !/^sin clasificar$/i.test(g) && !/^\d+$/.test(g) && out.indexOf(g) === -1) { out.push(g); }
+    }
+    return out;
+  }
+
+  /* Play right away: open the title (it loads its episodes / streams) and go
+     full screen as soon as it is ready. */
+  function playTitleNow(item) {
+    if (!item) { return; }
+    openDetail(item);
+    loadVodDetail(item, function (loaded) {
+      if (loaded && state.screen === 'detail' && state.detail === item) {
+        expandToFullscreen(item, state.detailEpisode);
+      }
+    });
+  }
+
+  function ensureHeroLayer() {
+    if (heroLayer && heroLayer.isConnected) { return heroLayer; }
+    var home = $('screen-home');
+    heroLayer = el('div', 'home-hero');
+    heroLayer.appendChild(el('img', 'hh-img is-a'));
+    heroLayer.appendChild(el('img', 'hh-img is-b'));
+    heroLayer.appendChild(el('div', 'hh-shade'));
+    var imgs = heroLayer.querySelectorAll('img');
+    for (var i = 0; i < imgs.length; i++) { imgs[i].alt = ''; imgs[i].decoding = 'async'; }
+    home.insertBefore(heroLayer, $('home-pages'));
+    return heroLayer;
+  }
+
+  function setHeroArt(art) {
+    var layer = ensureHeroLayer();
+    var a = layer.querySelector('.is-a'), b = layer.querySelector('.is-b');
+    var shown = a.classList.contains('is-shown') ? a : (b.classList.contains('is-shown') ? b : null);
+    if (shown && shown.getAttribute('src') === art) { return; }
+    var next = shown === a ? b : a;
+    next.onload = function () {
+      next.classList.add('is-shown');
+      if (shown && shown !== next) { shown.classList.remove('is-shown'); }
+    };
+    next.onerror = function () { next.classList.remove('is-shown'); };
+    next.src = art;
+  }
+
+  /* Builds the hero block at the top of `page`. Returns the y where the rest
+     of the page starts, or 0 when the section has no artwork to show. */
+  function buildHero(page, source) {
+    var items = [];
+    for (var i = 0; i < source.length && items.length < HERO_MAX; i++) {
+      if (heroArt(source[i]) && hasUsableCover(source[i])) { items.push(source[i]); }
+    }
+    if (!items.length) { return 0; }
+    var idx = pages.indexOf(page);
+    var info = el('div', 'hero-info');
+    abs(info, 192, 120, 1100, 470);
+    info.addEventListener('pointermove', function () { heroHoverAt = Date.now(); });
+    page.appendChild(info);
+    var dots = el('div', 'hero-dots');
+    abs(dots, 1500, 560, 340, 20);
+    page.appendChild(dots);
+    heroPages[idx] = { items: items, index: 0, info: info, dots: dots, page: page };
+    renderHeroInfo(heroPages[idx]);
+    if (!page._heroScroll) {
+      page._heroScroll = true;
+      page.addEventListener('scroll', function () {
+        if (!page.classList.contains('is-current')) { return; }
+        syncHeroScroll(page);
+      }, { passive: true });
+    }
+    if (!heroTimer) { heroTimer = setInterval(rotateHero, HERO_INTERVAL_MS); }
+    if (page.classList.contains('is-current')) { showHeroForPage(idx); }
+    return HERO_TEXT_H;
+  }
+
+  function renderHeroInfo(h) {
+    var item = h.items[h.index];
+    var info = h.info;
+    info.classList.add('is-swapping');
+    setTimeout(function () {
+      clear(info);
+      info.appendChild(el('div', 'hero-kicker', isSeriesItem(item) ? 'Serie' : 'Película'));
+      info.appendChild(el('div', 'hero-title', item.title));
+      info.appendChild(el('div', 'hero-meta', itemMetaLine(item)));
+      var genres = itemGenres(item, 3);
+      if (genres.length) { info.appendChild(el('div', 'hero-genres', genres.join('  •  '))); }
+      var syn = String(item.synopsis || '');
+      if (syn && !/^sin sinopsis/i.test(syn)) { info.appendChild(el('div', 'hero-synopsis', syn)); }
+      var row = el('div', 'hero-buttons');
+      var play = el('div', 'hero-btn is-primary focusable');
+      play.innerHTML = UI_ICONS.play + '<span>Reproducir</span>';
+      play._activate = function () { playTitleNow(item); };
+      var more = el('div', 'hero-btn focusable');
+      more.innerHTML = UI_ICONS.info + '<span>Más información</span>';
+      more._activate = function () { openDetail(item); };
+      var fav = el('div', 'hero-btn is-round focusable' + (state.favs[String(item.id)] ? ' is-on' : ''));
+      fav.innerHTML = state.favs[String(item.id)] ? UI_ICONS.check : UI_ICONS.mylist;
+      fav.setAttribute('data-tip', state.favs[String(item.id)] ? 'Quitar de Mi lista' : 'Añadir a Mi lista');
+      fav._activate = function () {
+        var on = toggleFavorite(item);
+        fav.classList.toggle('is-on', on);
+        fav.innerHTML = on ? UI_ICONS.check : UI_ICONS.mylist;
+        fav.setAttribute('data-tip', on ? 'Quitar de Mi lista' : 'Añadir a Mi lista');
+      };
+      row.appendChild(play);
+      row.appendChild(more);
+      row.appendChild(fav);
+      info.appendChild(row);
+      info.classList.remove('is-swapping');
+    }, info.childNodes.length ? 220 : 0);
+    clear(h.dots);
+    for (var d = 0; d < h.items.length; d++) {
+      (function (k) {
+        var dot = el('i', 'hero-dot' + (k === h.index ? ' is-active' : ''));
+        dot.addEventListener('click', function () { h.index = k; renderHeroInfo(h); showHeroForPage(pages.indexOf(h.page)); });
+        h.dots.appendChild(dot);
+      })(d);
+    }
+    if (heroShownPage === pages.indexOf(h.page)) { setHeroArt(heroArt(item)); }
+  }
+
+  function rotateHero() {
+    var h = heroPages[heroShownPage];
+    if (!h || state.screen !== 'home' || document.hidden || h.items.length < 2) { return; }
+    if (Date.now() - heroHoverAt < 5000) { return; }
+    if (state.focus && closest(state.focus, '.hero-info') && focusRingVisible) { return; }
+    if (h.page.scrollTop > 500) { return; }
+    h.index = (h.index + 1) % h.items.length;
+    renderHeroInfo(h);
+  }
+
+  /* Called when the home page changes (or the home screen shows again). */
+  function showHeroForPage(idx) {
+    if (!window.XUPER_DESKTOP) { return; }
+    var h = heroPages[idx];
+    var layer = ensureHeroLayer();
+    heroShownPage = h && h.info.isConnected ? idx : -1;
+    layer.classList.toggle('is-visible', heroShownPage >= 0);
+    if (heroShownPage >= 0) {
+      setHeroArt(heroArt(h.items[h.index]));
+      syncHeroScroll(h.page);
+    } else {
+      document.body.classList.toggle('is-home-scrolled', !!(pages[idx] && pages[idx].scrollTop > 140));
+    }
+  }
+
+  function syncHeroScroll(page) {
+    var y = page.scrollTop;
+    if (heroLayer && heroShownPage === pages.indexOf(page)) {
+      heroLayer.style.transform = 'translateY(' + (-y) + 'px)';
+    }
+    document.body.classList.toggle('is-home-scrolled', y > 140);
   }
 
   /* ---- screens/detail.js ----------------------------------------------------- */
@@ -11300,10 +11583,7 @@
     var label = '';
     if (state.screen === 'home') {
       var tab = TABS[state.tab];
-      label = tab ? String(tab.label || '').charAt(0) + String(tab.label || '').slice(1).toLowerCase() : '';
-      if (label === 'Pelicula') { label = 'Películas'; }
-      if (label === 'Tv') { label = 'TV en vivo'; }
-      if (label === 'Kids') { label = 'Kids'; }
+      label = tab ? String(tab.label || '') : '';
     } else if (state.screen === 'search') { label = 'Buscar'; }
     else if (state.screen === 'settings') { label = 'Ajustes'; }
     else if (state.screen === 'detail' && state.detail) { label = state.detail.title || ''; }

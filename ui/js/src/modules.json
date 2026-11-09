@@ -19,6 +19,7 @@
   "live/private.js",
   "home/catalog-pages.js",
   "home/rows.js",
+  "home/hero.js",
   "screens/detail.js",
   "screens/search.js",
   "screens/search-desktop.js",

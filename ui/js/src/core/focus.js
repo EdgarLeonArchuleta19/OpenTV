@@ -158,6 +158,8 @@ function moveFocus(dir) {
     if (c === state.focus) { continue; }
     /* Don't let sidebar tabs intercept left navigation while inside page content */
     if (inPage && closest(c, '.home-tabs')) { continue; }
+    /* Desktop: from the page, up goes to the tab bar, not the icons. */
+    if (inPage && window.XUPER_DESKTOP && closest(c, '.home-notify')) { continue; }
     /* Don't let page content intercept navigation while inside sidebar tabs */
     if (inSidebar && !closest(c, '.home-tabs')) { continue; }
 
@@ -198,8 +200,12 @@ function moveFocus(dir) {
     return;
   }
 
+  if (window.XUPER_DESKTOP && dir === 'up' && inPage) {
+    if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
+    return;
+  }
   /* Leftmost limit reached in page content: now focus sidebar tab */
-  if (dir === 'left' && inPage) {
+  if (dir === 'left' && inPage && !window.XUPER_DESKTOP) {
     if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
   }
 }

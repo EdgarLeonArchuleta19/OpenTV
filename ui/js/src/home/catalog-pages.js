@@ -207,6 +207,7 @@ function appendCatalogGrid(page, items, startY, titleText) {
 
 function buildFeaturedPage(page) {
   var all = allVodFor('destacado');
+  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: '', top10: 'destacado', rows: 'destacado', gridTitle: 'Títulos destacados' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
   bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
@@ -227,6 +228,7 @@ function buildFeaturedPage(page) {
 
 function buildMoviesPage(page) {
   var all = allVodFor('pelicula');
+  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', gridTitle: 'Todas las películas' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
   bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
@@ -239,6 +241,7 @@ function buildMoviesPage(page) {
 
 function buildSeriesPage(page) {
   var all = allVodFor('serie');
+  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', gridTitle: 'Todas las series' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
   bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
@@ -251,6 +254,7 @@ function buildSeriesPage(page) {
 
 function buildAnimePage(page) {
   var all = allVodFor('anime');
+  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { gridTitle: 'Anime y animación' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
   bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
@@ -301,12 +305,7 @@ function buildNovelsPage(page) {
    horizontal poster row (7 columns, last one clipped by the screen edge). */
 function buildKidsPage(page) {
   if (window.XUPER_DESKTOP) {
-    var allKids = allVodFor('infantil');
-    var kidsTop = allKids.slice(0, 6);
-    var realKids = !!(kidsTop[0] && kidsTop[0]._portal);
-    bentoPage(page, window.XUPER_DESKTOP ? allKids : kidsTop, { titles: realKids, dots: realKids ? 4 : 0, shade: realKids });
-    var kidsRest = allKids.slice(6);
-    appendCatalogGrid(page, kidsRest.length ? kidsRest : allKids, 860, 'Para toda la familia');
+    buildDesktopSection(page, allVodFor('infantil'), { gridTitle: 'Para toda la familia' });
     return;
   }
   var source = vodFor('infantil', 12, 0);
@@ -354,4 +353,32 @@ function buildExplorePage(page) {
     strip.appendChild(cell);
   }
   page.appendChild(strip);
+}
+
+/* Desktop section: big hero, "Seguir viendo", Top 10, the portal shelves
+   and the full catalogue grid. Falls back to the tile mosaic when no title
+   of the section has wide artwork. */
+function buildDesktopSection(page, all, opts) {
+  var y = buildHero(page, all);
+  if (!y) {
+    var real = !!(all[0] && all[0]._portal);
+    bentoPage(page, all, { titles: real, dots: real ? 4 : 0, shade: real });
+    y = 830;
+  }
+  if (opts.continueFilter !== undefined) { y = appendContinueRow(page, y, opts.continueFilter); }
+  var shelves = opts.rows ? portalRowsFor(opts.rows, 4) : [];
+  if (opts.top10) {
+    var regular = [];
+    for (var t = 0; t < shelves.length; t++) {
+      if (/top\s*1[05]|clasificad/i.test(shelves[t].title)) {
+        var isSeries = shelves[t].items.length && isSeriesItem(shelves[t].items[0]);
+        y = appendTop10Row(page, y, isSeries ? 'Top 10 series hoy' : 'Top 10 películas hoy', shelves[t].items.slice(0, 10));
+      } else {
+        regular.push(shelves[t]);
+      }
+    }
+    shelves = regular;
+  }
+  for (var r = 0; r < shelves.length; r++) { y = appendPosterRow(page, y, shelves[r].title, shelves[r].items); }
+  if (!shelves.length || !opts.rows) { appendCatalogGrid(page, all, y + 20, opts.gridTitle || 'Catálogo'); }
 }

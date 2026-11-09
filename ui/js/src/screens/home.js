@@ -42,6 +42,12 @@ function buildHome() {
   /* Create placeholder wrappers for each tab, but build DOM only on demand */
   for (var i = 0; i < pageDefs.length; i++) {
     var page = el('div', 'home-page scrollable');
+    if (window.XUPER_DESKTOP) {
+      /* Top bar: solid once the page scrolls (pages without a hero too). */
+      page.addEventListener('scroll', function () {
+        if (this.classList.contains('is-current')) { document.body.classList.toggle('is-home-scrolled', this.scrollTop > 140); }
+      }, { passive: true });
+    }
     if (i === 0) { page.classList.add('is-current'); }
     pagesEl.appendChild(page);
     pages.push(page);
@@ -92,6 +98,19 @@ function buildTabs() {
     })(i);
     item._onMove = (function (idx) {
       return function (dir) {
+        /* Desktop: the tabs are a horizontal bar at the top (left/right
+           change tab, down goes into the page). */
+        if (window.XUPER_DESKTOP) {
+          if (dir === 'up') { return true; }
+          if (dir === 'down') { dir = 'right'; }
+          else if (dir === 'left') {
+            if (idx > 0 && tabEls[idx - 1]) { setFocus(tabEls[idx - 1]); selectTab(idx - 1, false); }
+            return true;
+          } else if (dir === 'right') {
+            if (idx < tabEls.length - 1 && tabEls[idx + 1]) { setFocus(tabEls[idx + 1]); selectTab(idx + 1, false); }
+            return true;
+          }
+        }
         if (dir === 'up') {
           if (idx > 0 && tabEls[idx - 1]) {
             setFocus(tabEls[idx - 1]);
@@ -219,6 +238,7 @@ function selectTab(index, focusContent) {
   }
   if (def.page >= 0) {
     ensurePageBuilt(def.page);
+    if (window.XUPER_DESKTOP) { showHeroForPage(def.page); }
   }
   if (def.page === 0) {
     scheduleLivePreview(CHANNELS[state.channel]);

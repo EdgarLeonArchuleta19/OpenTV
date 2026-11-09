@@ -19,7 +19,7 @@ function showScreen(name) {
       /* Back from the full-screen TV player: keep the same video playing
          in the home preview instead of reloading the channel. */
       if (liveHandoff && liveHandoff.type === 'preview') { returnPreviewHome(); }
-      if (previousScreen !== 'home') { refreshContinueRows(); }
+      if (previousScreen !== 'home') { refreshContinueRows(); if (TABS[state.tab]) { showHeroForPage(TABS[state.tab].page); } }
       if (TABS[state.tab] && TABS[state.tab].page > 0) { ensurePageBuilt(TABS[state.tab].page); }
       else if (previousScreen === 'player' && !borrowPlayerIntoHome() && state.playerMode === 'live' &&
                !(liveHandoff && liveHandoff.type === 'player') && !keepFloatingVideo()) {

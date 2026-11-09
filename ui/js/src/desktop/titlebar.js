@@ -53,10 +53,7 @@ function updateTitleBarSection() {
   var label = '';
   if (state.screen === 'home') {
     var tab = TABS[state.tab];
-    label = tab ? String(tab.label || '').charAt(0) + String(tab.label || '').slice(1).toLowerCase() : '';
-    if (label === 'Pelicula') { label = 'Películas'; }
-    if (label === 'Tv') { label = 'TV en vivo'; }
-    if (label === 'Kids') { label = 'Kids'; }
+    label = tab ? String(tab.label || '') : '';
   } else if (state.screen === 'search') { label = 'Buscar'; }
   else if (state.screen === 'settings') { label = 'Ajustes'; }
   else if (state.screen === 'detail' && state.detail) { label = state.detail.title || ''; }
