@@ -716,6 +716,8 @@ function openPlayer(mode, item, episode) {
     return;
   }
   if (!playerStage) { buildPlayer(); }
+  /* Desktop TV: real full screen, like a TV (left again with the player). */
+  if (window.XUPER_DESKTOP && mode === 'live') { installLiveControls(); enterLiveFullscreen(); }
   /* Desktop: reuse the video that is already playing this channel. */
   var handedOver = false;
   if (mode === 'live' && liveHandoff && liveHandoff.type === 'player') {

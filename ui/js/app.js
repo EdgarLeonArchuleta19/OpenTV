@@ -1579,6 +1579,7 @@
     var previousScreen = state.screen;
     state.screen = name;
     if (window.XUPER_DESKTOP && name !== 'home' && name !== 'player') { lockPrivateContent(); }
+    if (window.XUPER_DESKTOP && name !== 'player') { leaveLiveFullscreen(); }
     if (window.XUPER_DESKTOP) { updateTitleBarSection(); if (name !== 'player' && updateStatus.state === 'ready') { showUpdateNotice(); } }
     if (historyDrawerOpen) { closeHistoryDrawer(true); }
     if (window.XUPER_DESKTOP) {
@@ -8752,6 +8753,7 @@
   }
 
   function togglePlayerPlayPause() {
+    if (window.XUPER_DESKTOP && state.playerMode === 'live' && state.screen === 'player') { toggleLivePlayPause(); return; }
     if (!playerVideo) { return; }
     if (playerVideo.paused) {
       resumePlayerPlayback();
@@ -10950,8 +10952,10 @@
     ];
     /* Desktop: no PIN lock (it never existed on Windows), so no dead button. */
     if (window.XUPER_DESKTOP) actDefs = actDefs.filter(function (d) { return d.label !== 'Bloquear'; });
+    if (window.XUPER_DESKTOP) actDefs.unshift({ label: 'Reproducir', right: 0, w: 67 });
     if (window.XUPER_DESKTOP) actDefs.push({ label: 'Canales', right: 0, w: 90 });
     if (window.XUPER_DESKTOP && document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });
+    if (window.XUPER_DESKTOP) actDefs.push({ label: 'Pantalla completa', right: 0, w: 120 });
     for (var i = 0; i < actDefs.length; i++) {
       var d = actDefs[i];
       if (d.hidden) { continue; }
@@ -10968,12 +10972,16 @@
         if (d.label === 'Feedback') b.textContent = 'Diagnóstico';
         var piIcons = { 'HD': UI_ICONS.quality, 'Anterior': UI_ICONS.prev, 'Formato': UI_ICONS.aspect,
           'Favorito': UI_ICONS.star, 'Reproductor 1': UI_ICONS.retry, 'Bloquear': UI_ICONS.lock,
-          'Feedback': UI_ICONS.diagnostics, 'Canales': UI_ICONS.channels, 'Ventana flotante': UI_ICONS.pip };
+          'Feedback': UI_ICONS.diagnostics, 'Canales': UI_ICONS.channels, 'Ventana flotante': UI_ICONS.pip,
+          'Reproducir': UI_ICONS.pause, 'Pantalla completa': UI_ICONS.fullscreen };
         var piTips = { 'HD': 'Calidad automática', 'Anterior': 'Canal anterior', 'Formato': 'Formato de pantalla',
           'Favorito': 'Añadir a favoritos', 'Reproductor 1': 'Reintentar señal', 'Bloquear': 'Bloqueo (no disponible)',
-          'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)' };
+          'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)',
+          'Reproducir': 'Pausa (Espacio)', 'Pantalla completa': 'Pantalla completa (F)' };
         iconizeButton(b, piIcons[d.label], piTips[d.label]);
         if (d.label === 'HD') { b.classList.add('pi-quality-btn'); }
+        if (d.label === 'Reproducir') { b.classList.add('pi-play'); }
+        if (d.label === 'Pantalla completa') { b.classList.add('pi-full'); }
       }
       b._activate = (function (label) {
         return function () {
@@ -10994,6 +11002,8 @@
             }
           } else if (label === 'HD' && window.XUPER_DESKTOP) { cycleHlsQuality(this); }
           else if (label === 'Canales') { openChannelPanel(); }
+          else if (label === 'Reproducir') { toggleLivePlayPause(); }
+          else if (label === 'Pantalla completa') { setWindowFullscreen(!isWindowFullscreen()); liveAutoFullscreen = false; }
           else if (label === 'Ventana flotante') { togglePictureInPicture(); }
           else if (label === 'Feedback') { openDesktopDiagnostic(); }
           else if (label === 'Reproductor 1') { startLiveChannel(CHANNELS[state.channel], true); }
@@ -11006,6 +11016,23 @@
     /* --- channel panel (frag_live_channel) with category bar and addons --- */
     var pcHeader = el('div', 'pc-header');
     pcHeader.appendChild(el('div', 'pc-title', 'Canales de TV'));
+    if (window.XUPER_DESKTOP) {
+      /* Desktop: refresh the list and close the panel, like on a TV remote. */
+      var tools = el('div', 'pc-tools');
+      var refresh = el('button', 'pc-tool focusable');
+      refresh.type = 'button';
+      iconizeButton(refresh, UI_ICONS.retry, 'Actualizar canales');
+      refresh._activate = function () { refreshLiveChannels(refresh); };
+      refresh.addEventListener('click', function (event) { event.stopPropagation(); refresh._activate(); });
+      var closeBtn = el('button', 'pc-tool focusable');
+      closeBtn.type = 'button';
+      iconizeButton(closeBtn, UI_ICONS.close, 'Cerrar (Esc)');
+      closeBtn._activate = closeChannelPanel;
+      closeBtn.addEventListener('click', function (event) { event.stopPropagation(); closeChannelPanel(); });
+      tools.appendChild(refresh);
+      tools.appendChild(closeBtn);
+      pcHeader.appendChild(tools);
+    }
     playerChannels.appendChild(pcHeader);
 
     var pcCategories = el('div', 'pc-categories scrollable');
@@ -12015,6 +12042,8 @@
       return;
     }
     if (!playerStage) { buildPlayer(); }
+    /* Desktop TV: real full screen, like a TV (left again with the player). */
+    if (window.XUPER_DESKTOP && mode === 'live') { installLiveControls(); enterLiveFullscreen(); }
     /* Desktop: reuse the video that is already playing this channel. */
     var handedOver = false;
     if (mode === 'live' && liveHandoff && liveHandoff.type === 'player') {
@@ -12302,6 +12331,105 @@
         if (ret && ret.focus && isVisible(ret.focus)) { setFocus(ret.focus); }
         else if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
       }
+    }
+  }
+
+  /* ---- player/live-controls.js ----------------------------------------------- */
+  /* player/live-controls.js — Escritorio: TV en pantalla completa real, pausa/reproducir y actualizar canales.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* "Pantalla completa" on the TV now really fills the screen (Windows full
+     screen, like a TV); leaving the player leaves it too, and Esc does both
+     at once. */
+  var liveAutoFullscreen = false;
+
+  /* The video on screen: the home preview's own element while it stands in
+     for the player (hand-off), otherwise the player's. */
+  function liveActiveVideo() {
+    return liveHandoff && liveHandoff.type === 'preview' && livePreviewVideo ? livePreviewVideo : playerVideo;
+  }
+
+  function enterLiveFullscreen() {
+    if (!window.XUPER_DESKTOP || isWindowFullscreen()) { return; }
+    liveAutoFullscreen = true;
+    setWindowFullscreen(true);
+  }
+
+  function leaveLiveFullscreen() {
+    if (!liveAutoFullscreen) { return; }
+    liveAutoFullscreen = false;
+    if (isWindowFullscreen()) { setWindowFullscreen(false); }
+  }
+
+  function toggleLivePlayPause() {
+    var v = liveActiveVideo();
+    if (!v) { return; }
+    if (v.paused) {
+      var p = v.play();
+      if (p && p.catch) { p.catch(function () {}); }
+      showOsdIcon('none');
+    } else {
+      v.pause();
+      showOsdIcon('pause');
+    }
+    syncLivePlayButton();
+    showInfobar();
+  }
+
+  function syncLivePlayButton() {
+    var b = document.querySelector('.pi-act.pi-play');
+    if (!b) { return; }
+    var v = liveActiveVideo();
+    var paused = !!(v && v.paused);
+    if (b._paused === paused) { return; }
+    b._paused = paused;
+    setButtonText(b, paused ? 'Reproducir (Espacio)' : 'Pausa (Espacio)', paused ? UI_ICONS.play : UI_ICONS.pause);
+  }
+
+  function syncLiveFullscreenButton() {
+    var b = document.querySelector('.pi-act.pi-full');
+    if (!b) { return; }
+    var full = isWindowFullscreen();
+    setButtonText(b, full ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa (F)', full ? UI_ICONS.exitFullscreen : UI_ICONS.fullscreen);
+  }
+
+  /* Reloads the channels of the current category and keeps the channel that
+     is playing selected. */
+  function refreshLiveChannels(btn) {
+    if (!currentLiveCategory) { return; }
+    var keep = liveChannelKey(CHANNELS[state.channel]);
+    if (btn) { btn.classList.add('is-spinning'); }
+    setPlayerStatus('Actualizando canales…');
+    switchLiveCategory(currentLiveCategory, function () {
+      for (var i = 0; i < CHANNELS.length; i++) {
+        if (liveChannelKey(CHANNELS[i]) === keep) { state.channel = i; break; }
+      }
+      renderPlayerChannels(state.channel);
+      renderLiveRows(false);
+      setPlayerStatus('');
+      if (btn) { btn.classList.remove('is-spinning'); }
+    });
+  }
+
+  var liveControlsWatching = false;
+  function installLiveControls() {
+    if (!window.XUPER_DESKTOP) { return; }
+    [playerVideo, livePreviewVideo].forEach(function (v) {
+      if (!v || v._liveControls) { return; }
+      v._liveControls = true;
+      v.addEventListener('play', syncLivePlayButton);
+      v.addEventListener('pause', syncLivePlayButton);
+    });
+    if (!liveControlsWatching && window.desktop && window.desktop.onFullscreenChanged) {
+      liveControlsWatching = true;
+      window.desktop.onFullscreenChanged(function (isFull) {
+        syncLiveFullscreenButton();
+        /* Esc (or F11) out of the TV's full screen also leaves the player. */
+        if (!isFull && liveAutoFullscreen && state.screen === 'player' && state.playerMode === 'live') {
+          liveAutoFullscreen = false;
+          desktopBack();
+        }
+      });
     }
   }
 

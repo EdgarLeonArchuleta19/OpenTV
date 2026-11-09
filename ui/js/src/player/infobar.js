@@ -173,6 +173,7 @@ function showOsdIcon(type) {
 }
 
 function togglePlayerPlayPause() {
+  if (window.XUPER_DESKTOP && state.playerMode === 'live' && state.screen === 'player') { toggleLivePlayPause(); return; }
   if (!playerVideo) { return; }
   if (playerVideo.paused) {
     resumePlayerPlayback();

@@ -12,6 +12,7 @@ function showScreen(name) {
   var previousScreen = state.screen;
   state.screen = name;
   if (window.XUPER_DESKTOP && name !== 'home' && name !== 'player') { lockPrivateContent(); }
+  if (window.XUPER_DESKTOP && name !== 'player') { leaveLiveFullscreen(); }
   if (window.XUPER_DESKTOP) { updateTitleBarSection(); if (name !== 'player' && updateStatus.state === 'ready') { showUpdateNotice(); } }
   if (historyDrawerOpen) { closeHistoryDrawer(true); }
   if (window.XUPER_DESKTOP) {

@@ -246,8 +246,10 @@ function buildPlayer() {
   ];
   /* Desktop: no PIN lock (it never existed on Windows), so no dead button. */
   if (window.XUPER_DESKTOP) actDefs = actDefs.filter(function (d) { return d.label !== 'Bloquear'; });
+  if (window.XUPER_DESKTOP) actDefs.unshift({ label: 'Reproducir', right: 0, w: 67 });
   if (window.XUPER_DESKTOP) actDefs.push({ label: 'Canales', right: 0, w: 90 });
   if (window.XUPER_DESKTOP && document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });
+  if (window.XUPER_DESKTOP) actDefs.push({ label: 'Pantalla completa', right: 0, w: 120 });
   for (var i = 0; i < actDefs.length; i++) {
     var d = actDefs[i];
     if (d.hidden) { continue; }
@@ -264,12 +266,16 @@ function buildPlayer() {
       if (d.label === 'Feedback') b.textContent = 'Diagnóstico';
       var piIcons = { 'HD': UI_ICONS.quality, 'Anterior': UI_ICONS.prev, 'Formato': UI_ICONS.aspect,
         'Favorito': UI_ICONS.star, 'Reproductor 1': UI_ICONS.retry, 'Bloquear': UI_ICONS.lock,
-        'Feedback': UI_ICONS.diagnostics, 'Canales': UI_ICONS.channels, 'Ventana flotante': UI_ICONS.pip };
+        'Feedback': UI_ICONS.diagnostics, 'Canales': UI_ICONS.channels, 'Ventana flotante': UI_ICONS.pip,
+        'Reproducir': UI_ICONS.pause, 'Pantalla completa': UI_ICONS.fullscreen };
       var piTips = { 'HD': 'Calidad automática', 'Anterior': 'Canal anterior', 'Formato': 'Formato de pantalla',
         'Favorito': 'Añadir a favoritos', 'Reproductor 1': 'Reintentar señal', 'Bloquear': 'Bloqueo (no disponible)',
-        'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)' };
+        'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)',
+        'Reproducir': 'Pausa (Espacio)', 'Pantalla completa': 'Pantalla completa (F)' };
       iconizeButton(b, piIcons[d.label], piTips[d.label]);
       if (d.label === 'HD') { b.classList.add('pi-quality-btn'); }
+      if (d.label === 'Reproducir') { b.classList.add('pi-play'); }
+      if (d.label === 'Pantalla completa') { b.classList.add('pi-full'); }
     }
     b._activate = (function (label) {
       return function () {
@@ -290,6 +296,8 @@ function buildPlayer() {
           }
         } else if (label === 'HD' && window.XUPER_DESKTOP) { cycleHlsQuality(this); }
         else if (label === 'Canales') { openChannelPanel(); }
+        else if (label === 'Reproducir') { toggleLivePlayPause(); }
+        else if (label === 'Pantalla completa') { setWindowFullscreen(!isWindowFullscreen()); liveAutoFullscreen = false; }
         else if (label === 'Ventana flotante') { togglePictureInPicture(); }
         else if (label === 'Feedback') { openDesktopDiagnostic(); }
         else if (label === 'Reproductor 1') { startLiveChannel(CHANNELS[state.channel], true); }
@@ -302,6 +310,23 @@ function buildPlayer() {
   /* --- channel panel (frag_live_channel) with category bar and addons --- */
   var pcHeader = el('div', 'pc-header');
   pcHeader.appendChild(el('div', 'pc-title', 'Canales de TV'));
+  if (window.XUPER_DESKTOP) {
+    /* Desktop: refresh the list and close the panel, like on a TV remote. */
+    var tools = el('div', 'pc-tools');
+    var refresh = el('button', 'pc-tool focusable');
+    refresh.type = 'button';
+    iconizeButton(refresh, UI_ICONS.retry, 'Actualizar canales');
+    refresh._activate = function () { refreshLiveChannels(refresh); };
+    refresh.addEventListener('click', function (event) { event.stopPropagation(); refresh._activate(); });
+    var closeBtn = el('button', 'pc-tool focusable');
+    closeBtn.type = 'button';
+    iconizeButton(closeBtn, UI_ICONS.close, 'Cerrar (Esc)');
+    closeBtn._activate = closeChannelPanel;
+    closeBtn.addEventListener('click', function (event) { event.stopPropagation(); closeChannelPanel(); });
+    tools.appendChild(refresh);
+    tools.appendChild(closeBtn);
+    pcHeader.appendChild(tools);
+  }
   playerChannels.appendChild(pcHeader);
 
   var pcCategories = el('div', 'pc-categories scrollable');
