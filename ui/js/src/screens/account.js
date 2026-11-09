@@ -12,13 +12,23 @@ function buildDesktopProfilePanel() {
   var p = el('div', 'settings-panel account-panel acc-desktop');
 
   var head = el('div', 'acc-head');
-  var avatar = el('div', 'acc-avatar');
-  avatar.innerHTML = UI_ICONS.user;
+  var me = activeProfile();
+  var avatar = el('div', 'acc-avatar is-profile');
+  avatar.innerHTML = avatarSvg(me.avatar);
   var who = el('div', 'acc-who');
-  who.appendChild(el('div', 'acc-name', 'Perfil local'));
-  who.appendChild(el('div', 'acc-id', 'ID de este equipo · ' + localProfile.id));
+  who.appendChild(el('div', 'acc-name', me.name));
+  who.appendChild(el('div', 'acc-id', (me.kids ? 'Perfil infantil · ' : '') + 'Guardado solo en este equipo'));
   head.appendChild(avatar);
   head.appendChild(who);
+  var headActions = el('div', 'acc-head-actions');
+  [['Cambiar de perfil', function () { showProfilePicker(false); }],
+   ['Editar perfil', function () { openProfileEditor(activeProfile()); }],
+   ['Administrar perfiles', function () { showProfilePicker(true); }]].forEach(function (b) {
+    var btn = el('div', 'acc-seg-btn focusable', b[0]);
+    btn._activate = b[1];
+    headActions.appendChild(btn);
+  });
+  head.appendChild(headActions);
   p.appendChild(head);
 
   var titles = 0, channels = 0;

@@ -1,5 +1,6 @@
 [
   "core/utils.js",
+  "core/profiles.js",
   "core/icons.js",
   "data/demo-catalog.js",
   "services/vod-api.js",
@@ -27,6 +28,7 @@
   "screens/search-suggest.js",
   "screens/settings.js",
   "screens/account.js",
+  "screens/profiles-ui.js",
   "screens/history.js",
   "screens/settings-panels.js",
   "screens/settings-desktop.js",

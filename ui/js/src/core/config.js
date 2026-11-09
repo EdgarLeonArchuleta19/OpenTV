@@ -40,6 +40,9 @@ if (window.XUPER_DESKTOP) {
   /* Top bar labels, like the big streaming apps. */
   var DESKTOP_TAB_LABELS = { 'TV': 'TV en vivo', 'DESTACADOS': 'Inicio', 'PELICULA': 'Películas', 'SERIES': 'Series', 'KIDS': 'Kids', 'ANIME': 'Anime' };
   TABS.forEach(function (t) { if (DESKTOP_TAB_LABELS[t.label]) { t.label = DESKTOP_TAB_LABELS[t.label]; } });
+  /* A kids profile only sees Kids (no TV, no Inicio or Anime, which also
+     carry titles for adults). */
+  if (isKidsProfile()) { TABS = TABS.filter(function (t) { return t.page === 4; }); }
 }
 
 var SETTINGS_ITEMS = [

@@ -300,7 +300,7 @@ function installLiveGuide() {
   document.addEventListener('keydown', function (event) {
     if (!liveGuideOpen) {
       /* G opens the guide from the TV tab. */
-      if ((event.key === 'g' || event.key === 'G') && !event.ctrlKey && !event.altKey && state.screen === 'home' && state.tab === 0 &&
+      if ((event.key === 'g' || event.key === 'G') && !event.ctrlKey && !event.altKey && state.screen === 'home' && onTvTab() &&
           !(document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName))) {
         event.preventDefault();
         openLiveGuide();

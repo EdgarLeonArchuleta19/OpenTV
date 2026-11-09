@@ -19,7 +19,7 @@ function privateSettings() {
   var s = safeLocalRead(PRIVATE_KEY, null);
   return s && typeof s === 'object' ? s : { enabled: false };
 }
-function privateEnabled() { var s = privateSettings(); return !!(s.enabled && s.hash); }
+function privateEnabled() { if (isKidsProfile()) { return false; } var s = privateSettings(); return !!(s.enabled && s.hash); }
 
 function isAdultCategory(cat) {
   if (!cat) { return false; }
@@ -260,7 +260,7 @@ function showPrivateCategory() {
   var view = { id: cat.id, name: 'Privado', code: cat.code, isPrivate: true };
   if (liveGuideOpen) { closeLiveGuide(); }
   if (state.screen !== 'home') { showScreen('home'); }
-  if (state.tab !== 0) { selectTab(0, true); }
+  if (!onTvTab() && tvTabIndex() >= 0) { selectTab(tvTabIndex(), true); }
   switchLiveCategory(view);
   renderLiveDockCats();
   document.body.classList.add('is-private-tv');
@@ -276,7 +276,7 @@ function lockPrivateContent() {
     var all = null;
     for (var i = 0; i < liveCategories.length; i++) { if (liveCategories[i].name === 'Todos') { all = liveCategories[i]; break; } }
     currentLiveCategory = all || liveCategories[0] || null;
-    if (state.screen === 'home' && state.tab === 0 && currentLiveCategory) { switchLiveCategory(currentLiveCategory); }
+    if (state.screen === 'home' && onTvTab() && currentLiveCategory) { switchLiveCategory(currentLiveCategory); }
     else if (currentLiveCategory) {
       stopLivePreview();
       CHANNELS.splice(0, CHANNELS.length);

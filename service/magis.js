@@ -831,6 +831,16 @@ function resolve(contentId, seriesId, options, done) {
     /* Quality chosen by the viewer (lines, e.g. 720). Without an exact match
        use the closest lower one; 0 keeps the automatic choice. */
     var preferHeight = parseInt(options.preferHeight, 10) || 0;
+    /* Automatic: when the title comes in several versions, take the sharpest
+       one up to 1080 lines instead of simply the first in the list. */
+    if (!preferHeight && !(parseInt(options.trackIndex, 10) > 0) && tracks.length > 1) {
+      var top = -1, topHeight = 0;
+      for (var tq = 0; tq < tracks.length; tq++) {
+        var th = trackHeight(tracks[tq]);
+        if (th && th <= 1080 && th > topHeight) { top = tq; topHeight = th; }
+      }
+      if (top >= 0) { index = top; }
+    }
     if (preferHeight > 0 && !(parseInt(options.trackIndex, 10) > 0)) {
       var best = -1, bestHeight = 0;
       for (var q = 0; q < tracks.length; q++) {

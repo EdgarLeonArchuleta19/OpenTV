@@ -168,7 +168,7 @@ function buildNotify() {
   ];
   if (window.XUPER_DESKTOP) {
     defs = [
-      { cls: 'search', svg: UI_ICONS.search, tip: 'Buscar (Ctrl+F)', small: true, run: function () { openSearch(); } },
+      { cls: 'search' + (isKidsProfile() ? ' is-hidden-kids' : ''), svg: UI_ICONS.search, tip: 'Buscar (Ctrl+F)', small: true, run: function () { openSearch(); } },
       { cls: 'mylist', svg: UI_ICONS.mylist, tip: 'Mi lista', small: true,
         run: function () { openSettings(); showSettingsPanel(1, true); } },
       { cls: 'personal', svg: UI_ICONS.user, tip: 'Mi cuenta y ajustes', small: true, run: function () { openSettings(); } }
@@ -210,6 +210,7 @@ function buildNotify() {
   notifyEl.appendChild(time);
   updateClock();
   setInterval(updateClock, 30000);
+  if (window.XUPER_DESKTOP) { refreshProfileChrome(); }
 }
 
 function updateClock() {

@@ -27,6 +27,7 @@ Interfaz moderna estilo streaming, rápida con ratón y teclado.
 | 🔎 **Buscador** | Sugerencias del catálogo mientras escribes y búsquedas recientes. |
 | ▶️ **Reproductor** | Controles tipo Netflix, volumen (controla el de Windows), velocidad 0,5×–2×, calidad, audio y subtítulos, siguiente episodio automático, ventana flotante y pantalla completa. Si un vídeo falla, cambia solo a un modo compatible. |
 | 🗂️ **Episodios** | Panel lateral con temporadas y episodios mientras ves la serie. |
+| 👤 **Perfiles** | Hasta 6 perfiles con avatar, cada uno con su historial, Mi lista, búsquedas y canales favoritos. Perfil infantil (solo Kids). Con varios perfiles la app abre en *¿Quién está viendo?*. Copia automática en `Documentos\OpenTV` para recuperarlos al reinstalar. |
 | 🔒 **Privacidad** | Sin cuentas ni registro: tu lista, historial y preferencias se guardan solo en tu equipo. Contenido para adultos oculto y protegido con PIN (desactivado por defecto). |
 | 🔄 **Actualizaciones automáticas** | La versión instalada se actualiza sola desde las releases de este repositorio. |
 | ⚡ **Rápida** | 60 fps al navegar, carga diferida de pósteres y listas, y un registro de errores local para depurar. |

@@ -36,6 +36,8 @@ function loadModules(files, globals) {
     },
     safeLocalWrite: (key, value) => storage.setItem(key, JSON.stringify(value)),
     VOD: [],
+    isKidsProfile: () => false,
+    profileKey: (k) => k,
     state: { favs: {}, screen: 'home', tab: 0 }
   }, globals || {});
   context.window.localStorage = storage;

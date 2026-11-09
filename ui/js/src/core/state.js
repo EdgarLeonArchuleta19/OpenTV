@@ -44,11 +44,7 @@ var state = {
 };
 
 /* Desktop: the app opens on Inicio (the TV stays one tab away). */
-if (window.XUPER_DESKTOP) {
-  for (var startTab = 0; startTab < TABS.length; startTab++) {
-    if (TABS[startTab].page === 1) { state.tab = startTab; break; }
-  }
-}
+state.tab = homeTabIndex();
 
 /* A profile belongs to this TV only: no registration, credentials or
    network account is required.  It intentionally stays small because old
@@ -59,13 +55,14 @@ var localProfile = { id: '', createdAt: 0, history: [] };
 
 function safeLocalRead(key, fallback) {
   try {
-    var raw = localStorage.getItem(key);
+    var raw = localStorage.getItem(profileKey(key));
     return raw ? JSON.parse(raw) : fallback;
   } catch (eRead) { return fallback; }
 }
 
 function safeLocalWrite(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch (eWrite) { /* storage unavailable */ }
+  try { localStorage.setItem(profileKey(key), JSON.stringify(value)); } catch (eWrite) { /* storage unavailable */ }
+  if (window.XUPER_DESKTOP && typeof scheduleProfilesBackup === 'function') { scheduleProfilesBackup(); }
 }
 
 function loadLocalProfile() {

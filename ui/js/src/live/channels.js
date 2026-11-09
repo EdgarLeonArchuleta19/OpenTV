@@ -144,7 +144,7 @@ function stopLivePreview() {
 function startLivePreview(ch) {
   if (!livePreviewVideo || !ch || (!ch.channelCode && !ch.streamUrl)) { return; }
   /* A preview belongs only to the TV tab on the home screen. */
-  if (state.screen !== 'home' || state.tab !== 0) { return; }
+  if (state.screen !== 'home' || !onTvTab()) { return; }
   /* The full-screen player is already showing this channel here. */
   if (liveHandoff && liveHandoff.type === 'player') {
     if (liveHandoff.key === liveChannelKey(ch)) { return; }
@@ -162,7 +162,7 @@ function startLivePreview(ch) {
   if (livePreviewStatus) { livePreviewStatus.textContent = 'Cargando ' + (ch.name || 'canal') + '…'; }
   var params = ch.streamUrl ? { streamUrl: ch.streamUrl } : { channelCode: ch.channelCode };
   portalServiceCall('resolveLive', params, function (err, payload) {
-    if (mySeq !== livePreviewSeq || state.screen !== 'home' || state.tab !== 0) { return; }
+    if (mySeq !== livePreviewSeq || state.screen !== 'home' || !onTvTab()) { return; }
     if (!err && payload) { rememberCdnProbe('live', payload); }
     var url = !err && payload && payload.returnValue !== false && (payload.proxyPath || payload.url);
     if (!url) {
@@ -594,7 +594,7 @@ function setChannel(index, immediate) {
     if (state.playerMode === 'live') {
       startLiveChannel(CHANNELS[index], !!immediate);
     }
-  } else if (state.screen === 'home' && state.tab === 0) {
+  } else if (state.screen === 'home' && onTvTab()) {
     scheduleLivePreview(CHANNELS[index]);
   }
 }

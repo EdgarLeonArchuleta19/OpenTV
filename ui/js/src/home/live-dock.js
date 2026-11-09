@@ -75,7 +75,7 @@ function startSystemVolumeSync() {
   syncFromSystemVolume();
   /* Follow changes made with the keyboard volume keys or the taskbar. */
   setInterval(function () {
-    if (((state.screen === 'home' && state.tab === 0) || state.screen === 'player') && document.hasFocus()) { syncFromSystemVolume(); }
+    if (((state.screen === 'home' && onTvTab()) || state.screen === 'player') && document.hasFocus()) { syncFromSystemVolume(); }
   }, 2500);
 }
 

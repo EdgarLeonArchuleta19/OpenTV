@@ -15,6 +15,7 @@ const systemAudio = require('./system-volume.cjs');
 const updates = require('./updater.cjs');
 const logger = require('./logger.cjs');
 const tmdb = require('./tmdb.cjs');
+const backup = require('./backup.cjs');
 let windowRef;
 let shortcutFor = () => null;
 let service;
@@ -126,6 +127,13 @@ async function start() {
   ipcMain.handle('desktop:system-volume', (event, command, value) => {
     if (!trusted(event) || ['get', 'set', 'mute'].indexOf(command) === -1) return { error: 'Operación no permitida' };
     return systemAudio.systemVolume(command, value);
+  });
+  backup.init(app);
+  ipcMain.handle('desktop:backup', (event, command, data) => {
+    if (!trusted(event)) return null;
+    if (command === 'read') return backup.read();
+    if (command === 'write') return backup.write(data);
+    return null;
   });
   ipcMain.handle('desktop:tmdb', (event, name) => {
     if (!trusted(event) || typeof name !== 'string') return { error: 'Operación no permitida' };

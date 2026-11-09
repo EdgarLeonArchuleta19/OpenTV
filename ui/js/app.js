@@ -44,6 +44,145 @@
   }
   function each(list, fn) { for (var i = 0; i < list.length; i++) { fn(list[i], i); } }
 
+  /* ---- core/profiles.js ------------------------------------------------------ */
+  /* core/profiles.js — Perfiles locales (como en Netflix): lista, perfil activo y avatares.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* Everything stays on this computer. Each profile keeps its own history,
+     Mi lista, searches, TV favourites/recents, preferences and private
+     setting: those storage keys get the profile id appended ("key@p3"). The
+     first profile ("main") keeps the original keys, so the data that existed
+     before profiles is simply that profile's. The active profile is chosen
+     before the rest of the app loads (the app reloads to switch). */
+  var PROFILES_KEY = 'opentv_profiles_v1';
+  var ACTIVE_PROFILE_SESSION = 'opentv_active_profile';
+  var PROFILES_MAX = 6;
+  var PROFILE_SCOPED_KEYS = [
+    'xuper_local_profile_v1', 'xuper_global_playback_v1', 'opentv_recent_searches_v1',
+    'opentv_live_saved_v1', 'opentv_private_v1', 'opentv_catalog_density_v1'
+  ];
+
+  function readProfiles() {
+    var data = null;
+    try { data = JSON.parse(localStorage.getItem(PROFILES_KEY) || 'null'); } catch (eRead) { data = null; }
+    if (!data || !data.list || !data.list.length) {
+      data = { list: [{ id: 'main', name: 'Mi perfil', avatar: 0, kids: false, createdAt: Date.now() }], last: 'main', created: false };
+    }
+    return data;
+  }
+
+  var profilesData = readProfiles();
+  var activeProfileId = (function () {
+    var chosen = null;
+    try { chosen = sessionStorage.getItem(ACTIVE_PROFILE_SESSION); } catch (eSession) { chosen = null; }
+    var want = chosen || profilesData.last || 'main';
+    for (var i = 0; i < profilesData.list.length; i++) { if (profilesData.list[i].id === want) { return want; } }
+    return profilesData.list[0].id;
+  })();
+  /* True when this start-up already went through the profile picker. */
+  var profileChosenThisSession = (function () {
+    try { return !!sessionStorage.getItem(ACTIVE_PROFILE_SESSION); } catch (eSession) { return false; }
+  })();
+
+  function activeProfile() {
+    for (var i = 0; i < profilesData.list.length; i++) {
+      if (profilesData.list[i].id === activeProfileId) { return profilesData.list[i]; }
+    }
+    return profilesData.list[0];
+  }
+  function isKidsProfile() { return !!(window.XUPER_DESKTOP && activeProfile().kids); }
+
+  function profileKey(key) {
+    if (!window.XUPER_DESKTOP || activeProfileId === 'main' || PROFILE_SCOPED_KEYS.indexOf(key) === -1) { return key; }
+    return key + '@' + activeProfileId;
+  }
+
+  function saveProfiles() {
+    try { localStorage.setItem(PROFILES_KEY, JSON.stringify(profilesData)); } catch (eSave) { /* storage full */ }
+    if (typeof scheduleProfilesBackup === 'function') { scheduleProfilesBackup(); }
+  }
+
+  /* Switches profile: remember the choice for this session and reload, so
+     every module starts with that profile's data. */
+  function switchToProfile(id) {
+    profilesData.last = id;
+    saveProfiles();
+    try { sessionStorage.setItem(ACTIVE_PROFILE_SESSION, id); } catch (eSession) { /* private mode */ }
+    if (id === activeProfileId) { return false; }
+    location.reload();
+    return true;
+  }
+
+  /* ------------------------------------------------------------- tabs */
+  function tvTabIndex() {
+    for (var i = 0; i < TABS.length; i++) { if (TABS[i].page === 0) { return i; } }
+    return -1;
+  }
+  /* Where the app starts and where Esc on the home screen goes: Inicio on
+     desktop (Kids for a kids profile), TV on the TV set. */
+  function homeTabIndex() {
+    if (!window.XUPER_DESKTOP) { return 0; }
+    var want = isKidsProfile() ? 4 : 1;
+    for (var i = 0; i < TABS.length; i++) { if (TABS[i].page === want) { return i; } }
+    return 0;
+  }
+  function onTvTab() { var t = TABS[state.tab]; return !!t && t.page === 0; }
+
+  /* ----------------------------------------------------------- avatars */
+  /* Twelve drawn avatars: a coloured tile and a simple face. */
+  var AVATARS = [
+    { a: '#3a7bff', b: '#8a4dff', face: 'smile' },
+    { a: '#ff5f6d', b: '#ffc371', face: 'cat' },
+    { a: '#11998e', b: '#38ef7d', face: 'robot' },
+    { a: '#f7b733', b: '#fc4a1a', face: 'star' },
+    { a: '#ff6fd8', b: '#3813c2', face: 'bunny' },
+    { a: '#00c6ff', b: '#0072ff', face: 'alien' },
+    { a: '#232526', b: '#5b5e62', face: 'tv' },
+    { a: '#ff9a44', b: '#fc6076', face: 'fox' },
+    { a: '#7f53ac', b: '#647dee', face: 'ghost' },
+    { a: '#e52d27', b: '#b31217', face: 'love' },
+    { a: '#141e30', b: '#3a6186', face: 'planet' },
+    { a: '#a8e063', b: '#56ab2f', face: 'frog' }
+  ];
+
+  var avatarSvgSeq = 0;
+  function avatarSvg(index) {
+    var av = AVATARS[(index >>> 0) % AVATARS.length];
+    /* A unique gradient id per drawing: copies of one id clash. */
+    var g = 'av' + index + '-' + (++avatarSvgSeq);
+    var eyes = '<circle cx="36" cy="44" r="6" fill="#fff"/><circle cx="64" cy="44" r="6" fill="#fff"/>';
+    var mouth = '<path d="M36 64c8 8 20 8 28 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>';
+    var extra = '';
+    switch (av.face) {
+      case 'cat': extra = '<path d="M20 30 26 8l14 14M80 30 74 8 60 22" fill="#fff" opacity=".9"/>'; break;
+      case 'robot':
+        eyes = '<rect x="28" y="38" width="14" height="12" rx="3" fill="#fff"/><rect x="58" y="38" width="14" height="12" rx="3" fill="#fff"/>';
+        mouth = '<rect x="34" y="62" width="32" height="7" rx="3.5" fill="#fff"/>';
+        extra = '<path d="M50 22V10" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="50" cy="9" r="4" fill="#fff"/>'; break;
+      case 'star': extra = '<path d="M50 6l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z" fill="#fff" opacity=".95"/>'; break;
+      case 'bunny': extra = '<rect x="30" y="2" width="11" height="28" rx="5.5" fill="#fff" opacity=".9"/><rect x="59" y="2" width="11" height="28" rx="5.5" fill="#fff" opacity=".9"/>'; break;
+      case 'alien':
+        eyes = '<ellipse cx="34" cy="46" rx="8" ry="10" fill="#fff"/><ellipse cx="66" cy="46" rx="8" ry="10" fill="#fff"/><circle cx="50" cy="30" r="5" fill="#fff"/>';
+        mouth = '<path d="M42 68h16" stroke="#fff" stroke-width="5" stroke-linecap="round"/>'; break;
+      case 'tv':
+        extra = '<path d="M38 12 50 22 62 12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><rect x="18" y="24" width="64" height="52" rx="10" fill="none" stroke="#fff" stroke-width="4"/>';
+        eyes = '<circle cx="38" cy="46" r="5" fill="#fff"/><circle cx="62" cy="46" r="5" fill="#fff"/>';
+        mouth = '<path d="M40 60c6 5 14 5 20 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>'; break;
+      case 'fox': extra = '<path d="M16 34 22 6l22 18M84 34 78 6 56 24" fill="#fff" opacity=".85"/><path d="M44 58l6 6 6-6z" fill="#fff"/>'; mouth = ''; break;
+      case 'ghost':
+        extra = '<path d="M22 88V42a28 28 0 0 1 56 0v46l-9-7-10 7-9-7-10 7-9-7z" fill="#fff" opacity=".22"/>';
+        eyes = '<ellipse cx="38" cy="44" rx="6" ry="8" fill="#fff"/><ellipse cx="62" cy="44" rx="6" ry="8" fill="#fff"/>';
+        mouth = '<ellipse cx="50" cy="64" rx="6" ry="7" fill="#fff"/>'; break;
+      case 'love':
+        eyes = '<path d="M36 50l-8-8a5 5 0 0 1 8-6 5 5 0 0 1 8 6z" fill="#fff"/><path d="M64 50l-8-8a5 5 0 0 1 8-6 5 5 0 0 1 8 6z" fill="#fff"/>'; break;
+      case 'planet': extra = '<ellipse cx="50" cy="50" rx="44" ry="12" fill="none" stroke="#fff" stroke-width="3" opacity=".5" transform="rotate(-18 50 50)"/><circle cx="80" cy="18" r="3" fill="#fff"/><circle cx="18" cy="80" r="2" fill="#fff"/>'; break;
+      case 'frog': eyes = '<circle cx="34" cy="34" r="10" fill="#fff"/><circle cx="66" cy="34" r="10" fill="#fff"/><circle cx="34" cy="34" r="4" fill="#123"/><circle cx="66" cy="34" r="4" fill="#123"/>'; mouth = '<path d="M28 62c12 10 32 10 44 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>'; break;
+    }
+    return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="' + g + '" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0" stop-color="' + av.a + '"/><stop offset="1" stop-color="' + av.b + '"/></linearGradient></defs>' +
+      '<rect width="100" height="100" rx="18" fill="url(#' + g + ')"/>' + extra + eyes + mouth + '</svg>';
+  }
+
   /* ---- core/icons.js --------------------------------------------------------- */
   /* core/icons.js — Iconos de línea de la interfaz de escritorio y botones de icono con descripción.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
@@ -1035,6 +1174,9 @@
     /* Top bar labels, like the big streaming apps. */
     var DESKTOP_TAB_LABELS = { 'TV': 'TV en vivo', 'DESTACADOS': 'Inicio', 'PELICULA': 'Películas', 'SERIES': 'Series', 'KIDS': 'Kids', 'ANIME': 'Anime' };
     TABS.forEach(function (t) { if (DESKTOP_TAB_LABELS[t.label]) { t.label = DESKTOP_TAB_LABELS[t.label]; } });
+    /* A kids profile only sees Kids (no TV, no Inicio or Anime, which also
+       carry titles for adults). */
+    if (isKidsProfile()) { TABS = TABS.filter(function (t) { return t.page === 4; }); }
   }
 
   var SETTINGS_ITEMS = [
@@ -1118,11 +1260,7 @@
   };
 
   /* Desktop: the app opens on Inicio (the TV stays one tab away). */
-  if (window.XUPER_DESKTOP) {
-    for (var startTab = 0; startTab < TABS.length; startTab++) {
-      if (TABS[startTab].page === 1) { state.tab = startTab; break; }
-    }
-  }
+  state.tab = homeTabIndex();
 
   /* A profile belongs to this TV only: no registration, credentials or
      network account is required.  It intentionally stays small because old
@@ -1133,13 +1271,14 @@
 
   function safeLocalRead(key, fallback) {
     try {
-      var raw = localStorage.getItem(key);
+      var raw = localStorage.getItem(profileKey(key));
       return raw ? JSON.parse(raw) : fallback;
     } catch (eRead) { return fallback; }
   }
 
   function safeLocalWrite(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (eWrite) { /* storage unavailable */ }
+    try { localStorage.setItem(profileKey(key), JSON.stringify(value)); } catch (eWrite) { /* storage unavailable */ }
+    if (window.XUPER_DESKTOP && typeof scheduleProfilesBackup === 'function') { scheduleProfilesBackup(); }
   }
 
   function loadLocalProfile() {
@@ -1222,6 +1361,7 @@
     var r = node.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) { return false; }
     if (historyDrawerOpen) { return !!closest(node, '.history-drawer'); }
+    if (profilePickerOpen) { return !!closest(node, '.profile-picker'); }
     if (pinDialogOpen) { return !!closest(node, '.pin-dialog'); }
     if (liveGuideOpen) { return !!closest(node, '.live-guide'); }
     if (dialogAddonsOpen) { return !!closest(node, '#dialog-addons'); }
@@ -1567,9 +1707,11 @@
       return;
     }
     if (state.screen === 'home') {
-      if (state.tab !== 0) {
-        selectTab(0, true);
-        if (tabEls[0]) { setFocus(tabEls[0]); }
+      /* Back on the home screen goes to the first section first (Inicio on
+         desktop, TV on the TV set). */
+      if (state.tab !== homeTabIndex()) {
+        selectTab(homeTabIndex(), true);
+        if (tabEls[homeTabIndex()]) { setFocus(tabEls[homeTabIndex()]); }
         return;
       }
       if (window.webOSTV && window.webOSTV.platformBack) {
@@ -1696,7 +1838,7 @@
         if (e.preventDefault) { e.preventDefault(); }
         return;
       }
-      if ((k === 77 || key === 'm' || key === 'M') && state.screen === 'home' && state.tab === 0 && liveMuteBtn) {
+      if ((k === 77 || key === 'm' || key === 'M') && state.screen === 'home' && onTvTab() && liveMuteBtn) {
         liveMuteBtn._activate();
         showLiveVolumeToast();
         if (e.preventDefault) { e.preventDefault(); }
@@ -1927,12 +2069,9 @@
     if (!homeBuilt) { buildHome(); }
     showScreen('home');
     /* Desktop opens on Inicio (also where Ctrl+H goes); the TV opens on TV. */
-    var startTab = 0;
-    if (window.XUPER_DESKTOP) {
-      for (var t = 0; t < TABS.length; t++) { if (TABS[t].page === 1) { startTab = t; break; } }
-    }
+    var startTab = homeTabIndex();
     selectTab(startTab, false);
-    if (startTab === 0) { setFocus(liveFocus); }
+    if (TABS[startTab] && TABS[startTab].page === 0) { setFocus(liveFocus); }
     else {
       var first = pages[TABS[startTab].page] ? firstIn(pages[TABS[startTab].page]) : null;
       setFocus(first || tabEls[startTab], true);
@@ -2120,7 +2259,7 @@
     ];
     if (window.XUPER_DESKTOP) {
       defs = [
-        { cls: 'search', svg: UI_ICONS.search, tip: 'Buscar (Ctrl+F)', small: true, run: function () { openSearch(); } },
+        { cls: 'search' + (isKidsProfile() ? ' is-hidden-kids' : ''), svg: UI_ICONS.search, tip: 'Buscar (Ctrl+F)', small: true, run: function () { openSearch(); } },
         { cls: 'mylist', svg: UI_ICONS.mylist, tip: 'Mi lista', small: true,
           run: function () { openSettings(); showSettingsPanel(1, true); } },
         { cls: 'personal', svg: UI_ICONS.user, tip: 'Mi cuenta y ajustes', small: true, run: function () { openSettings(); } }
@@ -2162,6 +2301,7 @@
     notifyEl.appendChild(time);
     updateClock();
     setInterval(updateClock, 30000);
+    if (window.XUPER_DESKTOP) { refreshProfileChrome(); }
   }
 
   function updateClock() {
@@ -2578,7 +2718,7 @@
     syncFromSystemVolume();
     /* Follow changes made with the keyboard volume keys or the taskbar. */
     setInterval(function () {
-      if (((state.screen === 'home' && state.tab === 0) || state.screen === 'player') && document.hasFocus()) { syncFromSystemVolume(); }
+      if (((state.screen === 'home' && onTvTab()) || state.screen === 'player') && document.hasFocus()) { syncFromSystemVolume(); }
     }, 2500);
   }
 
@@ -2922,7 +3062,7 @@
   function startLivePreview(ch) {
     if (!livePreviewVideo || !ch || (!ch.channelCode && !ch.streamUrl)) { return; }
     /* A preview belongs only to the TV tab on the home screen. */
-    if (state.screen !== 'home' || state.tab !== 0) { return; }
+    if (state.screen !== 'home' || !onTvTab()) { return; }
     /* The full-screen player is already showing this channel here. */
     if (liveHandoff && liveHandoff.type === 'player') {
       if (liveHandoff.key === liveChannelKey(ch)) { return; }
@@ -2940,7 +3080,7 @@
     if (livePreviewStatus) { livePreviewStatus.textContent = 'Cargando ' + (ch.name || 'canal') + '…'; }
     var params = ch.streamUrl ? { streamUrl: ch.streamUrl } : { channelCode: ch.channelCode };
     portalServiceCall('resolveLive', params, function (err, payload) {
-      if (mySeq !== livePreviewSeq || state.screen !== 'home' || state.tab !== 0) { return; }
+      if (mySeq !== livePreviewSeq || state.screen !== 'home' || !onTvTab()) { return; }
       if (!err && payload) { rememberCdnProbe('live', payload); }
       var url = !err && payload && payload.returnValue !== false && (payload.proxyPath || payload.url);
       if (!url) {
@@ -3372,7 +3512,7 @@
       if (state.playerMode === 'live') {
         startLiveChannel(CHANNELS[index], !!immediate);
       }
-    } else if (state.screen === 'home' && state.tab === 0) {
+    } else if (state.screen === 'home' && onTvTab()) {
       scheduleLivePreview(CHANNELS[index]);
     }
   }
@@ -3845,7 +3985,7 @@
     document.addEventListener('keydown', function (event) {
       if (!liveGuideOpen) {
         /* G opens the guide from the TV tab. */
-        if ((event.key === 'g' || event.key === 'G') && !event.ctrlKey && !event.altKey && state.screen === 'home' && state.tab === 0 &&
+        if ((event.key === 'g' || event.key === 'G') && !event.ctrlKey && !event.altKey && state.screen === 'home' && onTvTab() &&
             !(document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName))) {
           event.preventDefault();
           openLiveGuide();
@@ -3883,7 +4023,7 @@
     var s = safeLocalRead(PRIVATE_KEY, null);
     return s && typeof s === 'object' ? s : { enabled: false };
   }
-  function privateEnabled() { var s = privateSettings(); return !!(s.enabled && s.hash); }
+  function privateEnabled() { if (isKidsProfile()) { return false; } var s = privateSettings(); return !!(s.enabled && s.hash); }
 
   function isAdultCategory(cat) {
     if (!cat) { return false; }
@@ -4124,7 +4264,7 @@
     var view = { id: cat.id, name: 'Privado', code: cat.code, isPrivate: true };
     if (liveGuideOpen) { closeLiveGuide(); }
     if (state.screen !== 'home') { showScreen('home'); }
-    if (state.tab !== 0) { selectTab(0, true); }
+    if (!onTvTab() && tvTabIndex() >= 0) { selectTab(tvTabIndex(), true); }
     switchLiveCategory(view);
     renderLiveDockCats();
     document.body.classList.add('is-private-tv');
@@ -4140,7 +4280,7 @@
       var all = null;
       for (var i = 0; i < liveCategories.length; i++) { if (liveCategories[i].name === 'Todos') { all = liveCategories[i]; break; } }
       currentLiveCategory = all || liveCategories[0] || null;
-      if (state.screen === 'home' && state.tab === 0 && currentLiveCategory) { switchLiveCategory(currentLiveCategory); }
+      if (state.screen === 'home' && onTvTab() && currentLiveCategory) { switchLiveCategory(currentLiveCategory); }
       else if (currentLiveCategory) {
         stopLivePreview();
         CHANNELS.splice(0, CHANNELS.length);
@@ -6044,6 +6184,7 @@
   }
 
   function openSearch() {
+    if (isKidsProfile()) { return; }   /* no search in a kids profile */
     if (!searchKeyboard) { buildSearch(); }
     showScreen('search');
     if (!state.searchQuery) { renderPopularSearch(); }
@@ -7022,13 +7163,23 @@
     var p = el('div', 'settings-panel account-panel acc-desktop');
 
     var head = el('div', 'acc-head');
-    var avatar = el('div', 'acc-avatar');
-    avatar.innerHTML = UI_ICONS.user;
+    var me = activeProfile();
+    var avatar = el('div', 'acc-avatar is-profile');
+    avatar.innerHTML = avatarSvg(me.avatar);
     var who = el('div', 'acc-who');
-    who.appendChild(el('div', 'acc-name', 'Perfil local'));
-    who.appendChild(el('div', 'acc-id', 'ID de este equipo · ' + localProfile.id));
+    who.appendChild(el('div', 'acc-name', me.name));
+    who.appendChild(el('div', 'acc-id', (me.kids ? 'Perfil infantil · ' : '') + 'Guardado solo en este equipo'));
     head.appendChild(avatar);
     head.appendChild(who);
+    var headActions = el('div', 'acc-head-actions');
+    [['Cambiar de perfil', function () { showProfilePicker(false); }],
+     ['Editar perfil', function () { openProfileEditor(activeProfile()); }],
+     ['Administrar perfiles', function () { showProfilePicker(true); }]].forEach(function (b) {
+      var btn = el('div', 'acc-seg-btn focusable', b[0]);
+      btn._activate = b[1];
+      headActions.appendChild(btn);
+    });
+    head.appendChild(headActions);
     p.appendChild(head);
 
     var titles = 0, channels = 0;
@@ -7138,6 +7289,306 @@
     }
     render();
     return card;
+  }
+
+  /* ---- screens/profiles-ui.js ------------------------------------------------ */
+  /* screens/profiles-ui.js — Escritorio: "¿Quién está viendo?", editor de perfiles y copia de seguridad.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* With two or more profiles the app opens on the picker; choosing one goes
+     to Inicio. Profiles are created and edited here or from Mi cuenta. */
+  var profilePicker = null;
+  var profilePickerOpen = false;
+  var profileEditing = false;
+
+  function profileTile(p, onClick) {
+    var tile = el('div', 'pp-tile focusable');
+    var av = el('div', 'pp-avatar');
+    av.innerHTML = avatarSvg(p.avatar);
+    if (p.kids) { av.appendChild(el('span', 'pp-kids', 'Kids')); }
+    var edit = el('div', 'pp-edit');
+    edit.innerHTML = uiSvg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>');
+    av.appendChild(edit);
+    tile.appendChild(av);
+    tile.appendChild(el('div', 'pp-name', p.name));
+    tile._activate = onClick;
+    tile.addEventListener('click', function (event) { event.stopPropagation(); onClick(); });
+    return tile;
+  }
+
+  function renderProfilePicker() {
+    clear(profilePicker);
+    var box = el('div', 'pp-box');
+    box.appendChild(el('div', 'pp-title', profileEditing ? 'Administrar perfiles' : '¿Quién está viendo?'));
+    var grid = el('div', 'pp-grid');
+    profilesData.list.forEach(function (p) {
+      grid.appendChild(profileTile(p, function () {
+        if (profileEditing) { openProfileEditor(p); return; }
+        chooseProfile(p.id);
+      }));
+    });
+    if (profilesData.list.length < PROFILES_MAX) {
+      var add = el('div', 'pp-tile is-add focusable');
+      var plus = el('div', 'pp-avatar');
+      plus.innerHTML = uiSvg('<path d="M12 5v14M5 12h14"/>');
+      add.appendChild(plus);
+      add.appendChild(el('div', 'pp-name', 'Añadir perfil'));
+      add._activate = function () { openProfileEditor(null); };
+      add.addEventListener('click', function (event) { event.stopPropagation(); add._activate(); });
+      grid.appendChild(add);
+    }
+    box.appendChild(grid);
+    var manage = el('button', 'pp-manage focusable' + (profileEditing ? ' is-on' : ''), profileEditing ? 'Listo' : 'Administrar perfiles');
+    manage.type = 'button';
+    manage._activate = function () { profileEditing = !profileEditing; profilePicker.classList.toggle('is-editing', profileEditing); renderProfilePicker(); };
+    manage.addEventListener('click', function (event) { event.stopPropagation(); manage._activate(); });
+    box.appendChild(manage);
+    profilePicker.appendChild(box);
+    var first = grid.querySelector('.pp-tile');
+    if (first) { setFocus(first, true); }
+  }
+
+  function showProfilePicker(editing) {
+    if (!window.XUPER_DESKTOP) { return; }
+    if (!profilePicker) {
+      profilePicker = el('div', 'profile-picker');
+      profilePicker.setAttribute('data-no-gesture', '');
+      document.body.appendChild(profilePicker);
+    }
+    profileEditing = !!editing;
+    profilePicker.classList.toggle('is-editing', profileEditing);
+    profilePickerOpen = true;
+    renderProfilePicker();
+    profilePicker.classList.add('is-open');
+  }
+
+  function hideProfilePicker() {
+    profilePickerOpen = false;
+    if (profilePicker) { profilePicker.classList.remove('is-open'); }
+    var start = homeTabIndex();
+    if (state.screen === 'home' && pages[TABS[start] ? TABS[start].page : 1]) {
+      var f = firstIn(pages[TABS[start].page]);
+      if (f) { setFocus(f, true); }
+    }
+  }
+
+  function chooseProfile(id) {
+    if (switchToProfile(id)) { return; }   /* reloads with that profile */
+    hideProfilePicker();
+  }
+
+  /* ------------------------------------------------------------ editor */
+  var profileEditor = null;
+  function openProfileEditor(p) {
+    var isNew = !p;
+    var draft = p ? { name: p.name, avatar: p.avatar, kids: !!p.kids } : { name: '', avatar: profilesData.list.length % AVATARS.length, kids: false };
+    if (!profileEditor) {
+      profileEditor = el('div', 'profile-editor');
+      profileEditor.setAttribute('data-no-gesture', '');
+      document.body.appendChild(profileEditor);
+    }
+    clear(profileEditor);
+    var card = el('div', 'pe2-card');
+    card.appendChild(el('div', 'pe2-title', isNew ? 'Añadir perfil' : 'Editar perfil'));
+    var top = el('div', 'pe2-top');
+    var preview = el('div', 'pe2-preview');
+    preview.innerHTML = avatarSvg(draft.avatar);
+    top.appendChild(preview);
+    var name = document.createElement('input');
+    name.type = 'text';
+    name.maxLength = 20;
+    name.className = 'pe2-name focusable';
+    name.placeholder = 'Nombre';
+    name.value = draft.name;
+    name.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); save(); }
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
+      event.stopPropagation();
+    });
+    top.appendChild(name);
+    card.appendChild(top);
+
+    card.appendChild(el('div', 'pe2-label', 'Elige un avatar'));
+    var grid = el('div', 'pe2-avatars');
+    AVATARS.forEach(function (a, i) {
+      var b = el('button', 'pe2-av focusable' + (i === draft.avatar ? ' is-selected' : ''));
+      b.type = 'button';
+      b.innerHTML = avatarSvg(i);
+      b.addEventListener('click', function () {
+        draft.avatar = i;
+        preview.innerHTML = avatarSvg(i);
+        var all = grid.querySelectorAll('.pe2-av');
+        for (var k = 0; k < all.length; k++) { all[k].classList.toggle('is-selected', all[k] === b); }
+      });
+      grid.appendChild(b);
+    });
+    card.appendChild(grid);
+
+    var kids = el('label', 'pe2-kids');
+    var box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = draft.kids;
+    kids.appendChild(box);
+    var kt = el('span');
+    kt.appendChild(el('b', null, 'Perfil infantil'));
+    kt.appendChild(el('small', null, 'Solo la sección Kids: sin TV en vivo, buscador ni contenido para adultos.'));
+    kids.appendChild(kt);
+    card.appendChild(kids);
+
+    var msg = el('div', 'pe2-msg', '');
+    card.appendChild(msg);
+    var actions = el('div', 'pe2-actions');
+    var ok = el('button', 'pe2-btn is-primary', 'Guardar');
+    ok.type = 'button';
+    ok.addEventListener('click', save);
+    var cancel = el('button', 'pe2-btn', 'Cancelar');
+    cancel.type = 'button';
+    cancel.addEventListener('click', close);
+    actions.appendChild(ok);
+    actions.appendChild(cancel);
+    if (!isNew && profilesData.list.length > 1) {
+      var del = el('button', 'pe2-btn is-danger', 'Eliminar perfil');
+      del.type = 'button';
+      var armed = false;
+      del.addEventListener('click', function () {
+        if (!armed) { armed = true; del.textContent = '¿Seguro? Se borrará su historial y Mi lista'; return; }
+        deleteProfile(p.id);
+        close();
+      });
+      actions.appendChild(del);
+    }
+    card.appendChild(actions);
+    profileEditor.appendChild(card);
+    profileEditor.classList.add('is-open');
+    setTimeout(function () { name.focus(); }, 50);
+
+    function save() {
+      var n = String(name.value || '').replace(/\s+/g, ' ').trim();
+      if (!n) { msg.textContent = 'Escribe un nombre.'; name.focus(); return; }
+      for (var i = 0; i < profilesData.list.length; i++) {
+        if (profilesData.list[i] !== p && profilesData.list[i].name.toLowerCase() === n.toLowerCase()) { msg.textContent = 'Ya hay un perfil con ese nombre.'; return; }
+      }
+      if (isNew) {
+        profilesData.list.push({ id: 'p' + Date.now().toString(36), name: n, avatar: draft.avatar, kids: box.checked, createdAt: Date.now() });
+      } else {
+        p.name = n; p.avatar = draft.avatar; p.kids = box.checked;
+      }
+      profilesData.created = true;
+      saveProfiles();
+      close();
+      if (profilePickerOpen) { renderProfilePicker(); }
+      refreshProfileChrome();
+      /* Changing "infantil" on the profile in use needs the app to reload. */
+      if (!isNew && p.id === activeProfileId) { setTimeout(function () { location.reload(); }, 150); }
+    }
+    function close() {
+      profileEditor.classList.remove('is-open');
+      if (profilePickerOpen) { renderProfilePicker(); }
+    }
+  }
+
+  function deleteProfile(id) {
+    if (profilesData.list.length < 2) { return; }
+    profilesData.list = profilesData.list.filter(function (x) { return x.id !== id; });
+    if (id !== 'main') {
+      PROFILE_SCOPED_KEYS.forEach(function (k) { try { localStorage.removeItem(k + '@' + id); } catch (eDel) { /* gone */ } });
+    }
+    if (profilesData.last === id) { profilesData.last = profilesData.list[0].id; }
+    saveProfiles();
+    if (id === activeProfileId) { switchToProfile(profilesData.list[0].id); }
+  }
+
+  /* Avatar on the top bar instead of the generic user icon. */
+  function refreshProfileChrome() {
+    var btn = document.querySelector('.home-notify .notify-item.personal');
+    if (!btn) { return; }
+    var p = activeProfile();
+    var n = btn.querySelector('.n-normal');
+    if (n) { n.innerHTML = avatarSvg(p.avatar); n.classList.add('is-avatar'); }
+    btn.setAttribute('data-tip', p.name + ' · Mi cuenta y perfiles');
+  }
+
+  /* --------------------------------------------------------------- backup */
+  var profilesBackupTimer = null;
+  function profilesBackupApi() {
+    return window.XUPER_DESKTOP && window.desktop && window.desktop.backup ? window.desktop.backup : null;
+  }
+  function collectProfilesBackup() {
+    var data = { kind: 'opentv-profiles', version: 1, savedAt: Date.now(), profiles: profilesData, values: {} };
+    profilesData.list.forEach(function (p) {
+      PROFILE_SCOPED_KEYS.forEach(function (k) {
+        var key = p.id === 'main' ? k : k + '@' + p.id;
+        var raw = null;
+        try { raw = localStorage.getItem(key); } catch (eRead) { raw = null; }
+        if (raw !== null) { data.values[key] = raw; }
+      });
+    });
+    return data;
+  }
+  function scheduleProfilesBackup() {
+    var api = profilesBackupApi();
+    if (!api || profilesBackupTimer) { return; }
+    profilesBackupTimer = setTimeout(function () {
+      profilesBackupTimer = null;
+      api.write(collectProfilesBackup()).catch(function () {});
+    }, 4000);
+  }
+
+  /* A fresh install (no profiles, no history) with a backup from before:
+     offer to bring it back. */
+  function offerProfilesRestore(done) {
+    var api = profilesBackupApi();
+    var fresh = !localStorage.getItem(PROFILES_KEY) && !((localProfile.history || []).length) && !Object.keys(state.favs || {}).length;
+    if (!api || !fresh) { done(false); return; }
+    api.read().then(function (data) {
+      if (!data || !data.profiles || !data.profiles.list || !data.values) { done(false); return; }
+      var names = data.profiles.list.map(function (p) { return p.name; }).join(', ');
+      var box = el('div', 'profile-restore');
+      var card = el('div', 'pr-card');
+      card.appendChild(el('div', 'pr-title', 'Encontramos tus perfiles'));
+      card.appendChild(el('div', 'pr-text', 'Hay una copia de una instalación anterior de OpenTV con ' +
+        data.profiles.list.length + (data.profiles.list.length === 1 ? ' perfil' : ' perfiles') + ' (' + names + '), con su historial y Mi lista. ¿Quieres restaurarla?'));
+      var row = el('div', 'pe2-actions');
+      var yes = el('button', 'pe2-btn is-primary', 'Restaurar');
+      yes.type = 'button';
+      var no = el('button', 'pe2-btn', 'Empezar de cero');
+      no.type = 'button';
+      yes.addEventListener('click', function () {
+        try {
+          Object.keys(data.values).forEach(function (k) { localStorage.setItem(k, data.values[k]); });
+          localStorage.setItem(PROFILES_KEY, JSON.stringify(data.profiles));
+        } catch (eRestore) { /* storage full */ }
+        location.reload();
+      });
+      no.addEventListener('click', function () { box.remove(); done(false); });
+      row.appendChild(yes);
+      row.appendChild(no);
+      card.appendChild(row);
+      box.appendChild(card);
+      document.body.appendChild(box);
+      done(true);
+    }).catch(function () { done(false); });
+  }
+
+  /* Start-up: restore offer on a fresh install, then the picker when there
+     are several profiles (once per app start). */
+  function installProfiles() {
+    if (!window.XUPER_DESKTOP) { return; }
+    refreshProfileChrome();
+    document.addEventListener('keydown', function (event) {
+      if (!profilePickerOpen || (profileEditor && profileEditor.classList.contains('is-open'))) { return; }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (profileEditing) { profileEditing = false; profilePicker.classList.remove('is-editing'); renderProfilePicker(); }
+        else { chooseProfile(activeProfileId); }
+      }
+    }, true);
+    offerProfilesRestore(function (shown) {
+      if (shown) { return; }
+      if (profilesData.list.length > 1 && !profileChosenThisSession) { showProfilePicker(false); }
+      scheduleProfilesBackup();
+    });
   }
 
   /* ---- screens/history.js ---------------------------------------------------- */
@@ -13201,7 +13652,7 @@
       settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); }
     };
 
-    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); installTrending(); startCatalogAutoRefresh(); }
+    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); installTrending(); installProfiles(); startCatalogAutoRefresh(); }
 
     applyQuery();
   }

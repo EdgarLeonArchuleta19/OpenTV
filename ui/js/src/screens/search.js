@@ -147,6 +147,7 @@ function makeSearchCell(item, index) {
 }
 
 function openSearch() {
+  if (isKidsProfile()) { return; }   /* no search in a kids profile */
   if (!searchKeyboard) { buildSearch(); }
   showScreen('search');
   if (!state.searchQuery) { renderPopularSearch(); }

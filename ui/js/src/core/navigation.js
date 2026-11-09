@@ -141,9 +141,11 @@ function back() {
     return;
   }
   if (state.screen === 'home') {
-    if (state.tab !== 0) {
-      selectTab(0, true);
-      if (tabEls[0]) { setFocus(tabEls[0]); }
+    /* Back on the home screen goes to the first section first (Inicio on
+       desktop, TV on the TV set). */
+    if (state.tab !== homeTabIndex()) {
+      selectTab(homeTabIndex(), true);
+      if (tabEls[homeTabIndex()]) { setFocus(tabEls[homeTabIndex()]); }
       return;
     }
     if (window.webOSTV && window.webOSTV.platformBack) {
@@ -270,7 +272,7 @@ function handleKey(e) {
       if (e.preventDefault) { e.preventDefault(); }
       return;
     }
-    if ((k === 77 || key === 'm' || key === 'M') && state.screen === 'home' && state.tab === 0 && liveMuteBtn) {
+    if ((k === 77 || key === 'm' || key === 'M') && state.screen === 'home' && onTvTab() && liveMuteBtn) {
       liveMuteBtn._activate();
       showLiveVolumeToast();
       if (e.preventDefault) { e.preventDefault(); }

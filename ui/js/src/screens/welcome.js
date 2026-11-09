@@ -17,12 +17,9 @@ function finishWelcome() {
   if (!homeBuilt) { buildHome(); }
   showScreen('home');
   /* Desktop opens on Inicio (also where Ctrl+H goes); the TV opens on TV. */
-  var startTab = 0;
-  if (window.XUPER_DESKTOP) {
-    for (var t = 0; t < TABS.length; t++) { if (TABS[t].page === 1) { startTab = t; break; } }
-  }
+  var startTab = homeTabIndex();
   selectTab(startTab, false);
-  if (startTab === 0) { setFocus(liveFocus); }
+  if (TABS[startTab] && TABS[startTab].page === 0) { setFocus(liveFocus); }
   else {
     var first = pages[TABS[startTab].page] ? firstIn(pages[TABS[startTab].page]) : null;
     setFocus(first || tabEls[startTab], true);
