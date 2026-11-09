@@ -5,3 +5,4 @@ dist/
 .vscode/
 Thumbs.db
 desktop.ini
+config/tmdb.json

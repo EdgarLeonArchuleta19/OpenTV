@@ -20,6 +20,7 @@
   "home/catalog-pages.js",
   "home/rows.js",
   "home/hero.js",
+  "home/trending.js",
   "screens/detail.js",
   "screens/search.js",
   "screens/search-desktop.js",

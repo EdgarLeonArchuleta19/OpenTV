@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('desktop', {
   info: () => ipcRenderer.invoke('desktop:info'),
   // Shows opentv.log (page errors and crashes) in the file explorer.
   openLogs: () => ipcRenderer.invoke('desktop:open-logs'),
+  // TMDB trending lists ('movie-week', 'tv-week', …); the key stays in main.
+  tmdb: (list) => ipcRenderer.invoke('desktop:tmdb', list),
   // Height of the window's own title bar strip (the page draws it).
   titleBar: { height: 36 },
   // Windows master volume: ('get') | ('set', 0..1) | ('mute', bool) -> { volume, muted } | { error }

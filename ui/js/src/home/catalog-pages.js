@@ -366,6 +366,7 @@ function buildDesktopSection(page, all, opts) {
     y = 830;
   }
   if (opts.continueFilter !== undefined) { y = appendContinueRow(page, y, opts.continueFilter); }
+  if (opts.top10) { y = appendTrendingRows(page, y); }
   var shelves = opts.rows ? portalRowsFor(opts.rows, 4) : [];
   if (opts.top10) {
     var regular = [];

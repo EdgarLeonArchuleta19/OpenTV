@@ -49,6 +49,7 @@
       "ui/**/*",
       "bin/**/*",
       "licenses/**/*",
+      "config/tmdb.json",
       "LICENSE",
       "README.md",
       "package.json",
