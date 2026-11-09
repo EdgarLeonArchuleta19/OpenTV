@@ -85,7 +85,7 @@ function boot() {
     settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); }
   };
 
-  if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); startCatalogAutoRefresh(); }
+  if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); startCatalogAutoRefresh(); }
 
   applyQuery();
 }

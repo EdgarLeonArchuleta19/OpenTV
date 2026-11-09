@@ -10,6 +10,17 @@ contextBridge.exposeInMainWorld('desktop', {
   titleBar: { height: 36 },
   // Windows master volume: ('get') | ('set', 0..1) | ('mute', bool) -> { volume, muted } | { error }
   systemVolume: (command, value) => ipcRenderer.invoke('desktop:system-volume', command, value),
+  // Automatic updates: status() / check() / install(), and live status events.
+  updates: {
+    status: () => ipcRenderer.invoke('desktop:update', 'status'),
+    check: () => ipcRenderer.invoke('desktop:update', 'check'),
+    install: () => ipcRenderer.invoke('desktop:update', 'install'),
+    onStatus: (callback) => {
+      const listener = (_event, status) => callback(status);
+      ipcRenderer.on('desktop:update-status', listener);
+      return () => ipcRenderer.removeListener('desktop:update-status', listener);
+    }
+  },
   onAction: (callback) => {
     const listener = (_event, action) => callback(action);
     ipcRenderer.on('desktop:action', listener);

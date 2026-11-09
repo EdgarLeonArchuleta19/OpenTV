@@ -106,6 +106,7 @@ function buildDesktopAboutPanel() {
       if (info && info.version) { ver.textContent = 'Versión ' + info.version + ' · Windows ' + (info.arch || 'x64'); }
     }).catch(function () {});
   }
+  page.body.appendChild(buildUpdateCard());
   page.body.appendChild(desktopSettingsCard(UI_ICONS.channels, 'Películas, series y TV en vivo en un solo lugar',
     'Catálogo que se actualiza solo, reproducción automática con modo compatible, ventana flotante y tu lista guardada en este equipo.'));
   page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Desarrollado por TECHPOINT', null));

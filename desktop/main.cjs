@@ -12,6 +12,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'xuper', privileges: {
 const info = require('../package.json');
 const { createService } = require('./service.cjs');
 const systemAudio = require('./system-volume.cjs');
+const updates = require('./updater.cjs');
 let windowRef;
 let shortcutFor = () => null;
 let service;
@@ -119,6 +120,12 @@ async function start() {
     if (!trusted(event) || ['get', 'set', 'mute'].indexOf(command) === -1) return { error: 'Operación no permitida' };
     return systemAudio.systemVolume(command, value);
   });
+  ipcMain.handle('desktop:update', (event, command) => {
+    if (!trusted(event)) return null;
+    if (command === 'check') return updates.check();
+    if (command === 'install') return updates.install();
+    return updates.current();
+  });
   ipcMain.handle('desktop:info', (event) => trusted(event) ? {
     version: info.version, platform: process.platform, arch: process.arch,
     independent: true, upstream: info.upstream?.commit || null
@@ -171,6 +178,7 @@ async function start() {
     if (shortcut) { event.preventDefault(); if (!input.isAutoRepeat) shortcut(); }
   });
   windowRef.once('ready-to-show', () => windowRef.show());
+  updates.start((status) => windowRef?.webContents.send('desktop:update-status', status));
   windowRef.on('closed', () => { windowRef = null; app.quit(); });
 
   const action = (name) => windowRef?.webContents.send('desktop:action', name);

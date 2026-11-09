@@ -70,6 +70,24 @@ npm run dist
 npm run release     # catálogo + build + pruebas + instaladores y paquete
 ```
 
+## Actualizaciones automáticas
+
+La versión **instalada** (NSIS) busca una versión nueva al abrirse y cada 6 horas, la descarga en segundo plano y la instala al cerrar la app (o al pulsar *Reiniciar y actualizar* en el aviso o en *Ajustes → Acerca de*). La versión **portable** solo avisa de que hay una nueva.
+
+Para activarlas hace falta un sitio donde publicar las versiones. Con GitHub Releases (gratis), añade en `package.json → build`:
+
+```json
+"publish": [{ "provider": "github", "owner": "TU_USUARIO", "repo": "opentv-releases" }]
+```
+
+y publica cada versión subiendo el número en `package.json → version` y ejecutando (con un token de GitHub en `GH_TOKEN`):
+
+```bash
+npx electron-builder --win nsis --publish always
+```
+
+Sirve también cualquier servidor de archivos: `{ "provider": "generic", "url": "https://tu-servidor/opentv/" }` y copiar allí el instalador, su `.blockmap` y `latest.yml` de `dist/`. Sin `publish` la app funciona igual y *Acerca de* indica que las actualizaciones no están configuradas. La primera versión con actualizador se instala a mano; las siguientes llegan solas.
+
 ## Licencia
 
 Distribuido bajo licencia MIT (`LICENSE`). Desarrollado y mantenido por **TECHPOINT**.
