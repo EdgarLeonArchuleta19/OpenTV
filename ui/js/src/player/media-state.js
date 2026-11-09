@@ -128,8 +128,10 @@ function applyPendingHistoryEpisode(item) {
   if (!record || !item || String(record.id) !== String(item.id) || !record.episodeId || !item.episodes) { return; }
   for (var i = 0; i < item.episodes.length; i++) {
     if (String(item.episodes[i].id) === record.episodeId) {
-      state.detailEpisode = item.episodes[i];
-      state.playerEpisode = item.episodes[i];
+      /* Desktop: a finished episode moves on to the next one. */
+      var pick = window.XUPER_DESKTOP ? nextAfterFinished(item, i) : item.episodes[i];
+      state.detailEpisode = pick;
+      state.playerEpisode = pick;
       return;
     }
   }

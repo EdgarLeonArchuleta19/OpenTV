@@ -31,6 +31,7 @@ function openDetail(item) {
   if (item.episodes && item.episodes.length) {
     state.detailEpisode = item.episodes[0];
   }
+  preferHistoryEpisode(item);
   applyPendingHistoryEpisode(item);
 
   /* New title: forget the previous audio/subtitle/rendition choice and ask
@@ -95,6 +96,7 @@ var DESKTOP_DETAIL_ICONS = {
   fullscreen: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>',
   language: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 11h3M13 11h4M7 15h6M15 15h2"/></svg>',
   favorite: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.1a4.3 4.3 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20z"/></svg>',
+  restart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.5-5.8L4 8.5"/><path d="M4 3.5v5h5"/></svg>',
   mode: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></svg>'
 };
 
@@ -199,8 +201,12 @@ function buildDetail(item) {
     btnDefs.push({ icon: 'icon_detail_subscribe.png', label: 'Notificaciones', kind: 'subscribe' });
   }
   if (desk) {
-    btnDefs[0].label = 'Reproducir';
+    btnDefs[0].label = resumeLabelFor(item) || 'Reproducir';
     btnDefs[1].label = 'Idioma y subtítulos';
+    /* Started before: also offer to play it from the beginning. */
+    if (resumeLabelFor(item) && /^Reanudar/.test(resumeLabelFor(item))) {
+      btnDefs.splice(1, 0, { icon: 'icon_detail_fullscreen.png', label: 'Desde el inicio', kind: 'restart' });
+    }
   }
   for (var b = 0; b < btnDefs.length; b++) {
     var btn = el('div', 'detail-btn focusable');
@@ -228,6 +234,12 @@ function buildDetail(item) {
     btn._activate = (function (kind, it) {
       return function () {
         if (kind === 'fullscreen') { expandToFullscreen(it, state.detailEpisode); }
+        else if (kind === 'restart') {
+          resumePlan = null;
+          resumeSkipOnce = true;
+          expandToFullscreen(it, state.detailEpisode);
+          setTimeout(function () { var at = vodPlaybackPosition(); if (at > 3) { playerSeek(-at); } }, 400);
+        }
         else if (kind === 'language') { openPlaySettingsDialog(it); }
         else if (kind === 'favorite') {
           var enabled = toggleFavorite(it);

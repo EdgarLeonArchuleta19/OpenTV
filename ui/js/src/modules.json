@@ -42,6 +42,7 @@
   "player/volume.js",
   "player/episodes.js",
   "player/next-episode.js",
+  "player/resume.js",
   "player/settings-dialog.js",
   "player/build.js",
   "player/playback.js",

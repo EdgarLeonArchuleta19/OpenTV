@@ -625,6 +625,7 @@ function startPlayerVideo(item, episode) {
     state.playerSeasonIndex = state.detailSeason || 0;
   }
   if (item) { state.playerItem = item; }
+  if (window.XUPER_DESKTOP) { installResume(); planResume(state.playerItem, state.playerEpisode); }
   var it = item || state.playerItem;
   if (it) { restoreSmoothMode(it); }
   stopPlayerVideo();
