@@ -238,6 +238,10 @@ function bindDesktopPlayback() {
   }
   playerVideo.addEventListener('enterpictureinpicture', updateButtons);
   playerVideo.addEventListener('leavepictureinpicture', updateButtons);
+  /* The floating window shows only the video: the page's subtitles would
+     stay behind on the big window, so hide them meanwhile. */
+  playerVideo.addEventListener('enterpictureinpicture', function () { document.body.classList.add('is-pip-video'); });
+  playerVideo.addEventListener('leavepictureinpicture', function () { document.body.classList.remove('is-pip-video'); });
   playerVideo.addEventListener('play', updateButtons);
   playerVideo.addEventListener('pause', updateButtons);
   playerVideo.addEventListener('loadedmetadata', updateButtons);

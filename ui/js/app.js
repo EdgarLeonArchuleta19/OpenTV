@@ -2807,11 +2807,24 @@
   function buildLiveDock(page) {
     loadLiveAudio();
     liveDock = el('div', 'live-dock');
-    var bar = el('div', 'live-dock-bar');
-    if (window.XUPER_DESKTOP) { bar.appendChild(makeLiveDockPlayButton()); }
+    var dockBar = el('div', 'live-dock-bar');
+    /* Desktop: three groups — sound and tools, the channel buttons with
+       pause in the middle, and favourites / guide / full screen. */
+    var dockLeft = dockBar, dockCenter = dockBar, dockRight = dockBar;
+    if (window.XUPER_DESKTOP) {
+      dockLeft = el('div', 'ldb-group is-left');
+      dockCenter = el('div', 'ldb-group is-center');
+      dockRight = el('div', 'ldb-group is-right');
+      dockBar.appendChild(dockLeft);
+      dockBar.appendChild(dockCenter);
+      dockBar.appendChild(dockRight);
+    }
+    var bar = dockCenter;
     bar.appendChild(dockButton('', LIVE_DOCK_ICONS.prev, 'Anterior', 'Canal anterior', function () { setChannel(state.channel - 1, true); }));
+    if (window.XUPER_DESKTOP) { bar.appendChild(makeLiveDockPlayButton()); }
     bar.appendChild(dockButton('', LIVE_DOCK_ICONS.next, 'Siguiente', 'Canal siguiente', function () { setChannel(state.channel + 1, true); }));
-    bar.appendChild(el('i', 'live-dock-sep'));
+    if (!window.XUPER_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); }
+    bar = dockLeft;
     liveMuteBtn = dockButton('is-icon', LIVE_DOCK_ICONS.sound, '', 'Silenciar', function () {
       if (liveAudio.volume === 0) { liveAudio.volume = 0.5; liveAudio.muted = false; }
       else { liveAudio.muted = !liveAudio.muted; }
@@ -2843,8 +2856,9 @@
     liveVolLabel = el('span', 'live-dock-vol', '80%');
     volWrap.appendChild(liveVolLabel);
     bar.appendChild(volWrap);
-    if (window.XUPER_DESKTOP) { appendLiveDockTools(bar); }
-    bar.appendChild(el('i', 'live-dock-sep'));
+    if (window.XUPER_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); appendLiveDockTools(bar); }
+    else { bar.appendChild(el('i', 'live-dock-sep')); }
+    bar = dockRight;
     liveFavBtn = dockButton('is-fav', LIVE_DOCK_ICONS.star, 'Favorito', 'Guardar canal en favoritos', function () {
       var ch = CHANNELS[state.channel];
       if (!ch) { return; }
@@ -2856,11 +2870,15 @@
       bar.appendChild(dockButton('is-guide', LIVE_DOCK_ICONS.guide, 'Guía', 'Guía de canales (G)', openLiveGuide));
     }
     bar.appendChild(dockButton('is-full', LIVE_DOCK_ICONS.full, 'Pantalla completa', 'Ver en pantalla completa', function () { openPlayer('live'); }));
-    liveDock.appendChild(bar);
+    liveDock.appendChild(dockBar);
 
-    liveDockCats = el('div', 'live-dock-cats scrollable');
-    liveDockCats.setAttribute('data-wheel-x', '');
-    liveDock.appendChild(liveDockCats);
+    /* Desktop: the categories live in the Guía (ordered by country and
+       topic); the chip row under the preview is only on the TV. */
+    if (!window.XUPER_DESKTOP) {
+      liveDockCats = el('div', 'live-dock-cats scrollable');
+      liveDockCats.setAttribute('data-wheel-x', '');
+      liveDock.appendChild(liveDockCats);
+    }
     page.appendChild(liveDock);
     /* Mouse wheel over the preview changes the volume. */
     if (liveMain && !liveMain._wheelVolume) {
@@ -2923,16 +2941,10 @@
   /* home/live-dock-tools.js — Escritorio: los botones del reproductor de TV también en la vista previa.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-  /* Pausa, reintentar, calidad, formato, ventana flotante y diagnóstico act
+  /* Pausa, reintentar, calidad, ventana flotante y diagnóstico act
      on the video shown in the home preview (its own element, or the player's
      while it is lent to the home). */
   var liveDockPlayBtn = null;
-  var liveDockFit = 'contain';
-  var LIVE_DOCK_FITS = [
-    { fit: 'contain', label: 'Normal' },
-    { fit: 'cover', label: 'Llenar pantalla' },
-    { fit: 'fill', label: 'Estirar' }
-  ];
 
   function liveHomeVideo() {
     return liveHandoff && liveHandoff.type === 'player' ? playerVideo : livePreviewVideo;
@@ -2978,6 +2990,14 @@
     liveDockPlayBtn.setAttribute('data-tip', tip);
     liveDockPlayBtn.setAttribute('aria-label', tip);
     if (liveMain) { liveMain.classList.toggle('is-preview-paused', paused); }
+    if (liveMain && !liveMain._pauseMark) {
+      /* Big play mark in the middle of the paused picture; a click resumes. */
+      var mark = el('div', 'live-paused-mark');
+      mark.innerHTML = UI_ICONS.play;
+      mark.addEventListener('click', function (event) { event.stopPropagation(); toggleLivePreviewPlay(); });
+      liveMain.appendChild(mark);
+      liveMain._pauseMark = mark;
+    }
   }
 
   function retryLivePreview() {
@@ -3016,22 +3036,6 @@
     showLiveDockToast(UI_ICONS.quality, 'Calidad: ' + (next < 0 ? 'Automática' : hlsQualityLabel(levels[next].height || 0)));
   }
 
-  function applyLiveDockFit() {
-    if (livePreviewVideo) { livePreviewVideo.style.objectFit = liveDockFit === 'contain' ? '' : liveDockFit; }
-    if (liveHandoff && liveHandoff.type === 'player' && playerVideo) {
-      playerVideo.style.objectFit = liveDockFit === 'contain' ? '' : liveDockFit;
-    }
-  }
-
-  function cycleLivePreviewFit() {
-    var at = 0;
-    for (var i = 0; i < LIVE_DOCK_FITS.length; i++) { if (LIVE_DOCK_FITS[i].fit === liveDockFit) { at = i; } }
-    var next = LIVE_DOCK_FITS[(at + 1) % LIVE_DOCK_FITS.length];
-    liveDockFit = next.fit;
-    applyLiveDockFit();
-    showLiveDockToast(UI_ICONS.aspect, 'Formato: ' + next.label);
-  }
-
   function toggleLivePreviewPip() {
     if (!document.pictureInPictureEnabled) { return; }
     if (document.pictureInPictureElement) { document.exitPictureInPicture().catch(function () {}); return; }
@@ -3047,7 +3051,6 @@
   function appendLiveDockTools(bar) {
     bar.appendChild(dockButton('is-tool', UI_ICONS.retry, '', 'Reintentar señal', retryLivePreview));
     bar.appendChild(dockButton('is-tool', UI_ICONS.quality, '', 'Calidad', cycleLivePreviewQuality));
-    bar.appendChild(dockButton('is-tool', UI_ICONS.aspect, '', 'Formato de pantalla', cycleLivePreviewFit));
     bar.appendChild(dockButton('is-tool', UI_ICONS.pip, '', 'Ventana flotante', toggleLivePreviewPip));
     bar.appendChild(dockButton('is-tool', UI_ICONS.diagnostics, '', 'Diagnóstico de red', openDesktopDiagnostic));
   }
@@ -3177,7 +3180,6 @@
     liveMain.classList.remove('is-preview-loading');
     liveMain.classList.add('is-preview-playing');
     liveHandoff = { type: 'player', key: livePreviewChannel };
-    if (window.XUPER_DESKTOP) { applyLiveDockFit(); }
     return true;
   }
 
@@ -3192,7 +3194,6 @@
     playerStage.insertBefore(playerVideo, anchor ? anchor.nextSibling : playerStage.firstChild);
     if (liveMain) { liveMain.classList.remove('is-preview-playing'); }
     livePreviewChannel = '';
-    playerVideo.style.objectFit = '';
     if (!keepPlaying) { stopPlayerVideo(); }
   }
 
@@ -11166,6 +11167,11 @@
     dpsStyleOptions = $('dps-style-options');
     dpsBtnExit = $('dps-btn-exit');
     playerSubtitles = $('player-subtitles');
+    /* Desktop: subtitles go inside the video box, so the small player of the
+       detail page shows them in it instead of across the whole window. */
+    if (window.XUPER_DESKTOP && playerSubtitles && playerStage && playerSubtitles.parentNode !== playerStage) {
+      playerStage.appendChild(playerSubtitles);
+    }
 
     if (dpsSubSwitch) {
       dpsSubSwitch._activate = function () {
@@ -11295,7 +11301,8 @@
       { label: 'Feedback', right: 50, w: 67 }
     ];
     /* Desktop: no PIN lock (it never existed on Windows), so no dead button. */
-    if (window.XUPER_DESKTOP) actDefs = actDefs.filter(function (d) { return d.label !== 'Bloquear'; });
+    /* Formato is not used on Windows either (the picture always fits). */
+    if (window.XUPER_DESKTOP) actDefs = actDefs.filter(function (d) { return d.label !== 'Bloquear' && d.label !== 'Formato'; });
     if (window.XUPER_DESKTOP) actDefs.unshift({ label: 'Reproducir', right: 0, w: 67 });
     if (window.XUPER_DESKTOP) actDefs.push({ label: 'Canales', right: 0, w: 90 });
     if (window.XUPER_DESKTOP && document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });
@@ -13980,6 +13987,10 @@
     }
     playerVideo.addEventListener('enterpictureinpicture', updateButtons);
     playerVideo.addEventListener('leavepictureinpicture', updateButtons);
+    /* The floating window shows only the video: the page's subtitles would
+       stay behind on the big window, so hide them meanwhile. */
+    playerVideo.addEventListener('enterpictureinpicture', function () { document.body.classList.add('is-pip-video'); });
+    playerVideo.addEventListener('leavepictureinpicture', function () { document.body.classList.remove('is-pip-video'); });
     playerVideo.addEventListener('play', updateButtons);
     playerVideo.addEventListener('pause', updateButtons);
     playerVideo.addEventListener('loadedmetadata', updateButtons);

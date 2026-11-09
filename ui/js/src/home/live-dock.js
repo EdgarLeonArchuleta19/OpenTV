@@ -162,11 +162,24 @@ function dockButton(cls, icon, label, title, run) {
 function buildLiveDock(page) {
   loadLiveAudio();
   liveDock = el('div', 'live-dock');
-  var bar = el('div', 'live-dock-bar');
-  if (window.XUPER_DESKTOP) { bar.appendChild(makeLiveDockPlayButton()); }
+  var dockBar = el('div', 'live-dock-bar');
+  /* Desktop: three groups — sound and tools, the channel buttons with
+     pause in the middle, and favourites / guide / full screen. */
+  var dockLeft = dockBar, dockCenter = dockBar, dockRight = dockBar;
+  if (window.XUPER_DESKTOP) {
+    dockLeft = el('div', 'ldb-group is-left');
+    dockCenter = el('div', 'ldb-group is-center');
+    dockRight = el('div', 'ldb-group is-right');
+    dockBar.appendChild(dockLeft);
+    dockBar.appendChild(dockCenter);
+    dockBar.appendChild(dockRight);
+  }
+  var bar = dockCenter;
   bar.appendChild(dockButton('', LIVE_DOCK_ICONS.prev, 'Anterior', 'Canal anterior', function () { setChannel(state.channel - 1, true); }));
+  if (window.XUPER_DESKTOP) { bar.appendChild(makeLiveDockPlayButton()); }
   bar.appendChild(dockButton('', LIVE_DOCK_ICONS.next, 'Siguiente', 'Canal siguiente', function () { setChannel(state.channel + 1, true); }));
-  bar.appendChild(el('i', 'live-dock-sep'));
+  if (!window.XUPER_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); }
+  bar = dockLeft;
   liveMuteBtn = dockButton('is-icon', LIVE_DOCK_ICONS.sound, '', 'Silenciar', function () {
     if (liveAudio.volume === 0) { liveAudio.volume = 0.5; liveAudio.muted = false; }
     else { liveAudio.muted = !liveAudio.muted; }
@@ -198,8 +211,9 @@ function buildLiveDock(page) {
   liveVolLabel = el('span', 'live-dock-vol', '80%');
   volWrap.appendChild(liveVolLabel);
   bar.appendChild(volWrap);
-  if (window.XUPER_DESKTOP) { appendLiveDockTools(bar); }
-  bar.appendChild(el('i', 'live-dock-sep'));
+  if (window.XUPER_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); appendLiveDockTools(bar); }
+  else { bar.appendChild(el('i', 'live-dock-sep')); }
+  bar = dockRight;
   liveFavBtn = dockButton('is-fav', LIVE_DOCK_ICONS.star, 'Favorito', 'Guardar canal en favoritos', function () {
     var ch = CHANNELS[state.channel];
     if (!ch) { return; }
@@ -211,11 +225,15 @@ function buildLiveDock(page) {
     bar.appendChild(dockButton('is-guide', LIVE_DOCK_ICONS.guide, 'Guía', 'Guía de canales (G)', openLiveGuide));
   }
   bar.appendChild(dockButton('is-full', LIVE_DOCK_ICONS.full, 'Pantalla completa', 'Ver en pantalla completa', function () { openPlayer('live'); }));
-  liveDock.appendChild(bar);
+  liveDock.appendChild(dockBar);
 
-  liveDockCats = el('div', 'live-dock-cats scrollable');
-  liveDockCats.setAttribute('data-wheel-x', '');
-  liveDock.appendChild(liveDockCats);
+  /* Desktop: the categories live in the Guía (ordered by country and
+     topic); the chip row under the preview is only on the TV. */
+  if (!window.XUPER_DESKTOP) {
+    liveDockCats = el('div', 'live-dock-cats scrollable');
+    liveDockCats.setAttribute('data-wheel-x', '');
+    liveDock.appendChild(liveDockCats);
+  }
   page.appendChild(liveDock);
   /* Mouse wheel over the preview changes the volume. */
   if (liveMain && !liveMain._wheelVolume) {

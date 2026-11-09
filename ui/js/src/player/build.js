@@ -116,6 +116,11 @@ function buildPlayer() {
   dpsStyleOptions = $('dps-style-options');
   dpsBtnExit = $('dps-btn-exit');
   playerSubtitles = $('player-subtitles');
+  /* Desktop: subtitles go inside the video box, so the small player of the
+     detail page shows them in it instead of across the whole window. */
+  if (window.XUPER_DESKTOP && playerSubtitles && playerStage && playerSubtitles.parentNode !== playerStage) {
+    playerStage.appendChild(playerSubtitles);
+  }
 
   if (dpsSubSwitch) {
     dpsSubSwitch._activate = function () {
@@ -245,7 +250,8 @@ function buildPlayer() {
     { label: 'Feedback', right: 50, w: 67 }
   ];
   /* Desktop: no PIN lock (it never existed on Windows), so no dead button. */
-  if (window.XUPER_DESKTOP) actDefs = actDefs.filter(function (d) { return d.label !== 'Bloquear'; });
+  /* Formato is not used on Windows either (the picture always fits). */
+  if (window.XUPER_DESKTOP) actDefs = actDefs.filter(function (d) { return d.label !== 'Bloquear' && d.label !== 'Formato'; });
   if (window.XUPER_DESKTOP) actDefs.unshift({ label: 'Reproducir', right: 0, w: 67 });
   if (window.XUPER_DESKTOP) actDefs.push({ label: 'Canales', right: 0, w: 90 });
   if (window.XUPER_DESKTOP && document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });

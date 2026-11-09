@@ -109,7 +109,6 @@ function borrowPlayerIntoHome() {
   liveMain.classList.remove('is-preview-loading');
   liveMain.classList.add('is-preview-playing');
   liveHandoff = { type: 'player', key: livePreviewChannel };
-  if (window.XUPER_DESKTOP) { applyLiveDockFit(); }
   return true;
 }
 
@@ -124,7 +123,6 @@ function returnPlayerToStage(keepPlaying) {
   playerStage.insertBefore(playerVideo, anchor ? anchor.nextSibling : playerStage.firstChild);
   if (liveMain) { liveMain.classList.remove('is-preview-playing'); }
   livePreviewChannel = '';
-  playerVideo.style.objectFit = '';
   if (!keepPlaying) { stopPlayerVideo(); }
 }
 

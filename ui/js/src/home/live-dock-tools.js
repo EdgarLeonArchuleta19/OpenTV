@@ -1,16 +1,10 @@
 /* home/live-dock-tools.js — Escritorio: los botones del reproductor de TV también en la vista previa.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-/* Pausa, reintentar, calidad, formato, ventana flotante y diagnóstico act
+/* Pausa, reintentar, calidad, ventana flotante y diagnóstico act
    on the video shown in the home preview (its own element, or the player's
    while it is lent to the home). */
 var liveDockPlayBtn = null;
-var liveDockFit = 'contain';
-var LIVE_DOCK_FITS = [
-  { fit: 'contain', label: 'Normal' },
-  { fit: 'cover', label: 'Llenar pantalla' },
-  { fit: 'fill', label: 'Estirar' }
-];
 
 function liveHomeVideo() {
   return liveHandoff && liveHandoff.type === 'player' ? playerVideo : livePreviewVideo;
@@ -56,6 +50,14 @@ function syncLiveDockPlay() {
   liveDockPlayBtn.setAttribute('data-tip', tip);
   liveDockPlayBtn.setAttribute('aria-label', tip);
   if (liveMain) { liveMain.classList.toggle('is-preview-paused', paused); }
+  if (liveMain && !liveMain._pauseMark) {
+    /* Big play mark in the middle of the paused picture; a click resumes. */
+    var mark = el('div', 'live-paused-mark');
+    mark.innerHTML = UI_ICONS.play;
+    mark.addEventListener('click', function (event) { event.stopPropagation(); toggleLivePreviewPlay(); });
+    liveMain.appendChild(mark);
+    liveMain._pauseMark = mark;
+  }
 }
 
 function retryLivePreview() {
@@ -94,22 +96,6 @@ function cycleLivePreviewQuality() {
   showLiveDockToast(UI_ICONS.quality, 'Calidad: ' + (next < 0 ? 'Automática' : hlsQualityLabel(levels[next].height || 0)));
 }
 
-function applyLiveDockFit() {
-  if (livePreviewVideo) { livePreviewVideo.style.objectFit = liveDockFit === 'contain' ? '' : liveDockFit; }
-  if (liveHandoff && liveHandoff.type === 'player' && playerVideo) {
-    playerVideo.style.objectFit = liveDockFit === 'contain' ? '' : liveDockFit;
-  }
-}
-
-function cycleLivePreviewFit() {
-  var at = 0;
-  for (var i = 0; i < LIVE_DOCK_FITS.length; i++) { if (LIVE_DOCK_FITS[i].fit === liveDockFit) { at = i; } }
-  var next = LIVE_DOCK_FITS[(at + 1) % LIVE_DOCK_FITS.length];
-  liveDockFit = next.fit;
-  applyLiveDockFit();
-  showLiveDockToast(UI_ICONS.aspect, 'Formato: ' + next.label);
-}
-
 function toggleLivePreviewPip() {
   if (!document.pictureInPictureEnabled) { return; }
   if (document.pictureInPictureElement) { document.exitPictureInPicture().catch(function () {}); return; }
@@ -125,7 +111,6 @@ function toggleLivePreviewPip() {
 function appendLiveDockTools(bar) {
   bar.appendChild(dockButton('is-tool', UI_ICONS.retry, '', 'Reintentar señal', retryLivePreview));
   bar.appendChild(dockButton('is-tool', UI_ICONS.quality, '', 'Calidad', cycleLivePreviewQuality));
-  bar.appendChild(dockButton('is-tool', UI_ICONS.aspect, '', 'Formato de pantalla', cycleLivePreviewFit));
   bar.appendChild(dockButton('is-tool', UI_ICONS.pip, '', 'Ventana flotante', toggleLivePreviewPip));
   bar.appendChild(dockButton('is-tool', UI_ICONS.diagnostics, '', 'Diagnóstico de red', openDesktopDiagnostic));
 }

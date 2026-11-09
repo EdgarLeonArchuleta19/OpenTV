@@ -2357,3 +2357,35 @@ body.has-titlebar .profile-picker, body.has-titlebar .profile-restore { top: 36p
   content: "En reproducción"; margin-left: 12px; padding: 2px 10px; border-radius: 999px;
   font-size: 15px; font-weight: 600; background: rgba(229, 9, 20, .18); color: #ff6b72;
 }
+
+/* =====================================================================
+   TV: barra de la vista previa en tres grupos (pausa al centro)
+   ===================================================================== */
+.desktop .live-dock-bar { display: grid !important; grid-template-columns: 1fr auto 1fr; align-items: center; }
+.desktop .live-dock-bar .ldb-group { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.desktop .live-dock-bar .ldb-group.is-center { justify-content: center; gap: 10px; }
+.desktop .live-dock-bar .ldb-group.is-right { justify-content: flex-end; }
+.desktop .live-dock-bar .live-dock-volume { margin-right: 0; }
+.desktop .live-dock-bar .live-dock-btn.is-play { width: 64px !important; height: 64px !important; background: #fff !important; color: #0e0e11 !important; }
+.desktop .live-dock-bar .live-dock-btn.is-play:hover { background: rgba(255, 255, 255, .86) !important; }
+.desktop .live-dock-bar .live-dock-btn.is-play .live-dock-ico svg { width: 28px; height: 28px; }
+/* Marca de pausa en medio del video */
+.desktop .live-paused-mark {
+  position: absolute; left: 50%; top: 50%; z-index: 6; width: 120px; height: 120px; margin: -60px 0 0 -60px;
+  display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer;
+  background: rgba(14, 14, 17, .55); color: #fff; border: 1px solid rgba(255, 255, 255, .25);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  opacity: 0; transform: scale(.8); pointer-events: none;
+  transition: opacity .2s ease, transform .25s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .live-paused-mark svg { width: 52px; height: 52px; margin-left: 6px; }
+.desktop .live-main.is-preview-paused .live-paused-mark { opacity: 1; transform: scale(1); pointer-events: auto; }
+.desktop .live-main.is-preview-paused .live-paused-mark:hover { background: rgba(14, 14, 17, .75); }
+
+/* =====================================================================
+   Subtítulos dentro del reproductor pequeño; ocultos con ventana flotante
+   ===================================================================== */
+.desktop #screen-player.is-mini .player-subtitles { left: 24px; right: 24px; bottom: 14px; }
+.desktop #screen-player.is-mini .player-subtitles.shift-up { bottom: 14px; }
+.desktop #screen-player.is-mini .player-subtitles .player-subtitles-text { font-size: 24px !important; padding: 2px 8px; -webkit-text-stroke: 0 !important; color: #fff; text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,.9) !important; }
+.desktop.is-pip-video .player-subtitles, body.is-pip-video .player-subtitles { display: none !important; }

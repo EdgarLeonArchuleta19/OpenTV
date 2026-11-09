@@ -210,8 +210,7 @@ body.desktop {
   border-image: none;
   border-radius: 18px;
 }
-/* Los subtítulos de la vista previa se salían sobre la ficha. */
-.desktop #screen-player.is-mini .player-subtitles { display: none !important; }
+/* Los subtítulos de la vista previa ahora van dentro del video (tw/input.css). */
 
 /* ------------------------------------------------------- ficha: botones */
 .desktop .detail-buttons {
