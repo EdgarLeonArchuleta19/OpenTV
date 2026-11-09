@@ -79,7 +79,7 @@ function boot() {
     settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); }
   };
 
-  if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); startCatalogAutoRefresh(); }
+  if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); startCatalogAutoRefresh(); }
 
   applyQuery();
 }

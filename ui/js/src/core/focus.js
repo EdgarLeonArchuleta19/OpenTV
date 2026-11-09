@@ -67,6 +67,34 @@ function reveal(node) {
   }
 }
 
+/* Desktop: the focus ring (white frame + zoom) is shown only while the
+   keyboard is being used, like Windows does. With the mouse, the current
+   element is still tracked, just not highlighted. The TV always shows it. */
+var focusRingVisible = !window.XUPER_DESKTOP;
+
+function setFocusRingVisible(on) {
+  on = !!on;
+  if (on === focusRingVisible) { return; }
+  focusRingVisible = on;
+  document.body.classList.toggle('is-keyboard-nav', on);
+  if (state.focus) { state.focus.classList.toggle('is-focused', on); }
+}
+
+function installFocusRingMode() {
+  if (!window.XUPER_DESKTOP) { return; }
+  var NAV_KEYS = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, Tab: 1, PageUp: 1, PageDown: 1 };
+  document.addEventListener('keydown', function (event) {
+    if (NAV_KEYS[event.key] && !(event.target && event.target.tagName === 'INPUT')) { setFocusRingVisible(true); }
+  }, true);
+  document.addEventListener('pointerdown', function () { setFocusRingVisible(false); }, true);
+  var lastX = -1, lastY = -1;
+  document.addEventListener('pointermove', function (event) {
+    if (!focusRingVisible) { return; }
+    if (lastX >= 0 && Math.abs(event.clientX - lastX) + Math.abs(event.clientY - lastY) > 12) { setFocusRingVisible(false); }
+    lastX = event.clientX; lastY = event.clientY;
+  }, true);
+}
+
 function setFocus(node, silent) {
   if (!node) { return; }
   if (state.focus === node) {
@@ -75,7 +103,7 @@ function setFocus(node, silent) {
   }
   if (state.focus) { state.focus.classList.remove('is-focused'); }
   state.focus = node;
-  node.classList.add('is-focused');
+  if (focusRingVisible) { node.classList.add('is-focused'); }
   if (node._onFocus) { node._onFocus(); }
   renderPlaySettingRowFocus();
   /* The tab rail expands while it holds focus and collapses to icons as soon

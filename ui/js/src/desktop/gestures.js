@@ -181,23 +181,28 @@ function bindDesktopPlayback() {
   var tips = document.querySelector('.vod-infobar-tips');
   clear(tips);
   var defs = [
-    { id: 'vod-back', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
-    { id: 'vod-rewind', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
-    { id: 'vod-toggle', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
-    { id: 'vod-forward', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
-    { id: 'vod-episodes', icon: UI_ICONS.episodes, tip: 'Episodios', run: openEpisodeBrowser },
-    { id: 'vod-settings', icon: UI_ICONS.settings, tip: 'Ajustes de reproducción (↓)', run: openPlaySettingView }
+    { id: 'vod-back', group: 'left', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
+    { id: 'vod-rewind', group: 'center', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
+    { id: 'vod-toggle', group: 'center', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
+    { id: 'vod-forward', group: 'center', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
+    { id: 'vod-episodes', group: 'right', icon: UI_ICONS.episodes, tip: 'Episodios', run: openEpisodeBrowser },
+    { id: 'vod-settings', group: 'right', icon: UI_ICONS.settings, tip: 'Ajustes de reproducción (↓)', run: openPlaySettingView }
   ];
   if (document.pictureInPictureEnabled) {
-    defs.push({ id: 'vod-pip', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
+    defs.push({ id: 'vod-pip', group: 'right', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
   }
-  defs.push({ id: 'vod-fullscreen', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
+  defs.push({ id: 'vod-fullscreen', group: 'right', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
+  /* Three zones: Volver on the left, seek/play in the middle, the rest on the right. */
+  var groups = { left: el('div', 'vt-group vt-left'), center: el('div', 'vt-group vt-center'), right: el('div', 'vt-group vt-right') };
+  tips.appendChild(groups.left);
+  tips.appendChild(groups.center);
+  tips.appendChild(groups.right);
   for (var i = 0; i < defs.length; i++) {
     var b = el('button', 'vod-tip focusable');
     b.type = 'button'; b.id = defs[i].id;
     iconizeButton(b, defs[i].icon, defs[i].tip);
     b._activate = defs[i].run;
-    tips.appendChild(b);
+    groups[defs[i].group].appendChild(b);
   }
   function updateButtons() {
     var toggle = $('vod-toggle');

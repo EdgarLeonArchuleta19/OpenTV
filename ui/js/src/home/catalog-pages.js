@@ -277,6 +277,15 @@ function buildNovelsPage(page) {
 /* KIDS: hero 831x534 + 2x2 grid 413x222 on the right, a subtitle line and a
    horizontal poster row (7 columns, last one clipped by the screen edge). */
 function buildKidsPage(page) {
+  if (window.XUPER_DESKTOP) {
+    var allKids = allVodFor('infantil');
+    var kidsTop = allKids.slice(0, 6);
+    var realKids = !!(kidsTop[0] && kidsTop[0]._portal);
+    bentoPage(page, kidsTop, { titles: realKids, dots: realKids ? 4 : 0, shade: realKids });
+    var kidsRest = allKids.slice(6);
+    appendCatalogGrid(page, kidsRest.length ? kidsRest : allKids, 860, 'Para toda la familia');
+    return;
+  }
   var source = vodFor('infantil', 12, 0);
   if (!source.length) { source = VOD; }
   var real = !!(source[0] && source[0]._portal);

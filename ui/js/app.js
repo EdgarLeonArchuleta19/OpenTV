@@ -1231,6 +1231,34 @@
     }
   }
 
+  /* Desktop: the focus ring (white frame + zoom) is shown only while the
+     keyboard is being used, like Windows does. With the mouse, the current
+     element is still tracked, just not highlighted. The TV always shows it. */
+  var focusRingVisible = !window.XUPER_DESKTOP;
+
+  function setFocusRingVisible(on) {
+    on = !!on;
+    if (on === focusRingVisible) { return; }
+    focusRingVisible = on;
+    document.body.classList.toggle('is-keyboard-nav', on);
+    if (state.focus) { state.focus.classList.toggle('is-focused', on); }
+  }
+
+  function installFocusRingMode() {
+    if (!window.XUPER_DESKTOP) { return; }
+    var NAV_KEYS = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, Tab: 1, PageUp: 1, PageDown: 1 };
+    document.addEventListener('keydown', function (event) {
+      if (NAV_KEYS[event.key] && !(event.target && event.target.tagName === 'INPUT')) { setFocusRingVisible(true); }
+    }, true);
+    document.addEventListener('pointerdown', function () { setFocusRingVisible(false); }, true);
+    var lastX = -1, lastY = -1;
+    document.addEventListener('pointermove', function (event) {
+      if (!focusRingVisible) { return; }
+      if (lastX >= 0 && Math.abs(event.clientX - lastX) + Math.abs(event.clientY - lastY) > 12) { setFocusRingVisible(false); }
+      lastX = event.clientX; lastY = event.clientY;
+    }, true);
+  }
+
   function setFocus(node, silent) {
     if (!node) { return; }
     if (state.focus === node) {
@@ -1239,7 +1267,7 @@
     }
     if (state.focus) { state.focus.classList.remove('is-focused'); }
     state.focus = node;
-    node.classList.add('is-focused');
+    if (focusRingVisible) { node.classList.add('is-focused'); }
     if (node._onFocus) { node._onFocus(); }
     renderPlaySettingRowFocus();
     /* The tab rail expands while it holds focus and collapses to icons as soon
@@ -3361,6 +3389,15 @@
   /* KIDS: hero 831x534 + 2x2 grid 413x222 on the right, a subtitle line and a
      horizontal poster row (7 columns, last one clipped by the screen edge). */
   function buildKidsPage(page) {
+    if (window.XUPER_DESKTOP) {
+      var allKids = allVodFor('infantil');
+      var kidsTop = allKids.slice(0, 6);
+      var realKids = !!(kidsTop[0] && kidsTop[0]._portal);
+      bentoPage(page, kidsTop, { titles: realKids, dots: realKids ? 4 : 0, shade: realKids });
+      var kidsRest = allKids.slice(6);
+      appendCatalogGrid(page, kidsRest.length ? kidsRest : allKids, 860, 'Para toda la familia');
+      return;
+    }
     var source = vodFor('infantil', 12, 0);
     if (!source.length) { source = VOD; }
     var real = !!(source[0] && source[0]._portal);
@@ -9852,23 +9889,28 @@
     var tips = document.querySelector('.vod-infobar-tips');
     clear(tips);
     var defs = [
-      { id: 'vod-back', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
-      { id: 'vod-rewind', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
-      { id: 'vod-toggle', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
-      { id: 'vod-forward', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
-      { id: 'vod-episodes', icon: UI_ICONS.episodes, tip: 'Episodios', run: openEpisodeBrowser },
-      { id: 'vod-settings', icon: UI_ICONS.settings, tip: 'Ajustes de reproducción (↓)', run: openPlaySettingView }
+      { id: 'vod-back', group: 'left', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
+      { id: 'vod-rewind', group: 'center', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
+      { id: 'vod-toggle', group: 'center', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
+      { id: 'vod-forward', group: 'center', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
+      { id: 'vod-episodes', group: 'right', icon: UI_ICONS.episodes, tip: 'Episodios', run: openEpisodeBrowser },
+      { id: 'vod-settings', group: 'right', icon: UI_ICONS.settings, tip: 'Ajustes de reproducción (↓)', run: openPlaySettingView }
     ];
     if (document.pictureInPictureEnabled) {
-      defs.push({ id: 'vod-pip', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
+      defs.push({ id: 'vod-pip', group: 'right', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
     }
-    defs.push({ id: 'vod-fullscreen', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
+    defs.push({ id: 'vod-fullscreen', group: 'right', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
+    /* Three zones: Volver on the left, seek/play in the middle, the rest on the right. */
+    var groups = { left: el('div', 'vt-group vt-left'), center: el('div', 'vt-group vt-center'), right: el('div', 'vt-group vt-right') };
+    tips.appendChild(groups.left);
+    tips.appendChild(groups.center);
+    tips.appendChild(groups.right);
     for (var i = 0; i < defs.length; i++) {
       var b = el('button', 'vod-tip focusable');
       b.type = 'button'; b.id = defs[i].id;
       iconizeButton(b, defs[i].icon, defs[i].tip);
       b._activate = defs[i].run;
-      tips.appendChild(b);
+      groups[defs[i].group].appendChild(b);
     }
     function updateButtons() {
       var toggle = $('vod-toggle');
@@ -10072,7 +10114,7 @@
       settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); }
     };
 
-    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); startCatalogAutoRefresh(); }
+    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); startCatalogAutoRefresh(); }
 
     applyQuery();
   }
