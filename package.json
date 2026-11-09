@@ -14,8 +14,13 @@
     "dist": "electron-builder --win nsis portable",
     "dist:portable": "electron-builder --win portable",
     "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1",
-    "predist": "npm run build:css",
-    "predist:portable": "npm run build:css"
+    "predist": "npm run build",
+    "predist:portable": "npm run build",
+    "build:js": "node scripts/build-app.cjs",
+    "check:js": "node scripts/build-app.cjs --check",
+    "build": "npm run build:js && npm run build:css",
+    "prestart": "npm run build:js",
+    "predev": "npm run build:js"
   },
   "dependencies": {
     "hls.js": "^1.5.20"
@@ -42,7 +47,8 @@
       "README.md",
       "package.json",
       "!ui/desktop/tw/**",
-      "!ui/assets/*.bak"
+      "!ui/assets/*.bak",
+      "!ui/js/src/**"
     ],
     "win": {
       "target": [

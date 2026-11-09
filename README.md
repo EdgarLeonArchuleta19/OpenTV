@@ -33,7 +33,7 @@
 
 - `desktop/`: Proceso principal de Electron (`main.cjs`), puente seguro (`preload.cjs`) y adaptador del servicio local (`service.cjs`).
 - `service/`: Cliente del portal (`magis.js`), proxy HTTP/HLS (`proxy.js`), relay FFmpeg (`ffmpeg-relay.js`), DNS-over-HTTPS (`dnsx.js`), indexador MPEG-TS (`ts-indexer.js`), duración por FFmpeg (`media-duration.js`) y diagnóstico de red (`netdiag.js`).
-- `ui/`: Interfaz gráfica (`index.html`, `js/app.js`, `css/style.css`, `desktop/modern.css`, `desktop/theme.css`, `desktop/tailwind.css` generado desde `desktop/tw/input.css`, `desktop/player.js`, `desktop/input.js`, `desktop/bridge.js`).
+- `ui/`: Interfaz gráfica compartida por la TV (LG webOS) y el escritorio. El código está en `ui/js/src/` (40 módulos: `core/`, `services/`, `screens/`, `home/`, `live/`, `player/`, `desktop/`) y se une en `ui/js/app.js` con `npm run build:js` (ver `ui/js/src/README.md`). Estilos: `css/style.css` (base TV) + capas de escritorio en `desktop/` (`tailwind.css` se genera desde `desktop/tw/input.css`).
 - `bin/`: Binario `ffmpeg.exe` para Windows x64.
 
 ## Desarrollo y compilación
@@ -45,8 +45,9 @@ npm install
 # Ejecutar en modo desarrollo
 npm start
 
-# Recompilar los estilos (Tailwind → ui/desktop/tailwind.css)
-npm run build:css   # o: npm run watch:css
+# Regenerar app.js (desde ui/js/src) y los estilos de Tailwind
+npm run build       # = build:js + build:css
+npm run check:js    # comprueba que app.js está al día
 
 # Generar ejecutable / portable para Windows
 npm run dist

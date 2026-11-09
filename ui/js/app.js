@@ -1,17 +1,14 @@
 /* =============================================================================
-   XuperTV 4.34.4  ->  LG webOS 4 (Chromium 53) fidelity reconstruction
-   -----------------------------------------------------------------------------
-   All geometry comes from the decoded Android resources:
-     res/layout/*.xml, res/values/{colors,dimens,styles}.xml, values-es/strings.xml
-   Scale: design_width 1920 / design_width_in_dp 1280  =>  1dp = 1.5px
-   Content that the APK loads from its backend (posters, channel logos, QR,
-   tab icons/order, home logo) is represented with the original "no data"
-   assets and flagged in the audit documents. VOD data may additionally come
-   from a separately configured, authorized API; no APK endpoint, credential
-   or DRM logic is reproduced here.
+   OpenTV — interfaz (TV LG webOS y escritorio Windows)
+   ARCHIVO GENERADO por scripts/build-app.cjs: no lo edites a mano.
+   El código fuente está en ui/js/src/ (orden en ui/js/src/modules.json).
    ============================================================================= */
 (function () {
   'use strict';
+
+  /* ---- core/utils.js --------------------------------------------------------- */
+  /* core/utils.js — Utilidades DOM y de texto: el(), $(), clear(), abs(), closest(), norm()…
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------------ utils */
   function el(tag, cls, text) {
@@ -46,6 +43,10 @@
     return s;
   }
   function each(list, fn) { for (var i = 0; i < list.length; i++) { fn(list[i], i); } }
+
+  /* ---- data/demo-catalog.js -------------------------------------------------- */
+  /* data/demo-catalog.js — Catálogo de demostración integrado (VOD de ejemplo y addVod).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------- demo data */
   /* Server-driven in the real APK. These records only exercise the layouts. */
@@ -85,6 +86,10 @@
   addVod('Infantil', 8, 5);
   addVod('UHD', 4, 6);
   addVod('Extra', 4, 7);
+
+  /* ---- services/vod-api.js --------------------------------------------------- */
+  /* services/vod-api.js — Cliente de la API VOD: normalización de títulos, temporadas y peticiones HTTP.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------- VOD API
      XMLHttpRequest is used deliberately: it works on Chromium 53, where
@@ -447,6 +452,10 @@
     return data ? apiArray(data) : [];
   }
 
+  /* ---- services/portal.js ---------------------------------------------------- */
+  /* services/portal.js — Servicio del portal (Luna en webOS / IPC en escritorio): catálogo, detalle, keep-alive y errores.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* ------------------------------------------------------ portal service
      The Magis portal answers no CORS preflight, so the page cannot call it.
      The bundled Node service speaks the encrypted protocol and returns plain
@@ -474,9 +483,9 @@
     };
   }
   return !!(window.webOS && window.webOS.service && window.webOS.service.request);
-}
+  }
 
-function queryString(params) {
+  function queryString(params) {
   var parts = [];
   for (var k in params) {
     if (Object.prototype.hasOwnProperty.call(params, k)) {
@@ -484,43 +493,43 @@ function queryString(params) {
     }
   }
   return parts.join('&');
-}
+  }
 
-/* ls-hubd refuses a call when the app is missing from the service ACL, which
+  /* ls-hubd refuses a call when the app is missing from the service ACL, which
    happens when the installed manifest is stale after an update.  "Denied
    method netdiag for category /" means nothing to a viewer, so translate it
    into the two things that actually fix it and keep the raw text in brackets
    for whoever supports the TV. */
-var SERVICE_BLOCKED_HINT = 'La TV tiene bloqueado el servicio de OpenTV. ' +
+  var SERVICE_BLOCKED_HINT = 'La TV tiene bloqueado el servicio de OpenTV. ' +
   'Desenchufa la TV 10 segundos y vuelve a abrir la app; si sigue igual, ' +
   'reinstala con el instalador.';
-function describeServiceError(text) {
+  function describeServiceError(text) {
   var raw = String(text == null ? '' : text);
   if (window.XUPER_DESKTOP) { return raw; }
   if (/denied|permission|not permitted/i.test(raw)) {
     return SERVICE_BLOCKED_HINT + ' (' + raw + ')';
   }
   return raw;
-}
+  }
 
-/* The network test can only judge the carrier by touching the real CDN, so the
+  /* The network test can only judge the carrier by touching the real CDN, so the
    page remembers the last raw CDN URLs the portal handed out.  Loopback proxy
    URLs are useless here: they always answer, even when the carrier drops the
    upstream connection. */
-var lastCdnProbe = { live: null, vod: null };
-var lastVodAttempt = { phase: 'sin intento', status: 'sin datos', error: '' };
-function vodFailure(phase, message) {
+  var lastCdnProbe = { live: null, vod: null };
+  var lastVodAttempt = { phase: 'sin intento', status: 'sin datos', error: '' };
+  function vodFailure(phase, message) {
   var safe = reportSafeText(String(message || 'El servicio no devolvió los datos necesarios'));
   lastVodAttempt = { phase: phase, status: 'error', error: safe };
   state.streamError = 'No se pudo cargar ' + phase + ': ' + safe;
   setPlayerStatus(state.streamError);
-}
-document.addEventListener('xuper:playback-timeout', function () {
+  }
+  document.addEventListener('xuper:playback-timeout', function () {
   if (state.playerMode === 'vod' && (state.screen === 'detail' || state.screen === 'player')) {
     vodFailure(lastVodAttempt.phase, 'La carga no terminó dentro de 30 segundos');
   }
-});
-function rememberCdnProbe(kind, payload) {
+  });
+  function rememberCdnProbe(kind, payload) {
   try {
     if (!payload) { return; }
     var url = payload.url || '';
@@ -528,9 +537,9 @@ function rememberCdnProbe(kind, payload) {
     if (/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/i.test(url)) { return; }
     lastCdnProbe[kind] = { url: url, headers: payload.headers || {} };
   } catch (eProbe) { /* ignore */ }
-}
+  }
 
-function portalServiceCall(method, params, done, customTimeout) {
+  function portalServiceCall(method, params, done, customTimeout) {
   var serviceId = vodApi.serviceId || 'com.webosflux.xuptertv.fidelity.service';
   var settled = false;
   var timeoutMs = customTimeout || parseInt(vodApi.timeoutMs, 10) || 20000;
@@ -575,7 +584,7 @@ function portalServiceCall(method, params, done, customTimeout) {
   }
   finish('El servicio OpenTV no está disponible', null);
   return false;
-}
+  }
 
   function startServiceKeepAlive() {
     if (!hasLuna()) { return; }
@@ -874,6 +883,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     }, vodApi.mode === 'xuper' ? { method: 'POST', body: xuperPayload('detail', item.id) } : null);
   }
 
+  /* ---- core/config.js -------------------------------------------------------- */
+  /* core/config.js — Configuración estática: canales, pestañas del inicio y menú de ajustes.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* Live TV is portal-driven.  Do not draw fictitious rows while the local
      service starts: they looked like real channels until the user left and
      returned to the TV tab. */
@@ -928,6 +941,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     feedback: '<svg viewBox="0 0 32 32"><path d="M6 4h15l5 5v19H6z"/><path d="M20 4v6h6M10 16h12M10 21h8"/></svg>',
     about: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="M16 14v8M16 10h.1"/></svg>'
   };
+
+  /* ---- core/state.js --------------------------------------------------------- */
+  /* core/state.js — Estado global de la app, perfil local (favoritos) y referencias a nodos del DOM.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ---------------------------------------------------------------- state */
   var state = {
@@ -1056,6 +1073,10 @@ function portalServiceCall(method, params, done, customTimeout) {
   var playerVodInfo, vodInfobarPoster, vodInfobarTitle, vodTimeCurrent, vodTimeTotal, vodSeekbar, vodSeekProgress, vodSeekBuffered, vodSeekThumb, playerOsdIcon;
   var vodScrubbing = false, vodScrubTime = 0;
   var welcomeTimer = null;
+
+  /* ---- core/focus.js --------------------------------------------------------- */
+  /* core/focus.js — Motor de foco: visibilidad, enfoque, scroll al foco y navegación espacial con flechas.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------ focus core */
   function isVisible(node) {
@@ -1229,6 +1250,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
     }
   }
+
+  /* ---- core/navigation.js ---------------------------------------------------- */
+  /* core/navigation.js — Cambio de pantalla, "Volver" y manejador global de teclado / mando (handleKey).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ---------------------------------------------------------------- screen */
   function showScreen(name) {
@@ -1687,6 +1712,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     if (handled && e.preventDefault) { e.preventDefault(); }
   }
 
+  /* ---- screens/welcome.js ---------------------------------------------------- */
+  /* screens/welcome.js — Pantalla de bienvenida.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* ================================================================ WELCOME */
   function startWelcome() {
     var img = $('welcome-loading-img');
@@ -1715,6 +1744,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       if (homeScreen) { homeScreen.classList.add('is-rail-open'); }
     }
   }
+
+  /* ---- screens/home.js ------------------------------------------------------- */
+  /* screens/home.js — Inicio: construcción de páginas, rail de pestañas, barra superior y reloj.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* =================================================================== HOME */
   var pageDefs = [buildLivePage, buildFeaturedPage, buildMoviesPage, buildSeriesPage,
@@ -1928,6 +1961,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     schedulePosterMemoryPass();
   }
 
+  /* ---- home/posters.js ------------------------------------------------------- */
+  /* home/posters.js — Pósteres: carga diferida, memoria de imágenes, reintentos y creación de tarjetas.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* --------------------------------------------------------------- posters */
   /* Chromium 53 retains decoded poster bitmaps very aggressively.  Keep the
      DOM/focus graph intact, but attach each source only when its tile is near
@@ -2046,6 +2083,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     return area;
   }
 
+  /* ---- home/live-page.js ----------------------------------------------------- */
+  /* home/live-page.js — Página TV del inicio (vista previa del canal y lista).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* ------------------------------------------------------------- home live */
   function buildLivePage(page) {
     liveMain = el('div', 'live-main');
@@ -2118,6 +2159,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       installLivePreviewGestures(liveFocus);
     }
   }
+
+  /* ---- home/live-dock.js ----------------------------------------------------- */
+  /* home/live-dock.js — Barra de controles de la TV del inicio: volumen, favoritos y países/temas.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------------
      Desktop: sound for the home TV preview, a control bar and country /
@@ -2266,6 +2311,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       for (var t = 0; t < topics.length; t++) { chip(topics[t], topics[t].isAddon ? 'Mis listas M3U' : null); }
     }
   }
+
+  /* ---- live/channels.js ------------------------------------------------------ */
+  /* live/channels.js — TV en vivo: listas M3U, categorías, carga de canales y vista previa compartida con el reproductor.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* --- Live TV Categories & Addons (M3U / IPTV) --- */
   var PRESET_ADDONS = [
@@ -2761,6 +2810,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     }
   }
 
+  /* ---- live/addons-dialog.js ------------------------------------------------- */
+  /* live/addons-dialog.js — Diálogo de addons y listas M3U.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* --- Addon Manager Dialog logic --- */
   function openAddonsDialog() {
     dialogAddonsOpen = true;
@@ -2921,6 +2974,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       if (done) { done(null, payload.channels.length); }
     });
   }
+
+  /* ---- home/catalog-pages.js ------------------------------------------------- */
+  /* home/catalog-pages.js — Páginas de catálogo del inicio: mosaicos, cuadrículas, Destacados, Películas, Series, Kids, etc.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ---------------------------------------------------------- home posters */
   /* Bento mosaic measured on the running app (WSA, 1920x1080):
@@ -3167,6 +3224,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     }
     page.appendChild(strip);
   }
+
+  /* ---- screens/detail.js ----------------------------------------------------- */
+  /* screens/detail.js — Ficha de un título: datos, botones, temporadas, episodios y recomendaciones.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ============================================================ VOD DETAIL */
   function openDetail(item) {
@@ -3750,6 +3811,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     detailBottom.appendChild(grid);
   }
 
+  /* ---- screens/search.js ----------------------------------------------------- */
+  /* screens/search.js — Búsqueda: campo, teclado de TV, populares y búsqueda local + portal.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* ================================================================ SEARCH */
   function hotSearches() {
     var all = bundledCatalog();
@@ -4001,6 +4066,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       }, 350);
     }
   }
+
+  /* ---- screens/search-desktop.js --------------------------------------------- */
+  /* screens/search-desktop.js — Búsqueda en escritorio: estados, vista cuadrícula/lista y carga continua.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------------
      Desktop search states. The local catalogue only holds what the app has
@@ -4408,6 +4477,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     for (var n = 0; n < numRows.length; n++) { numRows[n].classList.remove('hidden'); }
   }
 
+  /* ---- screens/settings.js --------------------------------------------------- */
+  /* screens/settings.js — Ajustes: menú, panel de reproducción y opciones.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* ============================================================== SETTINGS */
   function buildSettings() {
     settingsMenu = $('settings-menu');
@@ -4634,6 +4707,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     if (days < 30) { return 'Hace ' + days + ' días'; }
     return new Date(ts).toLocaleDateString('es');
   }
+
+  /* ---- screens/history.js ---------------------------------------------------- */
+  /* screens/history.js — Historial: panel lateral, registros y panel de historial en Ajustes.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------------
      Desktop: history as a panel sliding in from the left, over the current
@@ -4920,6 +4997,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     return p;
   }
 
+  /* ---- screens/settings-panels.js -------------------------------------------- */
+  /* screens/settings-panels.js — Paneles de Ajustes: compartir, control parental, ayuda, actualización y acerca de.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   function buildSharePanel() {
     var p = panelBase('Compartir APP');
     p.appendChild(el('div', 'sp-hr'));
@@ -5050,6 +5131,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     p.appendChild(port);
     return p;
   }
+
+  /* ---- screens/netdiag.js ---------------------------------------------------- */
+  /* screens/netdiag.js — Diagnóstico de red e informe de soporte.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------- network diagnostics
      Reads only: it asks the service for the local DNS answer and the DoH answer
@@ -5466,6 +5551,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     return p;
   }
 
+  /* ---- player/infobar.js ----------------------------------------------------- */
+  /* player/infobar.js — Reproductor: tiempos, barra de progreso VOD, iconos OSD y barras de información.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* ================================================================ PLAYER */
   /* The player controller hides itself after a few seconds without input.
      The constant is not exposed in the decoded resources; 5000 ms is used
@@ -5674,6 +5763,10 @@ function portalServiceCall(method, params, done, customTimeout) {
   function hideVodInfobar() {
     hideInfobar();
   }
+
+  /* ---- player/media-state.js ------------------------------------------------- */
+  /* player/media-state.js — Reproductor: estado de audio/subtítulos/formato, preferencias globales, progreso visto y subtítulos SRT.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* --- PlaySettingView (Bottom Drawer) & SelectSubTitleAndAudioDialog Controller --- */
   var playSettingView = null;
@@ -5946,6 +6039,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     return state.playerItem || state.detail || null;
   }
 
+  /* ---- player/compat-mode.js ------------------------------------------------- */
+  /* player/compat-mode.js — Modo compatible (FFmpeg): preferencia por título y memoria en este equipo.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* "Modo fluido" is a per-title preference: turning it on for one movie must
      not leak into the next one, while a series keeps it across its episodes
      (same series id). */
@@ -6011,6 +6108,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       if (!on) { saveCompatTitle(compatEpisodeKey(item), false); }
     }
   }
+
+  /* ---- player/media-info.js -------------------------------------------------- */
+  /* player/media-info.js — Metadatos reales de audio/subtítulos del portal y calidades.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* Called when a different title is opened, never when zapping episodes. */
   function resetMediaSelection() {
@@ -6176,6 +6277,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     if (/^\d+$/.test(q)) { return q + 'P'; }
     return q || 'AUTO';
   }
+
+  /* ---- player/play-settings.js ----------------------------------------------- */
+  /* player/play-settings.js — Menú de ajustes del reproductor (hoja inferior): audio, calidad, selección.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   function schedulePlaySettingHide() {
     if (playSettingTimer) { clearTimeout(playSettingTimer); }
@@ -6410,6 +6515,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     }
     psvEpisodesRow.appendChild(rangeRow);
   }
+
+  /* ---- player/episodes.js ---------------------------------------------------- */
+  /* player/episodes.js — Temporadas y episodios: navegador en el reproductor y paso al siguiente capítulo.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ================= Season/episode browser (in-player) =================
      Netflix-style list: season rail on the left, episode rows on the right.
@@ -6843,6 +6952,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     }
   }
 
+  /* ---- player/settings-dialog.js --------------------------------------------- */
+  /* player/settings-dialog.js — Diálogo de audio/subtítulos, formato de pantalla y cambio de pista.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   function renderPlaySettingPlayerOptions() {
     /* 'normal' is the default direct path; only 'relay'/'smooth' means FFmpeg. */
     var isRelay = (state.streamMode === 'relay' || state.streamMode === 'smooth');
@@ -7100,6 +7213,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       }
     });
   }
+
+  /* ---- player/build.js ------------------------------------------------------- */
+  /* player/build.js — Construcción del reproductor, selector de categorías y panel de canales.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   function buildPlayer() {
     playerStage = $('player-stage');
@@ -7678,6 +7795,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       playerChannelRows[c] = row;
     }
   }
+
+  /* ---- player/playback.js ---------------------------------------------------- */
+  /* player/playback.js — Reproducción: búsqueda (seek), estado, playUrl, resolución de streams y openPlayer.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   var lastProxyOrigin = '';
   var lastPlayingUrl = '';
@@ -8430,6 +8551,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     }
   }
 
+  /* ---- player/live.js -------------------------------------------------------- */
+  /* player/live.js — Reproductor en vivo: cambio de canal, info del canal y regreso a la pantalla anterior.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   var liveChannelSeq = 0;
   var liveChannelDebounceTimer = null;
   function startLiveChannel(ch, immediate) {
@@ -8670,6 +8795,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     }
   }
 
+  /* ---- desktop/display.js ---------------------------------------------------- */
+  /* desktop/display.js — Escalado del lienzo a la ventana y "Volver" de escritorio.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* ---------------------------------------------------------------- display */
   /* The reference UI is authored at 1920×1080. Older sets expose that exact
      logical viewport, whereas some UHD webOS 22/25 sets expose 3840×2160.
@@ -8769,6 +8898,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     back();
   }
 
+  /* ---- desktop/pip.js -------------------------------------------------------- */
+  /* desktop/pip.js — Ventana flotante (Picture-in-Picture) y controles multimedia del sistema.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* Picture-in-Picture: the video floats in a small window on top of other
      apps. It keeps playing while the viewer browses or minimizes OpenTV.
      Subtitles are drawn by the page, so they are not shown in that window. */
@@ -8867,6 +9000,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     });
   }
 
+  /* ---- desktop/navigation.js ------------------------------------------------- */
+  /* desktop/navigation.js — Botones flotantes Volver / Historial y modo cine al reproducir.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   function installDesktopNavigation() {
     var button = el('button', 'desktop-native-control');
     button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>Volver</span>';
@@ -8905,6 +9042,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       historyBtn.classList.toggle('is-active', onHistory);
     }, 150);
   }
+
+  /* ---- desktop/window.js ----------------------------------------------------- */
+  /* desktop/window.js — Pantalla completa de Windows, clic/doble clic y cierre de paneles del reproductor.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------------
      Mouse gestures on the video (desktop):
@@ -9006,6 +9147,10 @@ function portalServiceCall(method, params, done, customTimeout) {
       eps.appendChild(panelCloseButton('Cerrar episodios (Esc)'));
     }
   }
+
+  /* ---- player/compat-watchdog.js --------------------------------------------- */
+  /* player/compat-watchdog.js — Cambio automático al modo compatible y aviso "¿Problemas con este vídeo?".
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------------
      Compatibility mode, automatic.
@@ -9156,6 +9301,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     if (compatSuggestTimer) { clearTimeout(compatSuggestTimer); compatSuggestTimer = null; }
     if (compatSuggest) { compatSuggest.classList.remove('is-visible'); }
   }
+
+  /* ---- desktop/gestures.js --------------------------------------------------- */
+  /* desktop/gestures.js — Gestos del ratón sobre el vídeo y controles VOD de escritorio.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   function installVideoGestures() {
     installPanelDismiss();
@@ -9384,6 +9533,10 @@ function portalServiceCall(method, params, done, customTimeout) {
     });
   }
 
+  /* ---- main.js --------------------------------------------------------------- */
+  /* main.js — Arranque: eventos globales, API de depuración window.__xuper y enlaces profundos.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
   /* ------------------------------------------------------------------ boot */
   function boot() {
     fitDesignViewport();
@@ -9533,4 +9686,5 @@ function portalServiceCall(method, params, done, customTimeout) {
   } else {
     boot();
   }
+
 })();

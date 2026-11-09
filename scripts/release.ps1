@@ -7,6 +7,11 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $projectRoot
 
 Write-Host "==> 1/4 Compilando instalador NSIS y ejecutable Portable de OpenTV..." -ForegroundColor Cyan
+# Regenera ui/js/app.js (desde ui/js/src) y ui/desktop/tailwind.css antes de empaquetar.
+npm run build
+if ($LASTEXITCODE -ne 0) {
+  throw "Error al generar app.js / estilos (codigo $LASTEXITCODE)"
+}
 npx electron-builder --win nsis portable
 if ($LASTEXITCODE -ne 0) {
   throw "Error al compilar con electron-builder (codigo $LASTEXITCODE)"

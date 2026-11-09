@@ -1,0 +1,214 @@
+/* screens/home.js — Inicio: construcción de páginas, rail de pestañas, barra superior y reloj.
+   Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+/* =================================================================== HOME */
+var pageDefs = [buildLivePage, buildFeaturedPage, buildMoviesPage, buildSeriesPage,
+                buildKidsPage, buildAnimePage, buildNovelsPage, buildExplorePage];
+var pagesBuilt = {};
+
+function ensurePageBuilt(idx) {
+  if (pagesBuilt[idx] || !pages[idx] || !pageDefs[idx]) { return; }
+  pagesBuilt[idx] = true;
+  pageDefs[idx](pages[idx]);
+}
+
+function buildHome() {
+  homeBuilt = true;
+  pagesEl = $('home-pages');
+  notifyEl = $('home-notify');
+  clear(pagesEl);
+  pages = [];
+  pagesBuilt = {};
+
+  /* Create placeholder wrappers for each tab, but build DOM only on demand */
+  for (var i = 0; i < pageDefs.length; i++) {
+    var page = el('div', 'home-page scrollable');
+    if (i === 0) { page.classList.add('is-current'); }
+    pagesEl.appendChild(page);
+    pages.push(page);
+  }
+
+  var initialTab = (TABS[state.tab] && TABS[state.tab].page >= 0) ? TABS[state.tab].page : 0;
+  ensurePageBuilt(initialTab);
+
+  buildTabs();
+  buildNotify();
+}
+
+function buildTabs() {
+  var host = $('home-tabs');
+  clear(host);
+  host.classList.add('scrollable');
+  host.classList.add('is-expanded');
+  tabEls = [];
+  for (var i = 0; i < TABS.length; i++) {
+    var item = el('div', 'tab-item focusable');
+    item.appendChild(el('div', 'tab-pill'));
+    var icon = el('div', 'tab-icon');
+    icon.innerHTML = TAB_ICONS[TABS[i].icon] || '';
+    item.appendChild(icon);
+    var title = el('div', 'tab-title', TABS[i].label);
+    item.appendChild(title);
+    item._tab = i;
+    item._activate = (function (idx) {
+      return function () {
+        if (TABS[idx].action === 'history') {
+          historyViewTab = 'history';
+          openSettings();
+          showSettingsPanel(1, true);
+          return;
+        }
+        selectTab(idx, false);
+        if (idx === 0) {
+          var row = liveRows.filter(function (r) { return r._channel === state.channel; })[0];
+          if (row) { setFocus(row); }
+          else if (liveRows.length) { setFocus(liveRows[0]); }
+          else if (liveFocus) { setFocus(liveFocus); }
+        } else if (TABS[idx].page >= 0) {
+          var page = pages[TABS[idx].page];
+          var f = firstIn(page);
+          if (f) { setFocus(f); }
+        }
+      };
+    })(i);
+    item._onMove = (function (idx) {
+      return function (dir) {
+        if (dir === 'up') {
+          if (idx > 0 && tabEls[idx - 1]) {
+            setFocus(tabEls[idx - 1]);
+            selectTab(idx - 1, false);
+          }
+          return true;
+        }
+        if (dir === 'down') {
+          if (idx < tabEls.length - 1 && tabEls[idx + 1]) {
+            setFocus(tabEls[idx + 1]);
+            selectTab(idx + 1, false);
+          }
+          return true;
+        }
+        if (dir === 'left') {
+          return true;
+        }
+        if (dir === 'right') {
+          if (TABS[idx].action === 'history') {
+            historyViewTab = 'history';
+            openSettings();
+            showSettingsPanel(1, true);
+            return true;
+          }
+          selectTab(idx, false);
+          if (idx === 0) {
+            var row = liveRows.filter(function (r) { return r._channel === state.channel; })[0];
+            if (row) { setFocus(row); }
+            else if (liveRows.length) { setFocus(liveRows[0]); }
+            else if (liveFocus) { setFocus(liveFocus); }
+          } else if (TABS[idx].page >= 0) {
+            var page = pages[TABS[idx].page];
+            var f = firstIn(page);
+            if (f) { setFocus(f); }
+          }
+          return true;
+        }
+        return false;
+      };
+    })(i);
+    host.appendChild(item);
+    tabEls.push(item);
+  }
+}
+
+function buildNotify() {
+  clear(notifyEl);
+  /* Keep the compact controls used in the home screen: search, filter and
+     profile.  The record shortcut and message bell are intentionally not
+     shown here; history lives under Mi lista. */
+  var defs = [
+    { cls: 'search', icon: 'assets/original/home/icon_notify_search.png', small: true },
+    { cls: 'filter', icon: 'assets/original/search/icon_category_filter_n.png', small: true },
+    { cls: 'personal', icon: 'assets/original/home/icon_notify_personal.png', small: true }
+  ];
+  for (var i = 0; i < defs.length; i++) {
+    var d = defs[i];
+    var item = el('div', 'notify-item focusable ' + d.cls + (d.small ? ' is-small' : ''));
+    var nn = el('div', 'n-normal');
+    nn.style.backgroundImage = 'url(' + d.icon + ')';
+    item.appendChild(nn);
+    if (d.cls === 'personal') {
+      item._activate = function () { openSettings(); };
+    } else if (d.cls === 'search') {
+      item._activate = function () { openSearch(); };
+    } else {
+      item.setAttribute('aria-disabled', 'true');
+      item.title = 'Filtros no disponibles en esta versión. Usa la búsqueda por título.';
+    }
+    notifyEl.appendChild(item);
+  }
+  var div = el('div', 'notify-divider');
+  notifyEl.appendChild(div);
+  var wifi = el('div', 'notify-wifi');
+  wifi.innerHTML = '<svg viewBox="0 0 30 22"><path d="M15 19.5a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2z" fill="currentColor"/><path d="M8.4 12.2a9.6 9.6 0 0 1 13.2 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M4.2 7.6a15.6 15.6 0 0 1 21.6 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+  notifyEl.appendChild(wifi);
+  var time = el('div', 'notify-time');
+  time.id = 'notify-time';
+  notifyEl.appendChild(time);
+  updateClock();
+  setInterval(updateClock, 30000);
+}
+
+function updateClock() {
+  var t = $('notify-time');
+  if (!t) { return; }
+  var d = new Date();
+  var h = d.getHours();
+  var ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) { h = 12; }
+  var m = d.getMinutes();
+  t.textContent = h + ':' + pad2(m) + ' ' + ap;
+}
+
+function selectTab(index, focusContent) {
+  var def = TABS[index];
+  /* Action rows are opened with OK/Right. Merely moving through the rail
+     must not throw the user out of Home before they confirm the choice. */
+  if (!def || def.action) { return; }
+  var prevPage = TABS[state.tab] ? TABS[state.tab].page : def.page;
+  state.tab = index;
+  for (var i = 0; i < tabEls.length; i++) {
+    tabEls[i].classList.toggle('is-selected', i === index);
+  }
+  if (def.page >= 0) {
+    ensurePageBuilt(def.page);
+  }
+  if (def.page === 0) {
+    scheduleLivePreview(CHANNELS[state.channel]);
+  } else {
+    stopLivePreview();
+  }
+  for (var p = 0; p < pages.length; p++) {
+    pages[p].classList.remove('is-entering', 'from-left', 'from-right');
+    pages[p].classList.toggle('is-current', p === def.page);
+  }
+  /* Same slide direction as the ViewPager; the page itself is the only
+     visible layer, which keeps its raster sharp on webOS. */
+  if (def.page !== prevPage && pages[def.page]) {
+    var pg = pages[def.page];
+    pg.classList.add('is-entering', def.page > prevPage ? 'from-right' : 'from-left');
+    setTimeout(function () {
+      pg.classList.remove('is-entering', 'from-left', 'from-right');
+    }, 320);
+  }
+  if (focusContent) {
+    if (def.page === 0) {
+      var row = liveRows.filter(function (r) { return r._channel === state.channel; })[0];
+      if (row) { setFocus(row); }
+      else if (liveRows.length) { setFocus(liveRows[0]); }
+      else if (liveFocus) { setFocus(liveFocus); }
+    } else {
+      var f = firstIn(pages[def.page]);
+      if (f) { setFocus(f); }
+    }
+  }
+  schedulePosterMemoryPass();
+}
