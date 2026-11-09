@@ -66,7 +66,7 @@
     var data = null;
     try { data = JSON.parse(localStorage.getItem(PROFILES_KEY) || 'null'); } catch (eRead) { data = null; }
     if (!data || !data.list || !data.list.length) {
-      data = { list: [{ id: 'main', name: 'Mi perfil', avatar: 0, kids: false, createdAt: Date.now() }], last: 'main', created: false };
+      data = { list: [{ id: 'main', name: 'Mi usuario', avatar: 0, kids: false, createdAt: Date.now() }], last: 'main', created: false };
     }
     return data;
   }
