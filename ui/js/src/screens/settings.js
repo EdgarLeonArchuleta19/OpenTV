@@ -195,6 +195,7 @@ function addStyleRow(panel, top) {
 }
 
 function buildProfilePanel() {
+  if (window.XUPER_DESKTOP) { return buildDesktopProfilePanel(); }
   var p = el('div', 'settings-panel account-panel');
   var avatar = el('div', 'account-avatar');
   avatar.innerHTML = SETTINGS_MENU_ICONS.profile;

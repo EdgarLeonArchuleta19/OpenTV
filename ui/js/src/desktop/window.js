@@ -19,7 +19,10 @@ if (window.desktop) {
     window.desktop.onFullscreenChanged(function (isFull) {
       _desktopFullscreen = !!isFull;
       var fsBtn = $('vod-fullscreen');
-      if (fsBtn) { fsBtn.textContent = _desktopFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'; }
+      if (fsBtn) {
+        setButtonText(fsBtn, _desktopFullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa (F)',
+          _desktopFullscreen ? UI_ICONS.exitFullscreen : UI_ICONS.fullscreen);
+      }
     });
   }
   if (typeof window.desktop.fullscreen === 'function') {
@@ -51,6 +54,7 @@ function formatSeekAmount(sec) {
 function bindClickGestures(node, single, double) {
   var timer = null;
   node.addEventListener('click', function (event) {
+    if (event.target && event.target.closest && event.target.closest('[data-no-gesture]')) { return; }
     if (node._suppressClick) { node._suppressClick = false; event.stopPropagation(); return; }
     event.stopPropagation();
     if (closePlayerPanels()) { return; }

@@ -67,7 +67,8 @@ function updatePlayer() {
     for (var ab = 0; ab < actionButtons.length; ab++) {
       if (actionButtons[ab]._kind === 'Favorito') {
         actionButtons[ab].classList.toggle('is-selected', !!ch.fav);
-        actionButtons[ab].textContent = ch.fav ? 'En favoritos' : 'Favorito';
+        setButtonText(actionButtons[ab], ch.fav ? (actionButtons[ab]._iconized ? 'Quitar de favoritos' : 'En favoritos')
+          : (actionButtons[ab]._iconized ? 'Añadir a favoritos' : 'Favorito'));
       }
     }
     if (playerVodInfo) { playerVodInfo.classList.remove('is-active'); }

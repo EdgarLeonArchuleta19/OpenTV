@@ -44,6 +44,71 @@
   }
   function each(list, fn) { for (var i = 0; i < list.length; i++) { fn(list[i], i); } }
 
+  /* ---- core/icons.js --------------------------------------------------------- */
+  /* core/icons.js — Iconos de línea de la interfaz de escritorio y botones de icono con descripción.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* One stroke style for every desktop control (24px grid, currentColor). */
+  function uiSvg(body, filled) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="' + (filled ? 'currentColor' : 'none') +
+      '" stroke="' + (filled ? 'none' : 'currentColor') +
+      '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + body + '</svg>';
+  }
+
+  var UI_ICONS = {
+    back: uiSvg('<path d="M15 18l-6-6 6-6"/>'),
+    history: uiSvg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>'),
+    mylist: uiSvg('<path d="M6 3.5h12v17l-6-4-6 4z"/><path d="M12 7.5v5M9.5 10h5"/>'),
+    search: uiSvg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
+    user: uiSvg('<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>'),
+    play: uiSvg('<path d="M8 5.2v13.6a.8.8 0 0 0 1.2.7l10.6-6.8a.8.8 0 0 0 0-1.4L9.2 4.5A.8.8 0 0 0 8 5.2z"/>', true),
+    pause: uiSvg('<rect x="6.5" y="5" width="3.6" height="14" rx="1"/><rect x="13.9" y="5" width="3.6" height="14" rx="1"/>', true),
+    rewind: uiSvg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M10 10.2v5.3M13.4 10.2h1.3a1.2 1.2 0 0 1 1.2 1.2v2.9a1.2 1.2 0 0 1-1.2 1.2h-1.3a1.2 1.2 0 0 1-1.2-1.2v-2.9a1.2 1.2 0 0 1 1.2-1.2z" stroke-width="1.6"/>'),
+    forward: uiSvg('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M8.6 10.2v5.3M12 10.2h1.3a1.2 1.2 0 0 1 1.2 1.2v2.9a1.2 1.2 0 0 1-1.2 1.2H12a1.2 1.2 0 0 1-1.2-1.2v-2.9a1.2 1.2 0 0 1 1.2-1.2z" stroke-width="1.6"/>'),
+    settings: uiSvg('<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>'),
+    episodes: uiSvg('<path d="M3 6h12M3 12h8M3 18h12"/><path d="M16 10.5l5 3-5 3z"/>'),
+    fullscreen: uiSvg('<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>'),
+    exitFullscreen: uiSvg('<path d="M9 4v5H4M15 4v5h5M15 20v-5h5M9 20v-5H4"/>'),
+    pip: uiSvg('<rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><rect x="12" y="11" width="7" height="6" rx="1.2" fill="currentColor" stroke="none"/>'),
+    prev: uiSvg('<path d="M6 5v14"/><path d="M18 6.2v11.6a.7.7 0 0 1-1.1.6L9 12.6a.7.7 0 0 1 0-1.2l7.9-5.8a.7.7 0 0 1 1.1.6z"/>'),
+    next: uiSvg('<path d="M18 5v14"/><path d="M6 6.2v11.6a.7.7 0 0 0 1.1.6l7.9-5.8a.7.7 0 0 0 0-1.2L7.1 5.6A.7.7 0 0 0 6 6.2z"/>'),
+    star: uiSvg('<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>'),
+    aspect: uiSvg('<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M6.5 9v-1h3M17.5 15v1h-3"/>'),
+    retry: uiSvg('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>'),
+    lock: uiSvg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
+    diagnostics: uiSvg('<path d="M3 12h4l3-7 4 14 3-7h4"/>'),
+    channels: uiSvg('<path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/>'),
+    quality: uiSvg('<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M7 9.5v5M10 9.5v5M7 12h3M13.5 9.5v5h1.6a2.5 2.5 0 0 0 0-5z"/>'),
+    close: uiSvg('<path d="M6 6l12 12M18 6 6 18"/>'),
+    expand: uiSvg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>')
+  };
+
+  /* Turns a text button into an icon button. The text becomes its tooltip
+     (data-tip, see desktop/tooltip.js) and accessible name. */
+  function iconizeButton(btn, icon, tip) {
+    if (!btn || !icon) { return btn; }
+    var text = tip || btn.getAttribute('aria-label') || btn.textContent;
+    btn.innerHTML = icon;
+    btn.classList.add('is-icon-btn');
+    btn._iconized = true;
+    setButtonText(btn, text);
+    return btn;
+  }
+
+  /* Updates a button's label: the visible text, or the tooltip and accessible
+     name when the button shows an icon. Optionally swaps the icon too. */
+  function setButtonText(btn, text, icon) {
+    if (!btn) { return; }
+    if (btn._iconized) {
+      if (icon) { btn.innerHTML = icon; }
+      btn.setAttribute('data-tip', text);
+      btn.setAttribute('aria-label', text);
+      btn.removeAttribute('title');
+    } else {
+      btn.textContent = text;
+    }
+  }
+
   /* ---- data/demo-catalog.js -------------------------------------------------- */
   /* data/demo-catalog.js — Catálogo de demostración integrado (VOD de ejemplo y addVod).
      Parte del módulo único de la app (ver ui/js/src/README.md). */
@@ -705,6 +770,23 @@
     next();
   }
 
+  /* Desktop: refresh the catalog from the portal every 20 minutes so new
+     titles appear without restarting. It waits until the viewer is not in the
+     middle of browsing the home page, because a refresh rebuilds it. */
+  var CATALOG_REFRESH_MS = 20 * 60 * 1000;
+  var lastUserActivity = Date.now();
+  function startCatalogAutoRefresh() {
+    if (!window.XUPER_DESKTOP || vodApi.mode !== 'portal' || vodApi.refresh === false) { return; }
+    ['pointermove', 'keydown', 'wheel'].forEach(function (type) {
+      document.addEventListener(type, function () { lastUserActivity = Date.now(); }, { passive: true, capture: true });
+    });
+    setInterval(function () {
+      if (portalState.refreshing || Date.now() - portalState.lastSync < CATALOG_REFRESH_MS) { return; }
+      var browsingHome = state.screen === 'home' && Date.now() - lastUserActivity < 60000;
+      if (!browsingHome) { refreshPortalCatalog(); }
+    }, 60000);
+  }
+
   function loadPortalCatalog() {
     var snap = portalSnapshot();
     if (snap.length) {
@@ -919,6 +1001,11 @@
     { label: 'EXPLORAR', page: 7, icon: 'compass' },
     { label: 'HISTORIAL', page: -1, icon: 'history', action: 'history' }
   ];
+  /* Desktop: Novelas and Explorar are dropped, and history has its own button
+     (and lives in Mi lista), so the rail only lists the main catalogues. */
+  if (window.XUPER_DESKTOP) {
+    TABS = TABS.filter(function (t) { return t.icon !== 'novel' && t.icon !== 'compass' && t.action !== 'history'; });
+  }
 
   var SETTINGS_ITEMS = [
     { id: 'profile', label: 'Mi cuenta' },
@@ -1876,10 +1963,28 @@
       { cls: 'filter', icon: 'assets/original/search/icon_category_filter_n.png', small: true },
       { cls: 'personal', icon: 'assets/original/home/icon_notify_personal.png', small: true }
     ];
+    if (window.XUPER_DESKTOP) {
+      defs = [
+        { cls: 'search', svg: UI_ICONS.search, tip: 'Buscar (Ctrl+F)', small: true, run: function () { openSearch(); } },
+        { cls: 'mylist', svg: UI_ICONS.mylist, tip: 'Mi lista', small: true,
+          run: function () { openSettings(); showSettingsPanel(1, true); } },
+        { cls: 'personal', svg: UI_ICONS.user, tip: 'Mi cuenta y ajustes', small: true, run: function () { openSettings(); } }
+      ];
+    }
     for (var i = 0; i < defs.length; i++) {
       var d = defs[i];
       var item = el('div', 'notify-item focusable ' + d.cls + (d.small ? ' is-small' : ''));
       var nn = el('div', 'n-normal');
+      if (d.svg) {
+        nn.innerHTML = d.svg;
+        nn.classList.add('is-svg');
+        item.setAttribute('data-tip', d.tip);
+        item.setAttribute('aria-label', d.tip);
+        item._activate = d.run;
+        item.appendChild(nn);
+        notifyEl.appendChild(item);
+        continue;
+      }
       nn.style.backgroundImage = 'url(' + d.icon + ')';
       item.appendChild(nn);
       if (d.cls === 'personal') {
@@ -2226,6 +2331,7 @@
     var on = !!(ch && state.favs[liveFavKey(ch)]);
     liveFavBtn.classList.toggle('is-selected', on);
     liveFavBtn.querySelector('span').textContent = on ? 'En favoritos' : 'Favorito';
+    liveFavBtn.setAttribute('data-tip', on ? 'Quitar de favoritos' : 'Guardar canal en favoritos');
   }
 
   function dockButton(cls, icon, label, title, run) {
@@ -2234,7 +2340,7 @@
     ico.innerHTML = icon;
     b.appendChild(ico);
     if (label) { b.appendChild(el('span', null, label)); }
-    if (title) { b.title = title; }
+    if (title) { b.setAttribute('data-tip', title); b.setAttribute('aria-label', title); }
     b._activate = run;
     return b;
   }
@@ -3035,7 +3141,84 @@
       page.appendChild(makeBento(source[(i + 2) % source.length], BENTO.smallX[i], BENTO.smallY,
                                  BENTO.smallW, BENTO.smallH, {}));
     }
-    if (opts.dots) { page.appendChild(bentoDots(848, 535.5, opts.dots, 0)); }
+    if (opts.dots) {
+      var dots = bentoDots(848, 535.5, opts.dots, 0);
+      page.appendChild(dots);
+      if (window.XUPER_DESKTOP && opts.titles && source.length > 1) {
+        registerBannerCarousel(page, page.querySelector('.bento'), dots, source.slice(0, Math.min(opts.dots, source.length)));
+      }
+    }
+  }
+
+  /* Desktop banner carousel. Every few seconds the big banner shows the next
+     title (and its dot lights up). It pauses while the pointer is on it or it
+     has focus, and only runs on the visible home page. Dots can be clicked. */
+  var bannerCarousels = [];
+  var bannerTimer = null;
+  var BANNER_INTERVAL_MS = 6500;
+  var bannerKeyAt = 0;
+  var bannerPointerAt = 0;
+  if (window.XUPER_DESKTOP) {
+    document.addEventListener('keydown', function () { bannerKeyAt = Date.now(); }, true);
+    document.addEventListener('pointermove', function () { bannerPointerAt = Date.now(); }, { capture: true, passive: true });
+  }
+
+  function registerBannerCarousel(page, hero, dots, items) {
+    if (!hero || items.length < 2) { return; }
+    var c = { page: page, hero: hero, dots: dots, items: items, index: 0 };
+    bannerCarousels = bannerCarousels.filter(function (x) { return x.hero.isConnected; });
+    bannerCarousels.push(c);
+    var spans = dots.querySelectorAll('.bento-dot');
+    for (var i = 0; i < spans.length; i++) {
+      (function (k) {
+        spans[k].setAttribute('data-tip', items[k] ? items[k].title : '');
+        spans[k].addEventListener('click', function (event) {
+          event.stopPropagation();
+          showBannerSlide(c, k);
+        });
+      })(i);
+    }
+    if (!bannerTimer) { bannerTimer = setInterval(advanceBanners, BANNER_INTERVAL_MS); }
+  }
+
+  function advanceBanners() {
+    for (var i = 0; i < bannerCarousels.length; i++) {
+      var c = bannerCarousels[i];
+      if (!c.hero.isConnected || state.screen !== 'home' || !c.page.classList.contains('is-current')) { continue; }
+      /* Paused while the pointer moves over it, or while the keyboard is on it. The
+         first banner gets focus by itself when a tab opens, so focus alone must
+         not stop it. */
+      var keyboardOnHero = state.focus === c.hero && Date.now() - bannerKeyAt < 15000;
+      var pointerOnHero = Date.now() - bannerPointerAt < 4000 && (c.hero.matches(':hover') || c.dots.matches(':hover'));
+      if (keyboardOnHero || pointerOnHero) { continue; }
+      showBannerSlide(c, (c.index + 1) % c.items.length);
+    }
+  }
+
+  function showBannerSlide(c, k) {
+    if (k === c.index || !c.items[k]) { return; }
+    var item = c.items[k];
+    c.index = k;
+    var spans = c.dots.querySelectorAll('.bento-dot');
+    for (var i = 0; i < spans.length; i++) { spans[i].classList.toggle('is-active', i === k); }
+    var hero = c.hero;
+    hero.classList.add('is-sliding');
+    setTimeout(function () {
+      var art = item.landscape || item.poster;
+      var img = hero.querySelector('.bento-img');
+      if (art) {
+        if (!img) { img = el('img', 'bento-img'); img.onerror = posterImageError; hero.insertBefore(img, hero.firstChild); }
+        img.style.display = '';
+        img._posterRetries = 0;
+        img.setAttribute('data-poster-src', art);
+        img.src = art;
+      }
+      var title = hero.querySelector('.bento-title');
+      if (title) { title.textContent = item.title; }
+      hero._item = item;
+      hero._activate = function () { openDetail(item); };
+      hero.classList.remove('is-sliding');
+    }, 260);
   }
 
   /* DESTACADOS / PELICULA: the observed 831x534 crops already contain the
@@ -3301,6 +3484,17 @@
     if (!screen) { return; }
     var open = !screen.classList.contains('is-synopsis-open');
     screen.classList.toggle('is-synopsis-open', open);
+    if (window.XUPER_DESKTOP) {
+      var backdrop = screen.querySelector('.synopsis-backdrop');
+      if (!backdrop) {
+        backdrop = el('div', 'synopsis-backdrop');
+        backdrop.addEventListener('click', function (event) {
+          event.stopPropagation();
+          if (screen.classList.contains('is-synopsis-open')) { toggleSynopsis(); }
+        });
+        screen.appendChild(backdrop);
+      }
+    }
     var more = document.querySelector('.detail-more');
     if (more) {
       more.textContent = window.XUPER_DESKTOP ? (open ? '✕  Cerrar' : 'Leer más') : (open ? 'Menos' : 'Más');
@@ -4675,6 +4869,7 @@
   }
 
   function buildProfilePanel() {
+    if (window.XUPER_DESKTOP) { return buildDesktopProfilePanel(); }
     var p = el('div', 'settings-panel account-panel');
     var avatar = el('div', 'account-avatar');
     avatar.innerHTML = SETTINGS_MENU_ICONS.profile;
@@ -4706,6 +4901,83 @@
     if (days === 1) { return 'Ayer'; }
     if (days < 30) { return 'Hace ' + days + ' días'; }
     return new Date(ts).toLocaleDateString('es');
+  }
+
+  /* ---- screens/account.js ---------------------------------------------------- */
+  /* screens/account.js — Página "Mi cuenta" del escritorio: perfil local, resumen y accesos directos.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  function settingsIndexOf(id) {
+    for (var i = 0; i < SETTINGS_ITEMS.length; i++) {
+      if (SETTINGS_ITEMS[i].id === id) { return i; }
+    }
+    return 0;
+  }
+
+  function buildDesktopProfilePanel() {
+    var p = el('div', 'settings-panel account-panel acc-desktop');
+
+    var head = el('div', 'acc-head');
+    var avatar = el('div', 'acc-avatar');
+    avatar.innerHTML = UI_ICONS.user;
+    var who = el('div', 'acc-who');
+    who.appendChild(el('div', 'acc-name', 'Perfil local'));
+    who.appendChild(el('div', 'acc-id', 'ID de este equipo · ' + localProfile.id));
+    head.appendChild(avatar);
+    head.appendChild(who);
+    p.appendChild(head);
+
+    var titles = 0, channels = 0;
+    for (var key in state.favs) {
+      if (Object.prototype.hasOwnProperty.call(state.favs, key)) {
+        if (String(key).indexOf('live:') === 0) { channels++; } else { titles++; }
+      }
+    }
+    var watched = (localProfile.history || []).length;
+    var stats = el('div', 'acc-stats');
+    [[titles, titles === 1 ? 'Título en tu lista' : 'Títulos en tu lista'],
+     [channels, channels === 1 ? 'Canal favorito' : 'Canales favoritos'],
+     [watched, watched === 1 ? 'Visto recientemente' : 'Vistos recientemente']].forEach(function (s) {
+      var tile = el('div', 'acc-stat');
+      tile.appendChild(el('div', 'acc-stat-num', String(s[0])));
+      tile.appendChild(el('div', 'acc-stat-label', s[1]));
+      stats.appendChild(tile);
+    });
+    p.appendChild(stats);
+
+    p.appendChild(el('div', 'acc-section', 'Accesos rápidos'));
+    var actions = el('div', 'acc-actions');
+    [
+      { icon: UI_ICONS.mylist, title: 'Mi lista', text: 'Películas y series que guardaste', run: function () { showSettingsPanel(settingsIndexOf('history'), true); } },
+      { icon: UI_ICONS.history, title: 'Historial', text: 'Sigue donde lo dejaste', run: function () { openHistoryView(); } },
+      { icon: UI_ICONS.settings, title: 'Reproducción', text: 'Calidad, idioma y subtítulos', run: function () { showSettingsPanel(settingsIndexOf('playback'), true); } }
+    ].forEach(function (a) {
+      var card = el('div', 'acc-action focusable');
+      var ic = el('div', 'acc-action-icon');
+      ic.innerHTML = a.icon;
+      var tx = el('div', 'acc-action-text');
+      tx.appendChild(el('div', 'acc-action-title', a.title));
+      tx.appendChild(el('div', 'acc-action-sub', a.text));
+      var chevron = el('div', 'acc-action-chevron');
+      chevron.innerHTML = UI_ICONS.back;
+      card.appendChild(ic);
+      card.appendChild(tx);
+      card.appendChild(chevron);
+      card._activate = a.run;
+      actions.appendChild(card);
+    });
+    p.appendChild(actions);
+
+    var privacy = el('div', 'acc-privacy');
+    var lock = el('div', 'acc-privacy-icon');
+    lock.innerHTML = UI_ICONS.lock;
+    var ptext = el('div', 'acc-privacy-text');
+    ptext.appendChild(el('b', null, 'Sin registro ni contraseña'));
+    ptext.appendChild(el('span', null, 'Tu lista, el historial y tus preferencias se guardan solo en este equipo; no se envían a ningún servidor.'));
+    privacy.appendChild(lock);
+    privacy.appendChild(ptext);
+    p.appendChild(privacy);
+    return p;
   }
 
   /* ---- screens/history.js ---------------------------------------------------- */
@@ -5692,6 +5964,20 @@
     if (!playerOsdIcon) { playerOsdIcon = $('player-osd-icon'); }
     if (!playerOsdIcon) { return; }
     if (osdHideTimer) { clearTimeout(osdHideTimer); osdHideTimer = null; }
+    if (window.XUPER_DESKTOP) {
+      var osdIcons = { pause: UI_ICONS.pause, forward: UI_ICONS.forward, backward: UI_ICONS.rewind };
+      if (!osdIcons[type]) { playerOsdIcon.classList.remove('is-active'); return; }
+      playerOsdIcon.style.backgroundImage = 'none';
+      playerOsdIcon.innerHTML = osdIcons[type];
+      playerOsdIcon.className = 'player-osd-icon is-svg is-' + type;
+      /* Force the pop animation to restart on every press. */
+      void playerOsdIcon.offsetWidth;
+      playerOsdIcon.classList.add('is-active');
+      if (type !== 'pause') {
+        osdHideTimer = setTimeout(function () { playerOsdIcon.classList.remove('is-active'); }, 700);
+      }
+      return;
+    }
     if (type === 'pause') {
       playerOsdIcon.style.backgroundImage = 'url(assets/original/common/icon_status_pause.png)';
       playerOsdIcon.classList.add('is-active');
@@ -7477,6 +7763,13 @@
         }
         if (d.label === 'Reproductor 1') b.textContent = 'Reintentar';
         if (d.label === 'Feedback') b.textContent = 'Diagnóstico';
+        var piIcons = { 'HD': UI_ICONS.quality, 'Anterior': UI_ICONS.prev, 'Formato': UI_ICONS.aspect,
+          'Favorito': UI_ICONS.star, 'Reproductor 1': UI_ICONS.retry, 'Bloquear': UI_ICONS.lock,
+          'Feedback': UI_ICONS.diagnostics, 'Canales': UI_ICONS.channels, 'Ventana flotante': UI_ICONS.pip };
+        var piTips = { 'HD': 'Calidad automática', 'Anterior': 'Canal anterior', 'Formato': 'Formato de pantalla',
+          'Favorito': 'Añadir a favoritos', 'Reproductor 1': 'Reintentar señal', 'Bloquear': 'Bloqueo (no disponible)',
+          'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)' };
+        iconizeButton(b, piIcons[d.label], piTips[d.label]);
       }
       b._activate = (function (label) {
         return function () {
@@ -7491,7 +7784,8 @@
             if (ch) {
               ch.fav = toggleFavorite({ id: 'live:' + (ch.channelCode || ch.id || ch.name) });
               this.classList.toggle('is-selected', ch.fav);
-              this.textContent = ch.fav ? 'En favoritos' : 'Favorito';
+              setButtonText(this, ch.fav ? (this._iconized ? 'Quitar de favoritos' : 'En favoritos')
+                : (this._iconized ? 'Añadir a favoritos' : 'Favorito'));
             }
           } else if (label === 'Canales') { openChannelPanel(); }
           else if (label === 'Ventana flotante') { togglePictureInPicture(); }
@@ -8621,7 +8915,8 @@
       for (var ab = 0; ab < actionButtons.length; ab++) {
         if (actionButtons[ab]._kind === 'Favorito') {
           actionButtons[ab].classList.toggle('is-selected', !!ch.fav);
-          actionButtons[ab].textContent = ch.fav ? 'En favoritos' : 'Favorito';
+          setButtonText(actionButtons[ab], ch.fav ? (actionButtons[ab]._iconized ? 'Quitar de favoritos' : 'En favoritos')
+            : (actionButtons[ab]._iconized ? 'Añadir a favoritos' : 'Favorito'));
         }
       }
       if (playerVodInfo) { playerVodInfo.classList.remove('is-active'); }
@@ -9006,7 +9301,8 @@
 
   function installDesktopNavigation() {
     var button = el('button', 'desktop-native-control');
-    button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>Volver</span>';
+    button.innerHTML = UI_ICONS.back;
+    button.setAttribute('data-tip', 'Volver (Esc)');
     button.id = 'desktop-back';
     button.type = 'button';
     button.setAttribute('aria-label', 'Volver a la pantalla anterior');
@@ -9016,9 +9312,9 @@
     var historyBtn = el('button', 'desktop-native-control');
     historyBtn.id = 'desktop-history';
     historyBtn.type = 'button';
-    historyBtn.title = 'Historial (Ctrl+J)';
+    historyBtn.setAttribute('data-tip', 'Historial (Ctrl+J)');
     historyBtn.setAttribute('aria-label', 'Historial de lo que has visto');
-    historyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg><span>Historial</span>';
+    historyBtn.innerHTML = UI_ICONS.history;
     historyBtn.addEventListener('click', openHistoryView);
     document.body.appendChild(historyBtn);
 
@@ -9043,6 +9339,72 @@
     }, 150);
   }
 
+  /* ---- desktop/tooltip.js ---------------------------------------------------- */
+  /* desktop/tooltip.js — Descripciones emergentes al pasar el ratón (data-tip / title).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* One tooltip for the whole app, drawn in the app's style instead of the
+     native Windows one. Any element with data-tip or title gets it; a title is
+     moved to data-tip on hover so the native tooltip does not appear too. */
+  var tooltipEl = null;
+  var tooltipTarget = null;
+  var tooltipTimer = null;
+
+  function installTooltips() {
+    if (tooltipEl || !window.XUPER_DESKTOP) { return; }
+    tooltipEl = el('div', 'ui-tooltip');
+    tooltipEl.setAttribute('role', 'tooltip');
+    document.body.appendChild(tooltipEl);
+
+    document.addEventListener('pointerover', function (event) {
+      if (event.pointerType && event.pointerType !== 'mouse') { return; }
+      var node = event.target instanceof Element ? event.target.closest('[data-tip], [title]') : null;
+      if (node && node.hasAttribute('title')) {
+        var t = node.getAttribute('title');
+        node.removeAttribute('title');
+        if (t && !node.getAttribute('data-tip')) { node.setAttribute('data-tip', t); }
+      }
+      if (node === tooltipTarget) { return; }
+      hideTooltip();
+      if (!node || !node.getAttribute('data-tip')) { return; }
+      tooltipTarget = node;
+      tooltipTimer = setTimeout(showTooltip, 380);
+    }, true);
+    document.addEventListener('pointerout', function (event) {
+      if (tooltipTarget && (!event.relatedTarget || !tooltipTarget.contains(event.relatedTarget))) { hideTooltip(); }
+    }, true);
+    document.addEventListener('pointerdown', hideTooltip, true);
+    document.addEventListener('keydown', hideTooltip, true);
+    document.addEventListener('scroll', hideTooltip, true);
+    window.addEventListener('blur', hideTooltip);
+  }
+
+  function showTooltip() {
+    tooltipTimer = null;
+    var node = tooltipTarget;
+    if (!node || !node.isConnected || !tooltipEl) { return; }
+    var text = node.getAttribute('data-tip');
+    if (!text) { return; }
+    tooltipEl.textContent = text;
+    tooltipEl.classList.add('is-visible');
+    var r = node.getBoundingClientRect();
+    var tw = tooltipEl.offsetWidth;
+    var th = tooltipEl.offsetHeight;
+    var gap = 8;
+    var top = r.bottom + gap;
+    /* Controls at the bottom of the player: show the tooltip above them. */
+    if (top + th > window.innerHeight - 6) { top = r.top - th - gap; }
+    var left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2));
+    tooltipEl.style.left = Math.round(left) + 'px';
+    tooltipEl.style.top = Math.round(Math.max(6, top)) + 'px';
+  }
+
+  function hideTooltip() {
+    if (tooltipTimer) { clearTimeout(tooltipTimer); tooltipTimer = null; }
+    tooltipTarget = null;
+    if (tooltipEl) { tooltipEl.classList.remove('is-visible'); }
+  }
+
   /* ---- desktop/window.js ----------------------------------------------------- */
   /* desktop/window.js — Pantalla completa de Windows, clic/doble clic y cierre de paneles del reproductor.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
@@ -9065,7 +9427,10 @@
       window.desktop.onFullscreenChanged(function (isFull) {
         _desktopFullscreen = !!isFull;
         var fsBtn = $('vod-fullscreen');
-        if (fsBtn) { fsBtn.textContent = _desktopFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'; }
+        if (fsBtn) {
+          setButtonText(fsBtn, _desktopFullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa (F)',
+            _desktopFullscreen ? UI_ICONS.exitFullscreen : UI_ICONS.fullscreen);
+        }
       });
     }
     if (typeof window.desktop.fullscreen === 'function') {
@@ -9097,6 +9462,7 @@
   function bindClickGestures(node, single, double) {
     var timer = null;
     node.addEventListener('click', function (event) {
+      if (event.target && event.target.closest && event.target.closest('[data-no-gesture]')) { return; }
       if (node._suppressClick) { node._suppressClick = false; event.stopPropagation(); return; }
       event.stopPropagation();
       if (closePlayerPanels()) { return; }
@@ -9310,6 +9676,7 @@
     installPanelDismiss();
     if (!playerStage || playerStage._gestures) { return; }
     playerStage._gestures = true;
+    installMiniControls();
 
     var indicator = el('div', 'hold-seek');
     indicator.hidden = true;
@@ -9485,33 +9852,39 @@
     var tips = document.querySelector('.vod-infobar-tips');
     clear(tips);
     var defs = [
-      { id: 'vod-back', label: 'Volver', run: desktopBack },
-      { id: 'vod-rewind', label: '−10 s', name: 'Retroceder 10 segundos', run: function () { playerSeek(-10); } },
-      { id: 'vod-toggle', label: 'Pausa', name: 'Pausar o reanudar', run: togglePlayerPlayPause },
-      { id: 'vod-forward', label: '+10 s', name: 'Adelantar 10 segundos', run: function () { playerSeek(10); } },
-      { id: 'vod-settings', label: 'Ajustes', run: openPlaySettingView },
-      { id: 'vod-episodes', label: 'Episodios', run: openEpisodeBrowser },
-      { id: 'vod-fullscreen', label: 'Pantalla completa', run: function () { window.desktop.fullscreen(); } }
+      { id: 'vod-back', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
+      { id: 'vod-rewind', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
+      { id: 'vod-toggle', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
+      { id: 'vod-forward', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
+      { id: 'vod-episodes', icon: UI_ICONS.episodes, tip: 'Episodios', run: openEpisodeBrowser },
+      { id: 'vod-settings', icon: UI_ICONS.settings, tip: 'Ajustes de reproducción (↓)', run: openPlaySettingView }
     ];
     if (document.pictureInPictureEnabled) {
-      defs.push({ id: 'vod-pip', label: 'Ventana flotante', name: 'Ver en ventana flotante (Ctrl+P)', run: togglePictureInPicture });
+      defs.push({ id: 'vod-pip', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
     }
+    defs.push({ id: 'vod-fullscreen', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
     for (var i = 0; i < defs.length; i++) {
-      var b = el('button', 'vod-tip focusable', defs[i].label);
+      var b = el('button', 'vod-tip focusable');
       b.type = 'button'; b.id = defs[i].id;
-      b.setAttribute('aria-label', defs[i].name || defs[i].label);
+      iconizeButton(b, defs[i].icon, defs[i].tip);
       b._activate = defs[i].run;
       tips.appendChild(b);
     }
     function updateButtons() {
-      $('vod-toggle').textContent = playerVideo.paused ? 'Reproducir' : 'Pausa';
+      var toggle = $('vod-toggle');
+      var showPlay = playerVideo.paused;
+      if (toggle._showsPlay !== showPlay) {
+        toggle._showsPlay = showPlay;
+        setButtonText(toggle, showPlay ? 'Reproducir (Espacio)' : 'Pausa (Espacio)', showPlay ? UI_ICONS.play : UI_ICONS.pause);
+      }
       $('vod-episodes').hidden = !isSeriesItem(state.playerItem);
       var canSkip = state.playerMode === 'vod' && !!(playerVideo.currentSrc || playerVideo.getAttribute('src'));
       $('vod-forward').disabled = !canSkip;
       $('vod-rewind').disabled = !canSkip;
       if ($('vod-pip')) {
         var inPip = document.pictureInPictureElement === playerVideo;
-        $('vod-pip').textContent = inPip ? 'Cerrar ventana flotante' : 'Ventana flotante';
+        setButtonText($('vod-pip'), inPip ? 'Cerrar ventana flotante (Ctrl+P)' : 'Ventana flotante (Ctrl+P)');
+        $('vod-pip').classList.toggle('is-selected', inPip);
         $('vod-pip').disabled = !canSkip && !inPip;
       }
     }
@@ -9531,6 +9904,90 @@
       if (state.screen === 'player' && !playSettingViewOpen && !dialogPlaySettingsOpen &&
           !state.episodeBrowserOpen && !state.categoryPickerOpen && !state.channelsOpen && !vodScrubbing) showInfobar();
     });
+  }
+
+  /* ---- desktop/mini-controls.js ---------------------------------------------- */
+  /* desktop/mini-controls.js — Controles de la vista previa de la ficha (pausa, tiempo, barra y ampliar).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* The detail page plays a preview in a small frame. On hover it shows a
+     compact control bar: play/pause, current time / duration, a seek bar and
+     a button to open the full player. Clicks on the bar never open the
+     player by accident (data-no-gesture, see bindClickGestures). */
+  var miniControls = null;
+
+  function miniTime(sec) {
+    sec = Math.max(0, Math.floor(sec || 0));
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function installMiniControls() {
+    if (!window.XUPER_DESKTOP || !playerStage || !playerVideo || miniControls) { return; }
+    miniControls = el('div', 'mini-controls');
+    miniControls.setAttribute('data-no-gesture', '');
+
+    var play = el('button', 'mc-btn mc-play');
+    play.type = 'button';
+    iconizeButton(play, UI_ICONS.pause, 'Pausa');
+    var time = el('div', 'mc-time', '0:00');
+    var bar = el('div', 'mc-bar');
+    var fill = el('i', 'mc-fill');
+    bar.appendChild(fill);
+    var expand = el('button', 'mc-btn mc-expand');
+    expand.type = 'button';
+    iconizeButton(expand, UI_ICONS.expand, 'Ver en grande');
+
+    miniControls.appendChild(play);
+    miniControls.appendChild(time);
+    miniControls.appendChild(bar);
+    miniControls.appendChild(expand);
+    playerStage.appendChild(miniControls);
+
+    function stop(event) { event.preventDefault(); event.stopPropagation(); }
+    miniControls.addEventListener('click', stop);
+    miniControls.addEventListener('dblclick', stop);
+    miniControls.addEventListener('pointerdown', function (event) { event.stopPropagation(); });
+
+    play.addEventListener('click', function (event) {
+      stop(event);
+      togglePlayerPlayPause();
+      update();
+    });
+    expand.addEventListener('click', function (event) {
+      stop(event);
+      if (playerStage._activate) { playerStage._activate(); }
+    });
+    bar.addEventListener('click', function (event) {
+      stop(event);
+      var duration = vodPlaybackDuration();
+      if (!duration) { return; }
+      var r = bar.getBoundingClientRect();
+      var fraction = Math.max(0, Math.min(1, (event.clientX - r.left) / r.width));
+      enterVodScrub();
+      vodScrubTime = Math.max(0, Math.min(duration - 1, fraction * duration));
+      leaveVodScrub(true);
+    });
+
+    var shownPaused = null;
+    function update() {
+      var scr = $('screen-player');
+      if (!scr || !scr.classList.contains('is-mini')) { return; }
+      var duration = vodPlaybackDuration();
+      var position = vodPlaybackPosition();
+      time.textContent = duration ? miniTime(position) + ' / ' + miniTime(duration) : miniTime(position);
+      fill.style.width = duration ? Math.min(100, (position / duration) * 100) + '%' : '0';
+      bar.classList.toggle('is-disabled', !duration);
+      var paused = playerVideo.paused;
+      if (paused !== shownPaused) {
+        shownPaused = paused;
+        setButtonText(play, paused ? 'Reproducir' : 'Pausa', paused ? UI_ICONS.play : UI_ICONS.pause);
+      }
+    }
+    ['timeupdate', 'play', 'pause', 'durationchange', 'loadedmetadata', 'seeked'].forEach(function (type) {
+      playerVideo.addEventListener(type, update);
+    });
+    playerStage.addEventListener('pointerenter', update);
   }
 
   /* ---- main.js --------------------------------------------------------------- */
@@ -9615,7 +10072,7 @@
       settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); }
     };
 
-    if (window.XUPER_DESKTOP) installDesktopNavigation();
+    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); startCatalogAutoRefresh(); }
 
     applyQuery();
   }

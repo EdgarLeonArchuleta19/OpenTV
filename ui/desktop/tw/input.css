@@ -453,3 +453,204 @@ body.desktop {
   height: 1038px;
 }
 .desktop .home-page { height: 1038px; }
+
+/* =====================================================================
+   Descripción emergente (tooltip) — px reales, fuera del lienzo
+   ===================================================================== */
+.ui-tooltip {
+  @apply pointer-events-none fixed left-0 top-0 z-[10500] max-w-[280px] rounded-md border border-solid border-white/10 bg-ink-800/95 px-2.5 py-1.5
+         text-[12px] font-medium leading-snug text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,.5)] backdrop-blur-xl transition-opacity duration-150;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+.ui-tooltip.is-visible { @apply opacity-100; }
+
+/* Botones flotantes Volver / Historial: solo icono, como los de la barra de título de Windows. */
+.desktop #desktop-back,
+.desktop #desktop-history {
+  @apply h-9 w-9 justify-center p-0;
+  border-radius: 8px;
+}
+.desktop #desktop-history { left: 54px; }
+.desktop #desktop-back svg,
+.desktop #desktop-history svg { @apply h-[18px] w-[18px]; }
+
+/* =====================================================================
+   Botones de icono (lienzo, px de diseño)
+   ===================================================================== */
+.desktop .is-icon-btn { @apply inline-flex items-center justify-center; }
+.desktop .is-icon-btn svg { width: 30px; height: 30px; display: block; }
+.desktop .vod-infobar-tips { @apply items-center gap-[14px]; }
+.desktop .vod-infobar-tips .vod-tip.is-icon-btn { width: 64px; height: 64px; padding: 0; border-radius: 18px; }
+.desktop .vod-infobar-tips #vod-toggle.is-icon-btn { width: 84px; height: 84px; border-radius: 999px; }
+.desktop .vod-infobar-tips #vod-toggle svg { width: 38px; height: 38px; }
+.desktop .vod-infobar-tips #vod-pip.is-selected { @apply border-transparent bg-white text-black; }
+.desktop .pi-act.is-icon-btn { width: 64px !important; height: 64px; padding: 0; min-width: 0; }
+.desktop .pi-act.is-icon-btn.is-selected { @apply border-transparent bg-white text-black; }
+.desktop .pi-act.is-icon-btn.is-selected svg path { fill: currentColor; }
+.desktop .pi-actions { gap: 14px; }
+
+/* Dock de la TV del inicio: iconos con descripción. */
+.desktop .live-dock-btn span { display: none; }
+.desktop .live-dock-btn { width: 54px; padding: 0; justify-content: center; }
+
+/* Barra superior del inicio: iconos de línea. */
+.desktop .notify-item .n-normal.is-svg {
+  @apply flex items-center justify-center text-white;
+  width: 30px; height: 30px;
+  background: none !important;
+}
+.desktop .notify-item .n-normal.is-svg svg { width: 30px; height: 30px; }
+
+/* =====================================================================
+   Sinopsis completa: fondo que bloquea los clics (antes el recuadro del
+   vídeo quedaba encima del botón Cerrar y arrancaba la película).
+   ===================================================================== */
+.desktop #screen-detail .synopsis-backdrop { display: none; }
+.desktop #screen-detail.is-synopsis-open .synopsis-backdrop {
+  display: block;
+  position: absolute;
+  left: calc(var(--ox, 0px) * -1); right: calc(var(--ox, 0px) * -1);
+  top: calc(var(--oy, 0px) * -1); bottom: calc(var(--oy, 0px) * -1);
+  z-index: 150;
+  background: rgba(0, 0, 0, .72);
+  @apply backdrop-blur-sm;
+}
+.desktop #screen-detail.is-synopsis-open .detail-left { z-index: 160; }
+.desktop #screen-detail.is-synopsis-open .detail-synopsis {
+  box-shadow: 0 40px 120px rgba(0, 0, 0, .7) !important;
+  @apply border-white/10 bg-ink-850;
+}
+.desktop #screen-detail.is-synopsis-open .detail-more { @apply font-semibold; cursor: pointer; }
+
+/* =====================================================================
+   Icono de pausa / avance en el centro del vídeo
+   ===================================================================== */
+.desktop .player-osd-icon.is-svg {
+  @apply flex items-center justify-center border border-solid border-white/15 bg-black/45 text-white
+         shadow-[0_20px_60px_rgba(0,0,0,.45)] backdrop-blur-xl;
+  width: 150px; height: 150px;
+  margin-left: -75px; margin-top: -75px;
+  border-radius: 999px;
+  background-image: none !important;
+  transform: scale(.85);
+  transition: opacity .2s ease, transform .25s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .player-osd-icon.is-svg.is-active { transform: scale(1); }
+.desktop .player-osd-icon.is-svg svg { width: 64px; height: 64px; }
+.desktop #screen-player.is-mini .player-osd-icon.is-svg { width: 96px; height: 96px; margin-left: -48px; margin-top: -48px; }
+.desktop #screen-player.is-mini .player-osd-icon.is-svg svg { width: 40px; height: 40px; }
+
+/* =====================================================================
+   Controles de la vista previa en la ficha (aparecen al pasar el ratón)
+   ===================================================================== */
+.desktop .mini-controls { display: none; }
+.desktop #screen-player.is-mini .mini-controls {
+  @apply absolute bottom-0 left-0 right-0 z-[8] flex items-center gap-[14px] opacity-0 transition-opacity duration-200;
+  height: 76px;
+  padding: 0 18px;
+  background: linear-gradient(to top, rgba(0,0,0,.85), rgba(0,0,0,0));
+  border-radius: 0 0 20px 20px;
+}
+.desktop #screen-player.is-mini .player-stage:hover .mini-controls { @apply opacity-100; }
+.desktop .mini-controls .mc-btn {
+  @apply flex shrink-0 cursor-pointer items-center justify-center border border-solid border-white/15 bg-white/10 text-white transition hover:bg-white/25;
+  width: 46px; height: 46px; padding: 0;
+  border-radius: 12px;
+}
+.desktop .mini-controls .mc-btn svg { width: 22px; height: 22px; }
+.desktop .mini-controls .mc-play { @apply border-transparent bg-white text-black hover:bg-white/90; border-radius: 999px; }
+.desktop .mini-controls .mc-time { @apply shrink-0 text-[18px] font-semibold text-white; font-variant-numeric: tabular-nums; min-width: 150px; }
+.desktop .mini-controls .mc-bar {
+  @apply relative flex-1 cursor-pointer rounded-full bg-white/25;
+  height: 6px;
+  transition: height .15s;
+}
+.desktop .mini-controls .mc-bar:hover { height: 10px; }
+.desktop .mini-controls .mc-bar.is-disabled { @apply cursor-default opacity-40; }
+.desktop .mini-controls .mc-fill { @apply absolute left-0 top-0 h-full rounded-full bg-white; display: block; }
+
+/* =====================================================================
+   Banners: carrusel y efecto al pasar el ratón por títulos
+   ===================================================================== */
+.desktop .bento { transition: transform .28s cubic-bezier(.16, 1, .3, 1), box-shadow .28s; cursor: pointer; }
+.desktop .bento:hover { transform: scale(1.025); z-index: 29; box-shadow: 0 24px 60px rgba(0, 0, 0, .55); }
+.desktop .bento:hover .bento-shade,
+.desktop .bento:hover .bento-title { opacity: 1; }
+.desktop .bento .bento-shade,
+.desktop .bento .bento-title { transition: opacity .25s ease; }
+.desktop .bento-img { transition: opacity .26s ease, transform .6s cubic-bezier(.16, 1, .3, 1); }
+.desktop .bento:hover .bento-img { transform: scale(1.04); }
+.desktop .bento.is-sliding .bento-img,
+.desktop .bento.is-sliding .bento-title { opacity: 0; }
+.desktop .bento-dot { cursor: pointer; }
+.desktop .bento-dot:not(.is-active):hover { background: rgba(255, 255, 255, .7); }
+.desktop .poster { cursor: pointer; }
+.desktop .poster:hover { transform: scale(1.04); z-index: 39; box-shadow: 0 22px 50px rgba(0, 0, 0, .55); }
+.desktop .poster:hover .p-shade,
+.desktop .poster:hover .p-title { display: block; }
+.desktop .poster.gold:hover { transform: translateY(-6px); }
+
+/* Búsqueda popular: sin botón "Actualizar". */
+.desktop #screen-search .search-hot-refresh { display: none; }
+
+/* =====================================================================
+   Mi cuenta
+   ===================================================================== */
+.desktop .account-panel.acc-desktop {
+  @apply flex flex-col;
+  gap: 36px;
+  padding: 96px 96px 60px 72px;
+  box-sizing: border-box;
+  background: transparent;
+}
+.desktop .settings-panel.account-panel.acc-desktop:not(.is-active) { display: none; }
+.desktop .acc-head { @apply flex items-center; gap: 32px; }
+.desktop .acc-avatar {
+  @apply flex shrink-0 items-center justify-center rounded-full bg-white text-black shadow-[0_16px_40px_rgba(255,255,255,.08)];
+  width: 132px; height: 132px;
+}
+.desktop .acc-avatar svg { width: 64px; height: 64px; }
+.desktop .acc-name { @apply font-display text-[52px] font-semibold leading-tight tracking-[-.02em] text-white; }
+.desktop .acc-id { @apply mt-[6px] text-[24px] text-white/50; font-variant-numeric: tabular-nums; }
+.desktop .acc-stats { @apply grid grid-cols-3; gap: 20px; }
+.desktop .acc-stat {
+  @apply border border-solid border-white/[.07] bg-white/[.04] shadow-[inset_0_1px_0_rgba(255,255,255,.05)];
+  border-radius: 22px;
+  padding: 30px 34px;
+}
+.desktop .acc-stat-num { @apply font-display text-[64px] font-semibold leading-none text-white; }
+.desktop .acc-stat-label { @apply mt-[12px] text-[22px] text-white/55; }
+.desktop .acc-section { @apply mb-[-14px] text-[20px] font-semibold uppercase tracking-[.14em] text-white/45; }
+.desktop .acc-actions { @apply grid grid-cols-3; gap: 20px; }
+.desktop .acc-action {
+  @apply flex cursor-pointer items-center border border-solid border-white/[.08] bg-white/[.05] shadow-[inset_0_1px_0_rgba(255,255,255,.06)]
+         transition duration-200 ease-fluent;
+  gap: 22px;
+  padding: 26px 26px 26px 28px;
+  border-radius: 22px;
+}
+.desktop .acc-action:hover { @apply -translate-y-0.5 border-white/20 bg-white/[.10]; }
+.desktop .acc-action.is-focused { @apply bg-white/[.12]; outline: 2px solid #fff; outline-offset: 3px; }
+.desktop .acc-action-icon { @apply flex shrink-0 items-center justify-center bg-white/10 text-white; width: 64px; height: 64px; border-radius: 18px; }
+.desktop .acc-action-icon svg { width: 30px; height: 30px; }
+.desktop .acc-action-text { @apply min-w-0 flex-1; }
+.desktop .acc-action-title { @apply text-[26px] font-semibold text-white; }
+.desktop .acc-action-sub { @apply mt-[4px] text-[19px] text-white/50; }
+.desktop .acc-action-chevron { @apply shrink-0 text-white/40; transform: rotate(180deg); }
+.desktop .acc-action-chevron svg { width: 26px; height: 26px; }
+.desktop .acc-privacy {
+  @apply flex items-center border border-solid border-white/[.06] bg-white/[.03];
+  gap: 22px;
+  padding: 24px 28px;
+  border-radius: 22px;
+}
+.desktop .acc-privacy-icon { @apply shrink-0 text-white/60; }
+.desktop .acc-privacy-icon svg { width: 30px; height: 30px; }
+.desktop .acc-privacy-text { @apply flex flex-col text-[20px] leading-snug text-white/55; }
+.desktop .acc-privacy-text b { @apply mb-[4px] text-[22px] font-semibold text-white; }
+
+/* Vista previa de la ficha por encima de su marco, para que reciba el ratón
+   (controles al pasar por encima). El anillo de foco del marco pasa al vídeo. */
+.desktop #screen-player.is-mini { z-index: 7; }
+.desktop #screen-detail:has(.detail-player.is-focused) ~ #screen-player.is-mini .player-stage { outline: 3px solid #fff; outline-offset: 4px; }
+.desktop .vod-infobar-tips #vod-toggle.is-icon-btn { min-width: 0; }

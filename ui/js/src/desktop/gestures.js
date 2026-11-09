@@ -5,6 +5,7 @@ function installVideoGestures() {
   installPanelDismiss();
   if (!playerStage || playerStage._gestures) { return; }
   playerStage._gestures = true;
+  installMiniControls();
 
   var indicator = el('div', 'hold-seek');
   indicator.hidden = true;
@@ -180,33 +181,39 @@ function bindDesktopPlayback() {
   var tips = document.querySelector('.vod-infobar-tips');
   clear(tips);
   var defs = [
-    { id: 'vod-back', label: 'Volver', run: desktopBack },
-    { id: 'vod-rewind', label: '−10 s', name: 'Retroceder 10 segundos', run: function () { playerSeek(-10); } },
-    { id: 'vod-toggle', label: 'Pausa', name: 'Pausar o reanudar', run: togglePlayerPlayPause },
-    { id: 'vod-forward', label: '+10 s', name: 'Adelantar 10 segundos', run: function () { playerSeek(10); } },
-    { id: 'vod-settings', label: 'Ajustes', run: openPlaySettingView },
-    { id: 'vod-episodes', label: 'Episodios', run: openEpisodeBrowser },
-    { id: 'vod-fullscreen', label: 'Pantalla completa', run: function () { window.desktop.fullscreen(); } }
+    { id: 'vod-back', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
+    { id: 'vod-rewind', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
+    { id: 'vod-toggle', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
+    { id: 'vod-forward', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
+    { id: 'vod-episodes', icon: UI_ICONS.episodes, tip: 'Episodios', run: openEpisodeBrowser },
+    { id: 'vod-settings', icon: UI_ICONS.settings, tip: 'Ajustes de reproducción (↓)', run: openPlaySettingView }
   ];
   if (document.pictureInPictureEnabled) {
-    defs.push({ id: 'vod-pip', label: 'Ventana flotante', name: 'Ver en ventana flotante (Ctrl+P)', run: togglePictureInPicture });
+    defs.push({ id: 'vod-pip', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
   }
+  defs.push({ id: 'vod-fullscreen', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
   for (var i = 0; i < defs.length; i++) {
-    var b = el('button', 'vod-tip focusable', defs[i].label);
+    var b = el('button', 'vod-tip focusable');
     b.type = 'button'; b.id = defs[i].id;
-    b.setAttribute('aria-label', defs[i].name || defs[i].label);
+    iconizeButton(b, defs[i].icon, defs[i].tip);
     b._activate = defs[i].run;
     tips.appendChild(b);
   }
   function updateButtons() {
-    $('vod-toggle').textContent = playerVideo.paused ? 'Reproducir' : 'Pausa';
+    var toggle = $('vod-toggle');
+    var showPlay = playerVideo.paused;
+    if (toggle._showsPlay !== showPlay) {
+      toggle._showsPlay = showPlay;
+      setButtonText(toggle, showPlay ? 'Reproducir (Espacio)' : 'Pausa (Espacio)', showPlay ? UI_ICONS.play : UI_ICONS.pause);
+    }
     $('vod-episodes').hidden = !isSeriesItem(state.playerItem);
     var canSkip = state.playerMode === 'vod' && !!(playerVideo.currentSrc || playerVideo.getAttribute('src'));
     $('vod-forward').disabled = !canSkip;
     $('vod-rewind').disabled = !canSkip;
     if ($('vod-pip')) {
       var inPip = document.pictureInPictureElement === playerVideo;
-      $('vod-pip').textContent = inPip ? 'Cerrar ventana flotante' : 'Ventana flotante';
+      setButtonText($('vod-pip'), inPip ? 'Cerrar ventana flotante (Ctrl+P)' : 'Ventana flotante (Ctrl+P)');
+      $('vod-pip').classList.toggle('is-selected', inPip);
       $('vod-pip').disabled = !canSkip && !inPip;
     }
   }

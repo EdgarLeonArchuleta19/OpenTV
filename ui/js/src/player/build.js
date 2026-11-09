@@ -260,6 +260,13 @@ function buildPlayer() {
       }
       if (d.label === 'Reproductor 1') b.textContent = 'Reintentar';
       if (d.label === 'Feedback') b.textContent = 'Diagnóstico';
+      var piIcons = { 'HD': UI_ICONS.quality, 'Anterior': UI_ICONS.prev, 'Formato': UI_ICONS.aspect,
+        'Favorito': UI_ICONS.star, 'Reproductor 1': UI_ICONS.retry, 'Bloquear': UI_ICONS.lock,
+        'Feedback': UI_ICONS.diagnostics, 'Canales': UI_ICONS.channels, 'Ventana flotante': UI_ICONS.pip };
+      var piTips = { 'HD': 'Calidad automática', 'Anterior': 'Canal anterior', 'Formato': 'Formato de pantalla',
+        'Favorito': 'Añadir a favoritos', 'Reproductor 1': 'Reintentar señal', 'Bloquear': 'Bloqueo (no disponible)',
+        'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)' };
+      iconizeButton(b, piIcons[d.label], piTips[d.label]);
     }
     b._activate = (function (label) {
       return function () {
@@ -274,7 +281,8 @@ function buildPlayer() {
           if (ch) {
             ch.fav = toggleFavorite({ id: 'live:' + (ch.channelCode || ch.id || ch.name) });
             this.classList.toggle('is-selected', ch.fav);
-            this.textContent = ch.fav ? 'En favoritos' : 'Favorito';
+            setButtonText(this, ch.fav ? (this._iconized ? 'Quitar de favoritos' : 'En favoritos')
+              : (this._iconized ? 'Añadir a favoritos' : 'Favorito'));
           }
         } else if (label === 'Canales') { openChannelPanel(); }
         else if (label === 'Ventana flotante') { togglePictureInPicture(); }

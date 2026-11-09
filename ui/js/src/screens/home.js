@@ -128,10 +128,28 @@ function buildNotify() {
     { cls: 'filter', icon: 'assets/original/search/icon_category_filter_n.png', small: true },
     { cls: 'personal', icon: 'assets/original/home/icon_notify_personal.png', small: true }
   ];
+  if (window.XUPER_DESKTOP) {
+    defs = [
+      { cls: 'search', svg: UI_ICONS.search, tip: 'Buscar (Ctrl+F)', small: true, run: function () { openSearch(); } },
+      { cls: 'mylist', svg: UI_ICONS.mylist, tip: 'Mi lista', small: true,
+        run: function () { openSettings(); showSettingsPanel(1, true); } },
+      { cls: 'personal', svg: UI_ICONS.user, tip: 'Mi cuenta y ajustes', small: true, run: function () { openSettings(); } }
+    ];
+  }
   for (var i = 0; i < defs.length; i++) {
     var d = defs[i];
     var item = el('div', 'notify-item focusable ' + d.cls + (d.small ? ' is-small' : ''));
     var nn = el('div', 'n-normal');
+    if (d.svg) {
+      nn.innerHTML = d.svg;
+      nn.classList.add('is-svg');
+      item.setAttribute('data-tip', d.tip);
+      item.setAttribute('aria-label', d.tip);
+      item._activate = d.run;
+      item.appendChild(nn);
+      notifyEl.appendChild(item);
+      continue;
+    }
     nn.style.backgroundImage = 'url(' + d.icon + ')';
     item.appendChild(nn);
     if (d.cls === 'personal') {

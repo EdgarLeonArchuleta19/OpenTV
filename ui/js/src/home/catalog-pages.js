@@ -57,7 +57,84 @@ function bentoPage(page, items, opts) {
     page.appendChild(makeBento(source[(i + 2) % source.length], BENTO.smallX[i], BENTO.smallY,
                                BENTO.smallW, BENTO.smallH, {}));
   }
-  if (opts.dots) { page.appendChild(bentoDots(848, 535.5, opts.dots, 0)); }
+  if (opts.dots) {
+    var dots = bentoDots(848, 535.5, opts.dots, 0);
+    page.appendChild(dots);
+    if (window.XUPER_DESKTOP && opts.titles && source.length > 1) {
+      registerBannerCarousel(page, page.querySelector('.bento'), dots, source.slice(0, Math.min(opts.dots, source.length)));
+    }
+  }
+}
+
+/* Desktop banner carousel. Every few seconds the big banner shows the next
+   title (and its dot lights up). It pauses while the pointer is on it or it
+   has focus, and only runs on the visible home page. Dots can be clicked. */
+var bannerCarousels = [];
+var bannerTimer = null;
+var BANNER_INTERVAL_MS = 6500;
+var bannerKeyAt = 0;
+var bannerPointerAt = 0;
+if (window.XUPER_DESKTOP) {
+  document.addEventListener('keydown', function () { bannerKeyAt = Date.now(); }, true);
+  document.addEventListener('pointermove', function () { bannerPointerAt = Date.now(); }, { capture: true, passive: true });
+}
+
+function registerBannerCarousel(page, hero, dots, items) {
+  if (!hero || items.length < 2) { return; }
+  var c = { page: page, hero: hero, dots: dots, items: items, index: 0 };
+  bannerCarousels = bannerCarousels.filter(function (x) { return x.hero.isConnected; });
+  bannerCarousels.push(c);
+  var spans = dots.querySelectorAll('.bento-dot');
+  for (var i = 0; i < spans.length; i++) {
+    (function (k) {
+      spans[k].setAttribute('data-tip', items[k] ? items[k].title : '');
+      spans[k].addEventListener('click', function (event) {
+        event.stopPropagation();
+        showBannerSlide(c, k);
+      });
+    })(i);
+  }
+  if (!bannerTimer) { bannerTimer = setInterval(advanceBanners, BANNER_INTERVAL_MS); }
+}
+
+function advanceBanners() {
+  for (var i = 0; i < bannerCarousels.length; i++) {
+    var c = bannerCarousels[i];
+    if (!c.hero.isConnected || state.screen !== 'home' || !c.page.classList.contains('is-current')) { continue; }
+    /* Paused while the pointer moves over it, or while the keyboard is on it. The
+       first banner gets focus by itself when a tab opens, so focus alone must
+       not stop it. */
+    var keyboardOnHero = state.focus === c.hero && Date.now() - bannerKeyAt < 15000;
+    var pointerOnHero = Date.now() - bannerPointerAt < 4000 && (c.hero.matches(':hover') || c.dots.matches(':hover'));
+    if (keyboardOnHero || pointerOnHero) { continue; }
+    showBannerSlide(c, (c.index + 1) % c.items.length);
+  }
+}
+
+function showBannerSlide(c, k) {
+  if (k === c.index || !c.items[k]) { return; }
+  var item = c.items[k];
+  c.index = k;
+  var spans = c.dots.querySelectorAll('.bento-dot');
+  for (var i = 0; i < spans.length; i++) { spans[i].classList.toggle('is-active', i === k); }
+  var hero = c.hero;
+  hero.classList.add('is-sliding');
+  setTimeout(function () {
+    var art = item.landscape || item.poster;
+    var img = hero.querySelector('.bento-img');
+    if (art) {
+      if (!img) { img = el('img', 'bento-img'); img.onerror = posterImageError; hero.insertBefore(img, hero.firstChild); }
+      img.style.display = '';
+      img._posterRetries = 0;
+      img.setAttribute('data-poster-src', art);
+      img.src = art;
+    }
+    var title = hero.querySelector('.bento-title');
+    if (title) { title.textContent = item.title; }
+    hero._item = item;
+    hero._activate = function () { openDetail(item); };
+    hero.classList.remove('is-sliding');
+  }, 260);
 }
 
 /* DESTACADOS / PELICULA: the observed 831x534 crops already contain the

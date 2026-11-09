@@ -33,6 +33,11 @@ var TABS = [
   { label: 'EXPLORAR', page: 7, icon: 'compass' },
   { label: 'HISTORIAL', page: -1, icon: 'history', action: 'history' }
 ];
+/* Desktop: Novelas and Explorar are dropped, and history has its own button
+   (and lives in Mi lista), so the rail only lists the main catalogues. */
+if (window.XUPER_DESKTOP) {
+  TABS = TABS.filter(function (t) { return t.icon !== 'novel' && t.icon !== 'compass' && t.action !== 'history'; });
+}
 
 var SETTINGS_ITEMS = [
   { id: 'profile', label: 'Mi cuenta' },

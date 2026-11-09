@@ -1,5 +1,6 @@
 [
   "core/utils.js",
+  "core/icons.js",
   "data/demo-catalog.js",
   "services/vod-api.js",
   "services/portal.js",
@@ -19,6 +20,7 @@
   "screens/search.js",
   "screens/search-desktop.js",
   "screens/settings.js",
+  "screens/account.js",
   "screens/history.js",
   "screens/settings-panels.js",
   "screens/netdiag.js",
@@ -35,8 +37,10 @@
   "desktop/display.js",
   "desktop/pip.js",
   "desktop/navigation.js",
+  "desktop/tooltip.js",
   "desktop/window.js",
   "player/compat-watchdog.js",
   "desktop/gestures.js",
+  "desktop/mini-controls.js",
   "main.js"
 ]

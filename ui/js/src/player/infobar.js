@@ -138,6 +138,20 @@ function showOsdIcon(type) {
   if (!playerOsdIcon) { playerOsdIcon = $('player-osd-icon'); }
   if (!playerOsdIcon) { return; }
   if (osdHideTimer) { clearTimeout(osdHideTimer); osdHideTimer = null; }
+  if (window.XUPER_DESKTOP) {
+    var osdIcons = { pause: UI_ICONS.pause, forward: UI_ICONS.forward, backward: UI_ICONS.rewind };
+    if (!osdIcons[type]) { playerOsdIcon.classList.remove('is-active'); return; }
+    playerOsdIcon.style.backgroundImage = 'none';
+    playerOsdIcon.innerHTML = osdIcons[type];
+    playerOsdIcon.className = 'player-osd-icon is-svg is-' + type;
+    /* Force the pop animation to restart on every press. */
+    void playerOsdIcon.offsetWidth;
+    playerOsdIcon.classList.add('is-active');
+    if (type !== 'pause') {
+      osdHideTimer = setTimeout(function () { playerOsdIcon.classList.remove('is-active'); }, 700);
+    }
+    return;
+  }
   if (type === 'pause') {
     playerOsdIcon.style.backgroundImage = 'url(assets/original/common/icon_status_pause.png)';
     playerOsdIcon.classList.add('is-active');

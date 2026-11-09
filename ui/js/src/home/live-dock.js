@@ -63,6 +63,7 @@ function syncLiveFavButton() {
   var on = !!(ch && state.favs[liveFavKey(ch)]);
   liveFavBtn.classList.toggle('is-selected', on);
   liveFavBtn.querySelector('span').textContent = on ? 'En favoritos' : 'Favorito';
+  liveFavBtn.setAttribute('data-tip', on ? 'Quitar de favoritos' : 'Guardar canal en favoritos');
 }
 
 function dockButton(cls, icon, label, title, run) {
@@ -71,7 +72,7 @@ function dockButton(cls, icon, label, title, run) {
   ico.innerHTML = icon;
   b.appendChild(ico);
   if (label) { b.appendChild(el('span', null, label)); }
-  if (title) { b.title = title; }
+  if (title) { b.setAttribute('data-tip', title); b.setAttribute('aria-label', title); }
   b._activate = run;
   return b;
 }

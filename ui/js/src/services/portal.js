@@ -250,6 +250,23 @@ function refreshPortalCatalog() {
   next();
 }
 
+/* Desktop: refresh the catalog from the portal every 20 minutes so new
+   titles appear without restarting. It waits until the viewer is not in the
+   middle of browsing the home page, because a refresh rebuilds it. */
+var CATALOG_REFRESH_MS = 20 * 60 * 1000;
+var lastUserActivity = Date.now();
+function startCatalogAutoRefresh() {
+  if (!window.XUPER_DESKTOP || vodApi.mode !== 'portal' || vodApi.refresh === false) { return; }
+  ['pointermove', 'keydown', 'wheel'].forEach(function (type) {
+    document.addEventListener(type, function () { lastUserActivity = Date.now(); }, { passive: true, capture: true });
+  });
+  setInterval(function () {
+    if (portalState.refreshing || Date.now() - portalState.lastSync < CATALOG_REFRESH_MS) { return; }
+    var browsingHome = state.screen === 'home' && Date.now() - lastUserActivity < 60000;
+    if (!browsingHome) { refreshPortalCatalog(); }
+  }, 60000);
+}
+
 function loadPortalCatalog() {
   var snap = portalSnapshot();
   if (snap.length) {

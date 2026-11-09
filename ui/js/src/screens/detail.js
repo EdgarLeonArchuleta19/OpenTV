@@ -73,6 +73,17 @@ function toggleSynopsis() {
   if (!screen) { return; }
   var open = !screen.classList.contains('is-synopsis-open');
   screen.classList.toggle('is-synopsis-open', open);
+  if (window.XUPER_DESKTOP) {
+    var backdrop = screen.querySelector('.synopsis-backdrop');
+    if (!backdrop) {
+      backdrop = el('div', 'synopsis-backdrop');
+      backdrop.addEventListener('click', function (event) {
+        event.stopPropagation();
+        if (screen.classList.contains('is-synopsis-open')) { toggleSynopsis(); }
+      });
+      screen.appendChild(backdrop);
+    }
+  }
   var more = document.querySelector('.detail-more');
   if (more) {
     more.textContent = window.XUPER_DESKTOP ? (open ? '✕  Cerrar' : 'Leer más') : (open ? 'Menos' : 'Más');
