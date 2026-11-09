@@ -1720,3 +1720,77 @@ body.has-titlebar:not(.is-window-fullscreen) .history-drawer { top: 36px; }
 .desktop .home-page > .poster,
 .desktop .lg-card { content-visibility: auto; }
 .desktop .lg-card { contain-intrinsic-size: auto 116px; }
+
+/* =====================================================================
+   Reproductor: episodios en un panel vertical a la derecha
+   (el vídeo sigue visible a la izquierda)
+   ===================================================================== */
+@keyframes ot-panel-in-right { from { transform: translateX(105%); } to { transform: none; } }
+.desktop .player-episodes {
+  left: auto !important;
+  right: calc(var(--ox, 0px) * -1) !important;
+  top: calc(var(--oy, 0px) * -1) !important;
+  bottom: calc(var(--oy, 0px) * -1) !important;
+  width: 660px !important;
+  height: auto !important;
+  padding: 44px 30px 26px 36px !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(255, 255, 255, .1) !important;
+  border-radius: 0 !important;
+  background: rgba(16, 16, 20, .94) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.2); backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: -30px 0 80px rgba(0, 0, 0, .55) !important;
+  transition: none;
+}
+.desktop .player-episodes.is-active { animation: ot-panel-in-right .38s cubic-bezier(.16, 1, .3, 1); }
+.desktop .player-episodes .pe-head { margin: 0 70px 18px 0; }
+.desktop .player-episodes .pe-title { font-size: 34px; line-height: 1.2; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.desktop .player-episodes .pe-sub { margin-top: 6px; font-size: 19px; color: rgba(255, 255, 255, .55); }
+.desktop .player-episodes .pe-body { flex-direction: column; }
+.desktop .player-episodes .pe-seasons-col {
+  width: auto; min-width: 0; height: auto; min-height: 0; margin: 0 0 18px; padding: 0; border: 0;
+}
+.desktop .player-episodes .pe-seasons-col .pe-col-label { display: none; }
+.desktop .player-episodes .pe-seasons {
+  display: flex; flex-direction: row; gap: 10px; overflow-x: auto; overflow-y: hidden;
+  padding: 4px 2px 10px; scrollbar-width: none;
+}
+.desktop .player-episodes .pe-seasons::-webkit-scrollbar { display: none; }
+.desktop .player-episodes .pe-season {
+  flex: 0 0 auto; height: 46px; padding: 0 20px; margin: 0; font-size: 19px; font-weight: 600;
+  display: flex; align-items: center; border-radius: 23px; cursor: pointer;
+}
+.desktop .player-episodes .pe-col-label { margin: 0 0 12px; font-size: 16px; letter-spacing: .1em; color: rgba(255, 255, 255, .45); }
+.desktop .player-episodes .pe-episodes-col { min-height: 0; }
+.desktop .player-episodes .pe-episodes { padding-right: 8px; }
+.desktop .player-episodes .pe-ep {
+  display: flex; align-items: center; gap: 18px;
+  min-height: 84px; height: auto; padding: 12px 16px; margin: 0 0 8px;
+  border: 1px solid transparent !important; border-radius: 16px;
+  background: rgba(255, 255, 255, .04);
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.desktop .player-episodes .pe-ep:hover { background: rgba(255, 255, 255, .09); }
+.desktop .player-episodes .pe-ep.is-focused { border-color: #fff !important; background: rgba(255, 255, 255, .09); }
+.desktop .player-episodes .pe-ep.is-current { background: rgba(255, 255, 255, .13); border-color: rgba(255, 255, 255, .28) !important; }
+.desktop .player-episodes .pe-num {
+  flex: 0 0 56px; width: 56px; height: 56px; margin: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px; background: rgba(255, 255, 255, .08);
+  font-size: 24px; font-weight: 700; color: #fff;
+}
+.desktop .player-episodes .pe-ep.is-current .pe-num { background: #fff; color: #0e0e11; }
+.desktop .player-episodes .pe-thumb { display: none; }
+.desktop .player-episodes .pe-info { min-width: 0; flex: 1 1 auto; }
+.desktop .player-episodes .pe-name { font-size: 21px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .player-episodes .pe-meta { margin-top: 4px; font-size: 16px; color: rgba(255, 255, 255, .5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .player-episodes .pe-desc { margin-top: 6px; font-size: 16px; line-height: 1.4; color: rgba(255, 255, 255, .6); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.desktop .player-episodes .pe-badge { display: none; }
+.desktop .player-episodes .pe-ep.is-current .pe-badge {
+  display: flex; position: static; flex: 0 0 auto; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px; background: #fff; color: #0e0e11;
+  font-size: 0; font-weight: 700;
+}
+.desktop .player-episodes .pe-ep.is-current .pe-badge::after { content: "Viendo"; font-size: 14px; }
+.desktop .player-episodes .pe-ep.is-current .pe-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #e50914; }
+.desktop .player-episodes .panel-close { top: 36px !important; right: 26px !important; left: auto !important; }
