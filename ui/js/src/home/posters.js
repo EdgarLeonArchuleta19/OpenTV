@@ -169,6 +169,7 @@ function makePoster(item, x, y, w, h, opts) {
   }
   p._item = item;
   if (window.XUPER_DESKTOP && !item.poster) { applyGenericCover(p, item); }
+  if (window.XUPER_DESKTOP && item.title) { p.appendChild(el('div', 'p-hover', item.title)); }
   p._activate = function () { openDetail(item); };
   schedulePosterMemoryPass();
   return p;

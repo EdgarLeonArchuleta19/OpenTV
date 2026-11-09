@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('desktop', {
   service: (method, parameters) => ipcRenderer.invoke('desktop:service', method, parameters),
   fullscreen: (flag) => ipcRenderer.invoke('desktop:fullscreen', flag),
   info: () => ipcRenderer.invoke('desktop:info'),
+  // Windows master volume: ('get') | ('set', 0..1) | ('mute', bool) -> { volume, muted } | { error }
+  systemVolume: (command, value) => ipcRenderer.invoke('desktop:system-volume', command, value),
   onAction: (callback) => {
     const listener = (_event, action) => callback(action);
     ipcRenderer.on('desktop:action', listener);

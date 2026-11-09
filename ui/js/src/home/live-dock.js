@@ -33,13 +33,61 @@ function loadLiveAudio() {
     if (typeof saved.volume === 'number') { liveAudio.volume = Math.max(0, Math.min(1, saved.volume)); }
   }
 }
+/* Desktop: when the system volume is available the TV slider and mute
+   button act on Windows itself (the taskbar speaker), and the videos play at
+   full level so the slider means the real loudness. */
+var systemVolumeOn = false;
+var systemVolumeTimer = null;
+var systemVolumePending = null;
+function systemVolumeApi() {
+  return window.XUPER_DESKTOP && window.desktop && window.desktop.systemVolume ? window.desktop.systemVolume : null;
+}
+function syncFromSystemVolume() {
+  var api = systemVolumeApi();
+  if (!api || systemVolumePending !== null) { return; }
+  api('get').then(function (r) {
+    if (!r || r.error || typeof r.volume !== 'number' || systemVolumePending !== null) { return; }
+    systemVolumeOn = true;
+    if (Math.abs(r.volume - liveAudio.volume) > 0.004 || r.muted !== liveAudio.muted) {
+      liveAudio.volume = r.volume;
+      liveAudio.muted = r.muted;
+      applyLiveAudio(false);
+    }
+  }).catch(function () {});
+}
+function pushSystemVolume() {
+  var api = systemVolumeApi();
+  if (!api || !systemVolumeOn) { return; }
+  systemVolumePending = { volume: liveAudio.volume, muted: liveAudio.muted };
+  if (systemVolumeTimer) { return; }
+  systemVolumeTimer = setTimeout(function () {
+    systemVolumeTimer = null;
+    var want = systemVolumePending;
+    api('set', want.volume).then(function () { return api('mute', want.muted); }).then(function () {
+      if (systemVolumePending === want) { systemVolumePending = null; }
+      else { systemVolumePending = null; pushSystemVolume(); }
+    }).catch(function () { systemVolumePending = null; });
+  }, 60);
+}
+function startSystemVolumeSync() {
+  if (!systemVolumeApi()) { return; }
+  syncFromSystemVolume();
+  /* Follow changes made with the keyboard volume keys or the taskbar. */
+  setInterval(function () {
+    if (state.screen === 'home' && state.tab === 0 && document.hasFocus()) { syncFromSystemVolume(); }
+  }, 2500);
+}
+
 function applyLiveAudio(save) {
-  if (livePreviewVideo) {
+  if (systemVolumeOn) {
+    if (livePreviewVideo) { livePreviewVideo.muted = false; livePreviewVideo.volume = 1; livePreviewVideo.removeAttribute('muted'); }
+    if (playerVideo) { playerVideo.volume = 1; if (liveHandoff && liveHandoff.type === 'player') { playerVideo.muted = false; } }
+  } else if (livePreviewVideo) {
     livePreviewVideo.muted = liveAudio.muted;
     livePreviewVideo.volume = liveAudio.volume;
     if (liveAudio.muted) { livePreviewVideo.setAttribute('muted', 'muted'); } else { livePreviewVideo.removeAttribute('muted'); }
   }
-  if (playerVideo) {
+  if (playerVideo && !systemVolumeOn) {
     playerVideo.volume = liveAudio.volume;
     /* While the player's video stands in for the home preview it follows the
        preview's mute button. */
@@ -58,7 +106,10 @@ function applyLiveAudio(save) {
     if (String(liveVolRange.value) !== String(shown)) { liveVolRange.value = shown; }
     liveVolRange.style.setProperty('--vol', shown + '%');
   }
-  if (save) { safeLocalWrite('xuper_live_audio_v1', liveAudio); }
+  if (save) {
+    if (systemVolumeOn) { pushSystemVolume(); }
+    else { safeLocalWrite('xuper_live_audio_v1', liveAudio); }
+  }
 }
 function changeLiveVolume(delta) {
   liveAudio.volume = Math.max(0, Math.min(1, Math.round((liveAudio.volume + delta) * 20) / 20));
@@ -131,6 +182,7 @@ function buildLiveDock(page) {
     liveAudio.volume = Math.max(0, Math.min(1, liveVolRange.value / 100));
     liveAudio.muted = liveAudio.volume === 0;
     applyLiveAudio(false);
+    if (systemVolumeOn) { pushSystemVolume(); }
   });
   liveVolRange.addEventListener('change', function () { applyLiveAudio(true); });
   liveVolRange.addEventListener('wheel', function (event) {
@@ -168,6 +220,8 @@ function buildLiveDock(page) {
   renderLiveDockCats();
   applyLiveAudio(false);
   syncLiveFavButton();
+  if (volWrap) { volWrap.setAttribute('data-tip', systemVolumeApi() ? 'Volumen de Windows' : 'Volumen'); }
+  if (!liveDock._systemSync) { liveDock._systemSync = true; startSystemVolumeSync(); }
 }
 
 function renderLiveDockCats() {

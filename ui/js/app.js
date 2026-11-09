@@ -80,6 +80,12 @@
     channels: uiSvg('<path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/>'),
     quality: uiSvg('<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M7 9.5v5M10 9.5v5M7 12h3M13.5 9.5v5h1.6a2.5 2.5 0 0 0 0-5z"/>'),
     close: uiSvg('<path d="M6 6l12 12M18 6 6 18"/>'),
+    share: uiSvg('<circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/>'),
+    help: uiSvg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 4"/><path d="M12 17.5h.01"/>'),
+    info: uiSvg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>'),
+    wifi: uiSvg('<path d="M2.5 9a14 14 0 0 1 19 0"/><path d="M5.5 12.5a9.5 9.5 0 0 1 13 0"/><path d="M8.7 16a5 5 0 0 1 6.6 0"/><path d="M12 19.5h.01"/>'),
+    keyboard: uiSvg('<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8"/>'),
+    check: uiSvg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
     expand: uiSvg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>')
   };
 
@@ -1034,6 +1040,16 @@
     feedback: '<svg viewBox="0 0 32 32"><path d="M6 4h15l5 5v19H6z"/><path d="M20 4v6h6M10 16h12M10 21h8"/></svg>',
     about: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="M16 14v8M16 10h.1"/></svg>'
   };
+
+  /* Desktop: short labels that fit the menu and line icons like the rest of the app. */
+  if (window.XUPER_DESKTOP) {
+    var DESKTOP_SETTINGS_LABELS = { share: 'Compartir', playback: 'Reproducción', feedback: 'Ayuda', about: 'Acerca de' };
+    SETTINGS_ITEMS.forEach(function (it) { if (DESKTOP_SETTINGS_LABELS[it.id]) { it.label = DESKTOP_SETTINGS_LABELS[it.id]; } });
+    SETTINGS_MENU_ICONS = {
+      profile: UI_ICONS.user, history: UI_ICONS.mylist, share: UI_ICONS.share, parent: UI_ICONS.lock,
+      playback: UI_ICONS.settings, netdiag: UI_ICONS.wifi, feedback: UI_ICONS.help, about: UI_ICONS.info
+    };
+  }
 
   /* ---- core/state.js --------------------------------------------------------- */
   /* core/state.js — Estado global de la app, perfil local (favoritos) y referencias a nodos del DOM.
@@ -2308,6 +2324,7 @@
     }
     p._item = item;
     if (window.XUPER_DESKTOP && !item.poster) { applyGenericCover(p, item); }
+    if (window.XUPER_DESKTOP && item.title) { p.appendChild(el('div', 'p-hover', item.title)); }
     p._activate = function () { openDetail(item); };
     schedulePosterMemoryPass();
     return p;
@@ -2439,13 +2456,61 @@
       if (typeof saved.volume === 'number') { liveAudio.volume = Math.max(0, Math.min(1, saved.volume)); }
     }
   }
+  /* Desktop: when the system volume is available the TV slider and mute
+     button act on Windows itself (the taskbar speaker), and the videos play at
+     full level so the slider means the real loudness. */
+  var systemVolumeOn = false;
+  var systemVolumeTimer = null;
+  var systemVolumePending = null;
+  function systemVolumeApi() {
+    return window.XUPER_DESKTOP && window.desktop && window.desktop.systemVolume ? window.desktop.systemVolume : null;
+  }
+  function syncFromSystemVolume() {
+    var api = systemVolumeApi();
+    if (!api || systemVolumePending !== null) { return; }
+    api('get').then(function (r) {
+      if (!r || r.error || typeof r.volume !== 'number' || systemVolumePending !== null) { return; }
+      systemVolumeOn = true;
+      if (Math.abs(r.volume - liveAudio.volume) > 0.004 || r.muted !== liveAudio.muted) {
+        liveAudio.volume = r.volume;
+        liveAudio.muted = r.muted;
+        applyLiveAudio(false);
+      }
+    }).catch(function () {});
+  }
+  function pushSystemVolume() {
+    var api = systemVolumeApi();
+    if (!api || !systemVolumeOn) { return; }
+    systemVolumePending = { volume: liveAudio.volume, muted: liveAudio.muted };
+    if (systemVolumeTimer) { return; }
+    systemVolumeTimer = setTimeout(function () {
+      systemVolumeTimer = null;
+      var want = systemVolumePending;
+      api('set', want.volume).then(function () { return api('mute', want.muted); }).then(function () {
+        if (systemVolumePending === want) { systemVolumePending = null; }
+        else { systemVolumePending = null; pushSystemVolume(); }
+      }).catch(function () { systemVolumePending = null; });
+    }, 60);
+  }
+  function startSystemVolumeSync() {
+    if (!systemVolumeApi()) { return; }
+    syncFromSystemVolume();
+    /* Follow changes made with the keyboard volume keys or the taskbar. */
+    setInterval(function () {
+      if (state.screen === 'home' && state.tab === 0 && document.hasFocus()) { syncFromSystemVolume(); }
+    }, 2500);
+  }
+
   function applyLiveAudio(save) {
-    if (livePreviewVideo) {
+    if (systemVolumeOn) {
+      if (livePreviewVideo) { livePreviewVideo.muted = false; livePreviewVideo.volume = 1; livePreviewVideo.removeAttribute('muted'); }
+      if (playerVideo) { playerVideo.volume = 1; if (liveHandoff && liveHandoff.type === 'player') { playerVideo.muted = false; } }
+    } else if (livePreviewVideo) {
       livePreviewVideo.muted = liveAudio.muted;
       livePreviewVideo.volume = liveAudio.volume;
       if (liveAudio.muted) { livePreviewVideo.setAttribute('muted', 'muted'); } else { livePreviewVideo.removeAttribute('muted'); }
     }
-    if (playerVideo) {
+    if (playerVideo && !systemVolumeOn) {
       playerVideo.volume = liveAudio.volume;
       /* While the player's video stands in for the home preview it follows the
          preview's mute button. */
@@ -2464,7 +2529,10 @@
       if (String(liveVolRange.value) !== String(shown)) { liveVolRange.value = shown; }
       liveVolRange.style.setProperty('--vol', shown + '%');
     }
-    if (save) { safeLocalWrite('xuper_live_audio_v1', liveAudio); }
+    if (save) {
+      if (systemVolumeOn) { pushSystemVolume(); }
+      else { safeLocalWrite('xuper_live_audio_v1', liveAudio); }
+    }
   }
   function changeLiveVolume(delta) {
     liveAudio.volume = Math.max(0, Math.min(1, Math.round((liveAudio.volume + delta) * 20) / 20));
@@ -2537,6 +2605,7 @@
       liveAudio.volume = Math.max(0, Math.min(1, liveVolRange.value / 100));
       liveAudio.muted = liveAudio.volume === 0;
       applyLiveAudio(false);
+      if (systemVolumeOn) { pushSystemVolume(); }
     });
     liveVolRange.addEventListener('change', function () { applyLiveAudio(true); });
     liveVolRange.addEventListener('wheel', function (event) {
@@ -2574,6 +2643,8 @@
     renderLiveDockCats();
     applyLiveAudio(false);
     syncLiveFavButton();
+    if (volWrap) { volWrap.setAttribute('data-tip', systemVolumeApi() ? 'Volumen de Windows' : 'Volumen'); }
+    if (!liveDock._systemSync) { liveDock._systemSync = true; startSystemVolumeSync(); }
   }
 
   function renderLiveDockCats() {
@@ -5540,6 +5611,7 @@
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   function buildSharePanel() {
+    if (window.XUPER_DESKTOP) { return buildDesktopSharePanel(); }
     var p = panelBase('Compartir APP');
     p.appendChild(el('div', 'sp-hr'));
     p.appendChild(el('div', 'share-copy', 'Para compartir la aplicación de Windows, copia el ZIP completo. Los favoritos y el historial de tu perfil permanecen en este equipo.'));
@@ -5568,6 +5640,7 @@
   }
 
   function buildParentPanel() {
+    if (window.XUPER_DESKTOP) { return buildDesktopParentPanel(); }
     var p = el('div', 'settings-panel');
     p.appendChild(el('div', 'pl-title', 'Configuraciones del Control Parental'));
     p.appendChild(el('div', 'pl-tip', window.XUPER_DESKTOP ? 'Control parental no disponible en esta versión. No se aplica ningún bloqueo por PIN.' : 'Ingrese la contraseña de cuatro dígitos e ingrese viendo el programa de bloqueo.'));
@@ -5590,6 +5663,7 @@
   }
 
   function buildFeedbackPanel() {
+    if (window.XUPER_DESKTOP) { return buildDesktopFeedbackPanel(); }
     var p = el('div', 'settings-panel');
     p.appendChild(el('div', 'fb-title', 'Ayuda y Feedback'));
     p.appendChild(el('div', 'fb-hr'));
@@ -5656,6 +5730,7 @@
   }
 
   function buildAboutPanel() {
+    if (window.XUPER_DESKTOP) { return buildDesktopAboutPanel(); }
     var p = el('div', 'settings-panel');
     p.appendChild(el('div', 'sp-title plain', 'Sobre nosotros'));
     p.appendChild(abs(el('div', 'sp-hr soft'), 0, 165, 1498, 1));
@@ -5668,6 +5743,132 @@
     port.appendChild(el('div', 'sp-about-mod', 'Desarrollado por TECHPOINT'));
     p.appendChild(port);
     return p;
+  }
+
+  /* ---- screens/settings-desktop.js ------------------------------------------- */
+  /* screens/settings-desktop.js — Paneles de Ajustes del escritorio: Compartir, Bloqueo, Ayuda y Acerca de.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* One layout for every desktop settings page: a header (title + short
+     description) and a column of cards. */
+  function desktopSettingsPage(cls, title, subtitle) {
+    var p = el('div', 'settings-panel sd-page ' + (cls || ''));
+    var head = el('div', 'sd-head');
+    head.appendChild(el('div', 'sd-title', title));
+    if (subtitle) { head.appendChild(el('div', 'sd-sub', subtitle)); }
+    p.appendChild(head);
+    var body = el('div', 'sd-body');
+    p.appendChild(body);
+    return { panel: p, body: body };
+  }
+
+  function desktopSettingsCard(icon, title, text) {
+    var card = el('div', 'sd-card');
+    if (icon) {
+      var ic = el('div', 'sd-card-icon');
+      ic.innerHTML = icon;
+      card.appendChild(ic);
+    }
+    var tx = el('div', 'sd-card-text');
+    tx.appendChild(el('div', 'sd-card-title', title));
+    if (text) { tx.appendChild(el('div', 'sd-card-sub', text)); }
+    card.appendChild(tx);
+    return card;
+  }
+
+  function desktopSettingsButton(label, icon, run, primary) {
+    var b = el('div', 'sd-btn focusable' + (primary ? ' is-primary' : ''));
+    if (icon) { var i = el('span', 'sd-btn-icon'); i.innerHTML = icon; b.appendChild(i); }
+    b.appendChild(el('span', null, label));
+    b._activate = run;
+    return b;
+  }
+
+  function buildDesktopSharePanel() {
+    var page = desktopSettingsPage('sd-share', 'Compartir', 'Lleva OpenTV a otro equipo con Windows.');
+    page.body.appendChild(desktopSettingsCard(UI_ICONS.share, 'Comparte el instalador',
+      'Copia el archivo "OpenTV Setup" (o la versión portable) a otro PC y ábrelo allí. No hace falta internet para instalarlo.'));
+    page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Tu perfil se queda aquí',
+      'Tu lista, el historial y tus preferencias están guardados solo en este equipo. En otro PC la app empieza con un perfil nuevo.'));
+    page.body.appendChild(desktopSettingsCard(UI_ICONS.lock, 'Sin cuentas ni contraseñas',
+      'No hay que registrarse: cada equipo crea su propio perfil local al abrir la app.'));
+    return page.panel;
+  }
+
+  function buildDesktopParentPanel() {
+    var page = desktopSettingsPage('sd-parent', 'Bloqueo', 'Control parental con PIN.');
+    var card = desktopSettingsCard(UI_ICONS.lock, 'Próximamente',
+      'El bloqueo por PIN todavía no está disponible en la versión de Windows. Ningún contenido está bloqueado.');
+    card.classList.add('is-muted');
+    page.body.appendChild(card);
+    return page.panel;
+  }
+
+  var DESKTOP_SHORTCUTS = [
+    ['Espacio', 'Reproducir o pausar'],
+    ['← / →', 'Retroceder o adelantar 10 s'],
+    ['↓', 'Ajustes del reproductor'],
+    ['F o F11', 'Pantalla completa'],
+    ['Esc', 'Salir de pantalla completa o volver'],
+    ['M', 'Silenciar'],
+    ['Ctrl + P', 'Ventana flotante'],
+    ['Ctrl + F', 'Buscar'],
+    ['Ctrl + J', 'Historial'],
+    ['Ctrl + H', 'Inicio']
+  ];
+
+  function buildDesktopFeedbackPanel() {
+    var page = desktopSettingsPage('sd-help', 'Ayuda', 'Si algo no funciona, el diagnóstico te dice dónde está el problema.');
+    var diag = desktopSettingsCard(UI_ICONS.diagnostics, '¿Un vídeo o canal no carga?',
+      'Abre el diagnóstico: comprueba tu conexión, el DNS seguro y los servidores, y puede generar un reporte para enviarlo. Nada se envía de forma automática.');
+    diag.appendChild(desktopSettingsButton('Abrir diagnóstico', UI_ICONS.wifi, openDesktopDiagnostic, true));
+    page.body.appendChild(diag);
+    page.body.appendChild(desktopSettingsCard(UI_ICONS.settings, 'Si un vídeo se corta o no tiene sonido',
+      'La app cambia sola al modo compatible. También puedes elegir "Compatibilidad máxima" en Ajustes del reproductor (flecha abajo).'));
+
+    var keys = el('div', 'sd-card sd-keys');
+    var kh = el('div', 'sd-keys-head');
+    var ki = el('div', 'sd-card-icon');
+    ki.innerHTML = UI_ICONS.keyboard;
+    kh.appendChild(ki);
+    kh.appendChild(el('div', 'sd-card-title', 'Atajos de teclado'));
+    keys.appendChild(kh);
+    var grid = el('div', 'sd-keys-grid');
+    DESKTOP_SHORTCUTS.forEach(function (k) {
+      var row = el('div', 'sd-key-row');
+      row.appendChild(el('kbd', null, k[0]));
+      row.appendChild(el('span', null, k[1]));
+      grid.appendChild(row);
+    });
+    keys.appendChild(grid);
+    page.body.appendChild(keys);
+    return page.panel;
+  }
+
+  function buildDesktopAboutPanel() {
+    var page = desktopSettingsPage('sd-about', 'Acerca de', null);
+    var hero = el('div', 'sd-about-hero');
+    var logo = el('img', 'sd-about-logo');
+    logo.src = 'images/logo.svg';
+    logo.alt = '';
+    hero.appendChild(logo);
+    var who = el('div', 'sd-about-who');
+    who.appendChild(el('div', 'sd-about-name', 'OpenTV'));
+    var ver = el('div', 'sd-about-ver', 'Versión 1.0.0 · Windows x64');
+    who.appendChild(ver);
+    hero.appendChild(who);
+    page.body.appendChild(hero);
+    if (window.desktop && window.desktop.info) {
+      window.desktop.info().then(function (info) {
+        if (info && info.version) { ver.textContent = 'Versión ' + info.version + ' · Windows ' + (info.arch || 'x64'); }
+      }).catch(function () {});
+    }
+    page.body.appendChild(desktopSettingsCard(UI_ICONS.channels, 'Películas, series y TV en vivo en un solo lugar',
+      'Catálogo que se actualiza solo, reproducción automática con modo compatible, ventana flotante y tu lista guardada en este equipo.'));
+    page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Desarrollado por TECHPOINT', null));
+    page.body.appendChild(desktopSettingsCard(UI_ICONS.info, 'Componentes de código abierto',
+      'Electron, HLS.js (Apache 2.0) y FFmpeg (GPL v3). Las licencias completas están en la carpeta "licenses" de la instalación.'));
+    return page.panel;
   }
 
   /* ---- screens/netdiag.js ---------------------------------------------------- */
@@ -7145,10 +7346,103 @@
     btn.classList.toggle('is-selected', !!(cur && !cur.auto));
   }
 
+  /* ---- Quality button + menu in the movie player bar ---- */
+  /* Options from the portal versions of the title, or from the HLS stream. */
+  function playerQualityOptions() {
+    var out = [];
+    if (state.playerMode !== 'vod') { return out; }
+    var info = currentTrackInfo();
+    var tracks = (info && info.tracks) || [];
+    var heights = [];
+    for (var i = 0; i < tracks.length; i++) {
+      var h = trackLines(tracks[i]);
+      if (h && heights.indexOf(h) === -1) { heights.push(h); }
+    }
+    heights.sort(function (a, b) { return b - a; });
+    if (heights.length >= 2) {
+      var pref = preferredQualityHeight();
+      var playing = trackLines(info.selected);
+      var sel = (pref && heights.indexOf(pref) !== -1) ? pref : 0;
+      out.push({ label: 'Automática', note: playing && !pref ? hlsQualityLabel(playing) : '', selected: sel === 0, apply: function () {
+        if (sel === 0) { return; } safeLocalWrite(QUALITY_PREF_KEY, 0); restartCurrentPlayback(); } });
+      heights.forEach(function (hh) {
+        out.push({ label: hlsQualityLabel(hh), selected: sel === hh, apply: function () {
+          if (sel === hh) { return; } safeLocalWrite(QUALITY_PREF_KEY, hh); restartCurrentPlayback(); } });
+      });
+      return out;
+    }
+    var api = hlsQualityApi();
+    var levels = api ? api.levels() : [];
+    if (levels.length < 2) { return out; }
+    var cur = api.current() || { auto: true, height: 0 };
+    out.push({ label: 'Automática', note: cur.auto && cur.height ? hlsQualityLabel(cur.height) : '', selected: !!cur.auto,
+      apply: function () { api.choose(0); } });
+    levels.forEach(function (l) {
+      out.push({ label: hlsQualityLabel(l.height), selected: !cur.auto && cur.height === l.height,
+        apply: function () { api.choose(l.height); } });
+    });
+    return out;
+  }
+
+  function updateQualityButton() {
+    var btn = $('vod-quality');
+    if (!btn) { return; }
+    var opts = playerQualityOptions();
+    btn.hidden = opts.length < 2;
+    var chosen = null;
+    for (var i = 0; i < opts.length; i++) { if (opts[i].selected) { chosen = opts[i]; } }
+    setButtonText(btn, 'Calidad: ' + (chosen ? chosen.label + (chosen.note ? ' · ' + chosen.note : '') : 'Automática'));
+  }
+
+  var qualityMenu = null;
+  function closeQualityMenu() {
+    if (qualityMenu) { qualityMenu.classList.remove('is-open'); }
+  }
+  function toggleQualityMenu(btn) {
+    if (qualityMenu && qualityMenu.classList.contains('is-open')) { closeQualityMenu(); return; }
+    var opts = playerQualityOptions();
+    if (opts.length < 2 || !btn) { return; }
+    if (!qualityMenu) {
+      qualityMenu = el('div', 'quality-menu');
+      document.body.appendChild(qualityMenu);
+      document.addEventListener('pointerdown', function (event) {
+        if (qualityMenu.classList.contains('is-open') && !qualityMenu.contains(event.target) &&
+            !(event.target.closest && event.target.closest('#vod-quality'))) { closeQualityMenu(); }
+      }, true);
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && qualityMenu.classList.contains('is-open')) { event.stopPropagation(); event.preventDefault(); closeQualityMenu(); }
+      }, true);
+    }
+    clear(qualityMenu);
+    qualityMenu.appendChild(el('div', 'qm-title', 'Calidad'));
+    opts.forEach(function (o) {
+      var item = el('button', 'qm-item' + (o.selected ? ' is-selected' : ''));
+      item.type = 'button';
+      var check = el('span', 'qm-check');
+      check.innerHTML = o.selected ? UI_ICONS.check : '';
+      item.appendChild(check);
+      item.appendChild(el('span', 'qm-label', o.label));
+      if (o.note) { item.appendChild(el('span', 'qm-note', o.note)); }
+      item.addEventListener('click', function (event) {
+        event.stopPropagation();
+        closeQualityMenu();
+        o.apply();
+        setTimeout(updateQualityButton, 300);
+      });
+      qualityMenu.appendChild(item);
+    });
+    var r = btn.getBoundingClientRect();
+    qualityMenu.classList.add('is-open');
+    var mw = qualityMenu.offsetWidth, mh = qualityMenu.offsetHeight;
+    qualityMenu.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - mw - 8, r.left + r.width / 2 - mw / 2))) + 'px';
+    qualityMenu.style.top = Math.round(Math.max(8, r.top - mh - 12)) + 'px';
+  }
+
   function installQualityControls() {
     if (!window.XUPER_DESKTOP) { return; }
     document.addEventListener('xuper:hls-levels', function () {
       updateLiveQualityButton();
+      updateQualityButton();
       if (playSettingViewOpen) { renderPlaySettingQuality(); }
     });
   }
@@ -7587,6 +7881,90 @@
       var on = !!(tiles[i]._ep && state.detailEpisode && tiles[i]._ep.id === state.detailEpisode.id);
       tiles[i].classList.toggle('is-playing', on);
     }
+  }
+
+  /* ---- player/next-episode.js ------------------------------------------------ */
+  /* player/next-episode.js — Al terminar un episodio: cuenta atrás de 10 s con "Siguiente episodio" o "Salir".
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  var NEXT_EPISODE_SECONDS = 10;
+  var nextEpisodePrompt = null;
+  var nextEpisodeTimer = null;
+  var nextEpisodeTick = null;
+
+  /* The episode after the current one: { episode, label } or null. */
+  function upcomingEpisode(item) {
+    var episodes = episodeListForCurrentSeason(item);
+    var current = state.playerEpisode;
+    for (var i = 0; i < episodes.length; i++) {
+      if (current && (episodes[i].id === current.id || episodes[i].number === current.number)) {
+        if (i + 1 < episodes.length) {
+          var ep = episodes[i + 1];
+          var num = (ep.number !== undefined && ep.number !== null) ? ep.number : i + 2;
+          var title = episodeDisplayTitle(item, ep, i + 1);
+          return { label: 'Episodio ' + num + (title && title !== 'Episodio ' + num ? ' · ' + title : '') };
+        }
+        break;
+      }
+    }
+    var seasons = seriesSeasons(item);
+    if (seasons[(state.playerSeasonIndex || 0) + 1]) { return { label: 'Primer episodio de la siguiente temporada' }; }
+    return null;
+  }
+
+  function offerNextEpisode() {
+    var item = state.playerItem;
+    if (!item || !isSeriesItem(item) || state.screen !== 'player') { return; }
+    var next = upcomingEpisode(item);
+    if (!next) { return; }
+    hideNextEpisodePrompt();
+    showOsdIcon('none');
+    if (!nextEpisodePrompt) {
+      nextEpisodePrompt = el('div', 'next-episode-prompt');
+      nextEpisodePrompt.setAttribute('data-no-gesture', '');
+      nextEpisodePrompt.addEventListener('click', function (event) { event.stopPropagation(); });
+      playerStage.appendChild(nextEpisodePrompt);
+    }
+    clear(nextEpisodePrompt);
+    nextEpisodePrompt.appendChild(el('div', 'nep-kicker', 'Siguiente episodio'));
+    nextEpisodePrompt.appendChild(el('div', 'nep-title', next.label));
+    var bar = el('div', 'nep-bar');
+    var fill = el('i', 'nep-fill');
+    fill.style.animationDuration = NEXT_EPISODE_SECONDS + 's';
+    bar.appendChild(fill);
+    nextEpisodePrompt.appendChild(bar);
+    var actions = el('div', 'nep-actions');
+    var go = el('div', 'nep-btn is-primary focusable');
+    go.innerHTML = UI_ICONS.play + '<span>Reproducir ahora · ' + NEXT_EPISODE_SECONDS + '</span>';
+    var label = go.querySelector('span');
+    go._activate = function () { hideNextEpisodePrompt(); advanceToNextEpisode(); };
+    var exit = el('div', 'nep-btn focusable');
+    exit.innerHTML = UI_ICONS.back + '<span>Salir</span>';
+    exit._activate = function () { hideNextEpisodePrompt(); desktopBack(); };
+    actions.appendChild(go);
+    actions.appendChild(exit);
+    nextEpisodePrompt.appendChild(actions);
+    nextEpisodePrompt.classList.add('is-visible');
+    setFocus(go, true);
+
+    var left = NEXT_EPISODE_SECONDS;
+    nextEpisodeTick = setInterval(function () {
+      left--;
+      if (label) { label.textContent = 'Reproducir ahora · ' + Math.max(0, left); }
+      if (state.screen !== 'player' || state.playerItem !== item) { hideNextEpisodePrompt(); }
+    }, 1000);
+    nextEpisodeTimer = setTimeout(function () {
+      hideNextEpisodePrompt();
+      if (state.screen === 'player' && state.playerItem === item) { advanceToNextEpisode(); }
+    }, NEXT_EPISODE_SECONDS * 1000);
+    /* Seeking back or pressing play again means "keep watching this one". */
+    playerVideo.addEventListener('play', hideNextEpisodePrompt, { once: true });
+  }
+
+  function hideNextEpisodePrompt() {
+    if (nextEpisodeTimer) { clearTimeout(nextEpisodeTimer); nextEpisodeTimer = null; }
+    if (nextEpisodeTick) { clearInterval(nextEpisodeTick); nextEpisodeTick = null; }
+    if (nextEpisodePrompt) { nextEpisodePrompt.classList.remove('is-visible'); }
   }
 
   /* ---- player/settings-dialog.js --------------------------------------------- */
@@ -8859,7 +9237,8 @@
       clearStatus();
     };
     playerVideo.onended = function () {
-      if (state.playerMode === 'vod') { advanceToNextEpisode(); }
+      if (state.playerMode !== 'vod') { return; }
+      if (window.XUPER_DESKTOP) { offerNextEpisode(); } else { advanceToNextEpisode(); }
     };
     playerVideo.ontimeupdate = function () {
       if (playerVideo.currentTime > 0) { clearStatusWhenRunning(); }
@@ -10208,6 +10587,7 @@
     if (document.pictureInPictureEnabled) {
       defs.push({ id: 'vod-pip', group: 'right', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
     }
+    defs.push({ id: 'vod-quality', group: 'right', icon: UI_ICONS.quality, tip: 'Calidad', run: function () { toggleQualityMenu($('vod-quality')); } });
     defs.push({ id: 'vod-fullscreen', group: 'right', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
     /* Three zones: Volver on the left, seek/play in the middle, the rest on the right. */
     var groups = { left: el('div', 'vt-group vt-left'), center: el('div', 'vt-group vt-center'), right: el('div', 'vt-group vt-right') };
@@ -10229,6 +10609,7 @@
         setButtonText(toggle, showPlay ? 'Reproducir (Espacio)' : 'Pausa (Espacio)', showPlay ? UI_ICONS.play : UI_ICONS.pause);
       }
       $('vod-episodes').hidden = !isSeriesItem(state.playerItem);
+      updateQualityButton();
       var canSkip = state.playerMode === 'vod' && !!(playerVideo.currentSrc || playerVideo.getAttribute('src'));
       $('vod-forward').disabled = !canSkip;
       $('vod-rewind').disabled = !canSkip;

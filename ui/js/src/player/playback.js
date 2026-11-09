@@ -413,7 +413,8 @@ function playUrl(url, playOptions) {
     clearStatus();
   };
   playerVideo.onended = function () {
-    if (state.playerMode === 'vod') { advanceToNextEpisode(); }
+    if (state.playerMode !== 'vod') { return; }
+    if (window.XUPER_DESKTOP) { offerNextEpisode(); } else { advanceToNextEpisode(); }
   };
   playerVideo.ontimeupdate = function () {
     if (playerVideo.currentTime > 0) { clearStatusWhenRunning(); }

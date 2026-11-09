@@ -60,3 +60,13 @@ var SETTINGS_MENU_ICONS = {
   feedback: '<svg viewBox="0 0 32 32"><path d="M6 4h15l5 5v19H6z"/><path d="M20 4v6h6M10 16h12M10 21h8"/></svg>',
   about: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="M16 14v8M16 10h.1"/></svg>'
 };
+
+/* Desktop: short labels that fit the menu and line icons like the rest of the app. */
+if (window.XUPER_DESKTOP) {
+  var DESKTOP_SETTINGS_LABELS = { share: 'Compartir', playback: 'Reproducción', feedback: 'Ayuda', about: 'Acerca de' };
+  SETTINGS_ITEMS.forEach(function (it) { if (DESKTOP_SETTINGS_LABELS[it.id]) { it.label = DESKTOP_SETTINGS_LABELS[it.id]; } });
+  SETTINGS_MENU_ICONS = {
+    profile: UI_ICONS.user, history: UI_ICONS.mylist, share: UI_ICONS.share, parent: UI_ICONS.lock,
+    playback: UI_ICONS.settings, netdiag: UI_ICONS.wifi, feedback: UI_ICONS.help, about: UI_ICONS.info
+  };
+}

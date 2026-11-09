@@ -70,10 +70,103 @@ function updateLiveQualityButton() {
   btn.classList.toggle('is-selected', !!(cur && !cur.auto));
 }
 
+/* ---- Quality button + menu in the movie player bar ---- */
+/* Options from the portal versions of the title, or from the HLS stream. */
+function playerQualityOptions() {
+  var out = [];
+  if (state.playerMode !== 'vod') { return out; }
+  var info = currentTrackInfo();
+  var tracks = (info && info.tracks) || [];
+  var heights = [];
+  for (var i = 0; i < tracks.length; i++) {
+    var h = trackLines(tracks[i]);
+    if (h && heights.indexOf(h) === -1) { heights.push(h); }
+  }
+  heights.sort(function (a, b) { return b - a; });
+  if (heights.length >= 2) {
+    var pref = preferredQualityHeight();
+    var playing = trackLines(info.selected);
+    var sel = (pref && heights.indexOf(pref) !== -1) ? pref : 0;
+    out.push({ label: 'Automática', note: playing && !pref ? hlsQualityLabel(playing) : '', selected: sel === 0, apply: function () {
+      if (sel === 0) { return; } safeLocalWrite(QUALITY_PREF_KEY, 0); restartCurrentPlayback(); } });
+    heights.forEach(function (hh) {
+      out.push({ label: hlsQualityLabel(hh), selected: sel === hh, apply: function () {
+        if (sel === hh) { return; } safeLocalWrite(QUALITY_PREF_KEY, hh); restartCurrentPlayback(); } });
+    });
+    return out;
+  }
+  var api = hlsQualityApi();
+  var levels = api ? api.levels() : [];
+  if (levels.length < 2) { return out; }
+  var cur = api.current() || { auto: true, height: 0 };
+  out.push({ label: 'Automática', note: cur.auto && cur.height ? hlsQualityLabel(cur.height) : '', selected: !!cur.auto,
+    apply: function () { api.choose(0); } });
+  levels.forEach(function (l) {
+    out.push({ label: hlsQualityLabel(l.height), selected: !cur.auto && cur.height === l.height,
+      apply: function () { api.choose(l.height); } });
+  });
+  return out;
+}
+
+function updateQualityButton() {
+  var btn = $('vod-quality');
+  if (!btn) { return; }
+  var opts = playerQualityOptions();
+  btn.hidden = opts.length < 2;
+  var chosen = null;
+  for (var i = 0; i < opts.length; i++) { if (opts[i].selected) { chosen = opts[i]; } }
+  setButtonText(btn, 'Calidad: ' + (chosen ? chosen.label + (chosen.note ? ' · ' + chosen.note : '') : 'Automática'));
+}
+
+var qualityMenu = null;
+function closeQualityMenu() {
+  if (qualityMenu) { qualityMenu.classList.remove('is-open'); }
+}
+function toggleQualityMenu(btn) {
+  if (qualityMenu && qualityMenu.classList.contains('is-open')) { closeQualityMenu(); return; }
+  var opts = playerQualityOptions();
+  if (opts.length < 2 || !btn) { return; }
+  if (!qualityMenu) {
+    qualityMenu = el('div', 'quality-menu');
+    document.body.appendChild(qualityMenu);
+    document.addEventListener('pointerdown', function (event) {
+      if (qualityMenu.classList.contains('is-open') && !qualityMenu.contains(event.target) &&
+          !(event.target.closest && event.target.closest('#vod-quality'))) { closeQualityMenu(); }
+    }, true);
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && qualityMenu.classList.contains('is-open')) { event.stopPropagation(); event.preventDefault(); closeQualityMenu(); }
+    }, true);
+  }
+  clear(qualityMenu);
+  qualityMenu.appendChild(el('div', 'qm-title', 'Calidad'));
+  opts.forEach(function (o) {
+    var item = el('button', 'qm-item' + (o.selected ? ' is-selected' : ''));
+    item.type = 'button';
+    var check = el('span', 'qm-check');
+    check.innerHTML = o.selected ? UI_ICONS.check : '';
+    item.appendChild(check);
+    item.appendChild(el('span', 'qm-label', o.label));
+    if (o.note) { item.appendChild(el('span', 'qm-note', o.note)); }
+    item.addEventListener('click', function (event) {
+      event.stopPropagation();
+      closeQualityMenu();
+      o.apply();
+      setTimeout(updateQualityButton, 300);
+    });
+    qualityMenu.appendChild(item);
+  });
+  var r = btn.getBoundingClientRect();
+  qualityMenu.classList.add('is-open');
+  var mw = qualityMenu.offsetWidth, mh = qualityMenu.offsetHeight;
+  qualityMenu.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - mw - 8, r.left + r.width / 2 - mw / 2))) + 'px';
+  qualityMenu.style.top = Math.round(Math.max(8, r.top - mh - 12)) + 'px';
+}
+
 function installQualityControls() {
   if (!window.XUPER_DESKTOP) { return; }
   document.addEventListener('xuper:hls-levels', function () {
     updateLiveQualityButton();
+    updateQualityButton();
     if (playSettingViewOpen) { renderPlaySettingQuality(); }
   });
 }

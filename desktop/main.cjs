@@ -11,6 +11,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'xuper', privileges: {
 
 const info = require('../package.json');
 const { createService } = require('./service.cjs');
+const systemAudio = require('./system-volume.cjs');
 let windowRef;
 let service;
 let quitting = false;
@@ -112,6 +113,10 @@ async function start() {
     if (flag === 'query') return Boolean(windowRef?.isFullScreen());
     return toggleFullscreen(flag);
   });
+  ipcMain.handle('desktop:system-volume', (event, command, value) => {
+    if (!trusted(event) || ['get', 'set', 'mute'].indexOf(command) === -1) return { error: 'Operación no permitida' };
+    return systemAudio.systemVolume(command, value);
+  });
   ipcMain.handle('desktop:info', (event) => trusted(event) ? {
     version: info.version, platform: process.platform, arch: process.arch,
     independent: true, upstream: info.upstream?.commit || null
@@ -200,5 +205,6 @@ app.on('before-quit', () => {
   if (quitting) return;
   quitting = true;
   try { service?.close(); } catch { /* shutdown continues */ }
+  try { systemAudio.stop(); } catch { /* shutdown continues */ }
 });
 app.on('window-all-closed', () => app.quit());

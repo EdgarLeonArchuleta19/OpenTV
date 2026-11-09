@@ -191,6 +191,7 @@ function bindDesktopPlayback() {
   if (document.pictureInPictureEnabled) {
     defs.push({ id: 'vod-pip', group: 'right', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
   }
+  defs.push({ id: 'vod-quality', group: 'right', icon: UI_ICONS.quality, tip: 'Calidad', run: function () { toggleQualityMenu($('vod-quality')); } });
   defs.push({ id: 'vod-fullscreen', group: 'right', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
   /* Three zones: Volver on the left, seek/play in the middle, the rest on the right. */
   var groups = { left: el('div', 'vt-group vt-left'), center: el('div', 'vt-group vt-center'), right: el('div', 'vt-group vt-right') };
@@ -212,6 +213,7 @@ function bindDesktopPlayback() {
       setButtonText(toggle, showPlay ? 'Reproducir (Espacio)' : 'Pausa (Espacio)', showPlay ? UI_ICONS.play : UI_ICONS.pause);
     }
     $('vod-episodes').hidden = !isSeriesItem(state.playerItem);
+    updateQualityButton();
     var canSkip = state.playerMode === 'vod' && !!(playerVideo.currentSrc || playerVideo.getAttribute('src'));
     $('vod-forward').disabled = !canSkip;
     $('vod-rewind').disabled = !canSkip;

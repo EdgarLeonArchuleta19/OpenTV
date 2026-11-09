@@ -2,6 +2,7 @@
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 function buildSharePanel() {
+  if (window.XUPER_DESKTOP) { return buildDesktopSharePanel(); }
   var p = panelBase('Compartir APP');
   p.appendChild(el('div', 'sp-hr'));
   p.appendChild(el('div', 'share-copy', 'Para compartir la aplicación de Windows, copia el ZIP completo. Los favoritos y el historial de tu perfil permanecen en este equipo.'));
@@ -30,6 +31,7 @@ function buildCrPanel() {
 }
 
 function buildParentPanel() {
+  if (window.XUPER_DESKTOP) { return buildDesktopParentPanel(); }
   var p = el('div', 'settings-panel');
   p.appendChild(el('div', 'pl-title', 'Configuraciones del Control Parental'));
   p.appendChild(el('div', 'pl-tip', window.XUPER_DESKTOP ? 'Control parental no disponible en esta versión. No se aplica ningún bloqueo por PIN.' : 'Ingrese la contraseña de cuatro dígitos e ingrese viendo el programa de bloqueo.'));
@@ -52,6 +54,7 @@ function buildParentPanel() {
 }
 
 function buildFeedbackPanel() {
+  if (window.XUPER_DESKTOP) { return buildDesktopFeedbackPanel(); }
   var p = el('div', 'settings-panel');
   p.appendChild(el('div', 'fb-title', 'Ayuda y Feedback'));
   p.appendChild(el('div', 'fb-hr'));
@@ -118,6 +121,7 @@ function buildUpgradePanel() {
 }
 
 function buildAboutPanel() {
+  if (window.XUPER_DESKTOP) { return buildDesktopAboutPanel(); }
   var p = el('div', 'settings-panel');
   p.appendChild(el('div', 'sp-title plain', 'Sobre nosotros'));
   p.appendChild(abs(el('div', 'sp-hr soft'), 0, 165, 1498, 1));
