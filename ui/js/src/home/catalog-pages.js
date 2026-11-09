@@ -228,7 +228,7 @@ function buildFeaturedPage(page) {
 
 function buildMoviesPage(page) {
   var all = allVodFor('pelicula');
-  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', gridTitle: 'Todas las películas' }); return; }
+  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', trending: 'movie', rows: 'pelicula', grid: true, gridTitle: 'Todas las películas' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
   bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
@@ -241,7 +241,7 @@ function buildMoviesPage(page) {
 
 function buildSeriesPage(page) {
   var all = allVodFor('serie');
-  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', gridTitle: 'Todas las series' }); return; }
+  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', trending: 'series', rows: 'serie', grid: true, gridTitle: 'Todas las series' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
   bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
@@ -254,7 +254,7 @@ function buildSeriesPage(page) {
 
 function buildAnimePage(page) {
   var all = allVodFor('anime');
-  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { gridTitle: 'Anime y animación' }); return; }
+  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { rows: 'anime', grid: true, gridTitle: 'Todo el anime' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
   bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
@@ -305,7 +305,7 @@ function buildNovelsPage(page) {
    horizontal poster row (7 columns, last one clipped by the screen edge). */
 function buildKidsPage(page) {
   if (window.XUPER_DESKTOP) {
-    buildDesktopSection(page, allVodFor('infantil'), { gridTitle: 'Para toda la familia' });
+    buildDesktopSection(page, allVodFor('infantil'), { rows: 'infantil', grid: true, gridTitle: 'Todo para niños' });
     return;
   }
   var source = vodFor('infantil', 12, 0);
@@ -367,6 +367,7 @@ function buildDesktopSection(page, all, opts) {
   }
   if (opts.continueFilter !== undefined) { y = appendContinueRow(page, y, opts.continueFilter); }
   if (opts.top10) { y = appendTrendingRows(page, y); }
+  else if (opts.trending) { y = appendTrendingRows(page, y, opts.trending); }
   var shelves = opts.rows ? portalRowsFor(opts.rows, 4) : [];
   if (opts.top10) {
     var regular = [];
@@ -381,7 +382,8 @@ function buildDesktopSection(page, all, opts) {
     shelves = regular;
   }
   for (var r = 0; r < shelves.length; r++) { y = appendPosterRow(page, y, shelves[r].title, shelves[r].items); }
-  if (!shelves.length || !opts.rows) { appendCatalogGrid(page, all, y + 20, opts.gridTitle || 'Catálogo'); }
+  /* Sections end with the whole catalogue; Inicio only when it has no shelves. */
+  if (opts.grid || !shelves.length || !opts.rows) { appendCatalogGrid(page, all, y + 20, opts.gridTitle || 'Catálogo'); }
 }
 
 /* Always ten when the catalogue has them: the portal's ranking first, then

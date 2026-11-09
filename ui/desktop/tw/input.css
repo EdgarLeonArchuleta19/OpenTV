@@ -2077,3 +2077,18 @@ body.has-titlebar .boot-splash { top: 36px; }
 .desktop .dd-rel-arrow:hover { background: rgba(255, 255, 255, .2); transform: scale(1.06); }
 .desktop .dd-related-wrap.at-start .dd-rel-arrow.is-prev,
 .desktop .dd-related-wrap.at-end .dd-rel-arrow.is-next { opacity: 0 !important; pointer-events: none; }
+
+/* Volver + título: fuera de la barra, arriba a la izquierda de la pantalla. */
+.desktop .player-vod-infobar::before { display: none; }
+.desktop .vod-topbar {
+  position: absolute !important; z-index: 60;
+  left: calc(var(--ox, 0px) * -1 + 44px) !important; top: calc(var(--oy, 0px) * -1 + 34px) !important;
+  opacity: 0; pointer-events: none; transition: opacity .25s ease;
+}
+.desktop .vod-topbar::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  left: -44px; top: -34px; width: var(--cw, 1920px); height: 230px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, .7), rgba(0, 0, 0, 0));
+}
+.desktop .player-vod-infobar.is-active + .vod-topbar { opacity: 1; pointer-events: auto; }
+.desktop #screen-player.is-mini .vod-topbar { display: none; }

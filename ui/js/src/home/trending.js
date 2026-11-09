@@ -143,11 +143,13 @@ function refreshTrendingPage() {
   }
 }
 
-function appendTrendingRows(page, y) {
+/* kind: 'movie' / 'series' shows only that row (Películas, Series pages). */
+function appendTrendingRows(page, y, kind) {
   for (var i = 0; i < trendingRows.length; i++) {
     var row = trendingRows[i];
+    if (kind && row && row.items && row.items[0] && (!!isSeriesItem(row.items[0])) !== (kind === 'series')) { continue; }
     if (row && row.items && row.items.length >= 4) {
-      y = appendPosterRow(page, y, row.title, row.items.filter(hasUsableCover));
+      y = appendPosterRow(page, y, kind ? 'Tendencias de la semana' : row.title, row.items.filter(hasUsableCover));
     }
   }
   return y;

@@ -202,7 +202,10 @@ function bindDesktopPlayback() {
   tips.appendChild(groups.left);
   tips.appendChild(groups.center);
   tips.appendChild(groups.right);
-  document.querySelector('.vod-infobar-content').appendChild(groups.top);
+  /* Volver + title live next to the bar (not inside it: the bar animates
+     with a transform, which moved them to the bottom under the video). */
+  var vodBar = $('player-vod-infobar');
+  vodBar.parentNode.insertBefore(groups.top, vodBar.nextSibling);
   var titleNode = $('vod-infobar-title');
   /* The title sits next to Volver at the top; the controls stay centred. */
   if (titleNode) { groups.top.appendChild(titleNode); }
