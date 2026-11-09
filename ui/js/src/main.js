@@ -3,6 +3,7 @@
 
 /* ------------------------------------------------------------------ boot */
 function boot() {
+  if (window.XUPER_DESKTOP) { installTitleBar(); }
   fitDesignViewport();
   window.addEventListener('resize', fitDesignViewport, false);
   window.addEventListener('orientationchange', fitDesignViewport, false);

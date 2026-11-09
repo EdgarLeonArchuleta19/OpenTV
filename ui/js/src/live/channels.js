@@ -541,7 +541,7 @@ function setChannel(index, immediate) {
   }
   scrollLiveList();
   syncLiveFavButton();
-  if (window.XUPER_DESKTOP && CHANNELS[index]) { rememberLiveChannel(CHANNELS[index]); }
+  if (window.XUPER_DESKTOP && CHANNELS[index]) { rememberLiveChannel(CHANNELS[index]); updateTitleBarSection(); }
   if (state.screen === 'player') {
     updatePlayerChannel();
     if (state.playerMode === 'live') {

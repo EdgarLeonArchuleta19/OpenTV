@@ -171,9 +171,11 @@ function appendCatalogGrid(page, items, startY, titleText) {
   page.appendChild(sub);
   y += 50;
 
-  var colW = 276;
-  var colH = 390;
-  var maxCols = 6;
+  var compact = window.XUPER_DESKTOP && catalogCompact();
+  var colW = compact ? 236 : 276;
+  var colH = compact ? 340 : 390;
+  var maxCols = compact ? 7 : 6;
+  var posterW = compact ? 214 : 250, posterH = compact ? 308 : 360;
   var cursor = 0;
   var more = null;
   if (window.XUPER_DESKTOP) {
@@ -190,7 +192,7 @@ function appendCatalogGrid(page, items, startY, titleText) {
     for (; cursor < limit; cursor++) {
       var col = cursor % maxCols;
       var row = Math.floor(cursor / maxCols);
-      page.appendChild(makePoster(items[cursor], 192 + col * colW, y + row * colH, 250, 360, { gold: true }));
+      page.appendChild(makePoster(items[cursor], 192 + col * colW, y + row * colH, posterW, posterH, { gold: true }));
     }
     if (more) {
       abs(more, 192, y + Math.ceil(cursor / maxCols) * colH + 15, 1600, 74);

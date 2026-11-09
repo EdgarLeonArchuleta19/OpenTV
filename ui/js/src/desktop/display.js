@@ -36,6 +36,9 @@ function fitDesignViewport() {
   var size = viewportSize();
   var vw = size.w;
   var vh = size.h;
+  /* Desktop: the window's own title bar strip sits above the canvas. */
+  var titleInset = window.XUPER_DESKTOP ? titleBarHeight() : 0;
+  vh = Math.max(1, vh - titleInset);
   var scale = Math.min(vw / 1920, vh / 1080);
   if (!isFinite(scale) || scale <= 0) { scale = 1; }
   scale = Math.round(scale * 10000) / 10000;
@@ -55,7 +58,7 @@ function fitDesignViewport() {
     app.style.setProperty('--ch', ch + 'px');
     app.style.setProperty('--ox', Math.floor((cw - 1920) / 2) + 'px');
     app.style.setProperty('--oy', Math.floor((ch - 1080) / 2) + 'px');
-    left = 0; top = 0;
+    left = 0; top = titleInset;
   }
   app.style.left = left + 'px';
   app.style.top = top + 'px';

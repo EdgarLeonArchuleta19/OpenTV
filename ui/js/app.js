@@ -1413,6 +1413,7 @@
     if (target) { target.classList.add('is-active'); }
     var previousScreen = state.screen;
     state.screen = name;
+    if (window.XUPER_DESKTOP) { updateTitleBarSection(); }
     if (historyDrawerOpen) { closeHistoryDrawer(true); }
     if (window.XUPER_DESKTOP) {
       if (name === 'home') {
@@ -2129,6 +2130,7 @@
     if (!def || def.action) { return; }
     var prevPage = TABS[state.tab] ? TABS[state.tab].page : def.page;
     state.tab = index;
+    if (window.XUPER_DESKTOP) { updateTitleBarSection(); }
     for (var i = 0; i < tabEls.length; i++) {
       tabEls[i].classList.toggle('is-selected', i === index);
     }
@@ -3255,7 +3257,7 @@
     }
     scrollLiveList();
     syncLiveFavButton();
-    if (window.XUPER_DESKTOP && CHANNELS[index]) { rememberLiveChannel(CHANNELS[index]); }
+    if (window.XUPER_DESKTOP && CHANNELS[index]) { rememberLiveChannel(CHANNELS[index]); updateTitleBarSection(); }
     if (state.screen === 'player') {
       updatePlayerChannel();
       if (state.playerMode === 'live') {
@@ -3912,9 +3914,11 @@
     page.appendChild(sub);
     y += 50;
 
-    var colW = 276;
-    var colH = 390;
-    var maxCols = 6;
+    var compact = window.XUPER_DESKTOP && catalogCompact();
+    var colW = compact ? 236 : 276;
+    var colH = compact ? 340 : 390;
+    var maxCols = compact ? 7 : 6;
+    var posterW = compact ? 214 : 250, posterH = compact ? 308 : 360;
     var cursor = 0;
     var more = null;
     if (window.XUPER_DESKTOP) {
@@ -3931,7 +3935,7 @@
       for (; cursor < limit; cursor++) {
         var col = cursor % maxCols;
         var row = Math.floor(cursor / maxCols);
-        page.appendChild(makePoster(items[cursor], 192 + col * colW, y + row * colH, 250, 360, { gold: true }));
+        page.appendChild(makePoster(items[cursor], 192 + col * colW, y + row * colH, posterW, posterH, { gold: true }));
       }
       if (more) {
         abs(more, 192, y + Math.ceil(cursor / maxCols) * colH + 15, 1600, 74);
@@ -4105,10 +4109,35 @@
   var ROW_W = 1656;
   var ROW_PAD = 18;                 /* room for the hover zoom inside the strip */
   var ROW_TITLE_H = 54;
-  var ROW_POSTER_W = 250, ROW_POSTER_H = 360, ROW_STEP = 276;
-  var ROW_HEIGHT = ROW_TITLE_H + ROW_POSTER_H + ROW_PAD * 2 + 26;
-  var CONTINUE_W = 400, CONTINUE_H = 225, CONTINUE_STEP = 424;
-  var CONTINUE_ROW_HEIGHT = ROW_TITLE_H + CONTINUE_H + 64 + ROW_PAD * 2 + 20;
+  var ROW_POSTER_W, ROW_POSTER_H, ROW_STEP, ROW_HEIGHT;
+  var CONTINUE_W, CONTINUE_H, CONTINUE_STEP, CONTINUE_ROW_HEIGHT;
+
+  /* Catalogue density (Mi cuenta → Apariencia): "compact" shows smaller
+     posters, so more titles fit in each row and grid line. */
+  var CATALOG_DENSITY_KEY = 'opentv_catalog_density_v1';
+  function catalogCompact() {
+    return !!window.XUPER_DESKTOP && safeLocalRead(CATALOG_DENSITY_KEY, 'normal') === 'compact';
+  }
+  function applyCatalogDensity() {
+    var compact = catalogCompact();
+    ROW_POSTER_W = compact ? 200 : 250;
+    ROW_POSTER_H = compact ? 288 : 360;
+    ROW_STEP = ROW_POSTER_W + (compact ? 22 : 26);
+    ROW_HEIGHT = ROW_TITLE_H + ROW_POSTER_H + ROW_PAD * 2 + 26;
+    CONTINUE_W = compact ? 336 : 400;
+    CONTINUE_H = compact ? 189 : 225;
+    CONTINUE_STEP = CONTINUE_W + 24;
+    CONTINUE_ROW_HEIGHT = ROW_TITLE_H + CONTINUE_H + 64 + ROW_PAD * 2 + 20;
+    if (document.body) { document.body.classList.toggle('is-catalog-compact', compact); }
+  }
+  applyCatalogDensity();
+
+  function setCatalogDensity(compact) {
+    safeLocalWrite(CATALOG_DENSITY_KEY, compact ? 'compact' : 'normal');
+    applyCatalogDensity();
+    /* Every catalogue page is rebuilt with the new size next time it shows. */
+    catalogStaleAt = Date.now() + 1;
+  }
 
   function makeRowShell(page, y, height, titleText, extraClass) {
     var host = el('div', 'd-row' + (extraClass ? ' ' + extraClass : ''));
@@ -4242,6 +4271,8 @@
     var item = vodById(r.id);
     var card = el('div', 'continue-card focusable');
     abs(card, x, y, CONTINUE_W, CONTINUE_H + 64);
+    card.style.setProperty('--cc-w', CONTINUE_W + 'px');
+    card.style.setProperty('--cc-h', CONTINUE_H + 'px');
     var frame = el('div', 'cc-frame');
     var art = (item && (item.landscape || item.backdrop || item.poster)) || r.poster;
     if (art) {
@@ -6164,6 +6195,25 @@
       actions.appendChild(card);
     });
     p.appendChild(actions);
+
+    p.appendChild(el('div', 'acc-section', 'Apariencia'));
+    var look = el('div', 'acc-appearance');
+    var lookText = el('div', 'acc-action-text');
+    lookText.appendChild(el('div', 'acc-action-title', 'Tamaño de los pósteres'));
+    lookText.appendChild(el('div', 'acc-action-sub', 'Compacto muestra más títulos en cada fila'));
+    look.appendChild(lookText);
+    var seg = el('div', 'acc-seg');
+    [['Normal', false], ['Compacto', true]].forEach(function (o) {
+      var b = el('div', 'acc-seg-btn focusable' + (catalogCompact() === o[1] ? ' is-selected' : ''), o[0]);
+      b._activate = function () {
+        setCatalogDensity(o[1]);
+        var all = seg.querySelectorAll('.acc-seg-btn');
+        for (var i = 0; i < all.length; i++) { all[i].classList.toggle('is-selected', all[i] === b); }
+      };
+      seg.appendChild(b);
+    });
+    look.appendChild(seg);
+    p.appendChild(look);
 
     var privacy = el('div', 'acc-privacy');
     var lock = el('div', 'acc-privacy-icon');
@@ -10812,6 +10862,77 @@
     }
   }
 
+  /* ---- desktop/titlebar.js --------------------------------------------------- */
+  /* desktop/titlebar.js — Barra de título propia de la ventana (logo + zona para arrastrar).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* The window has no native title bar: this strip takes its place, and
+     Windows draws its own minimize / maximize / close buttons over the right
+     end of it. It disappears in full screen. The canvas is laid out below it
+     (see fitDesignViewport). */
+  var titleBarEl = null;
+
+  function titleBarHeight() {
+    if (!titleBarEl || document.body.classList.contains('is-window-fullscreen')) { return 0; }
+    return titleBarEl.offsetHeight || 0;
+  }
+
+  function installTitleBar() {
+    var info = window.XUPER_DESKTOP && window.desktop && window.desktop.titleBar;
+    if (!info || titleBarEl) { return; }
+    titleBarEl = el('div', 'app-titlebar');
+    titleBarEl.id = 'app-titlebar';
+    titleBarEl.style.height = (parseInt(info.height, 10) || 36) + 'px';
+    var brand = el('div', 'atb-brand');
+    var logo = el('img', 'atb-logo');
+    logo.src = 'images/logo-mark.svg';
+    logo.alt = '';
+    brand.appendChild(logo);
+    brand.appendChild(el('span', 'atb-name', 'OpenTV'));
+    titleBarEl.appendChild(brand);
+    titleBarEl.appendChild(el('div', 'atb-section', ''));
+    document.body.insertBefore(titleBarEl, document.body.firstChild);
+    document.body.classList.add('has-titlebar');
+    if (window.desktop.onFullscreenChanged) {
+      window.desktop.onFullscreenChanged(function (isFull) {
+        document.body.classList.toggle('is-window-fullscreen', !!isFull);
+        fitDesignViewport();
+      });
+    }
+    if (window.desktop.fullscreen) {
+      try {
+        var q = window.desktop.fullscreen('query');
+        if (q && q.then) {
+          q.then(function (isFull) {
+            document.body.classList.toggle('is-window-fullscreen', !!isFull);
+            fitDesignViewport();
+          }).catch(function () {});
+        }
+      } catch (eQuery) { /* no full-screen info */ }
+    }
+  }
+
+  /* Shows where the viewer is ("Películas", "Ajustes"…) next to the logo. */
+  function updateTitleBarSection() {
+    if (!titleBarEl) { return; }
+    var label = '';
+    if (state.screen === 'home') {
+      var tab = TABS[state.tab];
+      label = tab ? String(tab.label || '').charAt(0) + String(tab.label || '').slice(1).toLowerCase() : '';
+      if (label === 'Pelicula') { label = 'Películas'; }
+      if (label === 'Tv') { label = 'TV en vivo'; }
+      if (label === 'Kids') { label = 'Kids'; }
+    } else if (state.screen === 'search') { label = 'Buscar'; }
+    else if (state.screen === 'settings') { label = 'Ajustes'; }
+    else if (state.screen === 'detail' && state.detail) { label = state.detail.title || ''; }
+    else if (state.screen === 'player') {
+      label = state.playerMode === 'live' ? ((CHANNELS[state.channel] || {}).name || 'TV en vivo')
+        : ((state.playerItem && state.playerItem.title) || '');
+    }
+    var node = titleBarEl.querySelector('.atb-section');
+    if (node.textContent !== label) { node.textContent = label; }
+  }
+
   /* ---- desktop/display.js ---------------------------------------------------- */
   /* desktop/display.js — Escalado del lienzo a la ventana y "Volver" de escritorio.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
@@ -10851,6 +10972,9 @@
     var size = viewportSize();
     var vw = size.w;
     var vh = size.h;
+    /* Desktop: the window's own title bar strip sits above the canvas. */
+    var titleInset = window.XUPER_DESKTOP ? titleBarHeight() : 0;
+    vh = Math.max(1, vh - titleInset);
     var scale = Math.min(vw / 1920, vh / 1080);
     if (!isFinite(scale) || scale <= 0) { scale = 1; }
     scale = Math.round(scale * 10000) / 10000;
@@ -10870,7 +10994,7 @@
       app.style.setProperty('--ch', ch + 'px');
       app.style.setProperty('--ox', Math.floor((cw - 1920) / 2) + 'px');
       app.style.setProperty('--oy', Math.floor((ch - 1080) / 2) + 'px');
-      left = 0; top = 0;
+      left = 0; top = titleInset;
     }
     app.style.left = left + 'px';
     app.style.top = top + 'px';
@@ -11717,6 +11841,7 @@
 
   /* ------------------------------------------------------------------ boot */
   function boot() {
+    if (window.XUPER_DESKTOP) { installTitleBar(); }
     fitDesignViewport();
     window.addEventListener('resize', fitDesignViewport, false);
     window.addEventListener('orientationchange', fitDesignViewport, false);

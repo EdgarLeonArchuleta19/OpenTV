@@ -11,6 +11,7 @@ function showScreen(name) {
   if (target) { target.classList.add('is-active'); }
   var previousScreen = state.screen;
   state.screen = name;
+  if (window.XUPER_DESKTOP) { updateTitleBarSection(); }
   if (historyDrawerOpen) { closeHistoryDrawer(true); }
   if (window.XUPER_DESKTOP) {
     if (name === 'home') {

@@ -8,10 +8,35 @@ var ROW_X = 192;
 var ROW_W = 1656;
 var ROW_PAD = 18;                 /* room for the hover zoom inside the strip */
 var ROW_TITLE_H = 54;
-var ROW_POSTER_W = 250, ROW_POSTER_H = 360, ROW_STEP = 276;
-var ROW_HEIGHT = ROW_TITLE_H + ROW_POSTER_H + ROW_PAD * 2 + 26;
-var CONTINUE_W = 400, CONTINUE_H = 225, CONTINUE_STEP = 424;
-var CONTINUE_ROW_HEIGHT = ROW_TITLE_H + CONTINUE_H + 64 + ROW_PAD * 2 + 20;
+var ROW_POSTER_W, ROW_POSTER_H, ROW_STEP, ROW_HEIGHT;
+var CONTINUE_W, CONTINUE_H, CONTINUE_STEP, CONTINUE_ROW_HEIGHT;
+
+/* Catalogue density (Mi cuenta → Apariencia): "compact" shows smaller
+   posters, so more titles fit in each row and grid line. */
+var CATALOG_DENSITY_KEY = 'opentv_catalog_density_v1';
+function catalogCompact() {
+  return !!window.XUPER_DESKTOP && safeLocalRead(CATALOG_DENSITY_KEY, 'normal') === 'compact';
+}
+function applyCatalogDensity() {
+  var compact = catalogCompact();
+  ROW_POSTER_W = compact ? 200 : 250;
+  ROW_POSTER_H = compact ? 288 : 360;
+  ROW_STEP = ROW_POSTER_W + (compact ? 22 : 26);
+  ROW_HEIGHT = ROW_TITLE_H + ROW_POSTER_H + ROW_PAD * 2 + 26;
+  CONTINUE_W = compact ? 336 : 400;
+  CONTINUE_H = compact ? 189 : 225;
+  CONTINUE_STEP = CONTINUE_W + 24;
+  CONTINUE_ROW_HEIGHT = ROW_TITLE_H + CONTINUE_H + 64 + ROW_PAD * 2 + 20;
+  if (document.body) { document.body.classList.toggle('is-catalog-compact', compact); }
+}
+applyCatalogDensity();
+
+function setCatalogDensity(compact) {
+  safeLocalWrite(CATALOG_DENSITY_KEY, compact ? 'compact' : 'normal');
+  applyCatalogDensity();
+  /* Every catalogue page is rebuilt with the new size next time it shows. */
+  catalogStaleAt = Date.now() + 1;
+}
 
 function makeRowShell(page, y, height, titleText, extraClass) {
   var host = el('div', 'd-row' + (extraClass ? ' ' + extraClass : ''));
@@ -145,6 +170,8 @@ function makeContinueCard(r, x, y) {
   var item = vodById(r.id);
   var card = el('div', 'continue-card focusable');
   abs(card, x, y, CONTINUE_W, CONTINUE_H + 64);
+  card.style.setProperty('--cc-w', CONTINUE_W + 'px');
+  card.style.setProperty('--cc-h', CONTINUE_H + 'px');
   var frame = el('div', 'cc-frame');
   var art = (item && (item.landscape || item.backdrop || item.poster)) || r.poster;
   if (art) {

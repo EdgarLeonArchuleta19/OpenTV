@@ -41,6 +41,7 @@
   "player/build.js",
   "player/playback.js",
   "player/live.js",
+  "desktop/titlebar.js",
   "desktop/display.js",
   "desktop/pip.js",
   "desktop/navigation.js",

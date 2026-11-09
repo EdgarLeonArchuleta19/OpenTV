@@ -62,6 +62,25 @@ function buildDesktopProfilePanel() {
   });
   p.appendChild(actions);
 
+  p.appendChild(el('div', 'acc-section', 'Apariencia'));
+  var look = el('div', 'acc-appearance');
+  var lookText = el('div', 'acc-action-text');
+  lookText.appendChild(el('div', 'acc-action-title', 'Tamaño de los pósteres'));
+  lookText.appendChild(el('div', 'acc-action-sub', 'Compacto muestra más títulos en cada fila'));
+  look.appendChild(lookText);
+  var seg = el('div', 'acc-seg');
+  [['Normal', false], ['Compacto', true]].forEach(function (o) {
+    var b = el('div', 'acc-seg-btn focusable' + (catalogCompact() === o[1] ? ' is-selected' : ''), o[0]);
+    b._activate = function () {
+      setCatalogDensity(o[1]);
+      var all = seg.querySelectorAll('.acc-seg-btn');
+      for (var i = 0; i < all.length; i++) { all[i].classList.toggle('is-selected', all[i] === b); }
+    };
+    seg.appendChild(b);
+  });
+  look.appendChild(seg);
+  p.appendChild(look);
+
   var privacy = el('div', 'acc-privacy');
   var lock = el('div', 'acc-privacy-icon');
   lock.innerHTML = UI_ICONS.lock;

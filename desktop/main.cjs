@@ -13,9 +13,11 @@ const info = require('../package.json');
 const { createService } = require('./service.cjs');
 const systemAudio = require('./system-volume.cjs');
 let windowRef;
+let shortcutFor = () => null;
 let service;
 let quitting = false;
 let fullscreenRequested = false;
+const TITLE_BAR_HEIGHT = 36;
 
 function toggleFullscreen(flag) {
   if (!windowRef) return false;
@@ -130,6 +132,10 @@ async function start() {
     title: 'OpenTV', width: 1360, height: 840, minWidth: 960, minHeight: 600,
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     backgroundColor: '#0e0e11', show: false, autoHideMenuBar: true,
+    // Own title bar: the page draws the strip (logo, drag area) and Windows
+    // keeps its real minimize/maximize/close buttons on top of it.
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#0e0e11', symbolColor: '#e6e6ea', height: TITLE_BAR_HEIGHT },
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, sandbox: true, nodeIntegration: false,
@@ -154,44 +160,40 @@ async function start() {
   // Esc leaves full screen first (like any video player). That key press is
   // consumed, so it does not also close the player or go back a screen.
   windowRef.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown' && input.key === 'Escape' && !input.isAutoRepeat &&
-        windowRef && windowRef.isFullScreen()) {
+    if (input.type !== 'keyDown') return;
+    if (input.key === 'Escape' && !input.isAutoRepeat && windowRef && windowRef.isFullScreen()) {
       event.preventDefault();
       toggleFullscreen(false);
+      return;
     }
+    // The window has no menu bar any more, so its shortcuts live here.
+    const shortcut = shortcutFor(input);
+    if (shortcut) { event.preventDefault(); if (!input.isAutoRepeat) shortcut(); }
   });
   windowRef.once('ready-to-show', () => windowRef.show());
   windowRef.on('closed', () => { windowRef = null; app.quit(); });
 
   const action = (name) => windowRef?.webContents.send('desktop:action', name);
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: 'OpenTV', submenu: [
-      { label: 'Inicio', accelerator: 'CmdOrCtrl+H', click: () => action('home') },
-      { label: 'Buscar', accelerator: 'CmdOrCtrl+F', click: () => action('search') },
-      { label: 'Historial', accelerator: 'CmdOrCtrl+J', click: () => action('history') },
-      { label: 'Ajustes', click: () => action('settings') },
-      { type: 'separator' }, { label: 'Salir', accelerator: 'Alt+F4', role: 'quit' }
-    ] },
-    { label: 'Editar', submenu: [
-      { role: 'undo', label: 'Deshacer' }, { role: 'redo', label: 'Rehacer' },
-      { type: 'separator' }, { role: 'cut', label: 'Cortar' },
-      { role: 'copy', label: 'Copiar' }, { role: 'paste', label: 'Pegar' },
-      { role: 'selectAll', label: 'Seleccionar todo' }
-    ] },
-    { label: 'Ver', submenu: [
-      { label: 'Pantalla completa', accelerator: 'F11', click: () => toggleFullscreen() },
-      // The floating window needs a user gesture; run it as one.
-      { label: 'Ventana flotante', accelerator: 'CmdOrCtrl+P', click: () => {
-        windowRef?.webContents.executeJavaScript('window.__xuper && window.__xuper.show("pip")', true).catch(() => {});
-      } },
-      { label: 'Volver', accelerator: 'Alt+Left', click: () => action('back') },
-      { label: 'Recargar', accelerator: 'CmdOrCtrl+R', click: () => windowRef.reload() }
-    ] },
-    { label: 'Ayuda', submenu: [{ label: 'Acerca de OpenTV', click: () => dialog.showMessageBox(windowRef, {
-      type: 'info', title: 'OpenTV', message: 'OpenTV ' + info.version,
-      detail: 'OpenTV Desktop para Windows x64 — Reproductor de TV en vivo, películas y series.\n\nDesarrollado por TECHPOINT.\n\nTeclado: flechas y Enter; Espacio para reproducir/pausar; F o F11 para pantalla completa; M para silenciar; Esc para salir de pantalla completa o volver; Ctrl+P para ventana flotante; Ctrl+J para el historial.'
-    }) }] }
-  ]));
+  const shortcuts = {
+    'Ctrl+H': () => action('home'),
+    'Ctrl+F': () => action('search'),
+    'Ctrl+J': () => action('history'),
+    'Ctrl+,': () => action('settings'),
+    'F11': () => toggleFullscreen(),
+    // The floating window needs a user gesture; run it as one.
+    'Ctrl+P': () => windowRef?.webContents.executeJavaScript('window.__xuper && window.__xuper.show("pip")', true).catch(() => {}),
+    'Alt+ArrowLeft': () => action('back'),
+    'Ctrl+R': () => windowRef?.reload(),
+    'F5': () => windowRef?.reload()
+  };
+  shortcutFor = (input) => {
+    const key = input.key.length === 1 ? input.key.toUpperCase() : input.key;
+    const combo = (input.control ? 'Ctrl+' : '') + (input.alt ? 'Alt+' : '') + (input.shift ? 'Shift+' : '') + key;
+    return shortcuts[combo] || null;
+  };
+  // No menu bar: the title bar is the app's own. Copy/paste keep working in
+  // text fields without it.
+  Menu.setApplicationMenu(null);
 
   try {
     await windowRef.loadURL('xuper://app/index.html?screen=home');
