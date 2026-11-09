@@ -66,7 +66,8 @@ app.whenReady().then(async () => {
 
   await js("window.addEventListener('error', function (e) { console.error('Uncaught ' + e.message); }); 1");
   await check('home opens with the tab rail', "window.__xuper.skipWelcome(); !!document.querySelector('.home-tabs .tab-item, #home-tabs .focusable')", 2500);
-  await check('TV page has the dock with volume and guide', "!!document.querySelector('.live-dock .live-vol-range') && !!document.querySelector('.live-dock-btn.is-guide')", 500);
+  await check('opens on Inicio', "(function(){ var t = window.__xuper.state.tab; return { ok: document.querySelectorAll('.home-page')[1].classList.contains('is-current'), detail: 'tab ' + t }; })()", 300);
+  await check('TV page has the dock with volume and guide', "(function(){ window.__xuper.selectTab(0); return new Promise(function (done) { setTimeout(function () { done({ ok: !!document.querySelector('.live-dock .live-vol-range') && !!document.querySelector('.live-dock-btn.is-guide') }); }, 1200); }); })()", 300);
   await check('channel guide opens and closes', `(function(){
       document.querySelector('.live-dock-btn.is-guide').click();
       var open = document.querySelector('.live-guide.is-open');

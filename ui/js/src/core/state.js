@@ -43,6 +43,13 @@ var state = {
   favs: {}
 };
 
+/* Desktop: the app opens on Inicio (the TV stays one tab away). */
+if (window.XUPER_DESKTOP) {
+  for (var startTab = 0; startTab < TABS.length; startTab++) {
+    if (TABS[startTab].page === 1) { state.tab = startTab; break; }
+  }
+}
+
 /* A profile belongs to this TV only: no registration, credentials or
    network account is required.  It intentionally stays small because old
    webOS models have limited persistent storage. */

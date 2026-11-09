@@ -373,7 +373,7 @@ function buildDesktopSection(page, all, opts) {
     for (var t = 0; t < shelves.length; t++) {
       if (/top\s*1[05]|clasificad/i.test(shelves[t].title)) {
         var isSeries = shelves[t].items.length && isSeriesItem(shelves[t].items[0]);
-        y = appendTop10Row(page, y, isSeries ? 'Top 10 series hoy' : 'Top 10 películas hoy', shelves[t].items.slice(0, 10));
+        y = appendTop10Row(page, y, isSeries ? 'Top 10 series hoy' : 'Top 10 películas hoy', fillTop10(shelves[t].items, !!isSeries, all));
       } else {
         regular.push(shelves[t]);
       }
@@ -382,4 +382,23 @@ function buildDesktopSection(page, all, opts) {
   }
   for (var r = 0; r < shelves.length; r++) { y = appendPosterRow(page, y, shelves[r].title, shelves[r].items); }
   if (!shelves.length || !opts.rows) { appendCatalogGrid(page, all, y + 20, opts.gridTitle || 'Catálogo'); }
+}
+
+/* Always ten when the catalogue has them: the portal's ranking first, then
+   this week's TMDB trends, then other titles of the section (same kind). */
+function fillTop10(ranked, series, section) {
+  var out = [], seen = {};
+  function add(list) {
+    for (var i = 0; i < list.length && out.length < 10; i++) {
+      var v = list[i];
+      if (!v || seen[v.id] || !!isSeriesItem(v) !== series || !hasUsableCover(v)) { continue; }
+      seen[v.id] = true;
+      out.push(v);
+    }
+  }
+  add(ranked);
+  for (var t = 0; t < trendingRows.length && out.length < 10; t++) { add(trendingRows[t].items || []); }
+  add(section || []);
+  add(VOD);
+  return out;
 }

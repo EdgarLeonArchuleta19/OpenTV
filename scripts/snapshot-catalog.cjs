@@ -56,7 +56,8 @@ async function main() {
       if (!item || !item.id || !item.title) continue;
       if (item.row) rows.add(item.row);
       const known = byId.get(item.id);
-      if (!known) { byId.set(item.id, slim(item)); added++; continue; }
+      if (!known) { const rec = slim(item); rec.rows = item.row ? [item.row] : []; byId.set(item.id, rec); added++; continue; }
+      if (item.row && known.rows.indexOf(item.row) === -1) known.rows.push(item.row);
       /* Same title in several sections: one record, every section listed;
          the first shelf it appeared in is kept. */
       const cats = new Set(String(known.category).split(',').filter(Boolean));

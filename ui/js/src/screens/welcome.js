@@ -16,8 +16,17 @@ function finishWelcome() {
   if (welcomeTimer) { clearInterval(welcomeTimer); welcomeTimer = null; }
   if (!homeBuilt) { buildHome(); }
   showScreen('home');
-  selectTab(0, false);
-  setFocus(liveFocus);
+  /* Desktop opens on Inicio (also where Ctrl+H goes); the TV opens on TV. */
+  var startTab = 0;
+  if (window.XUPER_DESKTOP) {
+    for (var t = 0; t < TABS.length; t++) { if (TABS[t].page === 1) { startTab = t; break; } }
+  }
+  selectTab(startTab, false);
+  if (startTab === 0) { setFocus(liveFocus); }
+  else {
+    var first = pages[TABS[startTab].page] ? firstIn(pages[TABS[startTab].page]) : null;
+    setFocus(first || tabEls[startTab], true);
+  }
   /* The first launch shows the full tab labels even though the video holds
      focus; the rail collapses on the first focus change. */
   var rail = $('home-tabs');

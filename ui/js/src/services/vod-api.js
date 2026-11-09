@@ -152,6 +152,8 @@ function normalizeVod(raw, index) {
     /* Magis portal records (service / snapshot). */
     type: type || (isSeries ? 'teleplay' : 'movie'),
     row: apiText(raw.row, ''),
+    /* Every home shelf the title is on (the TOP rankings included). */
+    _rows: raw._rows && raw._rows.length ? raw._rows.slice() : (raw.rows && raw.rows.length ? raw.rows.slice() : []),
     alias: apiText(raw.alias, ''),
     country: apiText(raw.country || raw.originalCountry, ''),
     releaseDate: apiText(raw.releaseDate || raw.releaseTime, ''),

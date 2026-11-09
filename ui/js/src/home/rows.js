@@ -105,9 +105,12 @@ function portalRowsFor(category, minItems) {
   for (var i = 0; i < list.length; i++) {
     var item = list[i];
     var cats = norm(item.category || '').split(',');
-    if (cats.indexOf(category) === -1 || !item.row) { continue; }
-    if (!groups[item.row]) { groups[item.row] = []; order.push(item.row); }
-    groups[item.row].push(item);
+    if (cats.indexOf(category) === -1) { continue; }
+    var shelves = item._rows && item._rows.length ? item._rows : (item.row ? [item.row] : []);
+    for (var s = 0; s < shelves.length; s++) {
+      if (!groups[shelves[s]]) { groups[shelves[s]] = []; order.push(shelves[s]); }
+      groups[shelves[s]].push(item);
+    }
   }
   var out = [];
   for (var r = 0; r < order.length; r++) {

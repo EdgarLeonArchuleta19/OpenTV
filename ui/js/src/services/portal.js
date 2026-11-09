@@ -185,15 +185,19 @@ function applyPortalRefresh(roots) {
   function absorb(item) {
     if (!item || !item.id) { return; }
     var id = String(item.id);
-    if (!byId[id]) { byId[id] = item; order.push(id); }
+    if (!byId[id]) { byId[id] = item; order.push(id); item._rows = item.row ? [item.row] : []; }
     else {
       var cur = byId[id];
+      /* A title in several home sections keeps every shelf it is on (the
+         TOP 15 shelves lost titles when a later section overwrote it). */
+      if (item.row && cur._rows && cur._rows.indexOf(item.row) === -1) { cur._rows.push(item.row); }
       for (var k in item) {
-        if (Object.prototype.hasOwnProperty.call(item, k) &&
+        if (Object.prototype.hasOwnProperty.call(item, k) && k !== 'row' && k !== '_rows' &&
             item[k] !== '' && item[k] !== '—' && item[k] !== null && item[k] !== undefined) {
           cur[k] = item[k];
         }
       }
+      if (!cur.row && item.row) { cur.row = item.row; }
     }
     var list = String(item.category || '').split(',');
     cats[id] = cats[id] || {};

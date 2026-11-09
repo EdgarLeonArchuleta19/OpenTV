@@ -1,5 +1,5 @@
 /*
- * CATALOGUE SNAPSHOT  -  generated 2026-11-09T16:28:28.400Z by scripts/snapshot-catalog.cjs
+ * CATALOGUE SNAPSHOT  -  generated 2026-11-09T18:30:29.273Z by scripts/snapshot-catalog.cjs
  *
  * The catalogue OpenTV shows on its first start (and offline) until the live
  * one arrives. Only public catalogue metadata and the artwork links the
@@ -12,7 +12,7 @@
  * Regenerate with:  npm run snapshot
  */
 window.XUPERTV_PORTAL = {
- "generatedAt": "2026-11-09T16:28:28.400Z",
+ "generatedAt": "2026-11-09T18:30:29.273Z",
  "source": "Magis portal (anonymous session)",
  "roots": {
   "masnew_featured": {
@@ -63,7 +63,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Once Upon a Time in Mexico",
    "row": "Los muertos regresan por la noche",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los muertos regresan por la noche"
+   ]
   },
   {
    "id": "2483207CFDAB2948F1FB93575AAF015D",
@@ -87,7 +90,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Spectre",
    "row": "Los muertos regresan por la noche",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los muertos regresan por la noche"
+   ]
   },
   {
    "id": "34380193543CE4D90A16D6DAF396DEFC",
@@ -111,7 +117,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Assassins",
    "row": "Los muertos regresan por la noche",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los muertos regresan por la noche"
+   ]
   },
   {
    "id": "0A9BA361DEA8421BAE9472817B5E5BFF",
@@ -137,7 +146,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Crow: City of Angels",
    "row": "Los muertos regresan por la noche",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los muertos regresan por la noche"
+   ]
   },
   {
    "id": "83B206C3EED94E9CBCE6885C86F16B94",
@@ -161,7 +173,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "A Night in Old Mexico",
    "row": "Los muertos regresan por la noche",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los muertos regresan por la noche"
+   ]
   },
   {
    "id": "9FDEA1AFFA1D48B4A1B1DC9332BB0785",
@@ -185,7 +200,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Frida",
    "row": "Los muertos regresan por la noche",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los muertos regresan por la noche"
+   ]
   },
   {
    "id": "E2721E36DC130E6146E1789CF831CA7E",
@@ -209,7 +227,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Others",
    "row": "Los muertos regresan por la noche",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los muertos regresan por la noche"
+   ]
   },
   {
    "id": "437C3DC5B46365420DA63443D30D45E4",
@@ -233,7 +254,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Sixth Sense",
    "row": "Los muertos regresan por la noche",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los muertos regresan por la noche"
+   ]
   },
   {
    "id": "BEFA6F69C86D48F7881FF98B28C3DFBB",
@@ -255,7 +279,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Suspiria",
    "row": "Los muertos regresan por la noche",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los muertos regresan por la noche"
+   ]
   },
   {
    "id": "D2C64EB7FD804F77B2DA17D83B962277",
@@ -279,7 +306,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Macario",
    "row": "Los muertos regresan por la noche",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los muertos regresan por la noche"
+   ]
   },
   {
    "id": "3CD62D5F15A744BFB8A2BF272D88D27A",
@@ -302,7 +332,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Colisión",
    "row": "Ladrones desesperados",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ladrones desesperados",
+    "Crimen"
+   ]
   },
   {
    "id": "7FE40BBD9EB44158AF113FBF2FA369E1",
@@ -325,7 +359,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Drive",
    "row": "Ladrones desesperados",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ladrones desesperados"
+   ]
   },
   {
    "id": "C97DD95139D24D3C9531F6BEE5C143B1",
@@ -349,7 +386,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Italian Job",
    "row": "Ladrones desesperados",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ladrones desesperados"
+   ]
   },
   {
    "id": "900B34945C104549B3F0FF3C7CA10B67",
@@ -374,7 +414,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Takers",
    "row": "Ladrones desesperados",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ladrones desesperados"
+   ]
   },
   {
    "id": "5EC3D78467ED0744F25DE01B3608C33E",
@@ -399,7 +442,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Triple Frontier",
    "row": "Ladrones desesperados",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ladrones desesperados"
+   ]
   },
   {
    "id": "B7980CE4C74744F499A29EC829C890DB",
@@ -423,7 +469,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Bank Job",
    "row": "Ladrones desesperados",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ladrones desesperados"
+   ]
   },
   {
    "id": "D53ED638C99242D5AC02C09AC5A834DD",
@@ -448,7 +497,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Baby Driver",
    "row": "Ladrones desesperados",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ladrones desesperados"
+   ]
   },
   {
    "id": "6EFA0D7E3F27214A848904DB112352EA",
@@ -472,7 +524,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Wrath of Man",
    "row": "Ladrones desesperados",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ladrones desesperados"
+   ]
   },
   {
    "id": "EDF0379D593C3D4B8EB3CAB46A261A24",
@@ -496,7 +551,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Town",
    "row": "Ladrones desesperados",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ladrones desesperados"
+   ]
   },
   {
    "id": "BF00F31859C54F65960234875A691226",
@@ -521,7 +579,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Den of Thieves",
    "row": "Ladrones desesperados",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ladrones desesperados"
+   ]
   },
   {
    "id": "4EDDB74BB2714419887F62B903B01D90",
@@ -544,7 +605,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Bring Her Back",
    "row": "2026 Peliculas teatrales",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026 Peliculas teatrales"
+   ]
   },
   {
    "id": "73D6A0E24E9B4296B7C3B585137913AC",
@@ -570,7 +634,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Unholy Trinity",
    "row": "2026 Peliculas teatrales",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026 Peliculas teatrales"
+   ]
   },
   {
    "id": "3DCD984FDEC4472FB7F4DE5EDDB91243",
@@ -595,7 +662,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Running Man",
    "row": "2026 Peliculas teatrales",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026 Peliculas teatrales"
+   ]
   },
   {
    "id": "D72D81EA837041A0B8A2B83EB744CB51",
@@ -621,7 +691,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Wake Up Dead Man: A Knives Out Mystery",
    "row": "2026 Peliculas teatrales",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026 Peliculas teatrales"
+   ]
   },
   {
    "id": "5DF2E7CAEB8542969A73FFE4E1CBDCE7",
@@ -644,7 +717,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Now You See Me: Now You Don't",
    "row": "2026 Peliculas teatrales",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026 Peliculas teatrales"
+   ]
   },
   {
    "id": "D59DDF2FE89143CC98B691385CD3429A",
@@ -667,7 +743,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Sisu 2",
    "row": "2026 Peliculas teatrales",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026 Peliculas teatrales"
+   ]
   },
   {
    "id": "9FA1756F9A6F4652B1C4446CAAAC698B",
@@ -691,7 +770,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "F1",
    "row": "2026 Peliculas teatrales",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026 Peliculas teatrales"
+   ]
   },
   {
    "id": "49660D78DE5548B89E0F53D96E58FD54",
@@ -719,7 +801,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Chainsaw Man - The Movie: Reze Arc",
    "row": "2026 Peliculas teatrales",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026 Peliculas teatrales"
+   ]
   },
   {
    "id": "EDF2A099DA8E4164949543D8709B22F4",
@@ -743,7 +828,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Dracula: A Love Tale",
    "row": "2026 Peliculas teatrales",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026 Peliculas teatrales"
+   ]
   },
   {
    "id": "5238C25560254EB38BC63E469D4229D5",
@@ -767,7 +855,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Tron: Ares",
    "row": "2026 Peliculas teatrales",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026 Peliculas teatrales"
+   ]
   },
   {
    "id": "746C1782546E4666819AC5C484930286",
@@ -790,7 +881,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Contra el huracán",
    "row": "Películas TOP15 clasificadas",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas TOP15 clasificadas"
+   ]
   },
   {
    "id": "B884D3C3FD9E4C96A76710B22D0C3154",
@@ -814,7 +908,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Dog Stars",
    "row": "Películas TOP15 clasificadas",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas TOP15 clasificadas",
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "6950D4D3267A495FA2490CB37AB01759",
@@ -837,7 +935,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Spider-Man: Brand New Day",
    "row": "Películas TOP15 clasificadas",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas TOP15 clasificadas"
+   ]
   },
   {
    "id": "BFBC05597DDD4E77B77915BC3F324365",
@@ -862,7 +963,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Verity",
    "row": "Películas TOP15 clasificadas",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas TOP15 clasificadas"
+   ]
   },
   {
    "id": "8F20DE444F6E48B1974CB5118DD16860",
@@ -886,7 +990,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Matchbox the Movie",
    "row": "Películas TOP15 clasificadas",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas TOP15 clasificadas"
+   ]
   },
   {
    "id": "3A8413C8CA05441BABB2637C93D957B4",
@@ -910,7 +1017,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Fall 2: Deadpoint",
    "row": "Películas TOP15 clasificadas",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas TOP15 clasificadas"
+   ]
   },
   {
    "id": "8E756DAC40C44FFA81016C41ACFA00B3",
@@ -934,7 +1044,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Drive - The Pretenders",
    "row": "Películas TOP15 clasificadas",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas TOP15 clasificadas"
+   ]
   },
   {
    "id": "247056C5395849893ED7F90A64D60BA2",
@@ -958,7 +1071,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Corpse Bride",
    "row": "Películas TOP15 clasificadas",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas TOP15 clasificadas"
+   ]
   },
   {
    "id": "0E59E1FDB47E4D8682F87A5FDE974C6A",
@@ -982,7 +1098,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Insidious: Out of the Further",
    "row": "Películas TOP15 clasificadas",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas TOP15 clasificadas"
+   ]
   },
   {
    "id": "05E86CBA987E4729BE32B8B8B937FF09",
@@ -1006,7 +1125,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Practical Magic 2",
    "row": "Películas TOP15 clasificadas",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas TOP15 clasificadas"
+   ]
   },
   {
    "id": "62AFE6CB303842A98BA6C6E9170209D3",
@@ -1030,7 +1152,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dramas clasificados TOP15",
    "volumeCount": 125,
    "updateCount": 125,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dramas clasificados TOP15"
+   ]
   },
   {
    "id": "A477AE52E11042B48C4FCE4D8A969973",
@@ -1055,7 +1180,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dramas clasificados TOP15",
    "volumeCount": 174,
    "updateCount": 174,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dramas clasificados TOP15"
+   ]
   },
   {
    "id": "E067DA53A76B46A0DD0632A69FD83CB0",
@@ -1080,7 +1208,11 @@ window.XUPERTV_PORTAL = {
    "row": "Dramas clasificados TOP15",
    "volumeCount": 249,
    "updateCount": 249,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dramas clasificados TOP15",
+    "Niños Felices"
+   ]
   },
   {
    "id": "496263B7B01B45D5A01E0E1776EAD2EF",
@@ -1108,7 +1240,16 @@ window.XUPERTV_PORTAL = {
    "row": "Dramas clasificados TOP15",
    "volumeCount": 90,
    "updateCount": 83,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dramas clasificados TOP15",
+    "Hulu Series",
+    "Nativo",
+    "Drama",
+    "Romántico",
+    "Suspenso",
+    "Crimen"
+   ]
   },
   {
    "id": "3A0232FD32FF42C6B43C324A05327F75",
@@ -1137,7 +1278,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dramas clasificados TOP15",
    "volumeCount": 500,
    "updateCount": 500,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dramas clasificados TOP15"
+   ]
   },
   {
    "id": "21EC192E31F604E1FA2A00DF7C4D150A",
@@ -1164,7 +1308,13 @@ window.XUPERTV_PORTAL = {
    "row": "Dramas clasificados TOP15",
    "volumeCount": 1800,
    "updateCount": 1180,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dramas clasificados TOP15",
+    "HBO Series",
+    "Anime Asiático",
+    "Anime Clásico"
+   ]
   },
   {
    "id": "DC778F402CA24A919D4EE08363877A11",
@@ -1189,7 +1339,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dramas clasificados TOP15",
    "volumeCount": 10,
    "updateCount": 7,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dramas clasificados TOP15"
+   ]
   },
   {
    "id": "8EC08BB0E280B71AC46731F91DDE5D40",
@@ -1216,7 +1369,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dramas clasificados TOP15",
    "volumeCount": 170,
    "updateCount": 170,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dramas clasificados TOP15"
+   ]
   },
   {
    "id": "75020264DFCF496DB519C1DCF99D9A3E",
@@ -1244,7 +1400,12 @@ window.XUPERTV_PORTAL = {
    "row": "Dramas clasificados TOP15",
    "volumeCount": 8,
    "updateCount": 7,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dramas clasificados TOP15",
+    "Suspenso",
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "DC81956806FD4F759317809F573B670D",
@@ -1269,7 +1430,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dramas clasificados TOP15",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dramas clasificados TOP15"
+   ]
   },
   {
    "id": "DBEFBBF5169611ECB4E9001E6748F743",
@@ -1295,7 +1459,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Brick",
    "row": "Netflix Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Movie"
+   ]
   },
   {
    "id": "808999540BA911ECAD3F001E6748F743",
@@ -1320,7 +1487,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Cowboy Bebop: The Movie",
    "row": "Netflix Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Movie"
+   ]
   },
   {
    "id": "D85AF52564B811ECB456001E6748F743",
@@ -1344,7 +1514,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Don't Look Up",
    "row": "Netflix Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Movie"
+   ]
   },
   {
    "id": "EE90A3B70C7C11ECB12F001E6748F743",
@@ -1368,7 +1541,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Clear and Present Danger",
    "row": "Netflix Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Movie"
+   ]
   },
   {
    "id": "E284D5DC7E4711EA9720002590E815C3",
@@ -1394,7 +1570,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Circle",
    "row": "Netflix Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Movie"
+   ]
   },
   {
    "id": "2E345B200BE24DCF804D05580EF1B298",
@@ -1417,7 +1596,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Best. Christmas. Ever.",
    "row": "Netflix Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Movie"
+   ]
   },
   {
    "id": "38390E1F0B2411EC9BB8001E6748F743",
@@ -1440,7 +1622,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Di que sí",
    "row": "Netflix Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Movie"
+   ]
   },
   {
    "id": "307CD4C8703211EA975E002590E815C3",
@@ -1467,7 +1652,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Spooky Tale of Captain Underpants Hack-a-Ween",
    "row": "Netflix Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Movie"
+   ]
   },
   {
    "id": "7CE3E05848FE11EB950D001E6748F743",
@@ -1491,7 +1679,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "True: Friendship Day",
    "row": "Netflix Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Movie"
+   ]
   },
   {
    "id": "0009118EDCE711ECB4AC001E6748F743",
@@ -1515,7 +1706,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Home Team",
    "row": "Netflix Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Movie"
+   ]
   },
   {
    "id": "2CE9BFFEDB3211EB90FCE03F497BB53A",
@@ -1541,7 +1735,10 @@ window.XUPERTV_PORTAL = {
    "row": "Netflix Series",
    "volumeCount": 16,
    "updateCount": 16,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Series"
+   ]
   },
   {
    "id": "50F4C2CC35DF11EC812100E053440A03",
@@ -1565,7 +1762,10 @@ window.XUPERTV_PORTAL = {
    "row": "Netflix Series",
    "volumeCount": 5,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Series"
+   ]
   },
   {
    "id": "5C6F04E690EE11EB8A9AE03F497BB53A",
@@ -1592,7 +1792,10 @@ window.XUPERTV_PORTAL = {
    "row": "Netflix Series",
    "volumeCount": 26,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Series"
+   ]
   },
   {
    "id": "85AFAE782E3211ECB865E03F497BB53A",
@@ -1618,7 +1821,10 @@ window.XUPERTV_PORTAL = {
    "row": "Netflix Series",
    "volumeCount": 22,
    "updateCount": 1,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Series"
+   ]
   },
   {
    "id": "E462C988297811EC907100E053440A03",
@@ -1642,7 +1848,10 @@ window.XUPERTV_PORTAL = {
    "row": "Netflix Series",
    "volumeCount": 20,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Series"
+   ]
   },
   {
    "id": "6303815CAE0011EAA378BCEE7B9D8BBC",
@@ -1668,7 +1877,10 @@ window.XUPERTV_PORTAL = {
    "row": "Netflix Series",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Series"
+   ]
   },
   {
    "id": "F3BCC74AAE4D11EA8166BCEE7B9D8BBC",
@@ -1692,7 +1904,10 @@ window.XUPERTV_PORTAL = {
    "row": "Netflix Series",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Series"
+   ]
   },
   {
    "id": "5711F70311360217303EE26BCF6B6019",
@@ -1719,7 +1934,10 @@ window.XUPERTV_PORTAL = {
    "row": "Netflix Series",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Series"
+   ]
   },
   {
    "id": "BD53E452AACF11EAB79200E053440A03",
@@ -1745,7 +1963,10 @@ window.XUPERTV_PORTAL = {
    "row": "Netflix Series",
    "volumeCount": 18,
    "updateCount": 18,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Series"
+   ]
   },
   {
    "id": "93C661D93FD05A5474AA9DFDA479871C",
@@ -1771,7 +1992,10 @@ window.XUPERTV_PORTAL = {
    "row": "Netflix Series",
    "volumeCount": 9,
    "updateCount": 9,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Netflix Series"
+   ]
   },
   {
    "id": "7226D70AB25E11EBAB11002590A77DC0",
@@ -1796,7 +2020,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Avengers: Endgame",
    "row": "Disney Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Movie"
+   ]
   },
   {
    "id": "43BF984079A311ECBAA100259097DE70",
@@ -1821,7 +2048,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Tangled Ever After",
    "row": "Disney Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Movie"
+   ]
   },
   {
    "id": "8C3B0D3EB2D911EB93BD002590A77DC0",
@@ -1846,7 +2076,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Fantastic Four: Rise of the Silver Surfer",
    "row": "Disney Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Movie"
+   ]
   },
   {
    "id": "395EE806BDCE11EBA014002590A77DC0",
@@ -1871,7 +2104,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Home on the Range",
    "row": "Disney Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Movie"
+   ]
   },
   {
    "id": "AEC763DCB8E411EB9475002590A77DC0",
@@ -1897,7 +2133,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "22 vs. Earth",
    "row": "Disney Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Movie"
+   ]
   },
   {
    "id": "CCB6408EB90C11EB9475002590A77DC0",
@@ -1923,7 +2162,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Halloweentown II: Kalabar's Revenge",
    "row": "Disney Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Movie"
+   ]
   },
   {
    "id": "39FFFB28B80C11EB9E93002590A77DC0",
@@ -1948,7 +2190,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Chicken Little",
    "row": "Disney Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Movie"
+   ]
   },
   {
    "id": "CCC2C7A6BF7D11EBA014002590A77DC0",
@@ -1973,7 +2218,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Sorcerer's Apprentice",
    "row": "Disney Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Movie"
+   ]
   },
   {
    "id": "9882BE4E74FC11EC95B2002590A77DC0",
@@ -1997,7 +2245,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Encanto",
    "row": "Disney Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Movie"
+   ]
   },
   {
    "id": "85B5B1C278FD11ECAD8C00259097DE70",
@@ -2019,7 +2270,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Becoming Cousteau",
    "row": "Disney Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Movie"
+   ]
   },
   {
    "id": "29947C0937860C10E3F9B405CF512E11",
@@ -2045,7 +2299,11 @@ window.XUPERTV_PORTAL = {
    "row": "Disney Series",
    "volumeCount": 20,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Series",
+    "Todos"
+   ]
   },
   {
    "id": "869292A6FFE311EB951EE4115BAEF989",
@@ -2071,7 +2329,10 @@ window.XUPERTV_PORTAL = {
    "row": "Disney Series",
    "volumeCount": 16,
    "updateCount": 16,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Series"
+   ]
   },
   {
    "id": "69380DA8E5E411EB9633E4115BAEF989",
@@ -2097,7 +2358,10 @@ window.XUPERTV_PORTAL = {
    "row": "Disney Series",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Series"
+   ]
   },
   {
    "id": "12E524B2D4FB11EBB147002590A77DC0",
@@ -2123,7 +2387,10 @@ window.XUPERTV_PORTAL = {
    "row": "Disney Series",
    "volumeCount": 22,
    "updateCount": 19,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Series"
+   ]
   },
   {
    "id": "B1F82D2ED4D311EBB147002590A77DC0",
@@ -2149,7 +2416,10 @@ window.XUPERTV_PORTAL = {
    "row": "Disney Series",
    "volumeCount": 21,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Series"
+   ]
   },
   {
    "id": "7FB80002C1C611EB8D21E4115BAEF989",
@@ -2175,7 +2445,10 @@ window.XUPERTV_PORTAL = {
    "row": "Disney Series",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Series"
+   ]
   },
   {
    "id": "89087E2E59BA11EDAB52002590A77DC0",
@@ -2201,7 +2474,10 @@ window.XUPERTV_PORTAL = {
    "row": "Disney Series",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Series"
+   ]
   },
   {
    "id": "5D04BC5A5A2511EDA8FE002590A77DC0",
@@ -2227,7 +2503,10 @@ window.XUPERTV_PORTAL = {
    "row": "Disney Series",
    "volumeCount": 16,
    "updateCount": 16,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Series"
+   ]
   },
   {
    "id": "7A144A6059F611EDA8FE002590A77DC0",
@@ -2253,7 +2532,10 @@ window.XUPERTV_PORTAL = {
    "row": "Disney Series",
    "volumeCount": 16,
    "updateCount": 16,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Series"
+   ]
   },
   {
    "id": "53C7EAD45AB811EDA8FE002590A77DC0",
@@ -2279,7 +2561,10 @@ window.XUPERTV_PORTAL = {
    "row": "Disney Series",
    "volumeCount": 24,
    "updateCount": 24,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Disney Series"
+   ]
   },
   {
    "id": "03328C071C0D32CFABAA53516070B39C",
@@ -2304,7 +2589,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Gone Girl",
    "row": "Máscara perfecta",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Máscara perfecta"
+   ]
   },
   {
    "id": "CB33543C75C84066A35E939990798C7A",
@@ -2328,7 +2616,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Unfaithful",
    "row": "Máscara perfecta",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Máscara perfecta"
+   ]
   },
   {
    "id": "EC7DD06BC4184196842093FA6BD59613",
@@ -2352,7 +2643,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Heartbreakers",
    "row": "Máscara perfecta",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Máscara perfecta"
+   ]
   },
   {
    "id": "B7C73CD7D1884335A804C0451866F471",
@@ -2375,7 +2669,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Dangerous Liaisons",
    "row": "Máscara perfecta",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Máscara perfecta"
+   ]
   },
   {
    "id": "21CFA8ECD227402A8F3889611FD7AC60",
@@ -2399,7 +2696,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Runaway Jury",
    "row": "Máscara perfecta",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Máscara perfecta"
+   ]
   },
   {
    "id": "AF960AE9829B44C38DD17E5402A3CBA6",
@@ -2422,7 +2722,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Other Woman",
    "row": "Máscara perfecta",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Máscara perfecta"
+   ]
   },
   {
    "id": "99A76EA2D8A54B6D81B4C54715DAEEB9",
@@ -2445,7 +2748,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Reminders of Him",
    "row": "Máscara perfecta",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Máscara perfecta"
+   ]
   },
   {
    "id": "90A9FD67260344BC82CAC2ADF709516B",
@@ -2468,7 +2774,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Closer",
    "row": "Máscara perfecta",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Máscara perfecta"
+   ]
   },
   {
    "id": "991B69A077E46AAADC5C922867FDA261",
@@ -2493,7 +2802,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "A Simple Favor",
    "row": "Máscara perfecta",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Máscara perfecta"
+   ]
   },
   {
    "id": "3ACACD892F1C4155B27825E33BD0BBCC",
@@ -2520,7 +2832,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Confessions of a Dangerous Mind",
    "row": "Máscara perfecta",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Máscara perfecta"
+   ]
   },
   {
    "id": "20230E0B952BEA347184BA2016772186",
@@ -2544,7 +2859,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "American Psycho",
    "row": "Asesino en serie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Asesino en serie"
+   ]
   },
   {
    "id": "F309CB23B10049E48E1740AD4D6F668E",
@@ -2568,7 +2886,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Chugyeokja",
    "row": "Asesino en serie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Asesino en serie"
+   ]
   },
   {
    "id": "991BC522C6134DF58BC3EDAB42AB74C8",
@@ -2593,7 +2914,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Salinui chueok",
    "row": "Asesino en serie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Asesino en serie"
+   ]
   },
   {
    "id": "69B59A7536F4CD7F7250E46A8612479E",
@@ -2616,7 +2940,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Hitcher",
    "row": "Asesino en serie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Asesino en serie"
+   ]
   },
   {
    "id": "4503ACDD7778029A1CEA28A840FC23B8",
@@ -2640,7 +2967,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "I Saw the Devil",
    "row": "Asesino en serie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Asesino en serie"
+   ]
   },
   {
    "id": "40AB0E8A251D4C3DB20BBD8CAC1369AC",
@@ -2664,7 +2994,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Summer of 84",
    "row": "Asesino en serie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Asesino en serie"
+   ]
   },
   {
    "id": "F034BCE71A6C4012BF7950B6994A17E8",
@@ -2688,7 +3021,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "3096 Tage",
    "row": "Asesino en serie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Asesino en serie"
+   ]
   },
   {
    "id": "1F0BFC473C04E629A105F06C54BEE35A",
@@ -2710,7 +3046,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Texas Chain Saw Massacre",
    "row": "Asesino en serie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Asesino en serie"
+   ]
   },
   {
    "id": "DBF2D731286F435CAAFF540079519A44",
@@ -2733,7 +3072,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Frozen Ground",
    "row": "Asesino en serie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Asesino en serie"
+   ]
   },
   {
    "id": "B6894196148DFED0F44E5789DB2FC5F8",
@@ -2757,7 +3099,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Girl with the Dragon Tattoo",
    "row": "Asesino en serie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Asesino en serie"
+   ]
   },
   {
    "id": "5F833CC11CB949BFAB04D224C731C8A0",
@@ -2783,7 +3128,17 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Barrio triste",
    "row": "2026",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "Prime Video Movie",
+    "Apple TV+ Movie",
+    "Crimen",
+    "Horror",
+    "Fantastico",
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "D0C7B7AB76BC4FDFA842A9543478A3F3",
@@ -2805,7 +3160,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "En la alcoba del sultán",
    "row": "2026",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All"
+   ]
   },
   {
    "id": "41602E18302A4599AD9A63A120B01296",
@@ -2830,7 +3189,14 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Heart of the Beast",
    "row": "2026",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "Acción",
+    "Suspenso",
+    "Aventuras"
+   ]
   },
   {
    "id": "AE5AFB5B614D41139348ACCF2AD21970",
@@ -2852,7 +3218,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "El vestido",
    "row": "2026",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "Horror"
+   ]
   },
   {
    "id": "3805F58A6D11463AA5E99808406E099F",
@@ -2875,7 +3245,14 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Just Play Dead",
    "row": "2026",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "Prime Video Movie",
+    "Apple TV+ Movie",
+    "Crimen",
+    "Suspenso"
+   ]
   },
   {
    "id": "8C0981C7EC2A4F17826121ECEF21ED94",
@@ -2899,7 +3276,13 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Kaeng Owoe",
    "row": "2026",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "Crimen",
+    "Acción",
+    "Comedia"
+   ]
   },
   {
    "id": "2471B23073204228A6BBACF41703BE07",
@@ -2922,7 +3305,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Día de caza",
    "row": "2026",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "Suspenso"
+   ]
   },
   {
    "id": "57A9DA89D9A94E8E99D1E0619994E42B",
@@ -2946,7 +3333,12 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Yomei Ichinen, Otoko wo Kau",
    "row": "2026",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "Comedia",
+    "Romántico"
+   ]
   },
   {
    "id": "83A81B57A31A4A769E724C894B3F72C6",
@@ -2968,7 +3360,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Laurita Garza",
    "row": "2026",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026"
+   ]
   },
   {
    "id": "15E33A560A784528801E1F948C8E52E5",
@@ -2991,7 +3386,12 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Mongoose",
    "row": "2026",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "Acción",
+    "Suspenso"
+   ]
   },
   {
    "id": "5B11DE390C284E13822C69B8FEEF2F01",
@@ -3016,7 +3416,10 @@ window.XUPERTV_PORTAL = {
    "type": "trailer",
    "alias": "Grand Theft Auto VI: An Extended Look",
    "row": "Tráiler",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Tráiler"
+   ]
   },
   {
    "id": "2E9654DAE70B41A2A3A478CF0C8482BC",
@@ -3038,7 +3441,10 @@ window.XUPERTV_PORTAL = {
    "type": "trailer",
    "alias": "Jorge Polaco",
    "row": "Tráiler",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Tráiler"
+   ]
   },
   {
    "id": "4703AD0EE6034D6B84A44C2391A4D950",
@@ -3062,7 +3468,10 @@ window.XUPERTV_PORTAL = {
    "type": "trailer",
    "alias": "(Tráiler)The Conjuring: Last Rites",
    "row": "Tráiler",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Tráiler"
+   ]
   },
   {
    "id": "C614480E0FB54AB0B17C136B0A699B82",
@@ -3085,7 +3494,10 @@ window.XUPERTV_PORTAL = {
    "type": "trailer",
    "alias": "(Tráiler)Weapons",
    "row": "Tráiler",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Tráiler"
+   ]
   },
   {
    "id": "108F00DD7590420CBEC3E1BBD496B0FF",
@@ -3113,7 +3525,10 @@ window.XUPERTV_PORTAL = {
    "type": "trailer",
    "alias": "(Trailer)The Bad Guys 2",
    "row": "Tráiler",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Tráiler"
+   ]
   },
   {
    "id": "CDC0E12C278644C48C1D13733543C17A",
@@ -3137,7 +3552,10 @@ window.XUPERTV_PORTAL = {
    "type": "trailer",
    "alias": "(Trailer)The Fantastic Four: First Steps",
    "row": "Tráiler",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Tráiler"
+   ]
   },
   {
    "id": "3347AB546D664BE488D8DE2A2F6B5604",
@@ -3164,7 +3582,10 @@ window.XUPERTV_PORTAL = {
    "type": "trailer",
    "alias": "(Trailer)Smurfs",
    "row": "Tráiler",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Tráiler"
+   ]
   },
   {
    "id": "D95C70F85ED44B2EBADCE2E58AAF9A68",
@@ -3189,7 +3610,10 @@ window.XUPERTV_PORTAL = {
    "type": "trailer",
    "alias": "(Tráiler) Superman",
    "row": "Tráiler",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Tráiler"
+   ]
   },
   {
    "id": "9A8F67A4BCD8428FA20E0435AB658F1D",
@@ -3213,7 +3637,10 @@ window.XUPERTV_PORTAL = {
    "type": "trailer",
    "alias": "(Tráiler)F1: The Movie",
    "row": "Tráiler",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Tráiler"
+   ]
   },
   {
    "id": "07A9CD23557A4A41A5F32C419D17675C",
@@ -3241,7 +3668,10 @@ window.XUPERTV_PORTAL = {
    "type": "trailer",
    "alias": "(Tráiler) Lilo & Stitch",
    "row": "Tráiler",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Tráiler"
+   ]
   },
   {
    "id": "41FE6B3880FE4D49B9914A9A0F9225EB",
@@ -3265,7 +3695,13 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Verano",
    "row": "All",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "All",
+    "Prime Video Movie",
+    "Misterio",
+    "Romántico"
+   ]
   },
   {
    "id": "D8DED99DBDE64871B0DA46F9E18D0A04",
@@ -3287,7 +3723,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Sinestesia",
    "row": "All",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "All"
+   ]
   },
   {
    "id": "161C257BC42042B7AE76DB1FAA5C5233",
@@ -3309,7 +3748,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Bienvenidos a Jalisco",
    "row": "All",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "All",
+    "Acción"
+   ]
   },
   {
    "id": "68C342F9DD2B490EA832FE6E8DC82239",
@@ -3331,7 +3774,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Bullying Acoso Mortal",
    "row": "All",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "All",
+    "Acción"
+   ]
   },
   {
    "id": "257DAAFB5B0D48E9B6E2CE8626BC903E",
@@ -3353,7 +3800,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Crónicas de un Exilio",
    "row": "All",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "All",
+    "Documental"
+   ]
   },
   {
    "id": "86FB42F0E035442DA93EC0A13A219923",
@@ -3375,7 +3826,12 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Burning Moon",
    "row": "All",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "All",
+    "Prime Video Movie",
+    "Horror"
+   ]
   },
   {
    "id": "DF543322089A4C80B085370E49CFE024",
@@ -3397,7 +3853,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "El inmortal",
    "row": "All",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "All",
+    "Documental"
+   ]
   },
   {
    "id": "396B39DB40650EC8095BE66A942B7F74",
@@ -3422,7 +3882,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Green Lantern: Emerald Knights",
    "row": "HBO Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Movie",
+    "Anime Europeo y Americano"
+   ]
   },
   {
    "id": "2DE5927FBB22443D8BCD62E641F7B234",
@@ -3446,7 +3910,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Tom and Jerry Meet Sherlock Holmes",
    "row": "HBO Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Movie",
+    "Película de Animación"
+   ]
   },
   {
    "id": "6F55A14688BC8F3CA26B83F82BF6A6E9",
@@ -3471,7 +3939,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Steven Universe: The Movie",
    "row": "HBO Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Movie"
+   ]
   },
   {
    "id": "A6CBB069685E48B8A74DC429852DB9B5",
@@ -3498,7 +3969,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Renegades",
    "row": "HBO Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Movie"
+   ]
   },
   {
    "id": "146902E5E30E466B8A6C52071BF13059",
@@ -3523,7 +3997,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Captain Underpants: The First Epic Movie",
    "row": "HBO Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Movie",
+    "Película de Animación"
+   ]
   },
   {
    "id": "5587A0039CA95A866D8FD7894411657B",
@@ -3548,7 +4026,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Gloria Bell",
    "row": "HBO Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Movie"
+   ]
   },
   {
    "id": "B2F3374AE814A2F4D4D966E85A3A7BE3",
@@ -3572,7 +4053,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Firewall",
    "row": "HBO Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Movie"
+   ]
   },
   {
    "id": "A30BDB7142C500A54A23997B104622FA",
@@ -3596,7 +4080,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Avatar: The Way of Water",
    "row": "HBO Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Movie"
+   ]
   },
   {
    "id": "474CF4B051EA4789ED6895A12DAD6F1E",
@@ -3621,7 +4108,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Avatar",
    "row": "HBO Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Movie"
+   ]
   },
   {
    "id": "9A6CC7D2006B9135A92C3DF142A1DE9A",
@@ -3645,7 +4135,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Bingo: The King of the Mornings",
    "row": "HBO Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Movie"
+   ]
   },
   {
    "id": "9487765E7A394DDAAC4E05C307568AF5",
@@ -3668,7 +4161,13 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Angel of Christmas",
    "row": "Prime Video Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Movie",
+    "Apple TV+ Movie",
+    "Comedia",
+    "Romántico"
+   ]
   },
   {
    "id": "7E5552A461C545028A834FDB975AB5E3",
@@ -3691,7 +4190,13 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "My Weird School",
    "row": "Prime Video Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Movie",
+    "Apple TV+ Movie",
+    "Comedia",
+    "Familia"
+   ]
   },
   {
    "id": "193D4ED994BB445B88B6D00A328BBBF5",
@@ -3713,7 +4218,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "La Sombra del Juez",
    "row": "Prime Video Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Movie",
+    "Suspenso"
+   ]
   },
   {
    "id": "46E04E2DA48448E4AC8AA3765D1E6531",
@@ -3737,7 +4246,13 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Nutcracker",
    "row": "Prime Video Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Movie",
+    "Apple TV+ Movie",
+    "Familia",
+    "Fantastico"
+   ]
   },
   {
    "id": "10494E953C9A4EA3A1C08EF1C70177F1",
@@ -3760,7 +4275,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "438 dagar",
    "row": "Prime Video Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Movie",
+    "Suspenso"
+   ]
   },
   {
    "id": "AB4451566F4C44C6B178634C55D10934",
@@ -3784,7 +4303,14 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Xin li zui: Cheng shi zhi guang",
    "row": "Prime Video Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Movie",
+    "Apple TV+ Movie",
+    "Crimen",
+    "Misterio",
+    "Suspenso"
+   ]
   },
   {
    "id": "3B2244E3942E495A92744EA0B9B4061A",
@@ -3807,7 +4333,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Christmas in Love",
    "row": "Apple TV+ Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Apple TV+ Movie",
+    "Romántico"
+   ]
   },
   {
    "id": "EF0B45CD7E7B4EA9AD8273E5BB1B2F64",
@@ -3829,7 +4359,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Christmas at the Palace",
    "row": "Apple TV+ Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Apple TV+ Movie",
+    "Romántico"
+   ]
   },
   {
    "id": "41D7EFB8B5C248F8A3F0788518FFC2BC",
@@ -3853,7 +4387,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Incendies",
    "row": "Apple TV+ Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Apple TV+ Movie",
+    "Misterio"
+   ]
   },
   {
    "id": "CBB8C0C4AF6F4F819D98618E2244EB3A",
@@ -3876,7 +4414,12 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Submerged",
    "row": "Apple TV+ Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Apple TV+ Movie",
+    "Acción",
+    "Suspenso"
+   ]
   },
   {
    "id": "7310D16CB1524543AC75CF1B4E64A3EE",
@@ -3903,7 +4446,14 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Primitive War",
    "row": "Hulu Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Movie",
+    "Horror",
+    "Acción",
+    "Ciencia ficción",
+    "Aventuras"
+   ]
   },
   {
    "id": "E83BC9A5DD26EC2C25951522582D97C0",
@@ -3926,7 +4476,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Night School",
    "row": "Hulu Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Movie"
+   ]
   },
   {
    "id": "F0D0BDF2DE874201B59BD375B7C9507D",
@@ -3951,7 +4504,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Neglected",
    "row": "Hulu Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Movie"
+   ]
   },
   {
    "id": "2027CDD08EB849B0A7BBDA6F767CC9F2",
@@ -3973,7 +4529,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Clown Panic",
    "row": "Hulu Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Movie"
+   ]
   },
   {
    "id": "03510FAD537C48E1AC9E50D237CA23A6",
@@ -3996,7 +4555,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Katseye: Wild Hearts",
    "row": "Hulu Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Movie"
+   ]
   },
   {
    "id": "4E2E0CCD9080462CBF830F4E8C3ACD11",
@@ -4018,7 +4580,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "My Kidnapped Son",
    "row": "Hulu Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Movie"
+   ]
   },
   {
    "id": "51D992AED6EC48E6A47ACDE8F8238A0A",
@@ -4040,7 +4605,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Murder in the Highland Manor",
    "row": "Hulu Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Movie"
+   ]
   },
   {
    "id": "121E155C436E47E19DAA3019E514CAD9",
@@ -4062,7 +4630,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Husband, Father, Killer: The Alyssa Pladl Story",
    "row": "Hulu Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Movie"
+   ]
   },
   {
    "id": "E7B59D2C3C844FE8A36833A76C9ECCF5",
@@ -4086,7 +4657,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Nirvanna the Band the Show the Movie",
    "row": "Hulu Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Movie"
+   ]
   },
   {
    "id": "7371B4BC01274ABA99C6F6957FCDF836",
@@ -4109,7 +4683,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Hot Chocolate Holiday",
    "row": "Hulu Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Movie"
+   ]
   },
   {
    "id": "30CCDC3D0E204BD9AD72B55212A221A0",
@@ -4132,7 +4709,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Inside Llewyn Davis",
    "row": "Paramount + Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Movie"
+   ]
   },
   {
    "id": "E85BD434F3BE43EC908451E672E1A378",
@@ -4156,7 +4736,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Splitting Adam",
    "row": "Paramount + Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Movie"
+   ]
   },
   {
    "id": "FBC49698D3B94DF1B7E91CBDE3930FE5",
@@ -4180,7 +4763,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Sweet Dreams",
    "row": "Paramount + Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Movie"
+   ]
   },
   {
    "id": "76EB0F5DBB49422AAEB01574890F5D74",
@@ -4205,7 +4791,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Hamburger Hill",
    "row": "Paramount + Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Movie"
+   ]
   },
   {
    "id": "83F203D096D34B7C8095A21C2E7F0B67",
@@ -4230,7 +4819,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Witness",
    "row": "Paramount + Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Movie"
+   ]
   },
   {
    "id": "C5A41ED9B0624ABEAAD7ED8D12A1467C",
@@ -4255,7 +4847,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Proud Mary",
    "row": "Paramount + Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Movie"
+   ]
   },
   {
    "id": "1656D2CAC0C94F9A99EB9B55D9FFF2A8",
@@ -4281,7 +4876,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Wild Eyed and Wicked",
    "row": "Paramount + Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Movie"
+   ]
   },
   {
    "id": "00070D9A16DC4AEFA7581D499B69C5B9",
@@ -4304,7 +4902,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Black Noise",
    "row": "Paramount + Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Movie"
+   ]
   },
   {
    "id": "345E5A62E7AE44C08CF7A1EB8CB23D4C",
@@ -4328,7 +4929,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Untouchables",
    "row": "Paramount + Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Movie"
+   ]
   },
   {
    "id": "34221CDCD2F343B6A2111244E1159AFC",
@@ -4353,7 +4957,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Black Rain",
    "row": "Paramount + Movie",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Movie"
+   ]
   },
   {
    "id": "CA74A7EC75D044A6AC5485F853AE8B3F",
@@ -4378,7 +4985,12 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "As Almas que Dançam no Escuro",
    "row": "Crimen",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Crimen",
+    "Horror",
+    "Suspenso"
+   ]
   },
   {
    "id": "54524577067646B4A6C9951AD70F3233",
@@ -4405,7 +5017,12 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Sofia",
    "row": "Crimen",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Crimen",
+    "Misterio",
+    "Aventuras"
+   ]
   },
   {
    "id": "7E12599CB5D0433387AAD6B6D50ECE2C",
@@ -4429,7 +5046,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Johnny Skidmarks",
    "row": "Crimen",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Crimen",
+    "Misterio"
+   ]
   },
   {
    "id": "52FA10E0C01947DD8A8A0D1A656FCADB",
@@ -4452,7 +5073,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Noir comme neige",
    "row": "Crimen",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Crimen"
+   ]
   },
   {
    "id": "4F3FAF61574D4F21B10AF2E41A3975E9",
@@ -4476,7 +5100,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Her Husband's Betrayal",
    "row": "Crimen",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Crimen"
+   ]
   },
   {
    "id": "5E3E35239D154A598D471F80DBD7BF31",
@@ -4503,7 +5130,14 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Hammerhead",
    "row": "Horror",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror",
+    "Acción",
+    "Comedia",
+    "Ciencia ficción",
+    "Aventuras"
+   ]
   },
   {
    "id": "02D21B534F2649F5BA79719ACF5103FA",
@@ -4525,7 +5159,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "A Story of Derry",
    "row": "Horror",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "75A20ED23BDC4F8C8DB55299E8D991C3",
@@ -4547,7 +5184,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Anacondas",
    "row": "Horror",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "920E8FB6028B44BFB93D922F17E9ABC6",
@@ -4570,7 +5210,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Resident Evil",
    "row": "Horror",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "E87EA0C07F9B47CEAE81A3B9B909BFB7",
@@ -4593,7 +5236,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Last Horror Movie",
    "row": "Horror",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "D9837F606D2D430C83B1DC1F0E4A2384",
@@ -4615,7 +5261,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Angela: Alma cautiva",
    "row": "Acción",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Acción"
+   ]
   },
   {
    "id": "C982C8C5C7A248D1B6E5E67BADD94DBB",
@@ -4637,7 +5286,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "El Choco",
    "row": "Acción",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Acción"
+   ]
   },
   {
    "id": "DBFD23A87C404F33A2465E376CD4C507",
@@ -4660,7 +5312,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "A Dog's Perfect Christmas",
    "row": "Comedia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia"
+   ]
   },
   {
    "id": "00BC3DECA39141E4BC5E1167452CE0DD",
@@ -4683,7 +5338,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Papá se volvió loco",
    "row": "Comedia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia",
+    "Romántico"
+   ]
   },
   {
    "id": "C7D228077FD7461A8E348783AED2CB23",
@@ -4705,7 +5364,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Minha Melhor Amiga",
    "row": "Comedia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia"
+   ]
   },
   {
    "id": "464794208D0A4E489BCC114090483459",
@@ -4729,7 +5391,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Santa Stakeout",
    "row": "Comedia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia",
+    "Romántico"
+   ]
   },
   {
    "id": "074D77AAC72E4B0F8E98244C8959981D",
@@ -4753,7 +5419,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Housewives of the North Pole",
    "row": "Comedia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia",
+    "Familia"
+   ]
   },
   {
    "id": "821638B5E5C9429E8AC3C3759F7631EC",
@@ -4776,7 +5446,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Jingle Bells",
    "row": "Familia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia",
+    "Película de Anime"
+   ]
   },
   {
    "id": "EF7827DF6C2A48A1943C2CE35B433C78",
@@ -4800,7 +5474,12 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Magic Faraway Tree",
    "row": "Familia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia",
+    "Fantastico",
+    "Aventuras"
+   ]
   },
   {
    "id": "1A1C1F2FC79C4528AD872C82E07EA6B1",
@@ -4825,7 +5504,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "A Christmas Wedding Tail",
    "row": "Familia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia"
+   ]
   },
   {
    "id": "AFBEDDBAD4BA4F55BE98EC4CF8F23578",
@@ -4848,7 +5530,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "House Arrest",
    "row": "Familia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia"
+   ]
   },
   {
    "id": "1A6F127FF930410CAFB99774EB55C4A9",
@@ -4877,7 +5562,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Forgotten Island",
    "row": "Familia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia",
+    "Película de Anime"
+   ]
   },
   {
    "id": "5A965952B320458B858C91DF2A73DA10",
@@ -4901,7 +5590,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Brothers of the Wind",
    "row": "Familia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia"
+   ]
   },
   {
    "id": "8BB3E7F16644468FBD67A7BF61B610C7",
@@ -4927,7 +5619,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Panique au village",
    "row": "Familia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia",
+    "Película de Anime"
+   ]
   },
   {
    "id": "A31507D134544D22914BABF4941FD50E",
@@ -4950,7 +5646,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Julio y su ángel",
    "row": "Fantastico",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico"
+   ]
   },
   {
    "id": "976F54539C86486ABE2E44164F2DC82D",
@@ -4973,7 +5672,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Luo Fan Chen",
    "row": "Fantastico",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico",
+    "Película de Anime"
+   ]
   },
   {
    "id": "8DDF06202B79497A908D80EDB6F6E522",
@@ -4996,7 +5699,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "12 Wishes of Christmas",
    "row": "Fantastico",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico"
+   ]
   },
   {
    "id": "5B4D475B0A4A4B74B6398ECC8D9A803D",
@@ -5021,7 +5727,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Dave Made a Maze",
    "row": "Fantastico",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico",
+    "Aventuras"
+   ]
   },
   {
    "id": "FDFE4B81DEBB4723AD33E86DA0B51D3D",
@@ -5045,7 +5755,12 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Supernatural Academy: Birth of the Dragon Marked",
    "row": "Fantastico",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico",
+    "Aventuras",
+    "Película de Anime"
+   ]
   },
   {
    "id": "8CD3B5AC0AEB421496897B369C68E7F3",
@@ -5071,7 +5786,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Seven Cemeteries",
    "row": "Fantastico",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico",
+    "Occidental"
+   ]
   },
   {
    "id": "722F7189374740EBA11C766BFEDD3F4F",
@@ -5095,7 +5814,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Meridian",
    "row": "Fantastico",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico"
+   ]
   },
   {
    "id": "EEA6CF8E1F1847CC9F83F5EED51E3963",
@@ -5119,7 +5841,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Maria",
    "row": "Historia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia",
+    "Biografía"
+   ]
   },
   {
    "id": "D2813D2DFB0A4C04A7AE3240BB96FAA7",
@@ -5144,7 +5870,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Marshall",
    "row": "Historia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia",
+    "Biografía"
+   ]
   },
   {
    "id": "A097EA5CDBA440FE9D782365B78A22FD",
@@ -5169,7 +5899,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Fat Man and Little Boy",
    "row": "Historia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia",
+    "Biografía"
+   ]
   },
   {
    "id": "F84C067E97974DE69C65CA339EA2D1B4",
@@ -5193,7 +5927,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "El akhira",
    "row": "Historia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia"
+   ]
   },
   {
    "id": "FBED22C0463F4E2DBE11536E34578C5E",
@@ -5218,7 +5955,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "La bola negra",
    "row": "Historia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia"
+   ]
   },
   {
    "id": "01BAD416AF6040298E77C3FAFCC19469",
@@ -5242,7 +5982,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Linhas de Wellington",
    "row": "Historia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia"
+   ]
   },
   {
    "id": "1676FA813204487F9C0C6BE35DEBFC6D",
@@ -5267,7 +6010,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Magalhães",
    "row": "Historia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia",
+    "Biografía"
+   ]
   },
   {
    "id": "23909DE3AC8D4BE9B8DBD4E7C2D3C24F",
@@ -5292,7 +6039,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Konopacka. Walka o zloto",
    "row": "Historia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia"
+   ]
   },
   {
    "id": "A5BD6BEFC8134A13B3393BA970DD0C28",
@@ -5316,7 +6066,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Le déluge",
    "row": "Historia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia"
+   ]
   },
   {
    "id": "7CD7E049CCF54C6ABEC6D4F9995E3060",
@@ -5340,7 +6093,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Tôi yama-nami no hikari",
    "row": "Historia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia"
+   ]
   },
   {
    "id": "861B117D67C741F9A9C7DE5C6387E390",
@@ -5363,7 +6119,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "A Stranger's Child",
    "row": "Misterio",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Misterio",
+    "Suspenso"
+   ]
   },
   {
    "id": "66C0777B7F8E4EEA9BB8329B72C670EC",
@@ -5386,7 +6146,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Maniac Tales",
    "row": "Misterio",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Misterio"
+   ]
   },
   {
    "id": "EB4838F93E12462AA3B17D174AE54DFC",
@@ -5410,7 +6173,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "El llanto de Helena",
    "row": "Misterio",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Misterio"
+   ]
   },
   {
    "id": "B6EAF6FF16E947BCA84B2910062CE0CA",
@@ -5434,7 +6200,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "In the Dark",
    "row": "Misterio",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Misterio"
+   ]
   },
   {
    "id": "9866371858444DB3810C110F88D01AEA",
@@ -5458,7 +6227,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Un mensonge oublié",
    "row": "Misterio",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Misterio"
+   ]
   },
   {
    "id": "A283682EF6984AEBAD315C7E3649CF08",
@@ -5481,7 +6253,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Hwal",
    "row": "Romántico",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Romántico"
+   ]
   },
   {
    "id": "DFE7955FBCF844E2BEB16997254618C4",
@@ -5504,7 +6279,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Sense and Sensibility",
    "row": "Romántico",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Romántico"
+   ]
   },
   {
    "id": "9CA312C13AD344CA96BC795B4FE36641",
@@ -5527,7 +6305,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Christmas Encore",
    "row": "Romántico",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Romántico"
+   ]
   },
   {
    "id": "A83AE2027C034FE986BC9492B73A5B17",
@@ -5551,7 +6332,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Isolate Thief",
    "row": "Occidental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "49E727BDB5E8491BB7BABFF432BAC1B7",
@@ -5574,7 +6358,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Convicts",
    "row": "Occidental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "23F40721103B417889D34E316C0F1971",
@@ -5598,7 +6385,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Glory Glory",
    "row": "Occidental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "B1F79F3C94104C5DB19BB6F0C35969E7",
@@ -5621,7 +6411,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "King of Texas",
    "row": "Occidental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "385888330F524559A01F169D18DB9A29",
@@ -5646,7 +6439,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Der junge Häuptling Winnetou",
    "row": "Occidental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "D48A7156AC4B4E8B9E03EEC2563669A4",
@@ -5669,7 +6465,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Bad Men Must Bleed",
    "row": "Occidental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "E67D4566E2A5471CA97ABA04B676B5A2",
@@ -5694,7 +6493,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Once Upon a Time in Ukraine",
    "row": "Occidental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "EA402487AC584B6CA4D6F40125DF8DCD",
@@ -5717,7 +6519,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "La vuelta de El Coyote",
    "row": "Occidental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "88163FBEF9CA4AC5B14EFD2132D5B4E6",
@@ -5742,7 +6547,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Forgive Us All",
    "row": "Occidental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "73B3C905B2054772A4430DE5B79532DA",
@@ -5768,7 +6576,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Rammbock",
    "row": "Ciencia ficción",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "82E3A85897FA480EB04947774DB3B530",
@@ -5793,7 +6604,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Skeeter",
    "row": "Ciencia ficción",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "6A664CF173E04C508FDDB12FFB13C60E",
@@ -5816,7 +6630,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Existir",
    "row": "Ciencia ficción",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "716CD7CB48F647EAA25A1D898E4B8890",
@@ -5839,7 +6656,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Crash and Burn",
    "row": "Ciencia ficción",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "3F4D43DE16904C22AFD4935CC4AD706D",
@@ -5864,7 +6684,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Caved In",
    "row": "Ciencia ficción",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "B12EE2B2A7EC4A1D8823C6C2C6ABD5FB",
@@ -5886,7 +6709,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Ogiva: O Mundo Não é Mais Nosso",
    "row": "Ciencia ficción",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "3D10254FAF6348FF91867FBAD8B4E451",
@@ -5909,7 +6735,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Me llamo Gennet",
    "row": "Biografía",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía"
+   ]
   },
   {
    "id": "58EBF892133843AA96131338A0570DDA",
@@ -5933,7 +6762,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Amber's Story",
    "row": "Biografía",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía"
+   ]
   },
   {
    "id": "8D1C0360D5D949B792B5C46942825EB3",
@@ -5957,7 +6789,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Tony",
    "row": "Biografía",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía"
+   ]
   },
   {
    "id": "5720AEE8553B4FB38F94A038496F1E18",
@@ -5980,7 +6815,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "200 vidas. Paco Rabal",
    "row": "Biografía",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía"
+   ]
   },
   {
    "id": "9FE6E6A6938746F682D1C4167DCBFF5B",
@@ -6003,7 +6841,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Viatge al país dels blancs",
    "row": "Biografía",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía"
+   ]
   },
   {
    "id": "7D5508B1E98C4395B56667B058C74A0D",
@@ -6028,7 +6869,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Le rêve américain",
    "row": "Biografía",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía"
+   ]
   },
   {
    "id": "514682C3F55D4CA4914CF5E23FC19B4C",
@@ -6051,7 +6895,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Ninho: Le Prix à payer",
    "row": "Documental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "1A6047AB160B4797B78A14FFB6361B77",
@@ -6073,7 +6920,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Montevideo Inolvidable",
    "row": "Documental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "29FF2F12B10C48F2B16883D195E23A3B",
@@ -6096,7 +6946,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Tierra de Patagones",
    "row": "Documental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental",
+    "Aventuras"
+   ]
   },
   {
    "id": "9C471B28093E4AA98CCD69B0D73E6E3E",
@@ -6118,7 +6972,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Vecinos de hormigón",
    "row": "Documental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "CF6B5A1B7D8045E4B104678ABA128229",
@@ -6140,7 +6997,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Mad Dog of Europe",
    "row": "Documental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "187BCC9C1FF841658F836C8BEB5D4CD8",
@@ -6166,7 +7026,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Hanging by a Wire",
    "row": "Documental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "7121A00A1740474B9C719E050D466E0F",
@@ -6188,7 +7051,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "La Mili en el Sáhara",
    "row": "Documental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "21C58AC5F5FB4B8EAD6C75B9DE7BD3C6",
@@ -6210,7 +7076,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Dibujos contra las balas",
    "row": "Documental",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "03F778F83EF14BF48B6C63D5BE2B0FC4",
@@ -6236,7 +7105,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Team Hot Wheels: Build the Epic Race",
    "row": "Aventuras",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Aventuras",
+    "Película de Anime"
+   ]
   },
   {
    "id": "BE4580F47C3D4B6080AFD5766B81FB75",
@@ -6258,7 +7131,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Atrapados en Michoacan Cabron y Vago 2",
    "row": "Aventuras",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Aventuras"
+   ]
   },
   {
    "id": "7F97F553F0E7CE724C285A13BAAA2201",
@@ -6280,7 +7156,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Leona",
    "row": "Nativo",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "5C1A6ACC808D75778BFBFAEE9E070570",
@@ -6302,7 +7181,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "El billetero",
    "row": "Nativo",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "48B0234DEB291DE6F1F7DC4228D8A8C9",
@@ -6324,7 +7206,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "My Grand Farewell",
    "row": "Nativo",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "F9E78E2FB13442AD83917D198A492C8F",
@@ -6348,7 +7233,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Hell",
    "row": "Nativo",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "E7C7D9387DD5DBD8FDDAC519A206AA3D",
@@ -6372,7 +7260,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Pan's Labyrinth",
    "row": "Nativo",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "0E77B5A002C72B519C6DE60AD759039A",
@@ -6395,7 +7286,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Grey Eyes",
    "row": "Nativo",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "DEF183F117207EED8874DE31700A68AD",
@@ -6420,7 +7314,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Polyamory for Dummies",
    "row": "Nativo",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "565EBFB49BB1DBD6DD7D1D5E43D1DC88",
@@ -6443,7 +7340,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Memories of My Father",
    "row": "Nativo",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "5431510A86BB183EEDE8E77F8BE64F37",
@@ -6467,7 +7367,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Secret in Their Eyes",
    "row": "Nativo",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "F3C26F6A3E7988ED77D35001617A5E27",
@@ -6492,7 +7395,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Year of Fury",
    "row": "Nativo",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "528A2FBE1BD4CA3727976CAEA13A2871",
@@ -6516,7 +7422,10 @@ window.XUPERTV_PORTAL = {
    "row": "Vida familiar famosa",
    "volumeCount": 9,
    "updateCount": 9,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Vida familiar famosa"
+   ]
   },
   {
    "id": "5D45D3ED221244B4F42AF21643E3CD0C",
@@ -6541,7 +7450,10 @@ window.XUPERTV_PORTAL = {
    "row": "Vida familiar famosa",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Vida familiar famosa"
+   ]
   },
   {
    "id": "0C228030B203D43C01F8905630629EFE",
@@ -6567,7 +7479,10 @@ window.XUPERTV_PORTAL = {
    "row": "Vida familiar famosa",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Vida familiar famosa"
+   ]
   },
   {
    "id": "35B37E226CCF43AF94EF57C8B6464239",
@@ -6591,7 +7506,10 @@ window.XUPERTV_PORTAL = {
    "row": "Vida familiar famosa",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Vida familiar famosa"
+   ]
   },
   {
    "id": "9712194D4731A2E464AEEAA52AED115B",
@@ -6615,7 +7533,10 @@ window.XUPERTV_PORTAL = {
    "row": "Vida familiar famosa",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Vida familiar famosa"
+   ]
   },
   {
    "id": "CF99D7504FE44030839DC485F6BB6844",
@@ -6642,7 +7563,10 @@ window.XUPERTV_PORTAL = {
    "row": "Vida familiar famosa",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Vida familiar famosa"
+   ]
   },
   {
    "id": "C55B370D15B44882AE30CE0FD1E52774",
@@ -6668,7 +7592,10 @@ window.XUPERTV_PORTAL = {
    "row": "Vida familiar famosa",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Vida familiar famosa"
+   ]
   },
   {
    "id": "3458EDCA21994FDA8D8FE90864D0B63E",
@@ -6694,7 +7621,10 @@ window.XUPERTV_PORTAL = {
    "row": "Vida familiar famosa",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Vida familiar famosa"
+   ]
   },
   {
    "id": "EFF1E4865682550358437AC31BE49478",
@@ -6719,7 +7649,10 @@ window.XUPERTV_PORTAL = {
    "row": "Vida familiar famosa",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Vida familiar famosa"
+   ]
   },
   {
    "id": "D9151C1FDDEBEFD8F636972DCAA2A689",
@@ -6744,7 +7677,10 @@ window.XUPERTV_PORTAL = {
    "row": "Vida familiar famosa",
    "volumeCount": 7,
    "updateCount": 7,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Vida familiar famosa"
+   ]
   },
   {
    "id": "D5AB5557B1574CBEA3861A33CE814BB9",
@@ -6769,7 +7705,10 @@ window.XUPERTV_PORTAL = {
    "row": "78.ª edición de los premios Primetime Emmy",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "78.ª edición de los premios Primetime Emmy"
+   ]
   },
   {
    "id": "1AB48AF1C7BF4B0FB1CB6D4FAA78520C",
@@ -6794,7 +7733,10 @@ window.XUPERTV_PORTAL = {
    "row": "78.ª edición de los premios Primetime Emmy",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "78.ª edición de los premios Primetime Emmy"
+   ]
   },
   {
    "id": "50E99DDFDE3A4315A00355CA4D983C81",
@@ -6819,7 +7761,10 @@ window.XUPERTV_PORTAL = {
    "row": "78.ª edición de los premios Primetime Emmy",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "78.ª edición de los premios Primetime Emmy"
+   ]
   },
   {
    "id": "2202DDBAA7A4449CB534E37A37940F99",
@@ -6845,7 +7790,10 @@ window.XUPERTV_PORTAL = {
    "row": "78.ª edición de los premios Primetime Emmy",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "78.ª edición de los premios Primetime Emmy"
+   ]
   },
   {
    "id": "0EE0AE439E164FC482A5CC4A07FCCF63",
@@ -6870,7 +7818,10 @@ window.XUPERTV_PORTAL = {
    "row": "78.ª edición de los premios Primetime Emmy",
    "volumeCount": 9,
    "updateCount": 9,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "78.ª edición de los premios Primetime Emmy"
+   ]
   },
   {
    "id": "C091D7ADFD2844F69D1D33E2CD24A365",
@@ -6895,7 +7846,10 @@ window.XUPERTV_PORTAL = {
    "row": "78.ª edición de los premios Primetime Emmy",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "78.ª edición de los premios Primetime Emmy"
+   ]
   },
   {
    "id": "7FD9AE8C43EE448ABA4FF782E8AB4F3D",
@@ -6919,7 +7873,10 @@ window.XUPERTV_PORTAL = {
    "row": "78.ª edición de los premios Primetime Emmy",
    "volumeCount": 15,
    "updateCount": 15,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "78.ª edición de los premios Primetime Emmy"
+   ]
   },
   {
    "id": "853FC00AA19744FDBD226760BE06E70A",
@@ -6946,7 +7903,10 @@ window.XUPERTV_PORTAL = {
    "row": "78.ª edición de los premios Primetime Emmy",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "78.ª edición de los premios Primetime Emmy"
+   ]
   },
   {
    "id": "CDAE8F5B9FA64575BBDF2FA66E633DA9",
@@ -6971,7 +7931,10 @@ window.XUPERTV_PORTAL = {
    "row": "78.ª edición de los premios Primetime Emmy",
    "volumeCount": 7,
    "updateCount": 7,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "78.ª edición de los premios Primetime Emmy"
+   ]
   },
   {
    "id": "358E9C54863D4EA79EFFD7E6A712907A",
@@ -6995,7 +7958,10 @@ window.XUPERTV_PORTAL = {
    "row": "78.ª edición de los premios Primetime Emmy",
    "volumeCount": 7,
    "updateCount": 7,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "78.ª edición de los premios Primetime Emmy"
+   ]
   },
   {
    "id": "06B21CF02F5C43E5A4F49CA9FAF5028A",
@@ -7020,7 +7986,14 @@ window.XUPERTV_PORTAL = {
    "row": "2026",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "TV Series",
+    "Drama",
+    "Romántico"
+   ]
   },
   {
    "id": "7B14ADAC536D4C9DACB811210FC2D63E",
@@ -7047,7 +8020,19 @@ window.XUPERTV_PORTAL = {
    "row": "2026",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "TV Series",
+    "Prime Video Series",
+    "Apple TV+ Series",
+    "Hulu Series",
+    "Drama",
+    "Suspenso",
+    "Ciencia ficción",
+    "Horror"
+   ]
   },
   {
    "id": "950420468B73467786BFBA8B0FF11C75",
@@ -7071,7 +8056,14 @@ window.XUPERTV_PORTAL = {
    "row": "2026",
    "volumeCount": 10,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "TV Series",
+    "Hulu Series",
+    "Reality-TV"
+   ]
   },
   {
    "id": "B83B71E738614A07B319AF73B4D06F31",
@@ -7096,7 +8088,14 @@ window.XUPERTV_PORTAL = {
    "row": "2026",
    "volumeCount": 8,
    "updateCount": 7,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "TV Series",
+    "Documental",
+    "Reality-TV"
+   ]
   },
   {
    "id": "7F5D0B5836494923B6A5A31DDDE78A67",
@@ -7121,7 +8120,14 @@ window.XUPERTV_PORTAL = {
    "row": "2026",
    "volumeCount": 12,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "Prime Video Series",
+    "Hulu Series",
+    "Reality-TV"
+   ]
   },
   {
    "id": "132121A4D72B4E3BA9707A4388190861",
@@ -7146,7 +8152,15 @@ window.XUPERTV_PORTAL = {
    "row": "2026",
    "volumeCount": 16,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "Prime Video Series",
+    "Apple TV+ Series",
+    "Hulu Series",
+    "Reality-TV"
+   ]
   },
   {
    "id": "5E74ABE8000548AB876C7DCDB4FDFD9E",
@@ -7174,7 +8188,18 @@ window.XUPERTV_PORTAL = {
    "row": "2026",
    "volumeCount": 18,
    "updateCount": 1,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "TV Series",
+    "Prime Video Series",
+    "Apple TV+ Series",
+    "Drama",
+    "Misterio",
+    "Suspenso",
+    "Crimen"
+   ]
   },
   {
    "id": "2684751BBE5242FFA22645D1794EE53D",
@@ -7198,7 +8223,14 @@ window.XUPERTV_PORTAL = {
    "row": "2026",
    "volumeCount": 11,
    "updateCount": 17,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "TV Series",
+    "Nativo",
+    "Drama"
+   ]
   },
   {
    "id": "F26009A06AD5490ABD78B3754CAC3A41",
@@ -7227,7 +8259,16 @@ window.XUPERTV_PORTAL = {
    "row": "2026",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "All",
+    "Fantastico",
+    "Romántico",
+    "Comedia",
+    "Todas",
+    "Serie de Anime"
+   ]
   },
   {
    "id": "D9C633ACEF63486283C83A50B43FCC33",
@@ -7254,7 +8295,16 @@ window.XUPERTV_PORTAL = {
    "row": "2026",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "2026",
+    "Prime Video Series",
+    "Apple TV+ Series",
+    "Fantastico",
+    "Comedia",
+    "Todas",
+    "Serie de Anime"
+   ]
   },
   {
    "id": "7B0D0F0008964AD6812E7EFF1B5FA409",
@@ -7282,7 +8332,14 @@ window.XUPERTV_PORTAL = {
    "row": "All",
    "volumeCount": 50,
    "updateCount": 48,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "All",
+    "TV Series",
+    "Familia",
+    "Fantastico",
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "8B9A703864D411ECA185002590260B9A",
@@ -7306,7 +8363,10 @@ window.XUPERTV_PORTAL = {
    "row": "Telenovelas",
    "volumeCount": 24,
    "updateCount": 24,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Telenovelas"
+   ]
   },
   {
    "id": "6501E4A3F27BEB6A4377CAA0123BD746",
@@ -7331,7 +8391,10 @@ window.XUPERTV_PORTAL = {
    "row": "Telenovelas",
    "volumeCount": 71,
    "updateCount": 71,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Telenovelas"
+   ]
   },
   {
    "id": "FDE925D683DBFAA521E47967965D79EA",
@@ -7357,7 +8420,10 @@ window.XUPERTV_PORTAL = {
    "row": "Telenovelas",
    "volumeCount": 129,
    "updateCount": 129,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Telenovelas"
+   ]
   },
   {
    "id": "3392098A7FC011ECA70774D02B29C423",
@@ -7383,7 +8449,10 @@ window.XUPERTV_PORTAL = {
    "row": "Telenovelas",
    "volumeCount": 190,
    "updateCount": 190,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Telenovelas"
+   ]
   },
   {
    "id": "AA574618D4E94197B1EC45D3D1EDCFBC",
@@ -7409,7 +8478,10 @@ window.XUPERTV_PORTAL = {
    "row": "Telenovelas",
    "volumeCount": 1,
    "updateCount": 162,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Telenovelas"
+   ]
   },
   {
    "id": "847490358B21FFA2181331F9574E7D22",
@@ -7433,7 +8505,10 @@ window.XUPERTV_PORTAL = {
    "row": "Telenovelas",
    "volumeCount": 122,
    "updateCount": 122,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Telenovelas"
+   ]
   },
   {
    "id": "A97DFF2AF406E4449D23232B23066056",
@@ -7459,7 +8534,10 @@ window.XUPERTV_PORTAL = {
    "row": "Telenovelas",
    "volumeCount": 90,
    "updateCount": 90,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Telenovelas"
+   ]
   },
   {
    "id": "052D5EAE012031E79203B71C4F364FCE",
@@ -7483,7 +8561,10 @@ window.XUPERTV_PORTAL = {
    "row": "Telenovelas",
    "volumeCount": 141,
    "updateCount": 141,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Telenovelas"
+   ]
   },
   {
    "id": "8BC18F7097DC4146B2A4A235C58E8FB4",
@@ -7508,7 +8589,10 @@ window.XUPERTV_PORTAL = {
    "row": "Telenovelas",
    "volumeCount": 155,
    "updateCount": 118,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Telenovelas"
+   ]
   },
   {
    "id": "535DC4AEBBBBF68BBCC5FB69985B4D20",
@@ -7532,7 +8616,10 @@ window.XUPERTV_PORTAL = {
    "row": "Telenovelas",
    "volumeCount": 70,
    "updateCount": 70,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Telenovelas"
+   ]
   },
   {
    "id": "8235CC4A7A2C46D39F2C26B0F266A008",
@@ -7556,7 +8643,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie Turquía",
    "volumeCount": 111,
    "updateCount": 111,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie Turquía"
+   ]
   },
   {
    "id": "1B5E3536E7854536805812F42693D6C6",
@@ -7580,7 +8670,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie Turquía",
    "volumeCount": 123,
    "updateCount": 123,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie Turquía"
+   ]
   },
   {
    "id": "9F0CDE2EC3774CF3B4ED2E4178A159A2",
@@ -7604,7 +8697,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie Turquía",
    "volumeCount": 127,
    "updateCount": 127,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie Turquía"
+   ]
   },
   {
    "id": "790CEFFB689A4725ADE937B07D718311",
@@ -7629,7 +8725,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie Turquía",
    "volumeCount": 32,
    "updateCount": 28,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie Turquía"
+   ]
   },
   {
    "id": "7AB7BD86180547FC981E77A30EE5B758",
@@ -7657,7 +8756,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie Turquía",
    "volumeCount": 30,
    "updateCount": 97,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie Turquía"
+   ]
   },
   {
    "id": "DE59E98244C8443CA5A59C82A47D3A23",
@@ -7682,7 +8784,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie Turquía",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie Turquía"
+   ]
   },
   {
    "id": "BABA5901D56F4B828A2161D7F1FC6BA0",
@@ -7706,7 +8811,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie Turquía",
    "volumeCount": 76,
    "updateCount": 76,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie Turquía"
+   ]
   },
   {
    "id": "5208D9C8AC174403A5F406D3C6E291B2",
@@ -7730,7 +8838,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie Turquía",
    "volumeCount": 90,
    "updateCount": 90,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie Turquía"
+   ]
   },
   {
    "id": "1A3C0E615B674996B3C5C82184B0E942",
@@ -7755,7 +8866,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie Turquía",
    "volumeCount": 96,
    "updateCount": 40,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie Turquía"
+   ]
   },
   {
    "id": "57E58F12C3854D6FAEBB18A325FC18BE",
@@ -7780,7 +8894,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie Turquía",
    "volumeCount": 35,
    "updateCount": 35,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie Turquía"
+   ]
   },
   {
    "id": "8E7582487C0D4001A57285D91A62BC64",
@@ -7805,7 +8922,12 @@ window.XUPERTV_PORTAL = {
    "row": "Drama Coreano",
    "volumeCount": 10,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama Coreano",
+    "Romántico",
+    "Comedia"
+   ]
   },
   {
    "id": "A4F9D95A53C548229B071F4B3C7A5A1F",
@@ -7832,7 +8954,10 @@ window.XUPERTV_PORTAL = {
    "row": "Drama Coreano",
    "volumeCount": 12,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama Coreano"
+   ]
   },
   {
    "id": "7FB75C8A87604576A6E48F3C12D4312D",
@@ -7859,7 +8984,11 @@ window.XUPERTV_PORTAL = {
    "row": "Drama Coreano",
    "volumeCount": 10,
    "updateCount": 4,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama Coreano",
+    "Historia"
+   ]
   },
   {
    "id": "532DBA89575440B2B4F7326DE7EA831E",
@@ -7886,7 +9015,10 @@ window.XUPERTV_PORTAL = {
    "row": "Drama Coreano",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama Coreano"
+   ]
   },
   {
    "id": "303EA2A2D1AA4E6282C23AF0CCA9D310",
@@ -7911,7 +9043,11 @@ window.XUPERTV_PORTAL = {
    "row": "Drama Coreano",
    "volumeCount": 12,
    "updateCount": 9,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama Coreano",
+    "Hulu Series"
+   ]
   },
   {
    "id": "141D190AE1E24F2EB4FE799326278632",
@@ -7938,7 +9074,10 @@ window.XUPERTV_PORTAL = {
    "row": "Drama Coreano",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama Coreano"
+   ]
   },
   {
    "id": "9AA62650990A4077ACA37DF56AEFC3BC",
@@ -7962,7 +9101,10 @@ window.XUPERTV_PORTAL = {
    "row": "Drama Coreano",
    "volumeCount": 12,
    "updateCount": 4,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama Coreano"
+   ]
   },
   {
    "id": "DAFD006A883D49749B312F7D919D3E46",
@@ -7988,7 +9130,10 @@ window.XUPERTV_PORTAL = {
    "row": "Drama Coreano",
    "volumeCount": 12,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama Coreano"
+   ]
   },
   {
    "id": "6648B398CFA34D63889FBC595DD6B1E9",
@@ -8017,7 +9162,11 @@ window.XUPERTV_PORTAL = {
    "row": "Drama Coreano",
    "volumeCount": 16,
    "updateCount": 7,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama Coreano",
+    "Historia"
+   ]
   },
   {
    "id": "6C010DC6981A4277B7730EB8A744474D",
@@ -8042,7 +9191,10 @@ window.XUPERTV_PORTAL = {
    "row": "Drama Coreano",
    "volumeCount": 14,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama Coreano"
+   ]
   },
   {
    "id": "6363BB6FD30642528C236926954E90A0",
@@ -8069,7 +9221,13 @@ window.XUPERTV_PORTAL = {
    "row": "TV Series",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "TV Series",
+    "Drama",
+    "Misterio",
+    "Suspenso"
+   ]
   },
   {
    "id": "02E95FBFE3054385BDD1A21316376244",
@@ -8093,7 +9251,11 @@ window.XUPERTV_PORTAL = {
    "row": "TV Series",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "TV Series",
+    "Comedia"
+   ]
   },
   {
    "id": "8B90055A7F364E97B55151E270D7AE7B",
@@ -8118,7 +9280,13 @@ window.XUPERTV_PORTAL = {
    "row": "TV Series",
    "volumeCount": 108,
    "updateCount": 108,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "TV Series",
+    "Nativo",
+    "Drama",
+    "Romántico"
+   ]
   },
   {
    "id": "E5F02E3E881CA683BBAD7ACE367A0D69",
@@ -8142,7 +9310,10 @@ window.XUPERTV_PORTAL = {
    "row": "HBO Series",
    "volumeCount": 24,
    "updateCount": 24,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Series"
+   ]
   },
   {
    "id": "93D1E03078C71895C485081ED0AD1424",
@@ -8166,7 +9337,10 @@ window.XUPERTV_PORTAL = {
    "row": "HBO Series",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Series"
+   ]
   },
   {
    "id": "EF92A4DC8B59421F88CB1F6D4BAF7DC2",
@@ -8191,7 +9365,10 @@ window.XUPERTV_PORTAL = {
    "row": "HBO Series",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Series"
+   ]
   },
   {
    "id": "7CE83F59C51B4F2E80EC9ECBE49EADC0",
@@ -8218,7 +9395,10 @@ window.XUPERTV_PORTAL = {
    "row": "HBO Series",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Series"
+   ]
   },
   {
    "id": "E9CBB394F00FAF573B99CA34614798FC",
@@ -8242,7 +9422,10 @@ window.XUPERTV_PORTAL = {
    "row": "HBO Series",
    "volumeCount": 27,
    "updateCount": 27,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Series"
+   ]
   },
   {
    "id": "23552C6EC7EE8ACF39D6E928704342A5",
@@ -8266,7 +9449,10 @@ window.XUPERTV_PORTAL = {
    "row": "HBO Series",
    "volumeCount": 27,
    "updateCount": 27,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Series"
+   ]
   },
   {
    "id": "D763D3C593C7200F1AF724116868ADF5",
@@ -8290,7 +9476,10 @@ window.XUPERTV_PORTAL = {
    "row": "HBO Series",
    "volumeCount": 26,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Series"
+   ]
   },
   {
    "id": "277278AE3A9FFD11BB95B579E20E917D",
@@ -8314,7 +9503,10 @@ window.XUPERTV_PORTAL = {
    "row": "HBO Series",
    "volumeCount": 28,
    "updateCount": 28,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Series"
+   ]
   },
   {
    "id": "6C11989BFF344158A69B88246C9C5390",
@@ -8344,7 +9536,10 @@ window.XUPERTV_PORTAL = {
    "row": "HBO Series",
    "volumeCount": 20,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "HBO Series"
+   ]
   },
   {
    "id": "2AC6E4C7CC52459EA90DFC90B8BCF61B",
@@ -8370,7 +9565,14 @@ window.XUPERTV_PORTAL = {
    "row": "Prime Video Series",
    "volumeCount": 12,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Series",
+    "Drama",
+    "Todas",
+    "2026",
+    "Serie de Anime"
+   ]
   },
   {
    "id": "10E2A5D86C60426FB0FC110BDD93FE33",
@@ -8397,7 +9599,15 @@ window.XUPERTV_PORTAL = {
    "row": "Prime Video Series",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Series",
+    "Apple TV+ Series",
+    "Fantastico",
+    "Todas",
+    "2026",
+    "Serie de Anime"
+   ]
   },
   {
    "id": "5396A0B3F8C8495B928A3EB31D744358",
@@ -8426,7 +9636,16 @@ window.XUPERTV_PORTAL = {
    "row": "Prime Video Series",
    "volumeCount": 12,
    "updateCount": 18,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Series",
+    "Drama",
+    "Historia",
+    "Romántico",
+    "Todas",
+    "2026",
+    "Serie de Anime"
+   ]
   },
   {
    "id": "C3B3AEC1C083467588AB19ADD22A8AD8",
@@ -8454,7 +9673,14 @@ window.XUPERTV_PORTAL = {
    "row": "Prime Video Series",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Series",
+    "Apple TV+ Series",
+    "Misterio",
+    "Romántico",
+    "Comedia"
+   ]
   },
   {
    "id": "106C7CBBDCEB4BD9A1EE6BF76092F259",
@@ -8481,7 +9707,14 @@ window.XUPERTV_PORTAL = {
    "row": "Prime Video Series",
    "volumeCount": 8,
    "updateCount": 3,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Prime Video Series",
+    "Apple TV+ Series",
+    "Misterio",
+    "Crimen",
+    "Comedia"
+   ]
   },
   {
    "id": "EFF6C8F25BB044F9B6BDE66973017FE9",
@@ -8505,7 +9738,11 @@ window.XUPERTV_PORTAL = {
    "row": "Apple TV+ Series",
    "volumeCount": 10,
    "updateCount": 7,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Apple TV+ Series",
+    "Suspenso"
+   ]
   },
   {
    "id": "F54A33446B8546EE9DE39B0BE052F03C",
@@ -8531,7 +9768,13 @@ window.XUPERTV_PORTAL = {
    "row": "Apple TV+ Series",
    "volumeCount": 10,
    "updateCount": 4,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Apple TV+ Series",
+    "Hulu Series",
+    "Misterio",
+    "Crimen"
+   ]
   },
   {
    "id": "80263EF51AD849A4A17BFB1F5485E1D5",
@@ -8557,7 +9800,11 @@ window.XUPERTV_PORTAL = {
    "row": "Apple TV+ Series",
    "volumeCount": 10,
    "updateCount": 2,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Apple TV+ Series",
+    "Crimen"
+   ]
   },
   {
    "id": "6562E4D3BCE746709FBFBDD04132AAFA",
@@ -8583,7 +9830,10 @@ window.XUPERTV_PORTAL = {
    "row": "Paramount + Series",
    "volumeCount": 34,
    "updateCount": 34,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Series"
+   ]
   },
   {
    "id": "7E1DCA9D79994BCBBD051EC37B95F6D9",
@@ -8610,7 +9860,10 @@ window.XUPERTV_PORTAL = {
    "row": "Paramount + Series",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Series"
+   ]
   },
   {
    "id": "D9DD5670E7344FC8AE14A999AF6133DA",
@@ -8637,7 +9890,10 @@ window.XUPERTV_PORTAL = {
    "row": "Paramount + Series",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Series"
+   ]
   },
   {
    "id": "B12B942EADFB48A9B02060D9468E8515",
@@ -8662,7 +9918,10 @@ window.XUPERTV_PORTAL = {
    "row": "Paramount + Series",
    "volumeCount": 22,
    "updateCount": 22,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Series"
+   ]
   },
   {
    "id": "0F3C31D4BB0B70A572683E869E951275",
@@ -8688,7 +9947,12 @@ window.XUPERTV_PORTAL = {
    "row": "Paramount + Series",
    "volumeCount": 25,
    "updateCount": 25,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Series",
+    "Serie de Animación",
+    "Todos"
+   ]
   },
   {
    "id": "31963A15392643EDB7C2CED724E716C1",
@@ -8713,7 +9977,10 @@ window.XUPERTV_PORTAL = {
    "row": "Paramount + Series",
    "volumeCount": 20,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Series"
+   ]
   },
   {
    "id": "6725717E88A04FFEAB352B6A766F6DA6",
@@ -8738,7 +10005,10 @@ window.XUPERTV_PORTAL = {
    "row": "Paramount + Series",
    "volumeCount": 16,
    "updateCount": 16,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Series"
+   ]
   },
   {
    "id": "817E249D486F4AEA97F39CDC4866C837",
@@ -8762,7 +10032,10 @@ window.XUPERTV_PORTAL = {
    "row": "Paramount + Series",
    "volumeCount": 22,
    "updateCount": 22,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Series"
+   ]
   },
   {
    "id": "B57AE786BB634A8C76F2EA2633CDB3B2",
@@ -8789,7 +10062,10 @@ window.XUPERTV_PORTAL = {
    "row": "Paramount + Series",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Series"
+   ]
   },
   {
    "id": "67004908771546FBA5B01FECEA0727FA",
@@ -8813,7 +10089,10 @@ window.XUPERTV_PORTAL = {
    "row": "Paramount + Series",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Paramount + Series"
+   ]
   },
   {
    "id": "04D04E49078A41D98D189AB836771AA4",
@@ -8838,7 +10117,10 @@ window.XUPERTV_PORTAL = {
    "row": "Hulu Series",
    "volumeCount": 8,
    "updateCount": 3,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Series"
+   ]
   },
   {
    "id": "8018747C40AF4B96A67ACDAB4F913EDA",
@@ -8866,7 +10148,11 @@ window.XUPERTV_PORTAL = {
    "row": "Hulu Series",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Series",
+    "Historia"
+   ]
   },
   {
    "id": "65E74A548BDA46DE892BF3639FF8FC5A",
@@ -8892,7 +10178,10 @@ window.XUPERTV_PORTAL = {
    "row": "Hulu Series",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Hulu Series"
+   ]
   },
   {
    "id": "B80F5B16113343F5A4BDFBE2E8BCD927",
@@ -8917,7 +10206,11 @@ window.XUPERTV_PORTAL = {
    "row": "Nativo",
    "volumeCount": 120,
    "updateCount": 120,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo",
+    "Familia"
+   ]
   },
   {
    "id": "71E6B663B1DB49229B68701B476CBAE8",
@@ -8941,7 +10234,10 @@ window.XUPERTV_PORTAL = {
    "row": "Nativo",
    "volumeCount": 21,
    "updateCount": 32,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "F3E5707672464266AC41774042D5D2B9",
@@ -8965,7 +10261,10 @@ window.XUPERTV_PORTAL = {
    "row": "Nativo",
    "volumeCount": 5,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "EB0D3D89E1464F22A71973D913947FBF",
@@ -8989,7 +10288,10 @@ window.XUPERTV_PORTAL = {
    "row": "Nativo",
    "volumeCount": 10,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "DCC71FACBA6B4CE8AF9F8CB0604FEC6E",
@@ -9013,7 +10315,11 @@ window.XUPERTV_PORTAL = {
    "row": "Nativo",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo",
+    "Suspenso"
+   ]
   },
   {
    "id": "08152BCD6D73410F8E533D0BA799CDEB",
@@ -9039,7 +10345,10 @@ window.XUPERTV_PORTAL = {
    "row": "Nativo",
    "volumeCount": 112,
    "updateCount": 112,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "A2191649AFA445A7BC3B4E64BE0B8AA2",
@@ -9065,7 +10374,10 @@ window.XUPERTV_PORTAL = {
    "row": "Nativo",
    "volumeCount": 194,
    "updateCount": 45,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Nativo"
+   ]
   },
   {
    "id": "D3540FB512AA49C4A4C49CBD0B587903",
@@ -9092,7 +10404,15 @@ window.XUPERTV_PORTAL = {
    "row": "Drama",
    "volumeCount": 12,
    "updateCount": 18,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Drama",
+    "Romántico",
+    "Comedia",
+    "Todas",
+    "2026",
+    "Serie de Anime"
+   ]
   },
   {
    "id": "8DDD6064A15E439CB3BC17425B30199A",
@@ -9119,7 +10439,12 @@ window.XUPERTV_PORTAL = {
    "row": "Familia",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia",
+    "Ciencia ficción",
+    "Comedia"
+   ]
   },
   {
    "id": "DFA09CA8184B4793837989A99C47CF17",
@@ -9148,7 +10473,11 @@ window.XUPERTV_PORTAL = {
    "row": "Familia",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia",
+    "Horror"
+   ]
   },
   {
    "id": "778E3D95D42C47C7A9623728055A4D92",
@@ -9180,7 +10509,12 @@ window.XUPERTV_PORTAL = {
    "row": "Familia",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia",
+    "Suspenso",
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "6E7094008A34487994F7D0FA018EAFC1",
@@ -9213,7 +10547,11 @@ window.XUPERTV_PORTAL = {
    "row": "Familia",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia",
+    "Crimen"
+   ]
   },
   {
    "id": "C7599F9C3C584595B0E6CB72EF101485",
@@ -9242,7 +10580,10 @@ window.XUPERTV_PORTAL = {
    "row": "Familia",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia"
+   ]
   },
   {
    "id": "C67161A41A044CB8B8575CDEE7EB4882",
@@ -9268,7 +10609,10 @@ window.XUPERTV_PORTAL = {
    "row": "Familia",
    "volumeCount": 25,
    "updateCount": 25,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia"
+   ]
   },
   {
    "id": "B6051FDB0ADF41CB9CCCAE07CA6AE377",
@@ -9295,7 +10639,10 @@ window.XUPERTV_PORTAL = {
    "row": "Familia",
    "volumeCount": 20,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia"
+   ]
   },
   {
    "id": "B671025D055C484C880BAC0FA98DA598",
@@ -9321,7 +10668,10 @@ window.XUPERTV_PORTAL = {
    "row": "Familia",
    "volumeCount": 15,
    "updateCount": 15,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Familia"
+   ]
   },
   {
    "id": "EEFA6BBCAB7E4315BF122FB86E8B2979",
@@ -9346,7 +10696,13 @@ window.XUPERTV_PORTAL = {
    "row": "Fantastico",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico",
+    "Todas",
+    "2026",
+    "Serie de Anime"
+   ]
   },
   {
    "id": "9787940A343F4BCFB8386F0B996F87F2",
@@ -9372,7 +10728,13 @@ window.XUPERTV_PORTAL = {
    "row": "Fantastico",
    "volumeCount": 12,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico",
+    "Todas",
+    "2026",
+    "Serie de Anime"
+   ]
   },
   {
    "id": "EA3ADFC8539641A4804A7978E1D04791",
@@ -9398,7 +10760,13 @@ window.XUPERTV_PORTAL = {
    "row": "Fantastico",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico",
+    "Todas",
+    "2026",
+    "Serie de Anime"
+   ]
   },
   {
    "id": "E0819FBC3E9046B4892A5710F6A84C31",
@@ -9424,7 +10792,11 @@ window.XUPERTV_PORTAL = {
    "row": "Fantastico",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico",
+    "Romántico"
+   ]
   },
   {
    "id": "9459E5E8E9864DEA968829AD1B8AB23A",
@@ -9450,7 +10822,10 @@ window.XUPERTV_PORTAL = {
    "row": "Fantastico",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico"
+   ]
   },
   {
    "id": "252C86BC05394F048E3593A3887EDA5B",
@@ -9475,7 +10850,10 @@ window.XUPERTV_PORTAL = {
    "row": "Fantastico",
    "volumeCount": 12,
    "updateCount": 4,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Fantastico"
+   ]
   },
   {
    "id": "9F0B2EDD1D3D43CDA6174F6659A61C78",
@@ -9501,7 +10879,10 @@ window.XUPERTV_PORTAL = {
    "row": "Historia",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia"
+   ]
   },
   {
    "id": "D4CE20C64B6B4E7393FE7B5FFC55C398",
@@ -9526,7 +10907,10 @@ window.XUPERTV_PORTAL = {
    "row": "Historia",
    "volumeCount": 12,
    "updateCount": 4,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia"
+   ]
   },
   {
    "id": "EC156C4149C7459E8B52D9AA932AC988",
@@ -9552,7 +10936,10 @@ window.XUPERTV_PORTAL = {
    "row": "Historia",
    "volumeCount": 120,
    "updateCount": 80,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia"
+   ]
   },
   {
    "id": "5D895142D9E0493594867A53530B613F",
@@ -9582,7 +10969,12 @@ window.XUPERTV_PORTAL = {
    "row": "Historia",
    "volumeCount": 8,
    "updateCount": 4,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia",
+    "Occidental",
+    "Biografía"
+   ]
   },
   {
    "id": "8DEF014986A3425AB28CC4FD268B12ED",
@@ -9607,7 +10999,11 @@ window.XUPERTV_PORTAL = {
    "row": "Historia",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia",
+    "Free.TV Series"
+   ]
   },
   {
    "id": "67F61E407C2A4DA58602EDB044EB2A19",
@@ -9637,7 +11033,11 @@ window.XUPERTV_PORTAL = {
    "row": "Historia",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Historia",
+    "Biografía"
+   ]
   },
   {
    "id": "5CAE57EBB18C487FA46A509FEC783947",
@@ -9663,7 +11063,11 @@ window.XUPERTV_PORTAL = {
    "row": "Misterio",
    "volumeCount": 8,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Misterio",
+    "Crimen"
+   ]
   },
   {
    "id": "D313501EA33D4BC8B8097C6704F151BC",
@@ -9689,7 +11093,11 @@ window.XUPERTV_PORTAL = {
    "row": "Misterio",
    "volumeCount": 12,
    "updateCount": 4,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Misterio",
+    "Horror"
+   ]
   },
   {
    "id": "ED61D526EED04411AE5E8D06BD76BF2A",
@@ -9716,7 +11124,10 @@ window.XUPERTV_PORTAL = {
    "row": "Misterio",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Misterio"
+   ]
   },
   {
    "id": "1F57C2B1ADA94736BE4EC96A26496864",
@@ -9742,7 +11153,11 @@ window.XUPERTV_PORTAL = {
    "row": "Misterio",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Misterio",
+    "Crimen"
+   ]
   },
   {
    "id": "A66CB5D3BBD140A4B4102A398C3F8EA8",
@@ -9769,7 +11184,11 @@ window.XUPERTV_PORTAL = {
    "row": "Misterio",
    "volumeCount": 8,
    "updateCount": 4,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Misterio",
+    "Suspenso"
+   ]
   },
   {
    "id": "85A2469682E34FBC8606B32CFA903E3C",
@@ -9794,7 +11213,10 @@ window.XUPERTV_PORTAL = {
    "row": "Romántico",
    "volumeCount": 14,
    "updateCount": 28,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Romántico"
+   ]
   },
   {
    "id": "50D2054163AA40809ACBE82E6F087056",
@@ -9820,7 +11242,11 @@ window.XUPERTV_PORTAL = {
    "row": "Suspenso",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Suspenso",
+    "Crimen"
+   ]
   },
   {
    "id": "E8FA3BD2810C47B98D6CA003B6C9DF6B",
@@ -9848,7 +11274,10 @@ window.XUPERTV_PORTAL = {
    "row": "Guerra",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Guerra"
+   ]
   },
   {
    "id": "95792760200B4F9D8AD085D9865DE581",
@@ -9876,7 +11305,10 @@ window.XUPERTV_PORTAL = {
    "row": "Guerra",
    "volumeCount": 2,
    "updateCount": 2,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Guerra"
+   ]
   },
   {
    "id": "DD69C61673D0497781F77B4CF1484F68",
@@ -9902,7 +11334,10 @@ window.XUPERTV_PORTAL = {
    "row": "Guerra",
    "volumeCount": 20,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Guerra"
+   ]
   },
   {
    "id": "43ED76865B4144AFB82E1FE3F430AAD4",
@@ -9930,7 +11365,10 @@ window.XUPERTV_PORTAL = {
    "row": "Guerra",
    "volumeCount": 11,
    "updateCount": 11,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Guerra"
+   ]
   },
   {
    "id": "603E4C970F42475880CBCA14A1255C9E",
@@ -9958,7 +11396,10 @@ window.XUPERTV_PORTAL = {
    "row": "Guerra",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Guerra"
+   ]
   },
   {
    "id": "0C0B685F3450420A8B3394462BD6B491",
@@ -9986,7 +11427,10 @@ window.XUPERTV_PORTAL = {
    "row": "Guerra",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Guerra"
+   ]
   },
   {
    "id": "14A8A03540D04BBF9E047C04DD94EE80",
@@ -10014,7 +11458,10 @@ window.XUPERTV_PORTAL = {
    "row": "Guerra",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Guerra"
+   ]
   },
   {
    "id": "B9D5DB8EC2D24AFA86512422315C60E7",
@@ -10042,7 +11489,10 @@ window.XUPERTV_PORTAL = {
    "row": "Guerra",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Guerra"
+   ]
   },
   {
    "id": "54EFF215E451461588232730D770AC12",
@@ -10069,7 +11519,10 @@ window.XUPERTV_PORTAL = {
    "row": "Guerra",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Guerra"
+   ]
   },
   {
    "id": "2E8E7C60312542ED9F3CE2E4A3E0757E",
@@ -10097,7 +11550,10 @@ window.XUPERTV_PORTAL = {
    "row": "Guerra",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Guerra"
+   ]
   },
   {
    "id": "FB9EA3CBFE3E4E90975970C86B67C4FD",
@@ -10125,7 +11581,10 @@ window.XUPERTV_PORTAL = {
    "row": "Occidental",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "1DE2F5D7B85F49B198B39F680E0F87EC",
@@ -10152,7 +11611,10 @@ window.XUPERTV_PORTAL = {
    "row": "Occidental",
    "volumeCount": 18,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "134C796CD12442DEB1F7F79EB60EA367",
@@ -10178,7 +11640,10 @@ window.XUPERTV_PORTAL = {
    "row": "Occidental",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "F436A8A1291543E989F9A8838ADCBB34",
@@ -10203,7 +11668,10 @@ window.XUPERTV_PORTAL = {
    "row": "Occidental",
    "volumeCount": 17,
    "updateCount": 17,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "C2ED28DE7EAE4C8FA3C08FA8C2281E30",
@@ -10229,7 +11697,10 @@ window.XUPERTV_PORTAL = {
    "row": "Occidental",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "A9401DF4769846E88393C26B0C6DC143",
@@ -10256,7 +11727,10 @@ window.XUPERTV_PORTAL = {
    "row": "Occidental",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "E107FFC5831E4C27A2E55010BBABBC34",
@@ -10281,7 +11755,10 @@ window.XUPERTV_PORTAL = {
    "row": "Occidental",
    "volumeCount": 9,
    "updateCount": 9,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "29DAB49EB09F4FB7B29AE9821B94D511",
@@ -10308,7 +11785,10 @@ window.XUPERTV_PORTAL = {
    "row": "Occidental",
    "volumeCount": 26,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "107DD23594AB48B09F0A021241AAC968",
@@ -10335,7 +11815,10 @@ window.XUPERTV_PORTAL = {
    "row": "Occidental",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Occidental"
+   ]
   },
   {
    "id": "A0C3DB3A831F4C25AF8F9645D0458CB8",
@@ -10360,7 +11843,13 @@ window.XUPERTV_PORTAL = {
    "row": "Ciencia ficción",
    "volumeCount": 11,
    "updateCount": 4,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción",
+    "Todas",
+    "2026",
+    "Serie de Anime"
+   ]
   },
   {
    "id": "5DC6F4A8B2D34ED4909340226B44AF6A",
@@ -10386,7 +11875,10 @@ window.XUPERTV_PORTAL = {
    "row": "Ciencia ficción",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "48A372E047B544BE9128339B9C5DC305",
@@ -10412,7 +11904,10 @@ window.XUPERTV_PORTAL = {
    "row": "Ciencia ficción",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "5BADA31874B4452B9A75300933E6A3AC",
@@ -10438,7 +11933,10 @@ window.XUPERTV_PORTAL = {
    "row": "Ciencia ficción",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "FD05DD4A1FC24635B043F047575BF021",
@@ -10464,7 +11962,10 @@ window.XUPERTV_PORTAL = {
    "row": "Ciencia ficción",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Ciencia ficción"
+   ]
   },
   {
    "id": "774E4CFB17994A87B4740E1A648484F2",
@@ -10490,7 +11991,10 @@ window.XUPERTV_PORTAL = {
    "row": "Biografía",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía"
+   ]
   },
   {
    "id": "D3827B7C80334AAA939E72EBC80722BC",
@@ -10516,7 +12020,10 @@ window.XUPERTV_PORTAL = {
    "row": "Biografía",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía"
+   ]
   },
   {
    "id": "A9A8A8C3B62843218DD1B2DA86982FF3",
@@ -10542,7 +12049,10 @@ window.XUPERTV_PORTAL = {
    "row": "Biografía",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía"
+   ]
   },
   {
    "id": "7F7BDFAC26924D2C9D3CD980449E0965",
@@ -10567,7 +12077,11 @@ window.XUPERTV_PORTAL = {
    "row": "Biografía",
    "volumeCount": 4,
    "updateCount": 4,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía",
+    "Documental"
+   ]
   },
   {
    "id": "3A37AFC0F8584BEC98B77A1C4345E787",
@@ -10593,7 +12107,11 @@ window.XUPERTV_PORTAL = {
    "row": "Biografía",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía",
+    "Documental"
+   ]
   },
   {
    "id": "5D0E3B5B95174653893CB8A482ECD51A",
@@ -10619,7 +12137,11 @@ window.XUPERTV_PORTAL = {
    "row": "Biografía",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía",
+    "Documental"
+   ]
   },
   {
    "id": "545E897A7B844DDD96213F489415D304",
@@ -10645,7 +12167,11 @@ window.XUPERTV_PORTAL = {
    "row": "Biografía",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía",
+    "Documental"
+   ]
   },
   {
    "id": "FCF675A49A0B48F089EAF43E13980933",
@@ -10671,7 +12197,11 @@ window.XUPERTV_PORTAL = {
    "row": "Biografía",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Biografía",
+    "Documental"
+   ]
   },
   {
    "id": "FFCFA6DB38A24D609B6DD65B0959F5D7",
@@ -10695,7 +12225,10 @@ window.XUPERTV_PORTAL = {
    "row": "Documental",
    "volumeCount": 3,
    "updateCount": 3,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "69D60F7D2EBF44899103AACEA64F6752",
@@ -10719,7 +12252,10 @@ window.XUPERTV_PORTAL = {
    "row": "Documental",
    "volumeCount": 3,
    "updateCount": 3,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "CBC7A362C4E749A8B45ECDDDC1B45678",
@@ -10744,7 +12280,10 @@ window.XUPERTV_PORTAL = {
    "row": "Documental",
    "volumeCount": 3,
    "updateCount": 3,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "245EB5667BE64D2AADFD1595B44DFA39",
@@ -10768,7 +12307,10 @@ window.XUPERTV_PORTAL = {
    "row": "Documental",
    "volumeCount": 5,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Documental"
+   ]
   },
   {
    "id": "4EE740202C2D4EC1A7EC1B74BFC9B150",
@@ -10795,7 +12337,10 @@ window.XUPERTV_PORTAL = {
    "row": "Crimen",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Crimen"
+   ]
   },
   {
    "id": "58C47E1C83BA487CA7810B6C016011ED",
@@ -10820,7 +12365,10 @@ window.XUPERTV_PORTAL = {
    "row": "Horror",
    "volumeCount": 6,
    "updateCount": 3,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "CA7D44A1FED24CC7B99E8FE9F0E51C1E",
@@ -10854,7 +12402,10 @@ window.XUPERTV_PORTAL = {
    "row": "Horror",
    "volumeCount": 16,
    "updateCount": 7,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "18B79FBFCF0743D2AE854DFD76B5BC7F",
@@ -10878,7 +12429,10 @@ window.XUPERTV_PORTAL = {
    "row": "Horror",
    "volumeCount": 5,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "8091D7F6F2FC41AAAF5D36F02DCE1D75",
@@ -10906,7 +12460,10 @@ window.XUPERTV_PORTAL = {
    "row": "Horror",
    "volumeCount": 8,
    "updateCount": 3,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "836D7E67C6F24F229841DDCFB0B52A04",
@@ -10930,7 +12487,10 @@ window.XUPERTV_PORTAL = {
    "row": "Horror",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "717755861F1C403CA4ADEE1D66A39211",
@@ -10955,7 +12515,10 @@ window.XUPERTV_PORTAL = {
    "row": "Horror",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "B91E4474002541528CEE30B70914A345",
@@ -10986,7 +12549,10 @@ window.XUPERTV_PORTAL = {
    "row": "Horror",
    "volumeCount": 25,
    "updateCount": 19,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Horror"
+   ]
   },
   {
    "id": "15EF2CDD944A4B109B4513D3587059E4",
@@ -11012,7 +12578,10 @@ window.XUPERTV_PORTAL = {
    "row": "Comedia",
    "volumeCount": 12,
    "updateCount": 5,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia"
+   ]
   },
   {
    "id": "A515A55CF3EF4B37814B325831FC12B6",
@@ -11039,7 +12608,10 @@ window.XUPERTV_PORTAL = {
    "row": "Comedia",
    "volumeCount": 49,
    "updateCount": 49,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia"
+   ]
   },
   {
    "id": "237BE30247264022BD4DB1FCBAA9CBB8",
@@ -11063,7 +12635,10 @@ window.XUPERTV_PORTAL = {
    "row": "Reality-TV",
    "volumeCount": 20,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Reality-TV"
+   ]
   },
   {
    "id": "EE1F36B4EB2E469D91290C7D72C940F9",
@@ -11088,7 +12663,10 @@ window.XUPERTV_PORTAL = {
    "row": "Reality-TV",
    "volumeCount": 16,
    "updateCount": 16,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Reality-TV"
+   ]
   },
   {
    "id": "C9E7ED64C5784B6895625AA2BC47E8C8",
@@ -11113,7 +12691,10 @@ window.XUPERTV_PORTAL = {
    "row": "Reality-TV",
    "volumeCount": 16,
    "updateCount": 16,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Reality-TV"
+   ]
   },
   {
    "id": "53B101F7C88749F3B141C8978991F83D",
@@ -11137,7 +12718,10 @@ window.XUPERTV_PORTAL = {
    "row": "Reality-TV",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Reality-TV"
+   ]
   },
   {
    "id": "7A7E6B22807A4ADF9C64FAC6DDA0B523",
@@ -11162,7 +12746,10 @@ window.XUPERTV_PORTAL = {
    "row": "Reality-TV",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Reality-TV"
+   ]
   },
   {
    "id": "1C9E640463FF4955AF4035FC65136643",
@@ -11187,7 +12774,10 @@ window.XUPERTV_PORTAL = {
    "row": "Reality-TV",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Reality-TV"
+   ]
   },
   {
    "id": "532ED64EC22CAA65E7808316EFFD2AD9",
@@ -11213,7 +12803,10 @@ window.XUPERTV_PORTAL = {
    "row": "Comedia de situación",
    "volumeCount": 183,
    "updateCount": 183,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia de situación"
+   ]
   },
   {
    "id": "CF8ADCE3505C77BD6392987F37F78279",
@@ -11239,7 +12832,10 @@ window.XUPERTV_PORTAL = {
    "row": "Comedia de situación",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia de situación"
+   ]
   },
   {
    "id": "07AD33C88366EA74CDB26B44E72B3D42",
@@ -11264,7 +12860,10 @@ window.XUPERTV_PORTAL = {
    "row": "Comedia de situación",
    "volumeCount": 14,
    "updateCount": 14,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia de situación"
+   ]
   },
   {
    "id": "5E14B8EC36B546B1B3C44CC6973C3A49",
@@ -11288,7 +12887,10 @@ window.XUPERTV_PORTAL = {
    "row": "Comedia de situación",
    "volumeCount": 18,
    "updateCount": 18,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia de situación"
+   ]
   },
   {
    "id": "12D06BF8567E8521774F7EB69DAB623C",
@@ -11312,7 +12914,10 @@ window.XUPERTV_PORTAL = {
    "row": "Comedia de situación",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia de situación"
+   ]
   },
   {
    "id": "B7B7FE77ABE3D12BE15C777C9E561978",
@@ -11337,7 +12942,10 @@ window.XUPERTV_PORTAL = {
    "row": "Comedia de situación",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Comedia de situación"
+   ]
   },
   {
    "id": "B90484CC6F9E33AE1808DD48D0B685D3",
@@ -11361,7 +12969,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Big Wish",
    "row": "País de las Maravillas de los No Muertos",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "País de las Maravillas de los No Muertos"
+   ]
   },
   {
    "id": "26A13B36463F46D48002E304FB909D1C",
@@ -11386,7 +12997,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Coco",
    "row": "País de las Maravillas de los No Muertos",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "País de las Maravillas de los No Muertos"
+   ]
   },
   {
    "id": "C17F26A670B19CF372BA4C94BDFEA8B8",
@@ -11411,7 +13025,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Book of Life",
    "row": "País de las Maravillas de los No Muertos",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "País de las Maravillas de los No Muertos"
+   ]
   },
   {
    "id": "50AFD5E04CFD4166AD5C510F6D7BEEE8",
@@ -11435,7 +13052,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "La leyenda de la Nahuala",
    "row": "País de las Maravillas de los No Muertos",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "País de las Maravillas de los No Muertos"
+   ]
   },
   {
    "id": "559E55B9DDBD44ACB811795B8545440A",
@@ -11460,7 +13080,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "La Leyenda de la Llorona",
    "row": "País de las Maravillas de los No Muertos",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "País de las Maravillas de los No Muertos"
+   ]
   },
   {
    "id": "E68C71CAED1A40058BFABC07AEE3ECBC",
@@ -11486,7 +13109,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Scooby-Doo! and the Monster of Mexico",
    "row": "País de las Maravillas de los No Muertos",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "País de las Maravillas de los No Muertos"
+   ]
   },
   {
    "id": "1B374FC243A711EB979C001E6748F743",
@@ -11513,7 +13139,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Super Monsters: Dia de los Monsters",
    "row": "País de las Maravillas de los No Muertos",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "País de las Maravillas de los No Muertos"
+   ]
   },
   {
    "id": "CD135EAF1FD04165A3C6627A9A7F4579",
@@ -11535,7 +13164,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "La Leyenda del Charro Negro",
    "row": "País de las Maravillas de los No Muertos",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "País de las Maravillas de los No Muertos"
+   ]
   },
   {
    "id": "A51783C557414B30A93189A61BA75CDA",
@@ -11562,7 +13194,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "La Leyenda del Chupacabras",
    "row": "País de las Maravillas de los No Muertos",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "País de las Maravillas de los No Muertos"
+   ]
   },
   {
    "id": "3890AD10CA8F4A13BA9D7276AE97FE07",
@@ -11586,7 +13221,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Monster Island",
    "row": "País de las Maravillas de los No Muertos",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "País de las Maravillas de los No Muertos"
+   ]
   },
   {
    "id": "BECA40FD346AF77283A78A72B938BEBE",
@@ -11610,7 +13248,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Las Aventuras De Tadeo Jones",
    "row": "¡Feliz búsqueda del tesoro!",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "¡Feliz búsqueda del tesoro!"
+   ]
   },
   {
    "id": "BEBF65B514F5435B9C01160CA5D47FD7",
@@ -11634,7 +13275,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Tad, the Lost Explorer, and the Secret of King Midas",
    "row": "¡Feliz búsqueda del tesoro!",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "¡Feliz búsqueda del tesoro!"
+   ]
   },
   {
    "id": "FC683CBCA897DCFB4DBE8E2A21707B99",
@@ -11658,7 +13302,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Tad the Lost Explorer and the Emerald Tablet",
    "row": "¡Feliz búsqueda del tesoro!",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "¡Feliz búsqueda del tesoro!"
+   ]
   },
   {
    "id": "1A191FDAA546479D9383AF097441A7DC",
@@ -11683,7 +13330,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Tadeo Jones y la lámpara maravillosa",
    "row": "¡Feliz búsqueda del tesoro!",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "¡Feliz búsqueda del tesoro!"
+   ]
   },
   {
    "id": "C02AD9A9E0990889B10C9FDF94F3C464",
@@ -11707,7 +13357,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Road to El Dorado",
    "row": "¡Feliz búsqueda del tesoro!",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "¡Feliz búsqueda del tesoro!"
+   ]
   },
   {
    "id": "45F788A61C5EA5B4A97094759758AA22",
@@ -11732,7 +13385,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Dora and the Lost City of Gold",
    "row": "¡Feliz búsqueda del tesoro!",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "¡Feliz búsqueda del tesoro!"
+   ]
   },
   {
    "id": "882020B6BAF611EB9475002590A77DC0",
@@ -11758,7 +13414,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "DuckTales the Movie: Treasure of the Lost Lamp",
    "row": "¡Feliz búsqueda del tesoro!",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "¡Feliz búsqueda del tesoro!"
+   ]
   },
   {
    "id": "CCCAE0B0C39240CD97C57F36AD7C424F",
@@ -11785,7 +13444,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Scooby-Doo in Where's My Mummy?",
    "row": "¡Feliz búsqueda del tesoro!",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "¡Feliz búsqueda del tesoro!"
+   ]
   },
   {
    "id": "5BF8EB89223448AB84CA10F0D85CBBF1",
@@ -11812,7 +13474,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Atlantis: The Lost Empire",
    "row": "¡Feliz búsqueda del tesoro!",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "¡Feliz búsqueda del tesoro!"
+   ]
   },
   {
    "id": "8C45655EAB279A6D6A927EA387C6BA32",
@@ -11836,7 +13501,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Sinbad: Legend of the Seven Seas",
    "row": "¡Feliz búsqueda del tesoro!",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "¡Feliz búsqueda del tesoro!"
+   ]
   },
   {
    "id": "BC11FA53649F4B5BA5E39264D60FBAF1",
@@ -11859,7 +13527,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Memoir of a Snail",
    "row": "Películas del Globo de Oro 2025",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas del Globo de Oro 2025"
+   ]
   },
   {
    "id": "CC43D324DDA64601921332115BB29D4C",
@@ -11886,7 +13557,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Moana 2",
    "row": "Películas del Globo de Oro 2025",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas del Globo de Oro 2025"
+   ]
   },
   {
    "id": "4456C6AABF2344CCB3C895D467627285",
@@ -11912,7 +13586,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Wallace & Gromit: Vengeance Most Fowl",
    "row": "Películas del Globo de Oro 2025",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas del Globo de Oro 2025"
+   ]
   },
   {
    "id": "CDA92BDD80714FEAADD6908AA23FF140",
@@ -11937,7 +13614,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Flow",
    "row": "Películas del Globo de Oro 2025",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas del Globo de Oro 2025"
+   ]
   },
   {
    "id": "B5D986AC350D40C1ABBF55DC940557E7",
@@ -11964,7 +13644,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Inside Out 2",
    "row": "Películas del Globo de Oro 2025",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas del Globo de Oro 2025"
+   ]
   },
   {
    "id": "350F2904974D4BC0BDDD6F6EC48D239A",
@@ -11987,7 +13670,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Wild Robot",
    "row": "Películas del Globo de Oro 2025",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Películas del Globo de Oro 2025"
+   ]
   },
   {
    "id": "9824D71AD4B211EBB147002590A77DC0",
@@ -12013,7 +13699,10 @@ window.XUPERTV_PORTAL = {
    "row": "La aventura de Mickey",
    "volumeCount": 27,
    "updateCount": 39,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "La aventura de Mickey"
+   ]
   },
   {
    "id": "7843AAD0D43411EB8EB0E4115BAEF989",
@@ -12039,7 +13728,10 @@ window.XUPERTV_PORTAL = {
    "row": "La aventura de Mickey",
    "volumeCount": 33,
    "updateCount": 22,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "La aventura de Mickey"
+   ]
   },
   {
    "id": "8361E67CD4D711EBB147002590A77DC0",
@@ -12065,7 +13757,11 @@ window.XUPERTV_PORTAL = {
    "row": "La aventura de Mickey",
    "volumeCount": 52,
    "updateCount": 36,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "La aventura de Mickey",
+    "Animación Clásica"
+   ]
   },
   {
    "id": "8985B486D40D11EB969E002590A77DC0",
@@ -12091,7 +13787,10 @@ window.XUPERTV_PORTAL = {
    "row": "La aventura de Mickey",
    "volumeCount": 50,
    "updateCount": 25,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "La aventura de Mickey"
+   ]
   },
   {
    "id": "5A282DACD4F011EBB147002590A77DC0",
@@ -12117,7 +13816,10 @@ window.XUPERTV_PORTAL = {
    "row": "La aventura de Mickey",
    "volumeCount": 19,
    "updateCount": 18,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "La aventura de Mickey"
+   ]
   },
   {
    "id": "57BE3F20D40511EB969E002590A77DC0",
@@ -12143,7 +13845,10 @@ window.XUPERTV_PORTAL = {
    "row": "La aventura de Mickey",
    "volumeCount": 40,
    "updateCount": 35,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "La aventura de Mickey"
+   ]
   },
   {
    "id": "F24E06A8D41C11EB969E002590A77DC0",
@@ -12169,7 +13874,10 @@ window.XUPERTV_PORTAL = {
    "row": "La aventura de Mickey",
    "volumeCount": 18,
    "updateCount": 18,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "La aventura de Mickey"
+   ]
   },
   {
    "id": "BD7E1D0ED4A411EBB147002590A77DC0",
@@ -12195,7 +13903,10 @@ window.XUPERTV_PORTAL = {
    "row": "La aventura de Mickey",
    "volumeCount": 33,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "La aventura de Mickey"
+   ]
   },
   {
    "id": "929059090148EDAEAC288481139DDEAA",
@@ -12219,7 +13930,10 @@ window.XUPERTV_PORTAL = {
    "row": "La aventura de Mickey",
    "volumeCount": 40,
    "updateCount": 40,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "La aventura de Mickey"
+   ]
   },
   {
    "id": "479D4C88D57E11EBBB0FE4115BAEF989",
@@ -12245,7 +13959,10 @@ window.XUPERTV_PORTAL = {
    "row": "La aventura de Mickey",
    "volumeCount": 10,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "La aventura de Mickey"
+   ]
   },
   {
    "id": "CA7EC31412B2CD6B22023F6C498351C0",
@@ -12271,7 +13988,11 @@ window.XUPERTV_PORTAL = {
    "row": "Serie de Animación",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie de Animación",
+    "Todos"
+   ]
   },
   {
    "id": "C879E75EB2279E04340D25D3B356B25B",
@@ -12297,7 +14018,12 @@ window.XUPERTV_PORTAL = {
    "row": "Serie de Animación",
    "volumeCount": 48,
    "updateCount": 48,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie de Animación",
+    "Todos",
+    "Anime Asiático"
+   ]
   },
   {
    "id": "CB87BC39A4A61C59C87457E0DFDBBA98",
@@ -12323,7 +14049,11 @@ window.XUPERTV_PORTAL = {
    "row": "Serie de Animación",
    "volumeCount": 26,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie de Animación",
+    "Anime Europeo y Americano"
+   ]
   },
   {
    "id": "975C6420031F5E41DDB9301EC7A3F3D1",
@@ -12349,7 +14079,11 @@ window.XUPERTV_PORTAL = {
    "row": "Serie de Animación",
    "volumeCount": 21,
    "updateCount": 21,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie de Animación",
+    "Todos"
+   ]
   },
   {
    "id": "7FA40EE31C53DF48E2FA66FC41ACE9CA",
@@ -12375,7 +14109,11 @@ window.XUPERTV_PORTAL = {
    "row": "Serie de Animación",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie de Animación",
+    "Todos"
+   ]
   },
   {
    "id": "79AD1A0D6047DFA307BA30D5302DC439",
@@ -12401,7 +14139,13 @@ window.XUPERTV_PORTAL = {
    "row": "Serie de Animación",
    "volumeCount": 26,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie de Animación",
+    "Animación Clásica",
+    "Niños",
+    "En Familia"
+   ]
   },
   {
    "id": "92CF73497FAE4F573951A16BD0A999DB",
@@ -12427,7 +14171,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie de Animación",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie de Animación"
+   ]
   },
   {
    "id": "A5806A587AE94352861BDE057827C7B0",
@@ -12453,7 +14200,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie de Animación",
    "volumeCount": 104,
    "updateCount": 104,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie de Animación"
+   ]
   },
   {
    "id": "C824534F6184BCDCF12AD413C481561C",
@@ -12479,7 +14229,10 @@ window.XUPERTV_PORTAL = {
    "row": "Serie de Animación",
    "volumeCount": 24,
    "updateCount": 28,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Serie de Animación"
+   ]
   },
   {
    "id": "92DFEEA24F99447ABE06A5E4EC412083",
@@ -12503,7 +14256,11 @@ window.XUPERTV_PORTAL = {
    "row": "Todos",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Todos",
+    "Niños"
+   ]
   },
   {
    "id": "CB75902091CA44AEAC46C64E122AF9CD",
@@ -12527,7 +14284,11 @@ window.XUPERTV_PORTAL = {
    "row": "Todos",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Todos",
+    "Niños"
+   ]
   },
   {
    "id": "A42B33707EC6407CB9C47EA710B74BCA",
@@ -12551,7 +14312,11 @@ window.XUPERTV_PORTAL = {
    "row": "Todos",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Todos",
+    "Niños"
+   ]
   },
   {
    "id": "C9D3D6EEB3BC44C880C995A933DC5DD2",
@@ -12575,7 +14340,11 @@ window.XUPERTV_PORTAL = {
    "row": "Todos",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Todos",
+    "Niños"
+   ]
   },
   {
    "id": "F5259B9C179A6C4D4C1248928ACFC904",
@@ -12600,7 +14369,13 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Little Mermaid",
    "row": "Animación Clásica",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Animación Clásica",
+    "Película de Animación",
+    "Niños",
+    "En Familia"
+   ]
   },
   {
    "id": "379A7E1E0B5BCA7BE5E58DAE8EDEA518",
@@ -12626,7 +14401,12 @@ window.XUPERTV_PORTAL = {
    "row": "Animación Clásica",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Animación Clásica",
+    "Niños",
+    "En Familia"
+   ]
   },
   {
    "id": "CE0ABCEE3B90FAB29318FE99A4B435BC",
@@ -12650,7 +14430,11 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Spirited Away",
    "row": "Animación Clásica",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Animación Clásica",
+    "En Familia"
+   ]
   },
   {
    "id": "426AC5B24C75153D2EC7D8A235CD8F52",
@@ -12674,7 +14458,12 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Croods",
    "row": "Animación Clásica",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Animación Clásica",
+    "Niños",
+    "En Familia"
+   ]
   },
   {
    "id": "022508DEDE5D532C8D2DA8CD316AAC54",
@@ -12700,7 +14489,10 @@ window.XUPERTV_PORTAL = {
    "row": "Animación Clásica",
    "volumeCount": 32,
    "updateCount": 32,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Animación Clásica"
+   ]
   },
   {
    "id": "B76F6959FB318D49EC910D0CFF96B60E",
@@ -12726,7 +14518,10 @@ window.XUPERTV_PORTAL = {
    "row": "Animación Clásica",
    "volumeCount": 55,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Animación Clásica"
+   ]
   },
   {
    "id": "C99C48992A584037CAB62E983CC4E719",
@@ -12752,7 +14547,10 @@ window.XUPERTV_PORTAL = {
    "row": "Animación Clásica",
    "volumeCount": 28,
    "updateCount": 28,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Animación Clásica"
+   ]
   },
   {
    "id": "79228146BB430F2896963EC21B148E9A",
@@ -12778,7 +14576,10 @@ window.XUPERTV_PORTAL = {
    "row": "Animación Clásica",
    "volumeCount": 11,
    "updateCount": 11,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Animación Clásica"
+   ]
   },
   {
    "id": "BA28583A03D74121968A76BCBA2920A8",
@@ -12808,7 +14609,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Gekijô-ban poketto monsutâ: Kesshô-tô no teiô",
    "row": "Película de Animación",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Animación"
+   ]
   },
   {
    "id": "138299E73AC4A6BB703039CB69B49CC4",
@@ -12832,7 +14636,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Alpha and Omega",
    "row": "Película de Animación",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Animación"
+   ]
   },
   {
    "id": "2EE63AC62DD44918AC4BE4D03C139F01",
@@ -12855,7 +14662,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "White Fang",
    "row": "Película de Animación",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Animación"
+   ]
   },
   {
    "id": "10B301568A164A24B36631C6B04921A1",
@@ -12879,7 +14689,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Scooby-Doo! Shaggy's Showdown",
    "row": "Película de Animación",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Animación"
+   ]
   },
   {
    "id": "5B8330AA8EFE412BB78CF56D556A9B8D",
@@ -12903,7 +14716,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Breadwinner",
    "row": "Película de Animación",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Animación"
+   ]
   },
   {
    "id": "F1ABFD3E22A4425589B2DE8D273E6150",
@@ -12927,7 +14743,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Lói: Þú Flýgur Aldrei Einn",
    "row": "Película de Animación",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Animación"
+   ]
   },
   {
    "id": "821F5CF7853FE0F1D20FAC91E51F16DA",
@@ -12951,7 +14770,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "UglyDolls",
    "row": "Película de Animación",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Animación"
+   ]
   },
   {
    "id": "4D97CD3D17CD4F3FB504F3ADE0FD872B",
@@ -12977,7 +14799,10 @@ window.XUPERTV_PORTAL = {
    "row": "Niños",
    "volumeCount": 57,
    "updateCount": 57,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños"
+   ]
   },
   {
    "id": "04107A1801974804BCC762ACB1DA7D16",
@@ -13001,7 +14826,10 @@ window.XUPERTV_PORTAL = {
    "row": "Niños",
    "volumeCount": 20,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños"
+   ]
   },
   {
    "id": "9E47E12217F7C724BB773A7AA14D477B",
@@ -13025,7 +14853,10 @@ window.XUPERTV_PORTAL = {
    "alias": "",
    "row": "Niños Felices",
    "updateCount": 62,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños Felices"
+   ]
   },
   {
    "id": "13B11500D8D6E9D48CD11E82017D7770",
@@ -13049,7 +14880,10 @@ window.XUPERTV_PORTAL = {
    "alias": "Diego Topa Music",
    "row": "Niños Felices",
    "updateCount": 48,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños Felices"
+   ]
   },
   {
    "id": "0982E0F5C615517EC7E7BB9745BDBEE6",
@@ -13074,7 +14908,10 @@ window.XUPERTV_PORTAL = {
    "alias": "The Bongo Cat Song S1",
    "row": "Niños Felices",
    "updateCount": 79,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños Felices"
+   ]
   },
   {
    "id": "E3D285197106342DD0B666F16CE9E9F6",
@@ -13099,7 +14936,10 @@ window.XUPERTV_PORTAL = {
    "row": "Niños Felices",
    "volumeCount": 30,
    "updateCount": 24,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños Felices"
+   ]
   },
   {
    "id": "2DE506E2719ED24BF57CA9B76E56E865",
@@ -13123,7 +14963,10 @@ window.XUPERTV_PORTAL = {
    "alias": "Super Simple-Canciones Infantiles",
    "row": "Niños Felices",
    "updateCount": 162,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños Felices"
+   ]
   },
   {
    "id": "CCE0C0B776DD4959BC6AFB230B08D22F",
@@ -13149,7 +14992,10 @@ window.XUPERTV_PORTAL = {
    "row": "Niños Felices",
    "volumeCount": 26,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños Felices"
+   ]
   },
   {
    "id": "557216043162E7DBFE41D595294D4228",
@@ -13175,7 +15021,10 @@ window.XUPERTV_PORTAL = {
    "row": "Niños Felices",
    "volumeCount": 14,
    "updateCount": 14,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños Felices"
+   ]
   },
   {
    "id": "7695A40C6FE611EBA7C4E83935231F5D",
@@ -13200,7 +15049,10 @@ window.XUPERTV_PORTAL = {
    "row": "Niños Felices",
    "volumeCount": 52,
    "updateCount": 52,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños Felices"
+   ]
   },
   {
    "id": "15F33FF5F93EFDE4B1F22CC0FBDBF567",
@@ -13227,7 +15079,10 @@ window.XUPERTV_PORTAL = {
    "row": "Niños Felices",
    "volumeCount": 43,
    "updateCount": 43,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Niños Felices"
+   ]
   },
   {
    "id": "00FD1FAECE24783276B98A358ECD0CCD",
@@ -13253,7 +15108,11 @@ window.XUPERTV_PORTAL = {
    "row": "En Familia",
    "volumeCount": 21,
    "updateCount": 21,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "En Familia",
+    "Anime Europeo y Americano"
+   ]
   },
   {
    "id": "8D289E17B49410798D5673D7DF513514",
@@ -13277,7 +15136,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Alma",
    "row": "En Familia",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "En Familia"
+   ]
   },
   {
    "id": "7513BF40EB752C0EAF479DBE10DF4D30",
@@ -13302,7 +15164,10 @@ window.XUPERTV_PORTAL = {
    "row": "En Familia",
    "volumeCount": 22,
    "updateCount": 22,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "En Familia"
+   ]
   },
   {
    "id": "9FE11BC90B0E7F79953F24530D08D8D0",
@@ -13328,7 +15193,10 @@ window.XUPERTV_PORTAL = {
    "row": "En Familia",
    "volumeCount": 26,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "En Familia"
+   ]
   },
   {
    "id": "DA77A72C97974063727B69088FF49627",
@@ -13354,7 +15222,10 @@ window.XUPERTV_PORTAL = {
    "row": "En Familia",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "En Familia"
+   ]
   },
   {
    "id": "3842623EB37611EB8FF6002590A77DC0",
@@ -13379,7 +15250,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Os Incríveis",
    "row": "Los héroes atacan",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los héroes atacan"
+   ]
   },
   {
    "id": "5AED5DB6D0714B08A98540233CC8E86E",
@@ -13404,7 +15278,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Justice League: Doom",
    "row": "Los héroes atacan",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los héroes atacan"
+   ]
   },
   {
    "id": "2352BB5F8DF1B460A231846CFB58A5C4",
@@ -13428,7 +15305,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Justice League vs. Teen Titans",
    "row": "Los héroes atacan",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los héroes atacan"
+   ]
   },
   {
    "id": "0695E10448F84679B0F4768B13870307",
@@ -13457,7 +15337,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Teen Titans: Trouble in Tokyo",
    "row": "Los héroes atacan",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los héroes atacan"
+   ]
   },
   {
    "id": "E02D58D6B7C03128D05F97D22721BF1A",
@@ -13482,7 +15365,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Batman: Death in the Family",
    "row": "Los héroes atacan",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los héroes atacan"
+   ]
   },
   {
    "id": "43D5576A204D4C8499C7F283D08158B6",
@@ -13510,7 +15396,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Teenage Mutant Ninja Turtles: Mutant Mayhem",
    "row": "Los héroes atacan",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los héroes atacan"
+   ]
   },
   {
    "id": "A6ABD7E0B99E11EB9475002590A77DC0",
@@ -13534,7 +15423,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Pirate Fairy",
    "row": "Los héroes atacan",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los héroes atacan"
+   ]
   },
   {
    "id": "87B290078B772F2B0684F9AC3D78FCC9",
@@ -13559,7 +15451,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Monsters, Inc.",
    "row": "Los héroes atacan",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los héroes atacan"
+   ]
   },
   {
    "id": "684E9A9F1BF5BED987FD6934B7F6E1F0",
@@ -13583,7 +15478,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Spies in Disguise",
    "row": "Los héroes atacan",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los héroes atacan"
+   ]
   },
   {
    "id": "7CE0935A7D1F3F308D2FBFF49E959C01",
@@ -13607,7 +15505,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Big Hero 6",
    "row": "Los héroes atacan",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Los héroes atacan"
+   ]
   },
   {
    "id": "12C11AF8529643DBFA68CE18BD920A38",
@@ -13632,7 +15533,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Boruto: Naruto The Movie",
    "row": "Un regreso emocionante",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Un regreso emocionante"
+   ]
   },
   {
    "id": "A839BAADC5954663B02A2B449D76B60E",
@@ -13658,7 +15562,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Demon Slayer: Kimetsu no Yaiba - Castillo infinito",
    "row": "Un regreso emocionante",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Un regreso emocionante"
+   ]
   },
   {
    "id": "17144C4459354850A77266E61366E078",
@@ -13683,7 +15590,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Batman Ninja",
    "row": "Un regreso emocionante",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Un regreso emocionante"
+   ]
   },
   {
    "id": "055ADB6E2F04896BEFA30636CEBC9FF0",
@@ -13708,7 +15618,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Dragon Ball Super: Broly",
    "row": "Un regreso emocionante",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Un regreso emocionante"
+   ]
   },
   {
    "id": "12A7DA0F938F77603CD293558CE2CCC5",
@@ -13733,7 +15646,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Jujutsu Kaisen 0: The Movie",
    "row": "Un regreso emocionante",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Un regreso emocionante"
+   ]
   },
   {
    "id": "05412F31C3CD230D4AE2BFB3A44205B5",
@@ -13758,7 +15674,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Inuyasha the Movie 4: Fire on the Mystic Island",
    "row": "Un regreso emocionante",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Un regreso emocionante"
+   ]
   },
   {
    "id": "6700229A0915CE3508662317D107A2EE",
@@ -13782,7 +15701,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Digimon Adventure: Last Evolution Kizuna",
    "row": "Un regreso emocionante",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Un regreso emocionante"
+   ]
   },
   {
    "id": "ACC7B03CB60149B5961FDE547A05C459",
@@ -13808,7 +15730,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Seven Deadly Sins: Prisoners of the Sky",
    "row": "Un regreso emocionante",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Un regreso emocionante"
+   ]
   },
   {
    "id": "16FD59A97B9B4D6EB57D1301F1592E8A",
@@ -13835,7 +15760,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Ne Zha zhi mo tong jiang shi",
    "row": "Un regreso emocionante",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Un regreso emocionante"
+   ]
   },
   {
    "id": "4D83551EE5D98727223A1FEBF3C96270",
@@ -13860,7 +15788,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "How to Train Your Dragon 2",
    "row": "Un regreso emocionante",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Un regreso emocionante"
+   ]
   },
   {
    "id": "AC0C7D410F7C47A88A99CF47BB36E4F7",
@@ -13882,7 +15813,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Barbie in the Nutcracker",
    "row": "Película de Anime",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Anime"
+   ]
   },
   {
    "id": "C7EFFB20110D40CBB6BC53841BCB52C5",
@@ -13904,7 +15838,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Thomas & Friends - Really Helpful Engines",
    "row": "Película de Anime",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Anime"
+   ]
   },
   {
    "id": "9E322E0C9E7A4C439228C064770942B5",
@@ -13930,7 +15867,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Shaun the Sheep: The Beast of Mossy Bottom",
    "row": "Película de Anime",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Anime"
+   ]
   },
   {
    "id": "F8B76145C1E7429794B77B80DC3FB66E",
@@ -13956,7 +15896,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Den utrolige historie om den kæmpestore pære",
    "row": "Película de Anime",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Película de Anime"
+   ]
   },
   {
    "id": "CBB5113ED65B32EFC9DD5ADAD789632B",
@@ -13983,7 +15926,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Asiático",
    "volumeCount": 23,
    "updateCount": 23,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Asiático"
+   ]
   },
   {
    "id": "D44668882199889544CBF961659E1782",
@@ -14010,7 +15956,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Asiático",
    "volumeCount": 24,
    "updateCount": 24,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Asiático"
+   ]
   },
   {
    "id": "9A31A8EE680F11EC9A4500259097DE70",
@@ -14036,7 +15985,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Asiático",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Asiático"
+   ]
   },
   {
    "id": "7391AA8A68AB11ECB9F900259097DE70",
@@ -14062,7 +16014,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Asiático",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Asiático"
+   ]
   },
   {
    "id": "4BD14A1C31A844FFB18286219AA72658",
@@ -14090,7 +16045,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Asiático",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Asiático"
+   ]
   },
   {
    "id": "9CEBECF64B9611EC8EBC001E67221C7E",
@@ -14114,7 +16072,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Wicked City",
    "row": "Anime Asiático",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Asiático"
+   ]
   },
   {
    "id": "B5DBB69CA6B647BA86DE4466BDF79577",
@@ -14139,7 +16100,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Asiático",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Asiático"
+   ]
   },
   {
    "id": "88938B72B510444E9BE7C1F176770006",
@@ -14167,7 +16131,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Asiático",
    "volumeCount": 47,
    "updateCount": 47,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Asiático"
+   ]
   },
   {
    "id": "01ADFF4B029DAEDB266568DBB111CC55",
@@ -14192,7 +16159,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Resident Evil Damnation",
    "row": "Anime Europeo y Americano",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Europeo y Americano"
+   ]
   },
   {
    "id": "E03BD1724B781693FDB7431C6F60DA04",
@@ -14219,7 +16189,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Europeo y Americano",
    "volumeCount": 9,
    "updateCount": 9,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Europeo y Americano"
+   ]
   },
   {
    "id": "01B7EFB26EC011ECAEE274D02B29C423",
@@ -14245,7 +16218,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Europeo y Americano",
    "volumeCount": 65,
    "updateCount": 64,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Europeo y Americano"
+   ]
   },
   {
    "id": "364510666CA911EC939574D02B29C423",
@@ -14271,7 +16247,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Europeo y Americano",
    "volumeCount": 65,
    "updateCount": 61,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Europeo y Americano"
+   ]
   },
   {
    "id": "A2CEC89A6E2E11ECB32874D02B29C423",
@@ -14297,7 +16276,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Europeo y Americano",
    "volumeCount": 65,
    "updateCount": 65,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Europeo y Americano"
+   ]
   },
   {
    "id": "435599F29BD40CB72CD076D2B31BC9C7",
@@ -14324,7 +16306,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Europeo y Americano",
    "volumeCount": 8,
    "updateCount": 8,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Europeo y Americano"
+   ]
   },
   {
    "id": "90D8DD6148B0360D711220D5A85BDB59",
@@ -14351,7 +16336,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Europeo y Americano",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Europeo y Americano"
+   ]
   },
   {
    "id": "3D60C4677591888CDED41A3241349AF2",
@@ -14378,7 +16366,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Clásico",
    "volumeCount": 28,
    "updateCount": 28,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Clásico"
+   ]
   },
   {
    "id": "89B777DE06A229FF30A78859DFAE7DB7",
@@ -14405,7 +16396,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Clásico",
    "volumeCount": 64,
    "updateCount": 68,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Clásico"
+   ]
   },
   {
    "id": "E5C3E8B0E92AC000F80ABB6FB704F0B0",
@@ -14432,7 +16426,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Clásico",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Clásico"
+   ]
   },
   {
    "id": "E6B3511AF404B291E7273338EC56475F",
@@ -14457,7 +16454,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Clásico",
    "volumeCount": 97,
    "updateCount": 97,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Clásico"
+   ]
   },
   {
    "id": "22AD1E438C885A5FFE914EC81701D0CC",
@@ -14484,7 +16484,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Clásico",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Clásico"
+   ]
   },
   {
    "id": "C09383EBE537D19F56346FF55B2487ED",
@@ -14511,7 +16514,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Clásico",
    "volumeCount": 51,
    "updateCount": 51,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Clásico"
+   ]
   },
   {
    "id": "24881C694169AC5155583967B088FD1B",
@@ -14537,7 +16543,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Clásico",
    "volumeCount": 51,
    "updateCount": 51,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Clásico"
+   ]
   },
   {
    "id": "F0CAAD48A0DD186D876329F2F09E9E50",
@@ -14564,7 +16573,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Clásico",
    "volumeCount": 48,
    "updateCount": 48,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Clásico"
+   ]
   },
   {
    "id": "747C9B5A6F4EE7719FD829B4B260BEBD",
@@ -14590,7 +16602,10 @@ window.XUPERTV_PORTAL = {
    "row": "Anime Clásico",
    "volumeCount": 20,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Anime Clásico"
+   ]
   },
   {
    "id": "BCFD46904C4E4AE49471D9DBEC2C71EF",
@@ -14616,7 +16631,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dragon Ball Collection",
    "volumeCount": 131,
    "updateCount": 131,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dragon Ball Collection"
+   ]
   },
   {
    "id": "F3BAA08A09E4466A9E3776801C9560BF",
@@ -14643,7 +16661,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dragon Ball Collection",
    "volumeCount": 131,
    "updateCount": 131,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dragon Ball Collection"
+   ]
   },
   {
    "id": "4EE26F5F15D021EC2F344A801FFF89E3",
@@ -14669,7 +16690,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dragon Ball Collection",
    "volumeCount": 47,
    "updateCount": 47,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dragon Ball Collection"
+   ]
   },
   {
    "id": "06A55EE0AEAA45D9A1FD221F8A9BFD94",
@@ -14699,7 +16723,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dragon Ball Collection",
    "volumeCount": 291,
    "updateCount": 291,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dragon Ball Collection"
+   ]
   },
   {
    "id": "3DE4A7E7C4EB4EFBABF927DBF1F7EF58",
@@ -14723,7 +16750,10 @@ window.XUPERTV_PORTAL = {
    "alias": "",
    "row": "Dragon Ball Collection",
    "updateCount": 153,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dragon Ball Collection"
+   ]
   },
   {
    "id": "4551C2A4F71D94D4CF233B3E8BD97A18",
@@ -14750,7 +16780,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dragon Ball Collection",
    "volumeCount": 98,
    "updateCount": 98,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dragon Ball Collection"
+   ]
   },
   {
    "id": "291FD12E2104288CCABC845EDEAFF836",
@@ -14777,7 +16810,10 @@ window.XUPERTV_PORTAL = {
    "row": "Dragon Ball Collection",
    "volumeCount": 69,
    "updateCount": 69,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Dragon Ball Collection"
+   ]
   },
   {
    "id": "1901927A9CE99E639E95D0B3C297719A",
@@ -14804,7 +16840,10 @@ window.XUPERTV_PORTAL = {
    "row": "Coalition for DC",
    "volumeCount": 52,
    "updateCount": 49,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Coalition for DC"
+   ]
   },
   {
    "id": "9709BE08D42C11EB969E002590A77DC0",
@@ -14830,7 +16869,10 @@ window.XUPERTV_PORTAL = {
    "row": "Colección de Marvel",
    "volumeCount": 7,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Colección de Marvel"
+   ]
   },
   {
    "id": "BFFA94F4D4A911EBBB0FE4115BAEF989",
@@ -14856,7 +16898,10 @@ window.XUPERTV_PORTAL = {
    "row": "Colección de Marvel",
    "volumeCount": 26,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Colección de Marvel"
+   ]
   },
   {
    "id": "C9A0C6DED40611EB969E002590A77DC0",
@@ -14882,7 +16927,10 @@ window.XUPERTV_PORTAL = {
    "row": "Colección de Marvel",
    "volumeCount": 26,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Colección de Marvel"
+   ]
   },
   {
    "id": "218F9189335F5A3967FB24F46ED78D71",
@@ -14909,7 +16957,10 @@ window.XUPERTV_PORTAL = {
    "row": "Colección de Marvel",
    "volumeCount": 9,
    "updateCount": 9,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Colección de Marvel"
+   ]
   },
   {
    "id": "9F537D87BE53E98B746BBE1BE5242206",
@@ -14935,7 +16986,10 @@ window.XUPERTV_PORTAL = {
    "row": "Colección de Marvel",
    "volumeCount": 11,
    "updateCount": 11,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Colección de Marvel"
+   ]
   },
   {
    "id": "3FFD015E1D154B0C905110007CE4664B",
@@ -14957,7 +17011,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Sálvate si puedes",
    "row": "Free.Movies",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Movies"
+   ]
   },
   {
    "id": "083F7DC0676441638D6D3850C0F71FBF",
@@ -14979,7 +17036,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Los Nadies",
    "row": "Free.Movies",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Movies"
+   ]
   },
   {
    "id": "0F49B56D0FC241639BB3F6E95EAB3A8E",
@@ -15004,7 +17064,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Lucha Mexico",
    "row": "Free.Movies",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Movies"
+   ]
   },
   {
    "id": "F2292067132647F5930C0ACCF7EAE84C",
@@ -15026,7 +17089,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "A Colecionadora: tu és o próximo",
    "row": "Free.Movies",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Movies"
+   ]
   },
   {
    "id": "F89756E011EE4D59A7FA7FEAB59C56A1",
@@ -15049,7 +17115,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Cracked",
    "row": "Free.Movies",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Movies"
+   ]
   },
   {
    "id": "FC9E46E1D5014424B2F0BDBE425CE82A",
@@ -15074,7 +17143,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Our Mother's Secret Affair",
    "row": "Free.Movies",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Movies"
+   ]
   },
   {
    "id": "7F79FC2E38404FF899F775E8787EFCE2",
@@ -15098,7 +17170,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Hell in Paradise",
    "row": "Free.Movies",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Movies"
+   ]
   },
   {
    "id": "731859CE2EE442A6BFDBA59A6D19E945",
@@ -15120,7 +17195,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Ali",
    "row": "Free.Movies",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Movies"
+   ]
   },
   {
    "id": "B2FFB3BBF4ED4EA59237C4D95C35553A",
@@ -15143,7 +17221,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Duke of Burgundy",
    "row": "Free.Movies",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Movies"
+   ]
   },
   {
    "id": "08DF919DE33246369D2F34C2907B22D0",
@@ -15167,7 +17248,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Engaño a primera vista",
    "row": "Free.Movies",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Movies"
+   ]
   },
   {
    "id": "380B94479EBE435CA018A152FF6696A7",
@@ -15192,7 +17276,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.TV Series",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.TV Series"
+   ]
   },
   {
    "id": "A1BD1BC9A52C4580B616E53EA6CF9D5B",
@@ -15218,7 +17305,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.TV Series",
    "volumeCount": 16,
    "updateCount": 16,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.TV Series"
+   ]
   },
   {
    "id": "617061E6FB9935DB984661AA56FC8FD3",
@@ -15242,7 +17332,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.TV Series",
    "volumeCount": 100,
    "updateCount": 81,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.TV Series"
+   ]
   },
   {
    "id": "D0BBE1DD75AF4B6CB7AC8126B1C4BC3F",
@@ -15266,7 +17359,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.TV Series",
    "volumeCount": 98,
    "updateCount": 98,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.TV Series"
+   ]
   },
   {
    "id": "006D8711100C47B5B8335E5157ED4820",
@@ -15291,7 +17387,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.TV Series",
    "volumeCount": 6,
    "updateCount": 6,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.TV Series"
+   ]
   },
   {
    "id": "1B401BCD283545C5868FDE05F9DE9670",
@@ -15317,7 +17416,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.TV Series",
    "volumeCount": 10,
    "updateCount": 10,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.TV Series"
+   ]
   },
   {
    "id": "E21D2EBDED4C4BD19956C33D2652545C",
@@ -15343,7 +17445,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.TV Series",
    "volumeCount": 12,
    "updateCount": 12,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.TV Series"
+   ]
   },
   {
    "id": "07B35DF3ABC9495CB9DDDD2C4F4A3153",
@@ -15371,7 +17476,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.TV Series",
    "volumeCount": 15,
    "updateCount": 15,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.TV Series"
+   ]
   },
   {
    "id": "EE4C2AC7CEE0436C9F500139A3DD4B0D",
@@ -15399,7 +17507,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.TV Series",
    "volumeCount": 11,
    "updateCount": 11,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.TV Series"
+   ]
   },
   {
    "id": "0F2A8FD41B554B18B77A758564C67A00",
@@ -15431,7 +17542,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.Kids",
    "volumeCount": 24,
    "updateCount": 21,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Kids"
+   ]
   },
   {
    "id": "DE7D5B3D40AA47A9928666C6842DB4B9",
@@ -15454,7 +17568,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Meine Freundin Conni - Geheimnis um Kater Mau",
    "row": "Free.Kids",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Kids"
+   ]
   },
   {
    "id": "76262EE22B9849CDA413E8EC1E6B9BA1",
@@ -15483,7 +17600,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.Kids",
    "volumeCount": 20,
    "updateCount": 20,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Kids"
+   ]
   },
   {
    "id": "23A29A128EA44A5C8AFB7A740AF05FE7",
@@ -15506,7 +17626,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Little Engine That Could",
    "row": "Free.Kids",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Kids"
+   ]
   },
   {
    "id": "B7BE2ECFB49E4C4A9758358785853C5D",
@@ -15532,7 +17655,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "The Nut Job 2: Nutty by Nature",
    "row": "Free.Kids",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Kids"
+   ]
   },
   {
    "id": "15DF20C6225248B3BB0AB7D4BA708F5E",
@@ -15561,7 +17687,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.Kids",
    "volumeCount": 13,
    "updateCount": 13,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Kids"
+   ]
   },
   {
    "id": "F29B6878B4B64F3882A4D6A572284F6E",
@@ -15588,7 +17717,10 @@ window.XUPERTV_PORTAL = {
    "row": "Free.Kids",
    "volumeCount": 26,
    "updateCount": 26,
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Kids"
+   ]
   },
   {
    "id": "031111DC800F44078A503152D0842546",
@@ -15612,7 +17744,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Madea's Tough Love",
    "row": "Free.Kids",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Kids"
+   ]
   },
   {
    "id": "F3679CBCAC5C49C88FC505D2AE731877",
@@ -15634,7 +17769,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Valentina",
    "row": "Free.Kids",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Kids"
+   ]
   },
   {
    "id": "074C0C95D844449BAAF76F6ED1A3395A",
@@ -15659,7 +17797,10 @@ window.XUPERTV_PORTAL = {
    "type": "movie",
    "alias": "Norm of the North",
    "row": "Free.Kids",
-   "streamUrl": ""
+   "streamUrl": "",
+   "rows": [
+    "Free.Kids"
+   ]
   }
  ]
 };

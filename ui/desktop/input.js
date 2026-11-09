@@ -23,6 +23,11 @@
       var delta = (horizontal ? (event.deltaX || event.deltaY) : event.deltaY) * unit / scale;
       var maximum = horizontal ? box.scrollWidth - box.clientWidth : box.scrollHeight - box.clientHeight;
       var position = horizontal ? box.scrollLeft : box.scrollTop;
+      // A box that does not scroll in that direction (overflow hidden, e.g.
+      // the home rows, a few px taller than their frame) must not swallow
+      // the wheel: the page underneath scrolls instead.
+      var overflow = getComputedStyle(box)[horizontal ? 'overflowX' : 'overflowY'];
+      if (overflow === 'hidden' || overflow === 'visible' || overflow === 'clip') continue;
       if (maximum <= 1 || !delta || (delta < 0 && position <= 0) || (delta > 0 && position >= maximum - 1)) continue;
       smoothScroll(box, horizontal, delta, maximum);
       event.preventDefault();
