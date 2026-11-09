@@ -104,7 +104,6 @@ function buildDetail(item) {
   detailButtons = $('detail-buttons');
   detailBottom = $('detail-bottom');
   clear(detailLeft); clear(detailButtons); clear(detailBottom);
-  if (window.XUPER_DESKTOP) { setDetailBackdrop(item); }
 
   /* left column: 806px at 80/50 */
   var tw = el('div', 'detail-titlewrap');
@@ -594,32 +593,6 @@ function renderDetailBottom(item) {
     grid.appendChild(cell);
   }
   detailBottom.appendChild(grid);
-}
-
-/* Desktop: the title's artwork, blurred and dimmed, behind the whole page. */
-function setDetailBackdrop(item) {
-  var screen = $('screen-detail');
-  if (!screen) { return; }
-  var box = screen.querySelector('.detail-backdrop');
-  if (!box) {
-    box = el('div', 'detail-backdrop');
-    box.setAttribute('aria-hidden', 'true');
-    screen.insertBefore(box, screen.firstChild);
-  }
-  var art = item && (item.backdrop || item.landscape || item.poster);
-  var img = box.querySelector('img');
-  if (!art) { box.classList.remove('is-ready'); if (img) { img.removeAttribute('src'); } return; }
-  if (img && img.getAttribute('src') === art) { return; }
-  box.classList.remove('is-ready');
-  var next = el('img');
-  next.alt = '';
-  next.decoding = 'async';
-  next.onload = function () { if (next.parentNode) { box.classList.add('is-ready'); } };
-  next.onerror = function () { box.classList.remove('is-ready'); };
-  next.src = art;
-  clear(box);
-  box.appendChild(next);
-  box.appendChild(el('div', 'detail-backdrop-shade'));
 }
 
 /* Desktop: a two-line title leaves less room above the buttons. Give up

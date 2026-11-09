@@ -99,10 +99,10 @@ app.whenReady().then(async () => {
       input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true }));
       return { ok: n >= 2, detail: n + ' suggestions for "' + title.slice(0, 4) + '"' };
     })()`, 500);
-  await check('detail page opens with a backdrop', `(function(){
+  await check('detail page opens', `(function(){
       window.__xuper.openDetail(0);
       return new Promise(function (done) { setTimeout(function () {
-        done({ ok: window.__xuper.state.screen === 'detail' && !!document.querySelector('#screen-detail .detail-backdrop'), detail: window.__xuper.state.screen });
+        done({ ok: window.__xuper.state.screen === 'detail', detail: window.__xuper.state.screen });
       }, 1200); });
     })()`);
   await check('settings has no PIN lock entry', `(function(){

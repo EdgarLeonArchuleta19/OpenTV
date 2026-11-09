@@ -439,81 +439,16 @@ function renderLiveRows(favOnly) {
   if (!CHANNELS.length) {
     var listStatus = el('div', 'live-list-status',
       liveChannelsLoaded ? 'No se encontraron canales' : 'Cargando canales…');
-    if (window.XUPER_DESKTOP && !liveChannelsLoaded) { listStatus.insertBefore(el('i', 'tv-loader'), listStatus.firstChild); }
     liveList.appendChild(listStatus);
     return;
   }
-  for (var i = 0; i < CHANNELS.length; i++) {
-    if (favOnly && !CHANNELS[i].fav) { continue; }
-    var row = el('div', 'live-row focusable');
-    row._channel = i;
-    var icon = el('div', 'row-icon');
-    if (CHANNELS[i].logo) {
-      icon.style.backgroundImage = 'url(' + CHANNELS[i].logo + ')';
-      icon.style.backgroundSize = 'contain';
-      icon.style.backgroundRepeat = 'no-repeat';
-      icon.style.backgroundPosition = 'center';
-    }
-    var play = el('div', 'row-play');
-    var name = el('div', 'row-name', CHANNELS[i].name);
-    row.appendChild(icon);
-    row.appendChild(play);
-    row.appendChild(name);
-    if (i === state.channel) { row.classList.add('is-current'); }
-    row._activate = (function (idx) {
-      return function () {
-        if (window.XUPER_DESKTOP) {
-          /* Desktop: a click only switches the home preview. Enter on the
-             channel already playing (keyboard) opens it big. */
-          if (idx === state.channel) { if (focusRingVisible) { openPlayer('live'); } return; }
-          setChannel(idx, true);
-          return;
-        }
-        setChannel(idx, true); openPlayer('live');
-      };
-    })(i);
-    if (window.XUPER_DESKTOP) {
-      (function (idx, r) {
-        r.addEventListener('dblclick', function () { setChannel(idx, true); openPlayer('live'); });
-        var open = el('button', 'row-open');
-        open.type = 'button';
-        open.innerHTML = UI_ICONS.fullscreen;
-        open.setAttribute('data-tip', 'Ver en pantalla grande');
-        open.setAttribute('aria-label', 'Ver ' + (CHANNELS[idx].name || 'canal') + ' en pantalla grande');
-        open.addEventListener('click', function (event) {
-          event.stopPropagation();
-          setChannel(idx, true);
-          openPlayer('live');
-        });
-        r.appendChild(open);
-        r.setAttribute('data-tip', 'Clic: ver aquí · Doble clic: pantalla grande');
-      })(i, row);
-    }
-    row._onMove = (function (rowIdx) {
-      return function (dir) {
-        if (dir === 'left') {
-          if (liveFocus) { setFocus(liveFocus); }
-          else if (tabEls[0]) { setFocus(tabEls[0]); }
-          return true;
-        }
-        if (dir === 'up') {
-          if (rowIdx > 0 && liveRows[rowIdx - 1]) {
-            setFocus(liveRows[rowIdx - 1]);
-          }
-          return true;
-        }
-        if (dir === 'down') {
-          if (rowIdx < liveRows.length - 1 && liveRows[rowIdx + 1]) {
-            setFocus(liveRows[rowIdx + 1]);
-          }
-          return true;
-        }
-        return false;
-      };
-    })(liveRows.length);
-    liveList.appendChild(row);
-    liveRows.push(row);
-  }
+  /* Desktop: the list can hold 1000+ channels. Drawing them all made every
+     return to the home screen recompute ~7,500 elements (a visible stall),
+     so rows are added in batches as the list scrolls (or as the current
+     channel moves further down). */
+  liveRowsFavOnly = !!favOnly;
+  var limit = window.XUPER_DESKTOP && !favOnly ? Math.min(CHANNELS.length, Math.max(LIVE_ROWS_BATCH, state.channel + 25)) : CHANNELS.length;
+  appendLiveRows(limit);
   if (CHANNELS[state.channel] && liveInfoText) {
     liveInfoText.textContent = CHANNELS[state.channel].name;
   }
@@ -521,7 +456,112 @@ function renderLiveRows(favOnly) {
   if (liveGuideOpen) { renderLiveGuideGrid(); }
 }
 
+var LIVE_ROWS_BATCH = 60;
+var liveRowsFavOnly = false;
+var liveRowsShown = 0;
+
+/* Renders channel rows up to (not including) index `upTo`. */
+function appendLiveRows(upTo) {
+  if (!liveList) { return; }
+  if (window.XUPER_DESKTOP && !liveList._lazyRows) {
+    liveList._lazyRows = true;
+    liveList.addEventListener('scroll', function () {
+      if (liveRowsShown < CHANNELS.length && liveList.scrollTop + liveList.clientHeight > liveList.scrollHeight - 700) {
+        appendLiveRows(liveRowsShown + LIVE_ROWS_BATCH);
+      }
+    }, { passive: true });
+  }
+  if (!liveRows.length) { liveRowsShown = 0; }
+  var frag = document.createDocumentFragment();
+  for (var i = liveRowsShown; i < Math.min(upTo, CHANNELS.length); i++) {
+    if (liveRowsFavOnly && !CHANNELS[i].fav) { continue; }
+    var row = makeLiveRow(i);
+    frag.appendChild(row);
+    liveRows.push(row);
+  }
+  liveRowsShown = Math.max(liveRowsShown, Math.min(upTo, CHANNELS.length));
+  liveList.appendChild(frag);
+}
+
+function ensureLiveRowsUpTo(index) {
+  if (window.XUPER_DESKTOP && liveRowsShown < CHANNELS.length && index >= liveRowsShown - 5) {
+    appendLiveRows(Math.min(CHANNELS.length, index + LIVE_ROWS_BATCH));
+  }
+}
+
+function makeLiveRow(i) {
+  var row = el('div', 'live-row focusable');
+  row._channel = i;
+  var icon = el('div', 'row-icon');
+  if (CHANNELS[i].logo) {
+    icon.style.backgroundImage = 'url(' + CHANNELS[i].logo + ')';
+    icon.style.backgroundSize = 'contain';
+    icon.style.backgroundRepeat = 'no-repeat';
+    icon.style.backgroundPosition = 'center';
+  }
+  var play = el('div', 'row-play');
+  var name = el('div', 'row-name', CHANNELS[i].name);
+  row.appendChild(icon);
+  row.appendChild(play);
+  row.appendChild(name);
+  if (i === state.channel) { row.classList.add('is-current'); }
+  row._activate = (function (idx) {
+    return function () {
+      if (window.XUPER_DESKTOP) {
+        /* Desktop: a click only switches the home preview. Enter on the
+           channel already playing (keyboard) opens it big. */
+        if (idx === state.channel) { if (focusRingVisible) { openPlayer('live'); } return; }
+        setChannel(idx, true);
+        return;
+      }
+      setChannel(idx, true); openPlayer('live');
+    };
+  })(i);
+  if (window.XUPER_DESKTOP) {
+    (function (idx, r) {
+      r.addEventListener('dblclick', function () { setChannel(idx, true); openPlayer('live'); });
+      var open = el('button', 'row-open');
+      open.type = 'button';
+      open.innerHTML = UI_ICONS.fullscreen;
+      open.setAttribute('data-tip', 'Ver en pantalla grande');
+      open.setAttribute('aria-label', 'Ver ' + (CHANNELS[idx].name || 'canal') + ' en pantalla grande');
+      open.addEventListener('click', function (event) {
+        event.stopPropagation();
+        setChannel(idx, true);
+        openPlayer('live');
+      });
+      r.appendChild(open);
+      r.setAttribute('data-tip', 'Clic: ver aquí · Doble clic: pantalla grande');
+    })(i, row);
+  }
+  row._onMove = (function (rowIdx) {
+    return function (dir) {
+      if (dir === 'left') {
+        if (liveFocus) { setFocus(liveFocus); }
+        else if (tabEls[0]) { setFocus(tabEls[0]); }
+        return true;
+      }
+      if (dir === 'up') {
+        if (rowIdx > 0 && liveRows[rowIdx - 1]) {
+          setFocus(liveRows[rowIdx - 1]);
+        }
+        return true;
+      }
+      if (dir === 'down') {
+        if (rowIdx >= liveRows.length - 2) { ensureLiveRowsUpTo(liveRows[rowIdx]._channel + 1); }
+        if (rowIdx < liveRows.length - 1 && liveRows[rowIdx + 1]) {
+          setFocus(liveRows[rowIdx + 1]);
+        }
+        return true;
+      }
+      return false;
+    };
+  })(liveRows.length);
+  return row;
+}
+
 function scrollLiveList() {
+  ensureLiveRowsUpTo(state.channel);
   if (!liveRows.length) { return; }
   var visible = liveRows.filter(function (r) { return r._channel === state.channel; })[0];
   if (!visible) { return; }

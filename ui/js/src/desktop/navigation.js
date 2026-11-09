@@ -26,8 +26,10 @@ function installDesktopNavigation() {
       historyDrawerOpen || !playerVideo || playerVideo.paused);
     body.classList.toggle('is-playing-idle', onPlayer && !controlsUp);
     if (state.screen !== lastScreen) { lastScreen = state.screen; body.setAttribute('data-screen', state.screen); }
+    /* The movie player has its own Volver (top left), so no second one. */
     button.hidden = state.screen === 'welcome' ||
-      (state.screen === 'home' && !dialogAddonsOpen && !historyDrawerOpen);
+      (state.screen === 'home' && !dialogAddonsOpen && !historyDrawerOpen) ||
+      (state.screen === 'player' && state.playerMode === 'vod');
     button.disabled = false;
   }, 150);
 }

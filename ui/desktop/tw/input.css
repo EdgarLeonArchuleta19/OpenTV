@@ -1562,26 +1562,6 @@ body.desktop { --t-bg: #0e0e11; --bg: #0e0e11; background: #0e0e11; }
 .desktop .vod-seekbar.is-hovering .vod-seek-hover { opacity: 1; transform: translate(-50%, 0); }
 .desktop .vod-seekbar.is-hovering .vod-seek-ghost { opacity: 1; }
 
-/* =====================================================================
-   Ficha: fondo con la imagen del título
-   ===================================================================== */
-.desktop #screen-detail { background-color: #0e0e11; }
-.desktop .detail-backdrop { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; z-index: 0; pointer-events: none; }
-.desktop .detail-backdrop img {
-  position: absolute; left: -6%; top: -8%; width: 112%; height: 116%;
-  object-fit: cover;
-  filter: blur(48px) saturate(1.25) brightness(.75);
-  opacity: 0; transform: scale(1.04);
-  transition: opacity .8s ease, transform 1.4s cubic-bezier(.16, 1, .3, 1);
-}
-.desktop .detail-backdrop.is-ready img { opacity: .55; transform: none; }
-.desktop .detail-backdrop-shade {
-  position: absolute; inset: 0;
-  background:
-    linear-gradient(to bottom, rgba(14, 14, 17, .25) 0%, rgba(14, 14, 17, .55) 45%, #0e0e11 88%),
-    linear-gradient(to right, rgba(14, 14, 17, .7) 0%, rgba(14, 14, 17, .15) 60%, rgba(14, 14, 17, .35) 100%);
-}
-/* (It is the first child, so the page content paints above it.) */
 /* Long titles (two lines) must not squash the genre chips: only the
    synopsis gives up height. */
 .desktop #screen-detail .detail-left > * { flex-shrink: 0; }
@@ -1726,11 +1706,6 @@ body.has-titlebar:not(.is-window-fullscreen) .history-drawer { top: 36px; }
 }
 @keyframes ot-loader-in { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
 .desktop .player-status.is-active { background: rgba(10, 10, 13, .55); }
-.desktop .live-main.is-preview-loading .live-preview-status { flex-direction: column; gap: 14px; }
-.desktop .live-main.is-preview-loading .live-preview-status:before {
-  content: ""; width: 112px; height: 116px;
-  background: url("../images/loader-tv.svg") center / contain no-repeat;
-}
 .desktop .search-spinner:not(.is-small) {
   width: 112px; height: 116px; border: 0; border-radius: 0;
   background: url("../images/loader-tv.svg") center / contain no-repeat;
