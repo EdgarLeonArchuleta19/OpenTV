@@ -72,6 +72,9 @@ function makeRowShell(page, y, height, titleText, extraClass) {
     schedulePosterMemoryPass();
   }
   strip.addEventListener('scroll', syncArrows, { passive: true });
+  /* Measured while the page was hidden the row looked empty, so the arrows
+     stayed off until a first scroll: measure again when the pointer comes. */
+  host.addEventListener('mouseenter', syncArrows);
   /* A vertical wheel keeps scrolling the page; a sideways swipe or
      Shift + wheel moves the row. */
   strip.addEventListener('wheel', function (event) {

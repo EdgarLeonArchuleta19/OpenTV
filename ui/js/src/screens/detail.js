@@ -518,6 +518,7 @@ function renderDetailBottomDesktop(item) {
     schedulePosterMemoryPass();
   }
   rel.addEventListener('scroll', syncArrows, { passive: true });
+  relWrap.addEventListener('mouseenter', syncArrows);
   setTimeout(syncArrows, 0);
   relSection.appendChild(relWrap);
   detailBottom.appendChild(relSection);

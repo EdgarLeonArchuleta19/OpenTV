@@ -208,7 +208,7 @@ function buildLiveDock(page) {
   if (window.XUPER_DESKTOP) {
     bar.appendChild(dockButton('is-guide', LIVE_DOCK_ICONS.guide, 'Guía', 'Guía de canales (G)', openLiveGuide));
   }
-  bar.appendChild(dockButton('', LIVE_DOCK_ICONS.full, 'Pantalla completa', 'Ver en pantalla completa', function () { openPlayer('live'); }));
+  bar.appendChild(dockButton('is-full', LIVE_DOCK_ICONS.full, 'Pantalla completa', 'Ver en pantalla completa', function () { openPlayer('live'); }));
   liveDock.appendChild(bar);
 
   liveDockCats = el('div', 'live-dock-cats scrollable');

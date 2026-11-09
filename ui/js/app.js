@@ -226,6 +226,7 @@
     keyboard: uiSvg('<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8"/>'),
     check: uiSvg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
     expand: uiSvg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>'),
+    folder: uiSvg('<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/>'),
     speed: uiSvg('<path d="M12 14.5l4.5-4.5"/><path d="M3.6 18.5a9.5 9.5 0 1 1 16.8 0"/><circle cx="12" cy="14.5" r="1.2"/>')
   };
 
@@ -2851,7 +2852,7 @@
     if (window.XUPER_DESKTOP) {
       bar.appendChild(dockButton('is-guide', LIVE_DOCK_ICONS.guide, 'Guía', 'Guía de canales (G)', openLiveGuide));
     }
-    bar.appendChild(dockButton('', LIVE_DOCK_ICONS.full, 'Pantalla completa', 'Ver en pantalla completa', function () { openPlayer('live'); }));
+    bar.appendChild(dockButton('is-full', LIVE_DOCK_ICONS.full, 'Pantalla completa', 'Ver en pantalla completa', function () { openPlayer('live'); }));
     liveDock.appendChild(bar);
 
     liveDockCats = el('div', 'live-dock-cats scrollable');
@@ -4774,6 +4775,9 @@
       schedulePosterMemoryPass();
     }
     strip.addEventListener('scroll', syncArrows, { passive: true });
+    /* Measured while the page was hidden the row looked empty, so the arrows
+       stayed off until a first scroll: measure again when the pointer comes. */
+    host.addEventListener('mouseenter', syncArrows);
     /* A vertical wheel keeps scrolling the page; a sideways swipe or
        Shift + wheel moves the row. */
     strip.addEventListener('wheel', function (event) {
@@ -5896,6 +5900,7 @@
       schedulePosterMemoryPass();
     }
     rel.addEventListener('scroll', syncArrows, { passive: true });
+    relWrap.addEventListener('mouseenter', syncArrows);
     setTimeout(syncArrows, 0);
     relSection.appendChild(relWrap);
     detailBottom.appendChild(relSection);
@@ -8098,7 +8103,7 @@
     if (window.desktop && window.desktop.openLogs) {
       var logs = desktopSettingsCard(UI_ICONS.info, 'Registro de errores',
         'La app anota en un archivo los errores y cierres inesperados (no se envía nada). Si algo falla, abre la carpeta y adjunta opentv.log al reportarlo.');
-      logs.appendChild(desktopSettingsButton('Abrir carpeta del registro', UI_ICONS.share, function () { window.desktop.openLogs(); }));
+      logs.appendChild(desktopSettingsButton('Abrir carpeta del registro', UI_ICONS.folder, function () { window.desktop.openLogs(); }));
       page.body.appendChild(logs);
     }
     page.body.appendChild(desktopSettingsCard(UI_ICONS.settings, 'Si un vídeo se corta o no tiene sonido',

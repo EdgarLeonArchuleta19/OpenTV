@@ -76,7 +76,7 @@ function buildDesktopFeedbackPanel() {
   if (window.desktop && window.desktop.openLogs) {
     var logs = desktopSettingsCard(UI_ICONS.info, 'Registro de errores',
       'La app anota en un archivo los errores y cierres inesperados (no se envía nada). Si algo falla, abre la carpeta y adjunta opentv.log al reportarlo.');
-    logs.appendChild(desktopSettingsButton('Abrir carpeta del registro', UI_ICONS.share, function () { window.desktop.openLogs(); }));
+    logs.appendChild(desktopSettingsButton('Abrir carpeta del registro', UI_ICONS.folder, function () { window.desktop.openLogs(); }));
     page.body.appendChild(logs);
   }
   page.body.appendChild(desktopSettingsCard(UI_ICONS.settings, 'Si un vídeo se corta o no tiene sonido',
