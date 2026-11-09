@@ -1,9 +1,9 @@
-; Script de Inno Setup para OpenTV Desktop
+﻿; Script de Inno Setup para OpenTV Desktop
 ; Para compilar manualmente con Inno Setup 6: ISCC.exe installer\opentv.iss
 
 #define MyAppName "OpenTV"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "TECHPOINT"
+#define MyAppPublisher "TECHPOINT Software™"
 #define MyAppExeName "OpenTV.exe"
 
 [Setup]

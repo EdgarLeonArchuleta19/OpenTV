@@ -37,7 +37,9 @@ function posterBelongsToVisiblePage(img) {
   return false;
 }
 function refreshPosterMemory() {
-  var imgs = document.querySelectorAll('img[data-poster-src]');
+  /* Desktop never unloads a poster, so only the ones still waiting need a
+     look (a long session has hundreds already on screen). */
+  var imgs = document.querySelectorAll(window.XUPER_DESKTOP ? 'img[data-poster-src]:not([src])' : 'img[data-poster-src]');
   var viewW = window.innerWidth || 1920;
   var viewH = window.innerHeight || 1080;
   for (var i = 0; i < imgs.length; i++) {
@@ -156,6 +158,7 @@ function makePoster(item, x, y, w, h, opts) {
     /* Keep the original no-data bitmap underneath: if the remote poster
        fails, removing the <img> reveals the authentic placeholder. */
     var pimg = el('img', 'p-img');
+    pimg.decoding = 'async';
     pimg.setAttribute('data-poster-src', item.poster);
     pimg.onerror = posterImageError;
     pimg.onload = posterImageLoaded;

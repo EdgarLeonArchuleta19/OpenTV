@@ -246,7 +246,7 @@ function loadLiveCategories(done) {
     }
     /* Append Addons Category */
     cats.push({ id: 'addons', name: '➕ Addons M3U', isAddon: true });
-    liveCategories = cats;
+    liveCategories = splitPrivateCategories(cats);
     liveCategoriesLoaded = true;
     if (!currentLiveCategory) { currentLiveCategory = liveCategories[0]; }
     renderPlayerCategories();
@@ -257,6 +257,11 @@ function loadLiveCategories(done) {
 
 function switchLiveCategory(cat, done) {
   if (!cat) { return; }
+  if (window.XUPER_DESKTOP) {
+    /* The private category opens only through its PIN; any other choice locks it again. */
+    if ((cat.isPrivate || isAdultCategory(cat)) && !privateUnlocked) { return; }
+    if (!cat.isPrivate && privateUnlocked) { privateUnlocked = false; document.body.classList.remove('is-private-tv'); }
+  }
   currentLiveCategory = cat;
   renderPlayerCategories();
   if (cat.isSaved) { loadSavedChannels(cat.isSaved, done); return; }
@@ -432,8 +437,10 @@ function renderLiveRows(favOnly) {
   if (keepScroll) { setTimeout(function () { liveList.scrollTop = keepScroll; }, 0); }
   liveRows = [];
   if (!CHANNELS.length) {
-    liveList.appendChild(el('div', 'live-list-status',
-      liveChannelsLoaded ? 'No se encontraron canales' : 'Cargando canales…'));
+    var listStatus = el('div', 'live-list-status',
+      liveChannelsLoaded ? 'No se encontraron canales' : 'Cargando canales…');
+    if (window.XUPER_DESKTOP && !liveChannelsLoaded) { listStatus.insertBefore(el('i', 'tv-loader'), listStatus.firstChild); }
+    liveList.appendChild(listStatus);
     return;
   }
   for (var i = 0; i < CHANNELS.length; i++) {

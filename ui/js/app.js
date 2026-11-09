@@ -1205,6 +1205,7 @@
     var r = node.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) { return false; }
     if (historyDrawerOpen) { return !!closest(node, '.history-drawer'); }
+    if (pinDialogOpen) { return !!closest(node, '.pin-dialog'); }
     if (liveGuideOpen) { return !!closest(node, '.live-guide'); }
     if (dialogAddonsOpen) { return !!closest(node, '#dialog-addons'); }
     if (state.episodeBrowserOpen) {
@@ -1413,6 +1414,7 @@
     if (target) { target.classList.add('is-active'); }
     var previousScreen = state.screen;
     state.screen = name;
+    if (window.XUPER_DESKTOP && name !== 'home' && name !== 'player') { lockPrivateContent(); }
     if (window.XUPER_DESKTOP) { updateTitleBarSection(); if (name !== 'player' && updateStatus.state === 'ready') { showUpdateNotice(); } }
     if (historyDrawerOpen) { closeHistoryDrawer(true); }
     if (window.XUPER_DESKTOP) {
@@ -2130,6 +2132,7 @@
     if (!def || def.action) { return; }
     var prevPage = TABS[state.tab] ? TABS[state.tab].page : def.page;
     state.tab = index;
+    if (window.XUPER_DESKTOP && def.page !== 0) { lockPrivateContent(); }
     if (window.XUPER_DESKTOP) { updateTitleBarSection(); }
     for (var i = 0; i < tabEls.length; i++) {
       tabEls[i].classList.toggle('is-selected', i === index);
@@ -2211,7 +2214,9 @@
     return false;
   }
   function refreshPosterMemory() {
-    var imgs = document.querySelectorAll('img[data-poster-src]');
+    /* Desktop never unloads a poster, so only the ones still waiting need a
+       look (a long session has hundreds already on screen). */
+    var imgs = document.querySelectorAll(window.XUPER_DESKTOP ? 'img[data-poster-src]:not([src])' : 'img[data-poster-src]');
     var viewW = window.innerWidth || 1920;
     var viewH = window.innerHeight || 1080;
     for (var i = 0; i < imgs.length; i++) {
@@ -2330,6 +2335,7 @@
       /* Keep the original no-data bitmap underneath: if the remote poster
          fails, removing the <img> reveals the authentic placeholder. */
       var pimg = el('img', 'p-img');
+      pimg.decoding = 'async';
       pimg.setAttribute('data-poster-src', item.poster);
       pimg.onerror = posterImageError;
       pimg.onload = posterImageLoaded;
@@ -2698,6 +2704,7 @@
       liveDockCats.appendChild(b);
     }
     if (all) { chip(all, 'Todos'); }
+    if (window.XUPER_DESKTOP && privateCategoryActive()) { chip(currentLiveCategory, 'Privado'); }
     if (window.XUPER_DESKTOP) {
       var saved = liveSaved();
       if (saved.favs.length) { chip(LIVE_SAVED_CATS.favs, '★ Favoritos'); }
@@ -2962,7 +2969,7 @@
       }
       /* Append Addons Category */
       cats.push({ id: 'addons', name: '➕ Addons M3U', isAddon: true });
-      liveCategories = cats;
+      liveCategories = splitPrivateCategories(cats);
       liveCategoriesLoaded = true;
       if (!currentLiveCategory) { currentLiveCategory = liveCategories[0]; }
       renderPlayerCategories();
@@ -2973,6 +2980,11 @@
 
   function switchLiveCategory(cat, done) {
     if (!cat) { return; }
+    if (window.XUPER_DESKTOP) {
+      /* The private category opens only through its PIN; any other choice locks it again. */
+      if ((cat.isPrivate || isAdultCategory(cat)) && !privateUnlocked) { return; }
+      if (!cat.isPrivate && privateUnlocked) { privateUnlocked = false; document.body.classList.remove('is-private-tv'); }
+    }
     currentLiveCategory = cat;
     renderPlayerCategories();
     if (cat.isSaved) { loadSavedChannels(cat.isSaved, done); return; }
@@ -3148,8 +3160,10 @@
     if (keepScroll) { setTimeout(function () { liveList.scrollTop = keepScroll; }, 0); }
     liveRows = [];
     if (!CHANNELS.length) {
-      liveList.appendChild(el('div', 'live-list-status',
-        liveChannelsLoaded ? 'No se encontraron canales' : 'Cargando canales…'));
+      var listStatus = el('div', 'live-list-status',
+        liveChannelsLoaded ? 'No se encontraron canales' : 'Cargando canales…');
+      if (window.XUPER_DESKTOP && !liveChannelsLoaded) { listStatus.insertBefore(el('i', 'tv-loader'), listStatus.firstChild); }
+      liveList.appendChild(listStatus);
       return;
     }
     for (var i = 0; i < CHANNELS.length; i++) {
@@ -3467,7 +3481,7 @@
   }
 
   function rememberLiveChannel(ch) {
-    if (!window.XUPER_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
+    if (!window.XUPER_DESKTOP || !ch || !liveChannelKey(ch) || privateCategoryActive()) { return; }
     var s = liveSaved();
     s.recent = s.recent.filter(function (x) { return !sameChannel(x, ch); });
     s.recent.unshift(savedChannelCopy(ch));
@@ -3485,6 +3499,8 @@
 
   function toggleLiveFavorite(ch) {
     if (!ch) { return false; }
+    /* Private channels never go to Favoritos (they would show up there). */
+    if (privateCategoryActive()) { return !!ch.fav; }
     ch.fav = toggleFavorite({ id: liveFavKey(ch) });
     syncSavedFavorite(ch, ch.fav);
     syncLiveFavButton();
@@ -3555,6 +3571,12 @@
     });
     liveGuideSearch._activate = function () { liveGuideSearch.focus(); };
     head.appendChild(liveGuideSearch);
+    var lockBtn = el('button', 'lg-close lg-private focusable');
+    lockBtn.type = 'button';
+    lockBtn.innerHTML = UI_ICONS.lock;
+    lockBtn.setAttribute('data-tip', 'Privado');
+    lockBtn._activate = openPrivateContent;
+    head.appendChild(lockBtn);
     var close = el('button', 'lg-close focusable');
     close.type = 'button';
     close.innerHTML = UI_ICONS.close;
@@ -3580,6 +3602,8 @@
     if (!window.XUPER_DESKTOP) { return; }
     if (!liveGuide || !liveGuide.isConnected) { buildLiveGuide(); }
     liveGuideOpen = true;
+    var lockButton = liveGuide.querySelector('.lg-private');
+    if (lockButton) { lockButton.hidden = !privateEnabled(); }
     liveGuideReturnFocus = state.focus;
     liveGuideSearch.value = '';
     renderLiveGuideCats();
@@ -3659,7 +3683,9 @@
         : currentLiveCategory && currentLiveCategory.isSaved === 'favs' ? 'Aún no tienes canales favoritos. Pasa el ratón por un canal y toca la estrella.'
         : currentLiveCategory && currentLiveCategory.isSaved === 'recent' ? 'Aquí aparecerán los últimos canales que veas.'
         : 'No hay canales en esta categoría.';
-      liveGuideGrid.appendChild(el('div', 'lg-empty', msg));
+      var empty = el('div', 'lg-empty', msg);
+      if (!CHANNELS.length && liveChannelsLoading) { empty.insertBefore(el('i', 'tv-loader'), empty.firstChild); }
+      liveGuideGrid.appendChild(empty);
     }
     var name = currentLiveCategory ? (currentLiveCategory.isAddon ? 'Mis listas M3U' : currentLiveCategory.name) : 'Todos';
     liveGuideCount.textContent = name + ' · ' + (q ? shown + ' de ' + CHANNELS.length : CHANNELS.length) + (CHANNELS.length === 1 && !q ? ' canal' : ' canales') +
@@ -3740,6 +3766,296 @@
     }, true);
   }
 
+  /* ---- live/private.js ------------------------------------------------------- */
+  /* live/private.js — Escritorio: canales para adultos (+18) ocultos y protegidos con PIN.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* The portal has an adult ("18+") TV category. On desktop it is never in
+     the category lists. It can be switched on in Mi cuenta → Privacidad,
+     which asks for a 4-digit PIN; from then on it opens only with that PIN,
+     from the lock button of the channel guide (or from Mi cuenta), under the
+     neutral name "Privado". It locks again as soon as the viewer changes
+     category or leaves the TV, and its channels are never written to
+     Recientes, Favoritos or the title bar. */
+  var PRIVATE_KEY = 'opentv_private_v1';
+  var PRIVATE_MAX_TRIES = 5;
+  var privateCategories = [];
+  var privateUnlocked = false;
+  var privateFailedTries = 0;
+  var privateBlockedUntil = 0;
+
+  function privateSettings() {
+    var s = safeLocalRead(PRIVATE_KEY, null);
+    return s && typeof s === 'object' ? s : { enabled: false };
+  }
+  function privateEnabled() { var s = privateSettings(); return !!(s.enabled && s.hash); }
+
+  function isAdultCategory(cat) {
+    if (!cat) { return false; }
+    var name = String(cat.name || '');
+    return /18\s*\+|\+\s*18|adult|xxx/i.test(name) || String(cat.id) === '76208';
+  }
+
+  /* Takes the adult categories out of the list the app shows (desktop). */
+  function splitPrivateCategories(cats) {
+    if (!window.XUPER_DESKTOP) { return cats; }
+    var visible = [];
+    var hidden = [];
+    for (var i = 0; i < cats.length; i++) { (isAdultCategory(cats[i]) ? hidden : visible).push(cats[i]); }
+    if (hidden.length) { privateCategories = hidden; }
+    return visible;
+  }
+
+  function privateCategoryActive() {
+    return !!(window.XUPER_DESKTOP && currentLiveCategory && (currentLiveCategory.isPrivate || isAdultCategory(currentLiveCategory)));
+  }
+
+  /* ------------------------------------------------------------------ PIN */
+  function hexOf(buffer) {
+    var bytes = new Uint8Array(buffer), out = '';
+    for (var i = 0; i < bytes.length; i++) { out += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16); }
+    return out;
+  }
+  function hashPin(pin, salt, done) {
+    var data = new TextEncoder().encode(salt + ':' + pin + ':opentv');
+    window.crypto.subtle.digest('SHA-256', data).then(function (h) { done(hexOf(h)); }, function () { done(''); });
+  }
+  function newSalt() {
+    var a = new Uint8Array(16);
+    window.crypto.getRandomValues(a);
+    return hexOf(a.buffer);
+  }
+  function checkPin(pin, done) {
+    var s = privateSettings();
+    if (!s.hash || !s.salt) { done(false); return; }
+    hashPin(pin, s.salt, function (h) { done(!!h && h === s.hash); });
+  }
+  function savePin(pin, done) {
+    var salt = newSalt();
+    hashPin(pin, salt, function (h) {
+      if (!h) { done(false); return; }
+      safeLocalWrite(PRIVATE_KEY, { enabled: true, salt: salt, hash: h });
+      done(true);
+    });
+  }
+
+  /* ---------------------------------------------------------- PIN dialog */
+  var pinDialogOpen = false;
+  var pinDialog = null;
+  var pinDialogState = null;
+
+  /* opts: { title, text, onPin(pin, retry) }  — retry(message) clears the
+     dots and shows a message, so the same dialog asks again. */
+  function openPinDialog(opts) {
+    if (!pinDialog) { buildPinDialog(); }
+    pinDialogState = { pin: '', opts: opts, returnFocus: state.focus };
+    pinDialog.querySelector('.pd-title').textContent = opts.title;
+    pinDialog.querySelector('.pd-text').textContent = opts.text || '';
+    setPinMessage('');
+    renderPinDots();
+    pinDialogOpen = true;
+    pinDialog.classList.add('is-open');
+    var first = pinDialog.querySelector('.pd-key');
+    if (first) { setFocus(first, true); }
+  }
+
+  function closePinDialog() {
+    if (!pinDialogOpen) { return; }
+    pinDialogOpen = false;
+    pinDialog.classList.remove('is-open');
+    var back = pinDialogState && pinDialogState.returnFocus;
+    pinDialogState = null;
+    if (back && back.isConnected) { setFocus(back, true); }
+  }
+
+  function setPinMessage(text, isError) {
+    var m = pinDialog.querySelector('.pd-msg');
+    m.textContent = text || '';
+    m.classList.toggle('is-error', !!isError);
+  }
+
+  function renderPinDots() {
+    var dots = pinDialog.querySelectorAll('.pd-dot');
+    for (var i = 0; i < dots.length; i++) { dots[i].classList.toggle('is-on', i < pinDialogState.pin.length); }
+  }
+
+  function pinPress(key) {
+    if (!pinDialogState) { return; }
+    if (key === 'back') { pinDialogState.pin = pinDialogState.pin.slice(0, -1); renderPinDots(); return; }
+    if (key === 'cancel') { closePinDialog(); return; }
+    if (pinDialogState.pin.length >= 4) { return; }
+    pinDialogState.pin += key;
+    renderPinDots();
+    if (pinDialogState.pin.length === 4) {
+      var current = pinDialogState;
+      var pin = current.pin;
+      setTimeout(function () {
+        if (pinDialogState !== current) { return; }
+        current.opts.onPin(pin, function (message) {
+          current.pin = '';
+          renderPinDots();
+          setPinMessage(message, true);
+          pinDialog.classList.remove('is-shaking');
+          void pinDialog.offsetWidth;
+          pinDialog.classList.add('is-shaking');
+        });
+      }, 120);
+    }
+  }
+
+  function buildPinDialog() {
+    pinDialog = el('div', 'pin-dialog');
+    pinDialog.setAttribute('data-no-gesture', '');
+    var card = el('div', 'pd-card');
+    var lock = el('div', 'pd-lock');
+    lock.innerHTML = UI_ICONS.lock;
+    card.appendChild(lock);
+    card.appendChild(el('div', 'pd-title', ''));
+    card.appendChild(el('div', 'pd-text', ''));
+    var dots = el('div', 'pd-dots');
+    for (var d = 0; d < 4; d++) { dots.appendChild(el('i', 'pd-dot')); }
+    card.appendChild(dots);
+    card.appendChild(el('div', 'pd-msg', ''));
+    var pad = el('div', 'pd-pad');
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'cancel', '0', 'back'].forEach(function (k) {
+      var b = el('button', 'pd-key focusable' + (k.length > 1 ? ' is-action' : ''));
+      b.type = 'button';
+      if (k === 'back') { b.innerHTML = UI_ICONS.back; b.setAttribute('aria-label', 'Borrar'); }
+      else if (k === 'cancel') { b.textContent = 'Cancelar'; }
+      else { b.textContent = k; }
+      b._activate = function () { pinPress(k); };
+      b.addEventListener('click', function (event) { event.stopPropagation(); pinPress(k); });
+      pad.appendChild(b);
+    });
+    card.appendChild(pad);
+    pinDialog.appendChild(card);
+    pinDialog.addEventListener('click', function (event) { if (event.target === pinDialog) { closePinDialog(); } });
+    document.body.appendChild(pinDialog);
+    document.addEventListener('keydown', function (event) {
+      if (!pinDialogOpen) { return; }
+      var k = event.key;
+      if (/^[0-9]$/.test(k)) { pinPress(k); }
+      else if (k === 'Backspace') { pinPress('back'); }
+      else if (k === 'Escape') { closePinDialog(); }
+      else if (k === 'Enter' && state.focus && closest(state.focus, '.pin-dialog')) { state.focus._activate(); }
+      else if (/^Arrow/.test(k)) { return; }
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
+  }
+
+  /* -------------------------------------------------------------- actions */
+  function askPrivatePin(title, onOk) {
+    openPinDialog({
+      title: title,
+      text: 'Introduce tu PIN de 4 dígitos.',
+      onPin: function (pin, retry) {
+        if (Date.now() < privateBlockedUntil) { retry('Demasiados intentos. Espera unos segundos.'); return; }
+        checkPin(pin, function (ok) {
+          if (!ok) {
+            privateFailedTries++;
+            if (privateFailedTries >= PRIVATE_MAX_TRIES) { privateFailedTries = 0; privateBlockedUntil = Date.now() + 30000; retry('PIN incorrecto. Espera 30 segundos.'); }
+            else { retry('PIN incorrecto'); }
+            return;
+          }
+          privateFailedTries = 0;
+          closePinDialog();
+          onOk();
+        });
+      }
+    });
+  }
+
+  function enablePrivateContent(done) {
+    var first = '';
+    openPinDialog({
+      title: 'Crea un PIN',
+      text: 'Elige 4 dígitos. Lo pedirá cada vez que abras el contenido privado.',
+      onPin: function (pin, retry) {
+        if (!first) {
+          first = pin;
+          pinDialog.querySelector('.pd-title').textContent = 'Repite el PIN';
+          pinDialog.querySelector('.pd-text').textContent = 'Escríbelo otra vez para confirmarlo.';
+          pinDialogState.pin = '';
+          renderPinDots();
+          setPinMessage('');
+          return;
+        }
+        if (pin !== first) {
+          first = '';
+          pinDialog.querySelector('.pd-title').textContent = 'Crea un PIN';
+          pinDialog.querySelector('.pd-text').textContent = 'Elige 4 dígitos.';
+          retry('Los PIN no coinciden. Empieza otra vez.');
+          return;
+        }
+        savePin(pin, function (ok) {
+          closePinDialog();
+          if (done) { done(ok); }
+        });
+      }
+    });
+  }
+
+  function disablePrivateContent(done) {
+    askPrivatePin('Desactivar contenido privado', function () {
+      lockPrivateContent();
+      safeLocalWrite(PRIVATE_KEY, { enabled: false });
+      if (done) { done(); }
+    });
+  }
+
+  function changePrivatePin(done) {
+    askPrivatePin('PIN actual', function () { enablePrivateContent(done); });
+  }
+
+  /* Opens the private category on the TV tab after the PIN. */
+  function openPrivateContent() {
+    if (!privateEnabled()) { return; }
+    askPrivatePin('Contenido privado', function () {
+      if (!privateCategories.length) {
+        loadLiveCategories(function () {
+          if (privateCategories.length) { showPrivateCategory(); }
+          else { setPlayerStatus(''); }
+        });
+        return;
+      }
+      showPrivateCategory();
+    });
+  }
+
+  function showPrivateCategory() {
+    var cat = privateCategories[0];
+    privateUnlocked = true;
+    var view = { id: cat.id, name: 'Privado', code: cat.code, isPrivate: true };
+    if (liveGuideOpen) { closeLiveGuide(); }
+    if (state.screen !== 'home') { showScreen('home'); }
+    if (state.tab !== 0) { selectTab(0, true); }
+    switchLiveCategory(view);
+    renderLiveDockCats();
+    document.body.classList.add('is-private-tv');
+  }
+
+  /* Back to the normal channels; called when the viewer leaves the
+     category, the TV tab or the app's TV screens. */
+  function lockPrivateContent() {
+    if (!privateUnlocked && !privateCategoryActive()) { return; }
+    privateUnlocked = false;
+    document.body.classList.remove('is-private-tv');
+    if (privateCategoryActive()) {
+      var all = null;
+      for (var i = 0; i < liveCategories.length; i++) { if (liveCategories[i].name === 'Todos') { all = liveCategories[i]; break; } }
+      currentLiveCategory = all || liveCategories[0] || null;
+      if (state.screen === 'home' && state.tab === 0 && currentLiveCategory) { switchLiveCategory(currentLiveCategory); }
+      else if (currentLiveCategory) {
+        stopLivePreview();
+        CHANNELS.splice(0, CHANNELS.length);
+        liveChannelsLoaded = false;
+        loadLiveChannels(currentLiveCategory.id);
+      }
+      renderLiveDockCats();
+    }
+  }
+
   /* ---- home/catalog-pages.js ------------------------------------------------- */
   /* home/catalog-pages.js — Páginas de catálogo del inicio: mosaicos, cuadrículas, Destacados, Películas, Series, Kids, etc.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
@@ -3767,6 +4083,7 @@
     var art = item ? (item.landscape || item.poster) : '';
     if (art) {
       var img = el('img', 'bento-img');
+      img.decoding = 'async';
       img.setAttribute('data-poster-src', art);
       img.onerror = posterImageError;
       img.onload = posterImageLoaded;
@@ -4277,6 +4594,7 @@
     var art = (item && (item.landscape || item.backdrop || item.poster)) || r.poster;
     if (art) {
       var img = el('img', 'cc-img');
+      img.decoding = 'async';
       img.setAttribute('data-poster-src', art);
       img.onload = posterImageLoaded;
       img.onerror = function () { img.style.display = 'none'; frame.classList.add('is-generic'); };
@@ -6215,6 +6533,9 @@
     look.appendChild(seg);
     p.appendChild(look);
 
+    p.appendChild(el('div', 'acc-section', 'Privacidad'));
+    p.appendChild(buildPrivateSettingsCard());
+
     var privacy = el('div', 'acc-privacy');
     var lock = el('div', 'acc-privacy-icon');
     lock.innerHTML = UI_ICONS.lock;
@@ -6225,6 +6546,40 @@
     privacy.appendChild(ptext);
     p.appendChild(privacy);
     return p;
+  }
+
+  /* Mi cuenta → Privacidad: adult content, off by default and behind a PIN. */
+  function buildPrivateSettingsCard() {
+    var card = el('div', 'acc-appearance acc-private');
+    var text = el('div', 'acc-action-text');
+    var title = el('div', 'acc-action-title', 'Contenido para adultos (+18)');
+    var sub = el('div', 'acc-action-sub', '');
+    text.appendChild(title);
+    text.appendChild(sub);
+    card.appendChild(text);
+    var actions = el('div', 'acc-private-actions');
+    card.appendChild(actions);
+    function button(label, run, primary) {
+      var b = el('div', 'acc-seg-btn focusable' + (primary ? ' is-selected' : ''), label);
+      b._activate = run;
+      actions.appendChild(b);
+    }
+    function render() {
+      clear(actions);
+      var on = privateEnabled();
+      sub.textContent = on
+        ? 'Activado. Siempre oculto: se abre solo con tu PIN, desde el candado de la Guía de canales o desde aquí. Se vuelve a bloquear al cambiar de categoría o salir de la TV.'
+        : 'Desactivado. Los canales para adultos no aparecen en ninguna parte de la app.';
+      if (on) {
+        button('Abrir', openPrivateContent, true);
+        button('Cambiar PIN', function () { changePrivatePin(render); });
+        button('Desactivar', function () { disablePrivateContent(render); });
+      } else {
+        button('Activar con PIN', function () { enablePrivateContent(render); }, true);
+      }
+    }
+    render();
+    return card;
   }
 
   /* ---- screens/history.js ---------------------------------------------------- */
@@ -6650,7 +7005,7 @@
       'Brindamos una experiencia estable, diversa y siempre actualizada, además de contenidos gratuitos para disfrutar.'));
     var port = el('div', 'sp-about-port');
     port.appendChild(el('div', null, 'OpenTV Desktop · Windows x64'));
-    port.appendChild(el('div', 'sp-about-mod', 'Desarrollado por TECHPOINT'));
+    port.appendChild(el('div', 'sp-about-mod', 'Desarrollado por TECHPOINT Software™'));
     p.appendChild(port);
     return p;
   }
@@ -6709,13 +7064,20 @@
     ['Espacio', 'Reproducir o pausar'],
     ['← / →', 'Retroceder o adelantar 10 s'],
     ['↓', 'Ajustes del reproductor'],
+    ['Rueda del ratón', 'Volumen (sobre el vídeo)'],
+    ['M', 'Silenciar'],
     ['F o F11', 'Pantalla completa'],
     ['Esc', 'Salir de pantalla completa o volver'],
-    ['M', 'Silenciar'],
+    ['Alt + ←', 'Volver'],
     ['Ctrl + P', 'Ventana flotante'],
+    ['G', 'Guía de canales (en TV)'],
+    ['↑ / ↓', 'Canal anterior / siguiente (en TV)'],
     ['Ctrl + F', 'Buscar'],
+    ['Ctrl + H', 'Inicio'],
     ['Ctrl + J', 'Historial'],
-    ['Ctrl + H', 'Inicio']
+    ['Ctrl + ,', 'Ajustes'],
+    ['F1', 'Esta ayuda y los atajos'],
+    ['Ctrl + R o F5', 'Recargar la app']
   ];
 
   function buildDesktopFeedbackPanel() {
@@ -6724,6 +7086,12 @@
       'Abre el diagnóstico: comprueba tu conexión, el DNS seguro y los servidores, y puede generar un reporte para enviarlo. Nada se envía de forma automática.');
     diag.appendChild(desktopSettingsButton('Abrir diagnóstico', UI_ICONS.wifi, openDesktopDiagnostic, true));
     page.body.appendChild(diag);
+    if (window.desktop && window.desktop.openLogs) {
+      var logs = desktopSettingsCard(UI_ICONS.info, 'Registro de errores',
+        'La app anota en un archivo los errores y cierres inesperados (no se envía nada). Si algo falla, abre la carpeta y adjunta opentv.log al reportarlo.');
+      logs.appendChild(desktopSettingsButton('Abrir carpeta del registro', UI_ICONS.share, function () { window.desktop.openLogs(); }));
+      page.body.appendChild(logs);
+    }
     page.body.appendChild(desktopSettingsCard(UI_ICONS.settings, 'Si un vídeo se corta o no tiene sonido',
       'La app cambia sola al modo compatible. También puedes elegir "Compatibilidad máxima" en Ajustes del reproductor (flecha abajo).'));
 
@@ -6767,7 +7135,7 @@
     page.body.appendChild(buildUpdateCard());
     page.body.appendChild(desktopSettingsCard(UI_ICONS.channels, 'Películas, series y TV en vivo en un solo lugar',
       'Catálogo que se actualiza solo, reproducción automática con modo compatible, ventana flotante y tu lista guardada en este equipo.'));
-    page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Desarrollado por TECHPOINT', null));
+    page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Desarrollado por TECHPOINT Software™', null));
     page.body.appendChild(desktopSettingsCard(UI_ICONS.info, 'Componentes de código abierto',
       'Electron, HLS.js (Apache 2.0) y FFmpeg (GPL v3). Las licencias completas están en la carpeta "licenses" de la instalación.'));
     return page.panel;
@@ -10927,7 +11295,7 @@
     else if (state.screen === 'settings') { label = 'Ajustes'; }
     else if (state.screen === 'detail' && state.detail) { label = state.detail.title || ''; }
     else if (state.screen === 'player') {
-      label = state.playerMode === 'live' ? ((CHANNELS[state.channel] || {}).name || 'TV en vivo')
+      label = state.playerMode === 'live' ? (privateCategoryActive() ? 'TV en vivo' : ((CHANNELS[state.channel] || {}).name || 'TV en vivo'))
         : ((state.playerItem && state.playerItem.title) || '');
     }
     var node = titleBarEl.querySelector('.atb-section');
@@ -12010,6 +12378,7 @@
         else if (name === 'search') { openSearch(); }
         else if (name === 'settings') { openSettings(); }
         else if (name === 'history') { openHistoryView(); }
+        else if (name === 'help') { openSettings(); showSettingsPanel(settingsIndexOf('feedback'), true); }
         else if (name === 'pip') { togglePictureInPicture(); }
         else if (name === 'player') { openPlayer('live'); }
         else { showScreen(name); }

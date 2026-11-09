@@ -176,6 +176,7 @@ function makeContinueCard(r, x, y) {
   var art = (item && (item.landscape || item.backdrop || item.poster)) || r.poster;
   if (art) {
     var img = el('img', 'cc-img');
+    img.decoding = 'async';
     img.setAttribute('data-poster-src', art);
     img.onload = posterImageLoaded;
     img.onerror = function () { img.style.display = 'none'; frame.classList.add('is-generic'); };

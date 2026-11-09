@@ -51,13 +51,20 @@ var DESKTOP_SHORTCUTS = [
   ['Espacio', 'Reproducir o pausar'],
   ['← / →', 'Retroceder o adelantar 10 s'],
   ['↓', 'Ajustes del reproductor'],
+  ['Rueda del ratón', 'Volumen (sobre el vídeo)'],
+  ['M', 'Silenciar'],
   ['F o F11', 'Pantalla completa'],
   ['Esc', 'Salir de pantalla completa o volver'],
-  ['M', 'Silenciar'],
+  ['Alt + ←', 'Volver'],
   ['Ctrl + P', 'Ventana flotante'],
+  ['G', 'Guía de canales (en TV)'],
+  ['↑ / ↓', 'Canal anterior / siguiente (en TV)'],
   ['Ctrl + F', 'Buscar'],
+  ['Ctrl + H', 'Inicio'],
   ['Ctrl + J', 'Historial'],
-  ['Ctrl + H', 'Inicio']
+  ['Ctrl + ,', 'Ajustes'],
+  ['F1', 'Esta ayuda y los atajos'],
+  ['Ctrl + R o F5', 'Recargar la app']
 ];
 
 function buildDesktopFeedbackPanel() {
@@ -66,6 +73,12 @@ function buildDesktopFeedbackPanel() {
     'Abre el diagnóstico: comprueba tu conexión, el DNS seguro y los servidores, y puede generar un reporte para enviarlo. Nada se envía de forma automática.');
   diag.appendChild(desktopSettingsButton('Abrir diagnóstico', UI_ICONS.wifi, openDesktopDiagnostic, true));
   page.body.appendChild(diag);
+  if (window.desktop && window.desktop.openLogs) {
+    var logs = desktopSettingsCard(UI_ICONS.info, 'Registro de errores',
+      'La app anota en un archivo los errores y cierres inesperados (no se envía nada). Si algo falla, abre la carpeta y adjunta opentv.log al reportarlo.');
+    logs.appendChild(desktopSettingsButton('Abrir carpeta del registro', UI_ICONS.share, function () { window.desktop.openLogs(); }));
+    page.body.appendChild(logs);
+  }
   page.body.appendChild(desktopSettingsCard(UI_ICONS.settings, 'Si un vídeo se corta o no tiene sonido',
     'La app cambia sola al modo compatible. También puedes elegir "Compatibilidad máxima" en Ajustes del reproductor (flecha abajo).'));
 
@@ -109,7 +122,7 @@ function buildDesktopAboutPanel() {
   page.body.appendChild(buildUpdateCard());
   page.body.appendChild(desktopSettingsCard(UI_ICONS.channels, 'Películas, series y TV en vivo en un solo lugar',
     'Catálogo que se actualiza solo, reproducción automática con modo compatible, ventana flotante y tu lista guardada en este equipo.'));
-  page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Desarrollado por TECHPOINT', null));
+  page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Desarrollado por TECHPOINT Software™', null));
   page.body.appendChild(desktopSettingsCard(UI_ICONS.info, 'Componentes de código abierto',
     'Electron, HLS.js (Apache 2.0) y FFmpeg (GPL v3). Las licencias completas están en la carpeta "licenses" de la instalación.'));
   return page.panel;

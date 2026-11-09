@@ -16,6 +16,7 @@
   "live/channels.js",
   "live/addons-dialog.js",
   "live/guide.js",
+  "live/private.js",
   "home/catalog-pages.js",
   "home/rows.js",
   "screens/detail.js",

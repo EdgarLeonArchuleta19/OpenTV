@@ -9,6 +9,7 @@ function isVisible(node) {
   var r = node.getBoundingClientRect();
   if (r.width < 1 || r.height < 1) { return false; }
   if (historyDrawerOpen) { return !!closest(node, '.history-drawer'); }
+  if (pinDialogOpen) { return !!closest(node, '.pin-dialog'); }
   if (liveGuideOpen) { return !!closest(node, '.live-guide'); }
   if (dialogAddonsOpen) { return !!closest(node, '#dialog-addons'); }
   if (state.episodeBrowserOpen) {

@@ -67,6 +67,7 @@ function boot() {
       else if (name === 'search') { openSearch(); }
       else if (name === 'settings') { openSettings(); }
       else if (name === 'history') { openHistoryView(); }
+      else if (name === 'help') { openSettings(); showSettingsPanel(settingsIndexOf('feedback'), true); }
       else if (name === 'pip') { togglePictureInPicture(); }
       else if (name === 'player') { openPlayer('live'); }
       else { showScreen(name); }

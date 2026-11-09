@@ -131,7 +131,7 @@ function buildAboutPanel() {
     'Brindamos una experiencia estable, diversa y siempre actualizada, además de contenidos gratuitos para disfrutar.'));
   var port = el('div', 'sp-about-port');
   port.appendChild(el('div', null, 'OpenTV Desktop · Windows x64'));
-  port.appendChild(el('div', 'sp-about-mod', 'Desarrollado por TECHPOINT'));
+  port.appendChild(el('div', 'sp-about-mod', 'Desarrollado por TECHPOINT Software™'));
   p.appendChild(port);
   return p;
 }

@@ -36,6 +36,7 @@
 | Guía de canales (TV) | `G` |
 | Volumen (reproductor y TV) | Rueda del ratón sobre el vídeo |
 | Recargar | `Ctrl + R` o `F5` |
+| Ayuda y lista de atajos | `F1` (también en *Ajustes → Ayuda*) |
 | Volver / Cerrar panel | `Esc`, `Backspace` o `Alt + ←` |
 
 ## Estructura del proyecto
@@ -90,4 +91,4 @@ Sirve también cualquier servidor de archivos: `{ "provider": "generic", "url": 
 
 ## Licencia
 
-Distribuido bajo licencia MIT (`LICENSE`). Desarrollado y mantenido por **TECHPOINT**.
+Distribuido bajo licencia MIT (`LICENSE`). Desarrollado y mantenido por **TECHPOINT Software™**.

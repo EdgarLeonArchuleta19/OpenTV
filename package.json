@@ -3,7 +3,7 @@
   "productName": "OpenTV",
   "version": "1.0.0",
   "description": "OpenTV Desktop — Reproductor de TV en vivo, películas y series para Windows",
-  "author": "TECHPOINT",
+  "author": "TECHPOINT Software™",
   "license": "MIT",
   "main": "desktop/main.cjs",
   "scripts": {
@@ -38,7 +38,7 @@
   "build": {
     "appId": "com.techpoint.opentv",
     "productName": "OpenTV",
-    "copyright": "Copyright © 2026 TECHPOINT",
+    "copyright": "Copyright © 2026 TECHPOINT Software™",
     "electronDist": "node_modules/electron/dist",
     "electronVersion": "44.10.2",
     "asar": false,

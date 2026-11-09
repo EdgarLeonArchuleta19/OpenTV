@@ -89,7 +89,8 @@ test('recent searches: newest first, no duplicates, max 8', () => {
 });
 
 test('channel guide keeps favourites and recents with what is needed to play them', () => {
-  const ctx = loadModules(BASE.concat('live/guide.js'), {
+  const ctx = loadModules(BASE.concat('live/guide.js', 'live/private.js'), {
+    currentLiveCategory: { id: 76182, name: 'Todos' },
     liveChannelKey: (ch) => (ch ? (ch.channelCode || ch.streamUrl || '') : '')
   });
   const a = { channelCode: 'a', name: 'Canal A', logo: 'a.png', liveAddressList: [1, 2] };
@@ -105,4 +106,20 @@ test('channel guide keeps favourites and recents with what is needed to play the
   ctx.syncSavedFavorite(b, false);
   saved = ctx.liveSaved();
   assert.equal(saved.favs.length, 0);
+});
+
+test('adult categories are taken out of the lists and nothing private is remembered', () => {
+  const ctx = loadModules(BASE.concat('live/guide.js', 'live/private.js'), {
+    currentLiveCategory: { id: 76182, name: 'Todos' },
+    liveChannelKey: (ch) => (ch ? (ch.channelCode || '') : '')
+  });
+  const cats = [{ id: 76182, name: 'Todos' }, { id: 76206, name: 'Deportes' }, { id: 76208, name: '18+' }, { id: 1, name: 'Adultos +18' }];
+  assert.deepEqual(plain(ctx.splitPrivateCategories(cats).map((c) => c.name)), ['Todos', 'Deportes']);
+  assert.deepEqual(plain(ctx.privateCategories.map((c) => c.id)), [76208, 1]);
+  assert.equal(ctx.isAdultCategory({ id: 5, name: 'Infantil' }), false);
+  assert.equal(ctx.privateEnabled(), false, 'off by default');
+
+  ctx.currentLiveCategory = { id: 76208, name: 'Privado', isPrivate: true };
+  ctx.rememberLiveChannel({ channelCode: 'x', name: 'Privado 1' });
+  assert.equal(ctx.liveSaved().recent.length, 0, 'private channels never reach Recientes');
 });

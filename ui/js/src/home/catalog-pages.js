@@ -24,6 +24,7 @@ function makeBento(item, x, y, w, h, opts) {
   var art = item ? (item.landscape || item.poster) : '';
   if (art) {
     var img = el('img', 'bento-img');
+    img.decoding = 'async';
     img.setAttribute('data-poster-src', art);
     img.onerror = posterImageError;
     img.onload = posterImageLoaded;

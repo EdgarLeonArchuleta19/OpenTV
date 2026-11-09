@@ -81,6 +81,9 @@ function buildDesktopProfilePanel() {
   look.appendChild(seg);
   p.appendChild(look);
 
+  p.appendChild(el('div', 'acc-section', 'Privacidad'));
+  p.appendChild(buildPrivateSettingsCard());
+
   var privacy = el('div', 'acc-privacy');
   var lock = el('div', 'acc-privacy-icon');
   lock.innerHTML = UI_ICONS.lock;
@@ -91,4 +94,38 @@ function buildDesktopProfilePanel() {
   privacy.appendChild(ptext);
   p.appendChild(privacy);
   return p;
+}
+
+/* Mi cuenta → Privacidad: adult content, off by default and behind a PIN. */
+function buildPrivateSettingsCard() {
+  var card = el('div', 'acc-appearance acc-private');
+  var text = el('div', 'acc-action-text');
+  var title = el('div', 'acc-action-title', 'Contenido para adultos (+18)');
+  var sub = el('div', 'acc-action-sub', '');
+  text.appendChild(title);
+  text.appendChild(sub);
+  card.appendChild(text);
+  var actions = el('div', 'acc-private-actions');
+  card.appendChild(actions);
+  function button(label, run, primary) {
+    var b = el('div', 'acc-seg-btn focusable' + (primary ? ' is-selected' : ''), label);
+    b._activate = run;
+    actions.appendChild(b);
+  }
+  function render() {
+    clear(actions);
+    var on = privateEnabled();
+    sub.textContent = on
+      ? 'Activado. Siempre oculto: se abre solo con tu PIN, desde el candado de la Guía de canales o desde aquí. Se vuelve a bloquear al cambiar de categoría o salir de la TV.'
+      : 'Desactivado. Los canales para adultos no aparecen en ninguna parte de la app.';
+    if (on) {
+      button('Abrir', openPrivateContent, true);
+      button('Cambiar PIN', function () { changePrivatePin(render); });
+      button('Desactivar', function () { disablePrivateContent(render); });
+    } else {
+      button('Activar con PIN', function () { enablePrivateContent(render); }, true);
+    }
+  }
+  render();
+  return card;
 }

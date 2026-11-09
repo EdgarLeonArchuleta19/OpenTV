@@ -31,7 +31,7 @@ function sameChannel(a, b) {
 }
 
 function rememberLiveChannel(ch) {
-  if (!window.XUPER_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
+  if (!window.XUPER_DESKTOP || !ch || !liveChannelKey(ch) || privateCategoryActive()) { return; }
   var s = liveSaved();
   s.recent = s.recent.filter(function (x) { return !sameChannel(x, ch); });
   s.recent.unshift(savedChannelCopy(ch));
@@ -49,6 +49,8 @@ function syncSavedFavorite(ch, on) {
 
 function toggleLiveFavorite(ch) {
   if (!ch) { return false; }
+  /* Private channels never go to Favoritos (they would show up there). */
+  if (privateCategoryActive()) { return !!ch.fav; }
   ch.fav = toggleFavorite({ id: liveFavKey(ch) });
   syncSavedFavorite(ch, ch.fav);
   syncLiveFavButton();
@@ -119,6 +121,12 @@ function buildLiveGuide() {
   });
   liveGuideSearch._activate = function () { liveGuideSearch.focus(); };
   head.appendChild(liveGuideSearch);
+  var lockBtn = el('button', 'lg-close lg-private focusable');
+  lockBtn.type = 'button';
+  lockBtn.innerHTML = UI_ICONS.lock;
+  lockBtn.setAttribute('data-tip', 'Privado');
+  lockBtn._activate = openPrivateContent;
+  head.appendChild(lockBtn);
   var close = el('button', 'lg-close focusable');
   close.type = 'button';
   close.innerHTML = UI_ICONS.close;
@@ -144,6 +152,8 @@ function openLiveGuide() {
   if (!window.XUPER_DESKTOP) { return; }
   if (!liveGuide || !liveGuide.isConnected) { buildLiveGuide(); }
   liveGuideOpen = true;
+  var lockButton = liveGuide.querySelector('.lg-private');
+  if (lockButton) { lockButton.hidden = !privateEnabled(); }
   liveGuideReturnFocus = state.focus;
   liveGuideSearch.value = '';
   renderLiveGuideCats();
@@ -223,7 +233,9 @@ function renderLiveGuideGrid() {
       : currentLiveCategory && currentLiveCategory.isSaved === 'favs' ? 'Aún no tienes canales favoritos. Pasa el ratón por un canal y toca la estrella.'
       : currentLiveCategory && currentLiveCategory.isSaved === 'recent' ? 'Aquí aparecerán los últimos canales que veas.'
       : 'No hay canales en esta categoría.';
-    liveGuideGrid.appendChild(el('div', 'lg-empty', msg));
+    var empty = el('div', 'lg-empty', msg);
+    if (!CHANNELS.length && liveChannelsLoading) { empty.insertBefore(el('i', 'tv-loader'), empty.firstChild); }
+    liveGuideGrid.appendChild(empty);
   }
   var name = currentLiveCategory ? (currentLiveCategory.isAddon ? 'Mis listas M3U' : currentLiveCategory.name) : 'Todos';
   liveGuideCount.textContent = name + ' · ' + (q ? shown + ' de ' + CHANNELS.length : CHANNELS.length) + (CHANNELS.length === 1 && !q ? ' canal' : ' canales') +

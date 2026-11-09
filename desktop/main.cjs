@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, net, protocol, session } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, net, protocol, session, shell } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const fs = require('node:fs');
@@ -13,6 +13,7 @@ const info = require('../package.json');
 const { createService } = require('./service.cjs');
 const systemAudio = require('./system-volume.cjs');
 const updates = require('./updater.cjs');
+const logger = require('./logger.cjs');
 let windowRef;
 let shortcutFor = () => null;
 let service;
@@ -63,6 +64,11 @@ function migrateProfileIfNeeded(targetDir) {
 const activeUserData = isPortable ? portableData : defaultUserData;
 migrateProfileIfNeeded(activeUserData);
 app.setPath('userData', activeUserData);
+logger.init(path.join(activeUserData, 'logs'));
+logger.watchProcess();
+app.on('child-process-gone', (_e, d) => {
+  if (d.reason !== 'clean-exit') logger.write('crash', 'proceso ' + d.type + ' terminó: ' + d.reason + ' (' + d.exitCode + ')');
+});
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -120,6 +126,12 @@ async function start() {
     if (!trusted(event) || ['get', 'set', 'mute'].indexOf(command) === -1) return { error: 'Operación no permitida' };
     return systemAudio.systemVolume(command, value);
   });
+  ipcMain.handle('desktop:open-logs', (event) => {
+    if (!trusted(event) || !logger.file()) return false;
+    if (!fs.existsSync(logger.file())) logger.write('info', 'registro creado');
+    shell.showItemInFolder(logger.file());
+    return true;
+  });
   ipcMain.handle('desktop:update', (event, command) => {
     if (!trusted(event)) return null;
     if (command === 'check') return updates.check();
@@ -153,6 +165,7 @@ async function start() {
     }
   });
   windowRef.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  logger.attach(app, windowRef.webContents);
   windowRef.webContents.on('will-navigate', (event, url) => {
     if (!url.startsWith('xuper://app/')) event.preventDefault();
   });
@@ -188,6 +201,7 @@ async function start() {
     'Ctrl+J': () => action('history'),
     'Ctrl+,': () => action('settings'),
     'F11': () => toggleFullscreen(),
+    'F1': () => action('help'),
     // The floating window needs a user gesture; run it as one.
     'Ctrl+P': () => windowRef?.webContents.executeJavaScript('window.__xuper && window.__xuper.show("pip")', true).catch(() => {}),
     'Alt+ArrowLeft': () => action('back'),

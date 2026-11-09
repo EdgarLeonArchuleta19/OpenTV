@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('desktop', {
   service: (method, parameters) => ipcRenderer.invoke('desktop:service', method, parameters),
   fullscreen: (flag) => ipcRenderer.invoke('desktop:fullscreen', flag),
   info: () => ipcRenderer.invoke('desktop:info'),
+  // Shows opentv.log (page errors and crashes) in the file explorer.
+  openLogs: () => ipcRenderer.invoke('desktop:open-logs'),
   // Height of the window's own title bar strip (the page draws it).
   titleBar: { height: 36 },
   // Windows master volume: ('get') | ('set', 0..1) | ('mute', bool) -> { volume, muted } | { error }
