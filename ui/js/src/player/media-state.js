@@ -97,6 +97,7 @@ function languageMatchesPreference(label, code) {
 function rememberWatchProgress(current, duration, force) {
   var item = state.playerItem;
   if (!item || !item.id || current < 3) { return; }
+  if (window.XUPER_DESKTOP && resumePending(item)) { return; }
   var now = Date.now();
   if (!force && now - lastHistorySaveAt < 15000) { return; }
   lastHistorySaveAt = now;

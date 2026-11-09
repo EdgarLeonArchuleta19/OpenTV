@@ -13,6 +13,7 @@ function startLiveChannel(ch, immediate) {
   if (!ch) { ch = CHANNELS[state.channel]; }
   if (!ch) { return; }
   if (!ch.channelCode && !ch.streamUrl) { return; }
+  noteLivePlaying(ch);
 
   var doStart = function () {
     var mySeq = ++liveChannelSeq;

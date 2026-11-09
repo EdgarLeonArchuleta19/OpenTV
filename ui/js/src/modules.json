@@ -14,6 +14,7 @@
   "home/posters.js",
   "home/live-page.js",
   "home/live-dock.js",
+  "home/live-dock-tools.js",
   "live/channels.js",
   "live/addons-dialog.js",
   "live/guide.js",

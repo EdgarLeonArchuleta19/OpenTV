@@ -59,6 +59,7 @@ function toggleLiveFavorite(ch) {
 
 /* Shows the saved list as the current channel list. */
 function loadSavedChannels(kind, done) {
+  var keepPlaying = livePlayingToKeep();
   var list = liveSaved()[kind] || [];
   CHANNELS.splice(0, CHANNELS.length);
   for (var i = 0; i < list.length; i++) {
@@ -69,15 +70,16 @@ function loadSavedChannels(kind, done) {
     CHANNELS.push(ch);
   }
   state.channel = 0;
+  if (keepPlaying && list.length) { keepLivePlayingChannel(keepPlaying); }
   liveChannelsLoaded = true;
   liveChannelsLoading = false;
   liveChannelRequestSeq++;
   renderLiveRows(false);
   renderPlayerChannels();
-  if (CHANNELS[0]) {
-    if (liveInfoText) { liveInfoText.textContent = CHANNELS[0].name; }
-    if (state.screen === 'player' && state.playerMode === 'live') { updatePlayer(); startLiveChannel(CHANNELS[0], true); }
-    else { scheduleLivePreview(CHANNELS[0]); }
+  if (CHANNELS[state.channel]) {
+    if (liveInfoText) { liveInfoText.textContent = CHANNELS[state.channel].name; }
+    if (state.screen === 'player' && state.playerMode === 'live') { updatePlayer(); if (!keepPlaying) { startLiveChannel(CHANNELS[0], true); } }
+    else { scheduleLivePreview(CHANNELS[state.channel]); }
   } else if (liveList) {
     clear(liveList);
     liveList.appendChild(el('div', 'live-list-status', kind === 'favs'

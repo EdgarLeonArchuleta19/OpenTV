@@ -109,6 +109,7 @@ function borrowPlayerIntoHome() {
   liveMain.classList.remove('is-preview-loading');
   liveMain.classList.add('is-preview-playing');
   liveHandoff = { type: 'player', key: livePreviewChannel };
+  if (window.XUPER_DESKTOP) { applyLiveDockFit(); }
   return true;
 }
 
@@ -123,6 +124,7 @@ function returnPlayerToStage(keepPlaying) {
   playerStage.insertBefore(playerVideo, anchor ? anchor.nextSibling : playerStage.firstChild);
   if (liveMain) { liveMain.classList.remove('is-preview-playing'); }
   livePreviewChannel = '';
+  playerVideo.style.objectFit = '';
   if (!keepPlaying) { stopPlayerVideo(); }
 }
 
@@ -157,6 +159,7 @@ function startLivePreview(ch) {
   }
   stopLivePreview();
   livePreviewChannel = key;
+  noteLivePlaying(ch);
   var mySeq = ++livePreviewSeq;
   liveMain.classList.add('is-preview-loading');
   if (livePreviewStatus) { livePreviewStatus.textContent = 'Cargando ' + (ch.name || 'canal') + '…'; }
@@ -288,6 +291,7 @@ function loadAddonChannels(done) {
     if (done) { done(); }
     return;
   }
+  var addonKeep = livePlayingToKeep();
   setPlayerStatus('Cargando canales de Addon…');
   var allChannels = [];
   var pending = addons.length;
@@ -308,14 +312,15 @@ function loadAddonChannels(done) {
             CHANNELS.push(allChannels[k]);
           }
           state.channel = 0;
+          var keptAddon = keepLivePlayingChannel(addonKeep);
           renderLiveRows(false);
           renderPlayerChannels();
-          if (CHANNELS[0] && liveInfoText) {
-            liveInfoText.textContent = CHANNELS[0].name;
+          if (CHANNELS[state.channel] && liveInfoText) {
+            liveInfoText.textContent = CHANNELS[state.channel].name;
           }
           if (state.screen === 'player' && state.playerMode === 'live') {
             updatePlayer();
-            startLiveChannel(CHANNELS[0], true);
+            if (!keptAddon) { startLiveChannel(CHANNELS[0], true); }
           }
           if (done) { done(); }
         }
@@ -329,6 +334,7 @@ function loadLiveChannels(columnId, done) {
   /* buildLivePage and the initial boot can both ask for Todos.  Keep the
      existing request instead of clearing the first page while it streams. */
   if (liveChannelsLoading && liveChannelLoadColumnId === requestedColumnId) { return; }
+  var keepPlaying = livePlayingToKeep();
   var requestSeq = ++liveChannelRequestSeq;
   liveChannelLoadColumnId = requestedColumnId;
   liveChannelsLoading = true;
@@ -374,6 +380,7 @@ function loadLiveChannels(columnId, done) {
           if (payload && payload.hasMore) { pageNum++; setTimeout(fetchNextPage, 25); }
           return;
         }
+        if (firstPage && keepPlaying) { keepLivePlayingChannel(keepPlaying); }
         renderLiveRows(false);
         renderPlayerChannels();
         if (state.channel >= CHANNELS.length) { state.channel = 0; }
@@ -505,6 +512,7 @@ function makeLiveRow(i) {
   row.appendChild(play);
   row.appendChild(name);
   if (i === state.channel) { row.classList.add('is-current'); }
+  if (CHANNELS[i]._keptPlaying) { row.classList.add('is-kept'); row.title = 'En reproducción (de otra categoría)'; }
   row._activate = (function (idx) {
     return function () {
       if (window.XUPER_DESKTOP) {

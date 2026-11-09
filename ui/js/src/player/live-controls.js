@@ -95,3 +95,42 @@ function installLiveControls() {
     });
   }
 }
+
+/* ------------------------------------------------------------------
+   Changing category (guide, chips, channel panel) only changes the list:
+   the channel that is playing keeps playing. It stays selected in the new
+   list, or is shown on top of it when that category does not have it.
+   ------------------------------------------------------------------ */
+var liveNowPlaying = null;
+var liveNowPlayingPrivate = false;
+function noteLivePlaying(ch) {
+  if (!window.XUPER_DESKTOP) { return; }
+  liveNowPlaying = ch || null;
+  liveNowPlayingPrivate = !!(currentLiveCategory && currentLiveCategory.isPrivate);
+}
+
+function livePlayingToKeep() {
+  if (!window.XUPER_DESKTOP || !liveNowPlaying) { return null; }
+  /* A private channel never follows the viewer out of the private list. */
+  if (liveNowPlayingPrivate && !privateUnlocked) { return null; }
+  var key = liveChannelKey(liveNowPlaying);
+  if (!key) { return null; }
+  if (state.screen === 'player' && state.playerMode === 'live') { return liveNowPlaying; }
+  if (livePreviewChannel === key) { return liveNowPlaying; }
+  return null;
+}
+
+function keepLivePlayingChannel(keep) {
+  if (!keep) { return false; }
+  var key = liveChannelKey(keep);
+  for (var i = 0; i < CHANNELS.length; i++) {
+    if (liveChannelKey(CHANNELS[i]) === key) { state.channel = i; return true; }
+  }
+  var copy = {};
+  for (var k in keep) { if (Object.prototype.hasOwnProperty.call(keep, k)) { copy[k] = keep[k]; } }
+  copy._keptPlaying = true;
+  copy.fav = !!state.favs[liveFavKey(copy)];
+  CHANNELS.unshift(copy);
+  state.channel = 0;
+  return true;
+}

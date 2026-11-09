@@ -163,6 +163,7 @@ function buildLiveDock(page) {
   loadLiveAudio();
   liveDock = el('div', 'live-dock');
   var bar = el('div', 'live-dock-bar');
+  if (window.XUPER_DESKTOP) { bar.appendChild(makeLiveDockPlayButton()); }
   bar.appendChild(dockButton('', LIVE_DOCK_ICONS.prev, 'Anterior', 'Canal anterior', function () { setChannel(state.channel - 1, true); }));
   bar.appendChild(dockButton('', LIVE_DOCK_ICONS.next, 'Siguiente', 'Canal siguiente', function () { setChannel(state.channel + 1, true); }));
   bar.appendChild(el('i', 'live-dock-sep'));
@@ -197,6 +198,7 @@ function buildLiveDock(page) {
   liveVolLabel = el('span', 'live-dock-vol', '80%');
   volWrap.appendChild(liveVolLabel);
   bar.appendChild(volWrap);
+  if (window.XUPER_DESKTOP) { appendLiveDockTools(bar); }
   bar.appendChild(el('i', 'live-dock-sep'));
   liveFavBtn = dockButton('is-fav', LIVE_DOCK_ICONS.star, 'Favorito', 'Guardar canal en favoritos', function () {
     var ch = CHANNELS[state.channel];

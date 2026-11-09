@@ -31,6 +31,7 @@ function openDetail(item) {
   if (item.episodes && item.episodes.length) {
     state.detailEpisode = item.episodes[0];
   }
+  resetResumePlan();
   preferHistoryEpisode(item);
   applyPendingHistoryEpisode(item);
 

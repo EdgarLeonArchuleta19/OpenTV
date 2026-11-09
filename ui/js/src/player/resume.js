@@ -9,10 +9,26 @@ var RESUME_MIN_S = 30;
 var resumePlan = null;
 var resumeSkipOnce = false;
 
-function historyRecordFor(id) {
+/* Accepts the title or its id. Grouped series may have been saved under a
+   season id, so those and the title are tried too. */
+function historyRecordFor(itemOrId) {
   var list = localProfile.history || [];
-  for (var i = 0; i < list.length; i++) {
-    if (list[i] && String(list[i].id) === String(id)) { return list[i]; }
+  var item = itemOrId && typeof itemOrId === 'object' ? itemOrId : null;
+  var id = String(item ? item.id : itemOrId);
+  var i;
+  for (i = 0; i < list.length; i++) {
+    if (list[i] && String(list[i].id) === id) { return list[i]; }
+  }
+  if (!item) { return null; }
+  var seasons = item._catalogSeasons || [];
+  var title = norm(item.title || item.name || '');
+  for (i = 0; i < list.length; i++) {
+    var r = list[i];
+    if (!r) { continue; }
+    for (var s = 0; s < seasons.length; s++) {
+      if (String(seasons[s].id) === String(r.id)) { return r; }
+    }
+    if (title && r.title && norm(r.title) === title && !!r.series === !!isSeriesItem(item)) { return r; }
   }
   return null;
 }
@@ -24,7 +40,7 @@ function recordFinished(r) {
 /* Second to resume at for this title/episode, or 0. */
 function resumePositionFor(item, episode) {
   if (!item) { return 0; }
-  var r = historyRecordFor(item.id);
+  var r = historyRecordFor(item);
   if (!r || (r.position || 0) < RESUME_MIN_S || recordFinished(r)) { return 0; }
   if (r.series || isSeriesItem(item)) {
     if (!episode || !r.episodeId || String(episode.id) !== String(r.episodeId)) { return 0; }
@@ -37,7 +53,7 @@ function resumePositionFor(item, episode) {
 function preferHistoryEpisode(item) {
   if (!window.XUPER_DESKTOP || !item) { return; }
   if (!pendingHistoryRecord || String(pendingHistoryRecord.id) !== String(item.id)) {
-    var r = historyRecordFor(item.id);
+    var r = historyRecordFor(item);
     if (r && r.episodeId) { pendingHistoryRecord = r; }
   }
 }
@@ -50,6 +66,17 @@ function nextAfterFinished(item, index) {
 
 /* Called when a title starts playing (detail preview or full screen). */
 var resumePlannedKey = '';
+/* A new request to watch a title (detail page, play buttons, Seguir viendo)
+   plans again even if it is the title that played last. */
+function resetResumePlan() {
+  resumePlannedKey = '';
+  resumePlan = null;
+}
+/* While a jump to the saved second is pending, the first seconds of the
+   video must not overwrite that saved second. */
+function resumePending(item) {
+  return !!(resumePlan && item && resumePlan.item === item);
+}
 function planResume(item, episode) {
   if (!window.XUPER_DESKTOP || !item) { return; }
   /* Restarts of the same video (compatibility mode, retries) keep their own
@@ -79,27 +106,30 @@ function applyResumePlan() {
   if (!(vodPlaybackDuration() > plan.pos + 5) || !reachable) {
     plan.tries = (plan.tries || 0) + 1;
     /* Hold the picture instead of showing the first seconds meanwhile. */
-    if (!plan.held && !playerVideo.paused) {
+    if (!plan.held && plan.tries < 40 && !playerVideo.paused) {
       plan.held = true;
       try { playerVideo.pause(); } catch (ePause) { /* ignore */ }
       setPlayerStatus('Reanudando desde ' + formatTime(plan.pos).replace(/^00:/, '') + '…');
     }
-    if (plan.tries < 60) { setTimeout(applyResumePlan, 500); }
-    else { resumePlan = null; if (plan.held) { setPlayerStatus(''); resumePlayerPlayback(); } }
+    /* Long streams can take a while to index: after ~20 s let it play
+       meanwhile and keep trying for two more minutes. */
+    if (plan.tries === 40 && plan.held) { plan.held = false; setPlayerStatus(''); resumePlayerPlayback(); }
+    if (plan.tries < 280) { setTimeout(applyResumePlan, 500); }
+    else { resumePlan = null; }
     return;
   }
   resumePlan = null;
   var delta = plan.pos - vodPlaybackPosition();
   if (delta < 5) { return; }
   playerSeek(delta);
-  if (plan.held) { setTimeout(resumePlayerPlayback, 250); }
+  if (plan.held || playerVideo.paused) { setTimeout(resumePlayerPlayback, 250); }
   setPlayerStatus('Reanudando desde ' + formatTime(plan.pos).replace(/^00:/, ''));
   setTimeout(function () { if (/^Reanudando/.test((playerStatus && playerStatus.textContent) || '')) { setPlayerStatus(''); } }, 1800);
 }
 
 /* Text for the detail page's play button. */
 function resumeLabelFor(item) {
-  var r = historyRecordFor(item.id);
+  var r = historyRecordFor(item);
   if (!r || (r.position || 0) < RESUME_MIN_S) { return ''; }
   if (r.series || isSeriesItem(item)) {
     if (recordFinished(r)) { return r.episodeNumber ? 'Ver episodio ' + (parseInt(r.episodeNumber, 10) + 1) : ''; }
