@@ -180,13 +180,13 @@ function bindDesktopPlayback() {
   });
   var tips = document.querySelector('.vod-infobar-tips');
   clear(tips);
-  /* Netflix-like bar: Volver alone at the top left; play, -10 s, +10 s and
-     the volume on the left; the title in the middle; the rest on the right. */
+  /* Volver and the title at the top left; -10 s, play, +10 s in the
+     middle; the volume on the left; the rest on the right. */
   var defs = [
     { id: 'vod-back', group: 'top', icon: UI_ICONS.back, tip: 'Volver (Esc)', run: desktopBack },
-    { id: 'vod-toggle', group: 'left', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
-    { id: 'vod-rewind', group: 'left', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
-    { id: 'vod-forward', group: 'left', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
+    { id: 'vod-rewind', group: 'center', icon: UI_ICONS.rewind, tip: 'Retroceder 10 s (←)', run: function () { playerSeek(-10); } },
+    { id: 'vod-toggle', group: 'center', icon: UI_ICONS.pause, tip: 'Pausa (Espacio)', run: togglePlayerPlayPause },
+    { id: 'vod-forward', group: 'center', icon: UI_ICONS.forward, tip: 'Adelantar 10 s (→)', run: function () { playerSeek(10); } },
     { id: 'vod-next', group: 'right', icon: UI_ICONS.next, tip: 'Siguiente episodio', run: function () { hideNextEpisodePrompt(); advanceToNextEpisode(); } },
     { id: 'vod-episodes', group: 'right', icon: UI_ICONS.episodes, tip: 'Episodios', run: openEpisodeBrowser },
     { id: 'vod-speed', group: 'right', icon: UI_ICONS.speed, tip: 'Velocidad', run: function () { toggleSpeedMenu($('vod-speed')); } },
@@ -204,7 +204,8 @@ function bindDesktopPlayback() {
   tips.appendChild(groups.right);
   document.querySelector('.vod-infobar-content').appendChild(groups.top);
   var titleNode = $('vod-infobar-title');
-  if (titleNode) { groups.center.appendChild(titleNode); }
+  /* The title sits next to Volver at the top; the controls stay centred. */
+  if (titleNode) { groups.top.appendChild(titleNode); }
   for (var i = 0; i < defs.length; i++) {
     var b = el('button', 'vod-tip focusable');
     b.type = 'button'; b.id = defs[i].id;

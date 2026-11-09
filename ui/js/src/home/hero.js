@@ -103,7 +103,7 @@ function buildHero(page, source) {
   if (!items.length) { return 0; }
   var idx = pages.indexOf(page);
   var info = el('div', 'hero-info');
-  abs(info, 192, 120, 1100, 470);
+  abs(info, 192, 70, 1180, 530);
   info.addEventListener('pointermove', function () { heroHoverAt = Date.now(); });
   page.appendChild(info);
   var dots = el('div', 'hero-dots');
@@ -130,7 +130,9 @@ function renderHeroInfo(h) {
   setTimeout(function () {
     clear(info);
     info.appendChild(el('div', 'hero-kicker', isSeriesItem(item) ? 'Serie' : 'Película'));
-    info.appendChild(el('div', 'hero-title', item.title));
+    /* Long titles get a smaller size instead of being cut. */
+    var len = String(item.title || '').length;
+    info.appendChild(el('div', 'hero-title' + (len > 52 ? ' is-xlong' : len > 30 ? ' is-long' : ''), item.title));
     info.appendChild(el('div', 'hero-meta', itemMetaLine(item)));
     var genres = itemGenres(item, 3);
     if (genres.length) { info.appendChild(el('div', 'hero-genres', genres.join('  •  '))); }

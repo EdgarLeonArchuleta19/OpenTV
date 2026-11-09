@@ -115,10 +115,11 @@ function applyQuery() {
   finishWelcome();
   if (map.tab !== undefined) {
     selectTab(parseInt(map.tab, 10) || 0, true);
-  } else {
+  } else if (!window.XUPER_DESKTOP) {
     selectTab(0, false);
     setFocus(liveFocus);
   }
+  /* (Desktop: finishWelcome already opened Inicio.) */
 
   if (screen === 'detail') {
     openDetail(VOD[parseInt(map.vod, 10) || 0]);

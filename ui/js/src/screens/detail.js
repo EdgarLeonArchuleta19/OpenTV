@@ -488,22 +488,38 @@ function renderDetailBottomDesktop(item) {
 
   var relSection = el('section', 'dd-section');
   relSection.appendChild(el('h2', 'dd-title detail-related', 'Quizás te guste'));
-  var rel = el('div', 'detail-grid dd-related');
-  var seed = parseInt(item.id, 10);
-  if (isNaN(seed)) {
-    seed = 0;
-    for (var s = 0; s < VOD.length; s++) { if (VOD[s] === item) { seed = s; break; } }
-  }
-  var start = (seed * 3) % Math.max(1, VOD.length - 6);
-  for (var r = 0; r < 8; r++) {
-    var relItem = VOD[(start + r) % VOD.length];
-    if (!relItem) { continue; }
+  /* A sideways row of up to 30 similar titles (same kind, shared genres),
+     with arrows; the wheel keeps scrolling the page. */
+  var relWrap = el('div', 'dd-related-wrap');
+  var rel = el('div', 'detail-grid dd-related scrollable');
+  var related = relatedTitles(item, 30);
+  for (var r = 0; r < related.length; r++) {
     var cell = el('div', 'cell');
-    cell.appendChild(makePoster(relItem, 0, 0, 190, 279, { gold: true }));
-    cell.appendChild(el('div', 'd-name', relItem.title));
+    cell.appendChild(makePoster(related[r], 0, 0, 190, 279, { gold: true }));
+    cell.appendChild(el('div', 'd-name', related[r].title));
     rel.appendChild(cell);
   }
-  relSection.appendChild(rel);
+  relWrap.appendChild(rel);
+  ['prev', 'next'].forEach(function (dir) {
+    var arrow = el('button', 'dd-rel-arrow is-' + dir);
+    arrow.type = 'button';
+    arrow.innerHTML = dir === 'prev' ? UI_ICONS.prev : UI_ICONS.next;
+    arrow.setAttribute('aria-label', dir === 'prev' ? 'Anteriores' : 'Más títulos');
+    arrow.addEventListener('click', function (event) {
+      event.stopPropagation();
+      var by = Math.max(300, rel.clientWidth * 0.8) * (dir === 'prev' ? -1 : 1);
+      try { rel.scrollBy({ left: by, behavior: 'smooth' }); } catch (eScroll) { rel.scrollLeft += by; }
+    });
+    relWrap.appendChild(arrow);
+  });
+  function syncArrows() {
+    relWrap.classList.toggle('at-start', rel.scrollLeft <= 4);
+    relWrap.classList.toggle('at-end', rel.scrollLeft >= rel.scrollWidth - rel.clientWidth - 4);
+    schedulePosterMemoryPass();
+  }
+  rel.addEventListener('scroll', syncArrows, { passive: true });
+  setTimeout(syncArrows, 0);
+  relSection.appendChild(relWrap);
   detailBottom.appendChild(relSection);
 }
 
@@ -610,4 +626,32 @@ function fitDetailLeft(syn) {
     for (var k = 0; overflowing() && k < rows.length; k++) { rows[k].style.display = 'none'; }
   }
   setTimeout(fit, 0);
+}
+
+/* Similar titles: same kind first, then shared genres, then the same
+   home section; the catalogue order breaks ties. */
+function relatedTitles(item, max) {
+  var genres = {};
+  (item.genres || []).forEach(function (g) { genres[norm(g)] = true; });
+  var cats = String(item.category || '').split(',');
+  var series = !!isSeriesItem(item);
+  var scored = [];
+  for (var i = 0; i < VOD.length; i++) {
+    var v = VOD[i];
+    if (!v || v === item || String(v.id) === String(item.id) || !hasUsableCover(v)) { continue; }
+    var score = (!!isSeriesItem(v) === series) ? 3 : 0;
+    (v.genres || []).forEach(function (g) { if (genres[norm(g)]) { score += 2; } });
+    var vc = String(v.category || '').split(',');
+    for (var c = 0; c < vc.length; c++) { if (vc[c] && cats.indexOf(vc[c]) !== -1) { score += 1; break; } }
+    scored.push({ v: v, s: score, i: i });
+  }
+  scored.sort(function (a, b) { return b.s - a.s || a.i - b.i; });
+  var out = [], seen = {};
+  for (var k = 0; k < scored.length && out.length < max; k++) {
+    var key = norm(scored[k].v.title);
+    if (seen[key]) { continue; }
+    seen[key] = true;
+    out.push(scored[k].v);
+  }
+  return out;
 }

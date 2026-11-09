@@ -248,6 +248,9 @@ function selectTab(index, focusContent) {
   for (var p = 0; p < pages.length; p++) {
     pages[p].classList.remove('is-entering', 'from-left', 'from-right');
     pages[p].classList.toggle('is-current', p === def.page);
+    /* Desktop: a section opened from the tab bar starts at its top (once it
+       is displayed: a hidden page ignores scrollTop). */
+    if (window.XUPER_DESKTOP && p === def.page && def.page !== prevPage && def.page > 0) { pages[p].scrollTop = 0; }
   }
   /* Same slide direction as the ViewPager; the page itself is the only
      visible layer, which keeps its raster sharp on webOS. */
