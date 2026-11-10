@@ -278,7 +278,6 @@ function renderLiveDockCats() {
     liveDockCats.appendChild(b);
   }
   if (all) { chip(all, 'Todos'); }
-  if (window.XUPER_DESKTOP && privateCategoryActive()) { chip(currentLiveCategory, 'Privado'); }
   if (window.XUPER_DESKTOP) {
     var saved = liveSaved();
     if (saved.favs.length) { chip(LIVE_SAVED_CATS.favs, '★ Favoritos'); }

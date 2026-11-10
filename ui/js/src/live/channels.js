@@ -247,7 +247,7 @@ function loadLiveCategories(done) {
     }
     /* Append Addons Category */
     cats.push({ id: 'addons', name: '➕ Addons M3U', isAddon: true });
-    liveCategories = splitPrivateCategories(cats);
+    liveCategories = hideAdultCategories(cats);
     liveCategoriesLoaded = true;
     if (!currentLiveCategory) { currentLiveCategory = liveCategories[0]; }
     renderPlayerCategories();
@@ -258,11 +258,7 @@ function loadLiveCategories(done) {
 
 function switchLiveCategory(cat, done) {
   if (!cat) { return; }
-  if (window.XUPER_DESKTOP) {
-    /* The private category opens only through its PIN; any other choice locks it again. */
-    if ((cat.isPrivate || isAdultCategory(cat)) && !privateUnlocked) { return; }
-    if (!cat.isPrivate && privateUnlocked) { privateUnlocked = false; document.body.classList.remove('is-private-tv'); }
-  }
+  if (isAdultCategory(cat)) { return; }
   currentLiveCategory = cat;
   renderPlayerCategories();
   if (cat.isSaved) { loadSavedChannels(cat.isSaved, done); return; }

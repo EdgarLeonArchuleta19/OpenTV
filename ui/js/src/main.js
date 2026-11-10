@@ -43,6 +43,8 @@ function boot() {
     var f = closest(e.target, '.focusable');
     if (f && isVisible(f)) setFocus(f, true);
   });
+  forgetPrivateContent();
+  applyLiteMode();
   buildSearch();
   startServiceKeepAlive();
   portalServiceCall('prewarm', {}, function () {});

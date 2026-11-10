@@ -233,7 +233,6 @@ function selectTab(index, focusContent) {
   if (!def || def.action) { return; }
   var prevPage = TABS[state.tab] ? TABS[state.tab].page : def.page;
   state.tab = index;
-  if (window.XUPER_DESKTOP && def.page !== 0) { lockPrivateContent(); }
   if (window.XUPER_DESKTOP) { updateTitleBarSection(); }
   for (var i = 0; i < tabEls.length; i++) {
     tabEls[i].classList.toggle('is-selected', i === index);

@@ -85,7 +85,7 @@ function updateTitleBarSection() {
   else if (state.screen === 'settings') { label = 'Ajustes'; }
   else if (state.screen === 'detail' && state.detail) { label = state.detail.title || ''; }
   else if (state.screen === 'player') {
-    label = state.playerMode === 'live' ? (privateCategoryActive() ? 'TV en vivo' : ((CHANNELS[state.channel] || {}).name || 'TV en vivo'))
+    label = state.playerMode === 'live' ? ((CHANNELS[state.channel] || {}).name || 'TV en vivo')
       : ((state.playerItem && state.playerItem.title) || '');
   }
   var node = titleBarEl.querySelector('.atb-section');

@@ -31,7 +31,7 @@ function sameChannel(a, b) {
 }
 
 function rememberLiveChannel(ch) {
-  if (!window.XUPER_DESKTOP || !ch || !liveChannelKey(ch) || privateCategoryActive()) { return; }
+  if (!window.XUPER_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
   var s = liveSaved();
   s.recent = s.recent.filter(function (x) { return !sameChannel(x, ch); });
   s.recent.unshift(savedChannelCopy(ch));
@@ -49,8 +49,6 @@ function syncSavedFavorite(ch, on) {
 
 function toggleLiveFavorite(ch) {
   if (!ch) { return false; }
-  /* Private channels never go to Favoritos (they would show up there). */
-  if (privateCategoryActive()) { return !!ch.fav; }
   ch.fav = toggleFavorite({ id: liveFavKey(ch) });
   syncSavedFavorite(ch, ch.fav);
   syncLiveFavButton();
@@ -123,12 +121,6 @@ function buildLiveGuide() {
   });
   liveGuideSearch._activate = function () { liveGuideSearch.focus(); };
   head.appendChild(liveGuideSearch);
-  var lockBtn = el('button', 'lg-close lg-private focusable');
-  lockBtn.type = 'button';
-  lockBtn.innerHTML = UI_ICONS.lock;
-  lockBtn.setAttribute('data-tip', 'Privado');
-  lockBtn._activate = openPrivateContent;
-  head.appendChild(lockBtn);
   var close = el('button', 'lg-close focusable');
   close.type = 'button';
   close.innerHTML = UI_ICONS.close;
@@ -154,8 +146,6 @@ function openLiveGuide() {
   if (!window.XUPER_DESKTOP) { return; }
   if (!liveGuide || !liveGuide.isConnected) { buildLiveGuide(); }
   liveGuideOpen = true;
-  var lockButton = liveGuide.querySelector('.lg-private');
-  if (lockButton) { lockButton.hidden = !privateEnabled(); }
   liveGuideReturnFocus = state.focus;
   liveGuideSearch.value = '';
   renderLiveGuideCats();

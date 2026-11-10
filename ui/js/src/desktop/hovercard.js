@@ -24,6 +24,8 @@ function installHoverCards() {
     if (hoverCard && hoverCard.contains(event.target)) { cancelHoverHide(); return; }
     var poster = hoverPosterFrom(event.target);
     if (!poster) { return; }
+    /* Modo ligero: no enlarged card (it costs a lot to draw). */
+    if (document.body.classList.contains('is-lite')) { return; }
     if (poster === hoverCardFor && hoverCard && hoverCard.classList.contains('is-open')) { cancelHoverHide(); return; }
     if (hoverTimer) { clearTimeout(hoverTimer); }
     hoverTimer = setTimeout(function () {

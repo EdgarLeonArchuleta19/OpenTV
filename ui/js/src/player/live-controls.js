@@ -102,17 +102,13 @@ function installLiveControls() {
    list, or is shown on top of it when that category does not have it.
    ------------------------------------------------------------------ */
 var liveNowPlaying = null;
-var liveNowPlayingPrivate = false;
 function noteLivePlaying(ch) {
   if (!window.XUPER_DESKTOP) { return; }
   liveNowPlaying = ch || null;
-  liveNowPlayingPrivate = !!(currentLiveCategory && currentLiveCategory.isPrivate);
 }
 
 function livePlayingToKeep() {
   if (!window.XUPER_DESKTOP || !liveNowPlaying) { return null; }
-  /* A private channel never follows the viewer out of the private list. */
-  if (liveNowPlayingPrivate && !privateUnlocked) { return null; }
   var key = liveChannelKey(liveNowPlaying);
   if (!key) { return null; }
   if (state.screen === 'player' && state.playerMode === 'live') { return liveNowPlaying; }

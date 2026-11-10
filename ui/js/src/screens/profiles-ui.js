@@ -174,13 +174,6 @@ function openProfileEditor(p) {
     for (var i = 0; i < profilesData.list.length; i++) {
       if (profilesData.list[i] !== p && profilesData.list[i].name.toLowerCase() === n.toLowerCase()) { msg.textContent = 'Ya hay un perfil con ese nombre.'; return; }
     }
-    /* Turning a kids profile into a normal one needs the private PIN when
-       there is one (otherwise anyone could undo the restriction). */
-    if (!isNew && p.kids && !box.checked && privateSettings().hash && !save._pinOk) {
-      askPrivatePin('Quitar perfil infantil', function () { save._pinOk = true; save(); });
-      return;
-    }
-    save._pinOk = false;
     if (isNew) {
       profilesData.list.push({ id: 'p' + Date.now().toString(36), name: n, avatar: draft.avatar, kids: box.checked, createdAt: Date.now() });
     } else {
