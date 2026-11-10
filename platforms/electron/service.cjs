@@ -18,7 +18,7 @@ function createService() {
       if (id === 'webos-service') return DesktopBus;
       return originalLoad.call(this, id, parent, isMain);
     };
-    require('../service/index.js');
+    require('../../service/index.js');
   } finally {
     Module._load = originalLoad;
     process.exit = originalExit;
@@ -45,9 +45,9 @@ function createService() {
       });
     },
     close() {
-      require('../service/media-duration.js').close();
-      require('../service/ffmpeg-relay.js').close();
-      require('../service/proxy.js').close();
+      require('../../service/media-duration.js').close();
+      require('../../service/ffmpeg-relay.js').close();
+      require('../../service/proxy.js').close();
     }
   };
 }

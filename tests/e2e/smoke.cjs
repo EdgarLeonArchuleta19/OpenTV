@@ -1,6 +1,6 @@
 'use strict';
 /*
- * End-to-end smoke test: opens the real UI in Electron (like desktop/main.cjs,
+ * End-to-end smoke test: opens the real UI in Electron (like platforms/electron/main.cjs,
  * with a throw-away profile), walks the main screens and fails on any page
  * error or missing piece. Run with:  npm run test:e2e
  * Works offline: the bundled catalogue snapshot fills the home pages.
@@ -33,7 +33,7 @@ app.whenReady().then(async () => {
   });
   process.env.XUPER_FFMPEG_PATH = path.join(ROOT, 'bin', 'ffmpeg.exe');
   let service = null;
-  try { service = require(path.join(ROOT, 'desktop', 'service.cjs')).createService(); } catch (e) { pageErrors.push('service: ' + e.message); }
+  try { service = require(path.join(ROOT, 'platforms', 'electron', 'service.cjs')).createService(); } catch (e) { pageErrors.push('service: ' + e.message); }
   ipcMain.handle('desktop:service', (_e, m, p) => (service && service.methods.includes(m) ? service.call(m, p || {}) : { returnValue: false }));
   ipcMain.handle('desktop:fullscreen', () => false);
   ipcMain.handle('desktop:info', () => ({ version: require(path.join(ROOT, 'package.json')).version }));
@@ -46,7 +46,7 @@ app.whenReady().then(async () => {
 
   const win = new BrowserWindow({
     x: -4000, y: 40, width: 1360, height: 820, show: true, skipTaskbar: true, backgroundColor: '#0e0e11',
-    webPreferences: { preload: path.join(ROOT, 'desktop', 'preload.cjs'), contextIsolation: true, sandbox: true, backgroundThrottling: false }
+    webPreferences: { preload: path.join(ROOT, 'platforms', 'electron', 'preload.cjs'), contextIsolation: true, sandbox: true, backgroundThrottling: false }
   });
   win.webContents.on('console-message', (event, level, message) => {
     const text = event.message || message || '';

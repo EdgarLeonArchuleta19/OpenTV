@@ -42,8 +42,8 @@ $innoPaths = @(
 ) | Where-Object { Test-Path $_ }
 
 if ($innoPaths.Count -gt 0) {
-  Write-Host "==> Inno Setup detectado: compilando installer\opentv.iss..." -ForegroundColor Cyan
-  & $innoPaths[0] (Join-Path $projectRoot "installer\opentv.iss")
+  Write-Host "==> Inno Setup detectado: compilando platforms\electron\installer\opentv.iss..." -ForegroundColor Cyan
+  & $innoPaths[0] (Join-Path $projectRoot "platforms\electron\installer\opentv.iss")
 }
 
 Write-Host "==> 2/4 Preparando archivos y desbloqueadores SmartScreen..." -ForegroundColor Cyan

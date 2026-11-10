@@ -88,20 +88,26 @@ npm test             # pruebas: bundle ES5 para TV, catálogo, búsqueda, guía,
 npm run test:e2e     # abre la interfaz real en Electron y recorre las pantallas
 npm run snapshot     # actualizar la copia del catálogo incluida (necesita internet)
 npm run dist         # instalador + portable en dist/
+npm run build:webos  # paquete de la TV LG en dist/webos (y .ipk si tienes ares-cli)
 ```
 
 ### Estructura
 
+Una sola interfaz y un solo servicio para todas las plataformas; cada
+plataforma solo añade su envoltorio (plan en [docs/PLATAFORMAS.md](docs/PLATAFORMAS.md)).
+
 ```
-desktop/   Proceso principal de Electron: ventana y barra de título, atajos,
-           actualizaciones, volumen de Windows, registro de errores, puente seguro
-service/   Servicio local: catálogo, proxy HLS, relay FFmpeg, DNS seguro (DoH), diagnóstico
-ui/        Interfaz (compartida con la versión para TV LG webOS)
-  js/src/  Código en módulos ES5 → se une en ui/js/app.js (ver ui/js/src/README.md)
-  desktop/ Estilos de escritorio (Tailwind en desktop/tw/input.css), HLS.js y adaptadores
-tests/     Pruebas unitarias (node --test) y de extremo a extremo (Electron)
-scripts/   Build del bundle, copia del catálogo, publicación de versiones
-bin/       ffmpeg.exe (Windows x64)
+ui/                 Interfaz compartida (Windows y TV LG webOS)
+  js/src/           Código en módulos ES5 → se une en ui/js/app.js (ver ui/js/src/README.md)
+  desktop/          Estilos de escritorio (Tailwind en desktop/tw/input.css), HLS.js y adaptadores
+service/            Servicio local: catálogo, proxy HLS, relay FFmpeg, DNS seguro (DoH), diagnóstico
+platforms/
+  electron/         Windows: ventana y barra de título, atajos, actualizaciones, volumen,
+                    registro de errores, puente seguro e instalador (installer/)
+  webos/            TV LG: appinfo.json (el paquete lo arma scripts/build-webos.cjs)
+tests/              Pruebas unitarias (node --test) y de extremo a extremo (Electron)
+scripts/            Build del bundle y de cada plataforma, copia del catálogo, publicación
+bin/                ffmpeg.exe (Windows x64)
 ```
 
 ### Publicar una versión

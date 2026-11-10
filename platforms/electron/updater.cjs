@@ -21,7 +21,7 @@ const PLACEHOLDER_OWNER = 'TU_USUARIO_GITHUB';
    build.publish). Null while it still has the placeholder owner. */
 function feed() {
   try {
-    const publish = [].concat(require('../package.json').build.publish || [])[0];
+    const publish = [].concat(require('../../package.json').build.publish || [])[0];
     if (!publish || publish.provider !== 'github' || !publish.owner || publish.owner === PLACEHOLDER_OWNER) return null;
     return { owner: publish.owner, repo: publish.repo, releases: 'https://github.com/' + publish.owner + '/' + publish.repo + '/releases/latest' };
   } catch { return null; }

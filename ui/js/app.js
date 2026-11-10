@@ -14119,7 +14119,7 @@
   /* desktop/updates.js — Actualizaciones automáticas: estado en Acerca de y aviso "Reiniciar y actualizar".
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-  /* The download runs in the main process (desktop/updater.cjs). Here the
+  /* The download runs in the main process (platforms/electron/updater.cjs). Here the
      viewer sees what is happening and can restart to install right away;
      otherwise the update installs by itself when the app is closed. */
   var updateStatus = { state: 'idle' };

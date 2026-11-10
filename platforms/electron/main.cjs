@@ -9,7 +9,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'xuper', privileges: {
   standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true
 } }]);
 
-const info = require('../package.json');
+const info = require('../../package.json');
 const { createService } = require('./service.cjs');
 const systemAudio = require('./system-volume.cjs');
 const updates = require('./updater.cjs');

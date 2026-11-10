@@ -5,7 +5,7 @@
   "description": "OpenTV Desktop — Reproductor de TV en vivo, películas y series para Windows",
   "author": "TECHPOINT Software™",
   "license": "MIT",
-  "main": "desktop/main.cjs",
+  "main": "platforms/electron/main.cjs",
   "scripts": {
     "build:css": "tailwindcss -c tailwind.config.cjs -i ui/desktop/tw/input.css -o ui/desktop/tailwind.css --minify",
     "watch:css": "tailwindcss -c tailwind.config.cjs -i ui/desktop/tw/input.css -o ui/desktop/tailwind.css --watch",
@@ -24,7 +24,8 @@
     "test": "node --test \"tests/*.test.cjs\"",
     "test:e2e": "node tests/e2e/run.cjs",
     "snapshot": "node scripts/snapshot-catalog.cjs",
-    "release:github": "node scripts/publish-github.cjs"
+    "release:github": "node scripts/publish-github.cjs",
+    "build:webos": "npm run build && node scripts/build-webos.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.11",
@@ -44,7 +45,8 @@
     "electronVersion": "44.10.2",
     "asar": false,
     "files": [
-      "desktop/**/*",
+      "platforms/electron/**/*",
+      "!platforms/electron/installer/**",
       "service/**/*",
       "ui/**/*",
       "bin/**/*",

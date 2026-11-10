@@ -43,7 +43,7 @@ test('each module is ES5 on its own (clear error location)', () => {
 });
 
 test('desktop main and preload parse', () => {
-  for (const f of ['desktop/main.cjs', 'desktop/preload.cjs', 'desktop/system-volume.cjs', 'desktop/service.cjs']) {
+  for (const f of ['platforms/electron/main.cjs', 'platforms/electron/preload.cjs', 'platforms/electron/system-volume.cjs', 'platforms/electron/service.cjs']) {
     const code = fs.readFileSync(path.join(ROOT, f), 'utf8');
     assert.doesNotThrow(() => acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'script', allowHashBang: true, allowReturnOutsideFunction: true }), f);
   }

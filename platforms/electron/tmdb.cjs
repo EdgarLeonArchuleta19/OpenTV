@@ -32,7 +32,7 @@ function readCredentials() {
     return credentials;
   }
   try {
-    const file = path.join(__dirname, '..', 'config', 'tmdb.json');
+    const file = path.join(__dirname, '..', '..', 'config', 'tmdb.json');
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (data && (data.readAccessToken || data.apiKey)) credentials = data;
   } catch { /* no key: TMDB rows stay off */ }
