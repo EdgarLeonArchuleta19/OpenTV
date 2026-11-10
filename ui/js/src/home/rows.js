@@ -138,13 +138,15 @@ function appendPosterRow(page, y, titleText, items) {
 /* ------------------------------------------------------------ Seguir viendo */
 /* Titles started and not finished, newest first. `filter` is 'movie',
    'series' or empty for both. Finished movies (95 %+) drop out; a series
-   stays so the next episode is one click away. */
+   stays so the next episode is one click away. Only titles present in the
+   currently active VOD catalogue are shown. */
 function continueRecords(filter) {
   var out = [];
   var list = localProfile.history || [];
   for (var i = 0; i < list.length && out.length < 20; i++) {
     var r = list[i];
-    if (!r || !r.id || r.hideContinue || (r.position || 0) < 20) { continue; }
+    if (!r || !r.id || r.hideContinue || (r.position || 0) < 5) { continue; }
+    if (!vodForHistoryRecord(r)) { continue; }
     if (filter === 'movie' && r.series) { continue; }
     if (filter === 'series' && !r.series) { continue; }
     if (!r.series && r.duration && r.position / r.duration > 0.95) { continue; }
@@ -156,6 +158,27 @@ function continueRecords(filter) {
 function vodById(id) {
   for (var i = 0; i < VOD.length; i++) {
     if (String(VOD[i].id) === String(id)) { return VOD[i]; }
+  }
+  return null;
+}
+
+function vodForHistoryRecord(r) {
+  if (!r || !r.id) { return null; }
+  var direct = vodById(r.id);
+  if (direct) { return direct; }
+  for (var v = 0; v < VOD.length; v++) {
+    var seasons = VOD[v]._catalogSeasons || [];
+    for (var s = 0; s < seasons.length; s++) {
+      if (String(seasons[s].id) === String(r.id) || (r.seasonId && String(seasons[s].id) === String(r.seasonId))) {
+        return VOD[v];
+      }
+    }
+  }
+  /* Searched portal titles are not in the 250-item initial home snapshot (VOD),
+     so keep them visible in server/auto modes while hiding them in Stremio-only manual mode. */
+  var srcCfg = typeof getVodSourcesConfig === 'function' ? getVodSourcesConfig() : { mode: 'auto' };
+  if (srcCfg.mode !== 'external' && !r.stremio && String(r.id).indexOf('stremio:') !== 0) {
+    return r;
   }
   return null;
 }
@@ -173,7 +196,7 @@ function continueSubtitle(r) {
 }
 
 function makeContinueCard(r, x, y) {
-  var item = vodById(r.id);
+  var item = vodForHistoryRecord(r);
   var card = el('div', 'continue-card focusable');
   abs(card, x, y, CONTINUE_W, CONTINUE_H + 64);
   card.style.setProperty('--cc-w', CONTINUE_W + 'px');

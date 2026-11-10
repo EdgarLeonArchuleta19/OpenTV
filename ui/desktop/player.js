@@ -96,8 +96,11 @@
     var video = this;
     timeline(video, 'hls', false, 0);
     attachedUrl = hlsUrl;
+    var startPos = (video._xuperStartPos && video._xuperStartPos > 0) ? video._xuperStartPos : -1;
+    video._xuperStartPos = 0;
     currentHls = new Hls({ enableWorker: true, maxBufferLength: 25,
       maxMaxBufferLength: 60, backBufferLength: 30,
+      startPosition: startPos,
       // Start from a broadband estimate (4 Mbps) instead of 500 kbps, so the
       // picture does not begin blurry and climb up for the first seconds.
       abrEwmaDefaultEstimate: 4000000,

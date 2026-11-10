@@ -21,6 +21,7 @@ let shortcutFor = () => null;
 let service;
 let quitting = false;
 let fullscreenRequested = false;
+let pinnedOnTop = false;
 const TITLE_BAR_HEIGHT = 36;
 
 function toggleFullscreen(flag) {
@@ -102,7 +103,16 @@ async function start() {
     if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       return new Response('Not found', { status: 404 });
     }
-    return net.fetch(pathToFileURL(file).href);
+    const served = net.fetch(pathToFileURL(file).href);
+    if (!/\.html?$/i.test(file)) return served;
+    /* Only the app's own scripts run (hls.js uses a blob: worker): markup
+       that slips in from network data cannot execute script. */
+    return served.then((res) => {
+      const headers = new Headers(res.headers);
+      headers.set('Content-Security-Policy',
+        "script-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-src 'none'");
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+    });
   });
 
   // Dark native title bar and dialogs on Windows 10/11, matching the app.
@@ -123,6 +133,13 @@ async function start() {
     if (!trusted(event)) return false;
     if (flag === 'query') return Boolean(windowRef?.isFullScreen());
     return toggleFullscreen(flag);
+  });
+  ipcMain.handle('desktop:pin', (event, flag) => {
+    if (!trusted(event) || !windowRef) return false;
+    if (flag === 'query') return Boolean(pinnedOnTop);
+    pinnedOnTop = typeof flag === 'boolean' ? flag : !pinnedOnTop;
+    windowRef.setAlwaysOnTop(pinnedOnTop, pinnedOnTop ? 'floating' : 'normal');
+    return pinnedOnTop;
   });
   ipcMain.handle('desktop:system-volume', (event, command, value) => {
     if (!trusted(event) || ['get', 'set', 'mute'].indexOf(command) === -1) return { error: 'Operación no permitida' };
@@ -208,7 +225,26 @@ async function start() {
     const shortcut = shortcutFor(input);
     if (shortcut) { event.preventDefault(); if (!input.isAutoRepeat) shortcut(); }
   });
-  windowRef.once('ready-to-show', () => windowRef.show());
+  let shownOnce = false;
+  const showMainWindow = () => {
+    if (!windowRef || windowRef.isDestroyed()) return;
+    if (!windowRef.isVisible()) windowRef.show();
+    if (windowRef.isMinimized()) windowRef.restore();
+    if (!shownOnce) {
+      shownOnce = true;
+      windowRef.setAlwaysOnTop(true);
+      windowRef.show();
+      windowRef.focus();
+      setTimeout(() => {
+        if (windowRef && !windowRef.isDestroyed() && !pinnedOnTop) windowRef.setAlwaysOnTop(false);
+      }, 300);
+    } else {
+      windowRef.focus();
+    }
+  };
+  windowRef.once('ready-to-show', showMainWindow);
+  windowRef.webContents.once('did-finish-load', showMainWindow);
+  setTimeout(showMainWindow, 1500);
   updates.start((status) => windowRef?.webContents.send('desktop:update-status', status));
   windowRef.on('closed', () => { windowRef = null; app.quit(); });
 

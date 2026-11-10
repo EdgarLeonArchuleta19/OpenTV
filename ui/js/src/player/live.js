@@ -21,8 +21,9 @@ function startLiveChannel(ch, immediate) {
     var resolveParams = ch.streamUrl ? { streamUrl: ch.streamUrl } : { channelCode: ch.channelCode };
     portalServiceCall('resolveLive', resolveParams, function (err, payload) {
       if (mySeq !== liveChannelSeq) { return; }
-      /* Desktop: the viewer left the player while the signal was resolving. */
-      if (window.XUPER_DESKTOP && state.screen !== 'player') { return; }
+      /* The viewer left the player while the signal was resolving (TV and
+         desktop): starting it now would play it hidden, with sound. */
+      if (state.screen !== 'player' || state.playerMode !== 'live') { return; }
       if (err || !payload || payload.returnValue === false) {
         state.streamError = 'No se pudo conectar con la señal' + (err ? ': ' + err : '');
         setPlayerStatus(state.streamError);
@@ -233,7 +234,12 @@ function restorePlayerReturn() {
     /* Desktop: a TV channel goes on playing in the home preview. */
     var toHome = !(ret && ret.screen === 'search');
     var handed = window.XUPER_DESKTOP && toHome && borrowPlayerIntoHome();
-    if (!handed && !keepFloatingVideo()) { stopPlayerVideo(); }  /* PiP keeps playing while browsing */
+    if (!handed && !keepFloatingVideo()) {
+      /* Also cancel a channel that is still resolving or waiting to start. */
+      liveChannelSeq++;
+      if (liveChannelDebounceTimer) { clearTimeout(liveChannelDebounceTimer); liveChannelDebounceTimer = null; }
+      stopPlayerVideo();
+    }  /* PiP keeps playing while browsing */
     var scrP = $('screen-player');
     if (scrP) {
       scrP.classList.remove('is-mini');

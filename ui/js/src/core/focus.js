@@ -9,8 +9,8 @@ function isVisible(node) {
   var r = node.getBoundingClientRect();
   if (r.width < 1 || r.height < 1) { return false; }
   if (historyDrawerOpen) { return !!closest(node, '.history-drawer'); }
-  if (profilePickerOpen) { return !!closest(node, '.profile-picker'); }
   if (pinDialogOpen) { return !!closest(node, '.pin-dialog'); }
+  if (profilePickerOpen) { return !!closest(node, '.profile-picker'); }
   if (liveGuideOpen) { return !!closest(node, '.live-guide'); }
   if (dialogAddonsOpen) { return !!closest(node, '#dialog-addons'); }
   if (state.episodeBrowserOpen) {

@@ -51,6 +51,7 @@ var SETTINGS_ITEMS = [
   { id: 'share', label: 'Compartir APP' },
   { id: 'parent', label: 'Bloqueo' },
   { id: 'playback', label: 'Configuración global' },
+  { id: 'sources', label: 'Fuentes' },
   { id: 'netdiag', label: 'Diagnóstico' },
   { id: 'feedback', label: 'Ayuda y Feedback' },
   { id: 'about', label: 'Sobre nosotros' }
@@ -62,6 +63,7 @@ var SETTINGS_MENU_ICONS = {
   share: '<svg viewBox="0 0 32 32"><circle cx="8" cy="16" r="3"/><circle cx="24" cy="7" r="3"/><circle cx="24" cy="25" r="3"/><path d="M10.6 14.5l10.8-6M10.6 17.5l10.8 6"/></svg>',
   parent: '<svg viewBox="0 0 32 32"><rect x="7" y="14" width="18" height="14" rx="2"/><path d="M11 14V10a5 5 0 0 1 10 0v4"/><path d="M16 19v4"/></svg>',
   playback: '<svg viewBox="0 0 32 32"><rect x="4" y="6" width="24" height="20" rx="3"/><path d="M13 11l8 5-8 5z"/></svg>',
+  sources: '<svg viewBox="0 0 32 32"><path d="M16 4l12 6-12 6L4 10l12-6z"/><path d="M4 16l12 6 12-6"/><path d="M4 22l12 6 12-6"/></svg>',
   netdiag: '<svg viewBox="0 0 32 32"><path d="M3 13a19 19 0 0 1 26 0"/><path d="M8 18a12 12 0 0 1 16 0"/><path d="M13 23a6 6 0 0 1 6 0"/><circle cx="16" cy="27.5" r="1.2"/></svg>',
   feedback: '<svg viewBox="0 0 32 32"><path d="M6 4h15l5 5v19H6z"/><path d="M20 4v6h6M10 16h12M10 21h8"/></svg>',
   about: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="M16 14v8M16 10h.1"/></svg>'
@@ -69,12 +71,12 @@ var SETTINGS_MENU_ICONS = {
 
 /* Desktop: short labels that fit the menu and line icons like the rest of the app. */
 if (window.XUPER_DESKTOP) {
-  var DESKTOP_SETTINGS_LABELS = { share: 'Compartir', playback: 'Reproducción', feedback: 'Ayuda', about: 'Acerca de' };
+  var DESKTOP_SETTINGS_LABELS = { share: 'Compartir', playback: 'Reproducción', sources: 'Fuentes', feedback: 'Ayuda', about: 'Acerca de' };
   /* The PIN lock was never available on Windows: no menu entry for it. */
   SETTINGS_ITEMS = SETTINGS_ITEMS.filter(function (it) { return it.id !== 'parent'; });
   SETTINGS_ITEMS.forEach(function (it) { if (DESKTOP_SETTINGS_LABELS[it.id]) { it.label = DESKTOP_SETTINGS_LABELS[it.id]; } });
   SETTINGS_MENU_ICONS = {
     profile: UI_ICONS.user, history: UI_ICONS.mylist, share: UI_ICONS.share, parent: UI_ICONS.lock,
-    playback: UI_ICONS.settings, netdiag: UI_ICONS.wifi, feedback: UI_ICONS.help, about: UI_ICONS.info
+    playback: UI_ICONS.settings, sources: UI_ICONS.addons, netdiag: UI_ICONS.wifi, feedback: UI_ICONS.help, about: UI_ICONS.info
   };
 }

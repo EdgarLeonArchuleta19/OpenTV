@@ -17,7 +17,7 @@ function runDesktopSearch(rawQ, localMatches) {
   var query = rawQ.trim();
   rememberRecentSearch(query);
   hideSearchSuggest();
-  var remote = vodApi.mode === 'portal' && norm(query).length >= 2;
+  var remote = vodApi.mode === 'portal' && getVodSourcesConfig().mode !== 'external' && norm(query).length >= 2;
   state.searchRemote = null;
   if (!remote) {
     state.searchStatus = 'done';
@@ -50,7 +50,9 @@ function runDesktopSearch(rawQ, localMatches) {
       for (var m = 0; m < merged.length; m++) { seen[String(merged[m].id)] = true; }
       var items = payload.items || [];
       for (var p = 0; p < items.length; p++) {
+        if (items[p] && typeof items[p] === 'object') { items[p].portal = true; }
         var item = normalizeVod(items[p], merged.length + 1);
+        item._portal = true;
         if (!seen[String(item.id)]) { seen[String(item.id)] = true; merged.push(item); }
       }
       var total = parseInt(payload.total, 10) || items.length;
@@ -153,14 +155,23 @@ function makeDesktopSearchCard(item) {
   card.appendChild(info);
   card.title = item.title || '';
   card._item = item;
-  card._activate = function () { openDetail(item); };
+  card._activate = function () {
+    if (item && item.title) {
+      rememberRecentSearch(item.title);
+      renderRecentSearches();
+    }
+    openDetail(item);
+  };
   return card;
 }
 
 function appendSearchCards(list, offset) {
   var frag = document.createDocumentFragment();
   for (var i = 0; i < list.length; i++) {
-    frag.appendChild(makeDesktopSearchCard(normalizeVod(list[i], offset + i + 1)));
+    var raw = list[i];
+    var cardItem = (raw && raw._portal !== undefined) ? raw : normalizeVod(raw, offset + i + 1);
+    if (raw && raw._portal) { cardItem._portal = true; }
+    frag.appendChild(makeDesktopSearchCard(cardItem));
   }
   srBody.appendChild(frag);
 }
@@ -214,7 +225,9 @@ function loadMoreSearch() {
     var items = payload.items || [];
     var fresh = [];
     for (var p = 0; p < items.length; p++) {
+      if (items[p] && typeof items[p] === 'object') { items[p].portal = true; }
       var item = normalizeVod(items[p], (state.searchMatches || []).length + fresh.length + 1);
+      item._portal = true;
       if (!remote.seen[String(item.id)]) { remote.seen[String(item.id)] = true; fresh.push(item); }
     }
     var offset = state.searchMatches.length;

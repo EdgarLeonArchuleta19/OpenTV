@@ -78,8 +78,27 @@ function localSuggestions(raw) {
   if (q.length < 2) { return []; }
   var buckets = [[], [], []];
   var seen = {};
-  for (var i = 0; i < VOD.length; i++) {
-    var item = VOD[i];
+  var pool = VOD.slice();
+  var srcCfg = typeof getVodSourcesConfig === 'function' ? getVodSourcesConfig() : { mode: 'auto' };
+  if (srcCfg.mode !== 'external' && localProfile && localProfile.history) {
+    for (var h = 0; h < localProfile.history.length; h++) {
+      var hr = localProfile.history[h];
+      if (hr && hr.id && hr.title && !hr.stremio && String(hr.id).indexOf('stremio:') !== 0) {
+        var histItem = normalizeVod({
+          id: hr.id,
+          title: hr.title,
+          poster: hr.poster,
+          landscape: hr.landscape,
+          type: hr.series ? 'teleplay' : 'movie',
+          portal: true
+        }, 0);
+        histItem._portal = true;
+        pool.push(histItem);
+      }
+    }
+  }
+  for (var i = 0; i < pool.length; i++) {
+    var item = pool[i];
     var t = norm(item.title || '');
     var a = item.alias ? norm(item.alias) : '';
     var key = t + '|' + (isSeriesItem(item) ? 's' : 'm');

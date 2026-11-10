@@ -234,7 +234,7 @@ function runSearch() {
 
   /* Debounced remote portal search (350ms) */
   if (state.searchTimer) { clearTimeout(state.searchTimer); }
-  if (vodApi.mode === 'portal' && q.length >= 2) {
+  if (vodApi.mode === 'portal' && getVodSourcesConfig().mode !== 'external' && q.length >= 2) {
     var seq = ++state.searchSeq;
     state.searchTimer = setTimeout(function () {
       portalServiceCall('search', { value: rawQ.trim() }, function (error, payload) {
@@ -247,7 +247,9 @@ function runSearch() {
         var seen = {};
         for (var m = 0; m < merged.length; m++) { seen[String(merged[m].id)] = true; }
         for (var p = 0; p < payload.items.length; p++) {
+          if (payload.items[p] && typeof payload.items[p] === 'object') { payload.items[p].portal = true; }
           var item = normalizeVod(payload.items[p], merged.length + 1);
+          item._portal = true;
           if (!seen[String(item.id)]) {
             seen[String(item.id)] = true;
             merged.push(item);

@@ -28,9 +28,11 @@ var dpsSubSwitch = null;
 var dpsRowLang = null;
 var dpsRowSize = null;
 var dpsRowStyle = null;
+var dpsRowSync = null;
 var dpsLangOptions = null;
 var dpsSizeOptions = null;
 var dpsStyleOptions = null;
+var dpsSyncOptions = null;
 var dpsBtnExit = null;
 var playerSubtitles = null;
 
@@ -52,6 +54,7 @@ var vodSubChosen = false;
 var subtitleSeq = 0;
 var vodSubSize = 'normal';
 var vodSubStyle = 'white';
+var vodSubOffset = 0;
 var playerCurrentAspect = 'contain';
 var lastHistorySaveAt = 0;
 
@@ -98,41 +101,101 @@ function rememberWatchProgress(current, duration, force) {
   var item = state.playerItem;
   if (!item || !item.id || current < 3) { return; }
   if (window.XUPER_DESKTOP && resumePending(item)) { return; }
-  var now = Date.now();
-  if (!force && now - lastHistorySaveAt < 15000) { return; }
-  lastHistorySaveAt = now;
   var episode = state.playerEpisode;
+  if (window.XUPER_DESKTOP && !resumeRestarted) {
+    var existing = historyRecordFor(item);
+    if (existing && (existing.position || 0) >= RESUME_MIN_S && current < RESUME_MIN_S) {
+      var sameTarget = !isSeriesItem(item) ||
+        (episode && String(existing.episodeId) === String(episode.id));
+      if (sameTarget) { return; }
+    }
+  }
+  var now = Date.now();
+  if (!force && now - lastHistorySaveAt < 10000) { return; }
+  lastHistorySaveAt = now;
   var key = String(item.id);
+  var seasonIdx = typeof state.playerSeasonIndex === 'number' ? state.playerSeasonIndex : (state.detailSeason || 0);
+  var curSeasonObj = (item.seasons && item.seasons[seasonIdx]) || null;
+  var seasonId = (curSeasonObj && curSeasonObj.id) ? String(curSeasonObj.id) : (item.seasonId ? String(item.seasonId) : key);
+  var knownDur = Math.floor(vodPlaybackDuration() || durationToSeconds(duration) || (existing && existing.duration) || 0);
   var record = {
     id: key,
     title: item.title || item.name || 'Contenido',
     poster: item.poster || item.cover || '',
+    landscape: item.landscape || item.backdrop || '',
     series: !!isSeriesItem(item),
+    portal: !!item._portal,
+    stremio: !!item._stremio,
+    seasonId: seasonId,
+    seasonIndex: seasonIdx,
+    seasonNumber: (curSeasonObj && curSeasonObj.number) || '',
     episodeId: episode && episode.id ? String(episode.id) : '',
     episodeNumber: episode ? (episode.number || episode.seriesNumber || '') : '',
     position: Math.floor(current),
-    duration: Math.floor(vodPlaybackDuration() || durationToSeconds(duration) || 0),
+    duration: knownDur,
     updatedAt: now
   };
   var next = [record];
   var old = localProfile.history || [];
+  var itemTitleNorm = norm(record.title || '');
+  var itemSeasons = item._catalogSeasons || item.seasons || [];
   for (var i = 0; i < old.length && next.length < 30; i++) {
-    if (String(old[i].id) !== key) { next.push(old[i]); }
+    var oldRec = old[i];
+    if (!oldRec) { continue; }
+    if (String(oldRec.id) === key) { continue; }
+    if (record.series && oldRec.series) {
+      if (seasonId && (String(oldRec.id) === seasonId || String(oldRec.seasonId) === seasonId)) { continue; }
+      var matchedSeason = false;
+      for (var s = 0; s < itemSeasons.length; s++) {
+        if (String(itemSeasons[s].id) === String(oldRec.id) ||
+            (oldRec.seasonId && String(itemSeasons[s].id) === String(oldRec.seasonId))) {
+          matchedSeason = true;
+          break;
+        }
+      }
+      if (matchedSeason || (itemTitleNorm && norm(oldRec.title || '') === itemTitleNorm)) { continue; }
+    }
+    next.push(oldRec);
   }
   localProfile.history = next;
   safeLocalWrite(LOCAL_PROFILE_KEY, localProfile);
+  if (typeof refreshContinueRows === 'function') { refreshContinueRows(); }
+  if (state.screen === 'detail' && state.detail === item && detailButtons) {
+    var mainPlayBtn = detailButtons.querySelector('.detail-btn[data-kind="fullscreen"] span');
+    var nextLabel = resumeLabelFor(item);
+    if (mainPlayBtn && nextLabel) { mainPlayBtn.textContent = nextLabel; }
+  }
 }
 
 var pendingHistoryRecord = null;
 function applyPendingHistoryEpisode(item) {
-  var record = pendingHistoryRecord;
-  if (!record || !item || String(record.id) !== String(item.id) || !record.episodeId || !item.episodes) { return; }
+  var record = pendingHistoryRecord || (window.XUPER_DESKTOP ? historyRecordFor(item) : null);
+  if (!record || !item || !record.episodeId || !item.episodes || !item.episodes.length) { return; }
+  var matchedRecord = historyRecordFor(item);
+  if (String(record.id) !== String(item.id) && matchedRecord !== record) { return; }
+  if (item.seasons && item.seasons.length > 1) {
+    var wantedSeasonId = String(record.seasonId || record.id || '');
+    for (var s = 0; s < item.seasons.length; s++) {
+      if (String(item.seasons[s].id) === wantedSeasonId) {
+        state.detailSeason = s;
+        state.playerSeasonIndex = s;
+        break;
+      }
+    }
+  }
   for (var i = 0; i < item.episodes.length; i++) {
-    if (String(item.episodes[i].id) === record.episodeId) {
+    var ep = item.episodes[i];
+    var idMatch = String(ep.id) === String(record.episodeId);
+    var numMatch = !idMatch && record.episodeNumber &&
+      String(ep.number || ep.seriesNumber || (i + 1)) === String(record.episodeNumber);
+    if (idMatch || numMatch) {
       /* Desktop: a finished episode moves on to the next one. */
-      var pick = window.XUPER_DESKTOP ? nextAfterFinished(item, i) : item.episodes[i];
+      var pickIndex = (window.XUPER_DESKTOP && recordFinished(record) && item.episodes[i + 1]) ? (i + 1) : i;
+      var pick = item.episodes[pickIndex];
       state.detailEpisode = pick;
       state.playerEpisode = pick;
+      state.detailRange = Math.floor(pickIndex / 20);
+      state.playerEpisodeRange = Math.floor(pickIndex / 20);
       return;
     }
   }
@@ -190,6 +253,13 @@ function parseTimestamp(s) {
   return 0;
 }
 
+function escapeSubtitleText(text) {
+  return String(text)
+    .replace(/<font[^>]*>/gi, '').replace(/<\/font>/gi, '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/&lt;(\/?)(i|b|u)&gt;/gi, '<$1$2>');
+}
+
 function parseSRT(data) {
   var cues = [];
   if (!data) return cues;
@@ -203,12 +273,42 @@ function parseSRT(data) {
         var m = timeLine.split('-->');
         var start = parseTimestamp(m[0].trim());
         var end = parseTimestamp(m[1].trim());
-        var txt = textLines.join('<br>').replace(/<font[^>]*>/gi, '').replace(/<\/font>/gi, '').trim();
+        /* Subtitle files come from the network: escape everything, then
+           restore only the plain formatting tags SRT files use. */
+        var txt = escapeSubtitleText(textLines.join('\n')).replace(/\n/g, '<br>').trim();
         if (txt) cues.push({ start: start, end: end, text: txt });
       }
     }
   }
   return cues;
+}
+
+var nativeSubTrack = null;
+
+function syncNativeSubtitleTrack() {
+  if (!playerVideo || typeof VTTCue === 'undefined') { return; }
+  try {
+    if (!nativeSubTrack) {
+      nativeSubTrack = playerVideo.addTextTrack('subtitles', 'Subtítulos', 'es');
+    }
+    while (nativeSubTrack.cues && nativeSubTrack.cues.length) {
+      nativeSubTrack.removeCue(nativeSubTrack.cues[0]);
+    }
+    if (!vodSubActive || !activeSubtitleCues || !activeSubtitleCues.length) {
+      nativeSubTrack.mode = 'disabled';
+      return;
+    }
+    var offset = vodSubOffset || 0;
+    for (var i = 0; i < activeSubtitleCues.length; i++) {
+      var c = activeSubtitleCues[i];
+      var s = Math.max(0, c.start + offset);
+      var e = Math.max(s + 0.2, c.end + offset);
+      var plain = String(c.text || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+      nativeSubTrack.addCue(new VTTCue(s, e, plain));
+    }
+    var inPip = typeof document.pictureInPictureElement !== 'undefined' && document.pictureInPictureElement === playerVideo;
+    nativeSubTrack.mode = inPip ? 'showing' : 'hidden';
+  } catch (eTrack) { /* ignore */ }
 }
 
 function loadSubtitleTrack(sub) {
@@ -217,6 +317,7 @@ function loadSubtitleTrack(sub) {
   if (!sub || !sub.url) {
     activeSubtitleCues = [];
     if (playerSubtitles) playerSubtitles.innerHTML = '';
+    syncNativeSubtitleTrack();
     return;
   }
   try {
@@ -226,6 +327,7 @@ function loadSubtitleTrack(sub) {
       if (mySeq !== subtitleSeq) { return; }
       if (xhr.status >= 200 && xhr.status < 300) {
         activeSubtitleCues = parseSRT(xhr.responseText);
+        syncNativeSubtitleTrack();
       }
     };
     xhr.send();
@@ -242,13 +344,19 @@ function applySubtitleStyles() {
 
 function updateSubtitleDisplay(currentSec) {
   if (!playerSubtitles) return;
+  if (nativeSubTrack && playerVideo) {
+    var inPip = typeof document.pictureInPictureElement !== 'undefined' && document.pictureInPictureElement === playerVideo;
+    var targetMode = (!vodSubActive || !activeSubtitleCues || !activeSubtitleCues.length) ? 'disabled' : (inPip ? 'showing' : 'hidden');
+    if (nativeSubTrack.mode !== targetMode) { nativeSubTrack.mode = targetMode; }
+  }
   if (!vodSubActive || !activeSubtitleCues || !activeSubtitleCues.length) {
     if (playerSubtitles.innerHTML !== '') playerSubtitles.innerHTML = '';
     return;
   }
+  var effectiveSec = currentSec - (vodSubOffset || 0);
   var cue = null;
   for (var i = 0; i < activeSubtitleCues.length; i++) {
-    if (currentSec >= activeSubtitleCues[i].start && currentSec <= activeSubtitleCues[i].end) {
+    if (effectiveSec >= activeSubtitleCues[i].start && effectiveSec <= activeSubtitleCues[i].end) {
       cue = activeSubtitleCues[i];
       break;
     }

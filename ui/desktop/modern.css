@@ -970,8 +970,8 @@ body.desktop {
   transition: background .15s var(--ease), border-color .15s var(--ease);
 }
 .desktop .live-dock-btn.is-icon { width: 52px; padding: 0; justify-content: center; }
-.desktop .live-dock-ico { display: block; width: 22px; height: 22px; flex-shrink: 0; }
-.desktop .live-dock-btn svg { display: block; width: 22px; height: 22px; }
+.desktop .live-dock-ico { display: inline-flex; align-items: center; justify-content: center; width: auto; height: auto; line-height: 0; flex-shrink: 0; }
+.desktop .live-dock-btn svg { display: block; width: 22px; height: 22px; flex-shrink: 0; }
 .desktop .live-dock-btn:hover { background: rgba(255, 255, 255, .14); border-color: var(--line-strong); }
 .desktop .live-dock-btn.is-focused { outline: 2px solid var(--text); outline-offset: 2px; }
 .desktop .live-dock-btn.is-off { color: #9a9a9a; }

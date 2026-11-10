@@ -12,7 +12,7 @@ var ACTIVE_PROFILE_SESSION = 'opentv_active_profile';
 var PROFILES_MAX = 6;
 var PROFILE_SCOPED_KEYS = [
   'xuper_local_profile_v1', 'xuper_global_playback_v1', 'opentv_recent_searches_v1',
-  'opentv_live_saved_v1', 'opentv_private_v1', 'opentv_catalog_density_v1'
+  'opentv_live_saved_v1', 'opentv_catalog_density_v1'
 ];
 
 function readProfiles() {

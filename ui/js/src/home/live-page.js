@@ -32,12 +32,27 @@ function buildLivePage(page) {
 
   var up = el('div', 'live-arrow-up focusable');
   var down = el('div', 'live-arrow-down focusable');
-  up.title = 'Canal anterior';
-  down.title = 'Canal siguiente';
-  up._activate = function () { setChannel(state.channel - 1, true); };
-  down._activate = function () { setChannel(state.channel + 1, true); };
+  up.title = 'Desplazar canales hacia arriba';
+  down.title = 'Desplazar canales hacia abajo';
+  if (window.XUPER_DESKTOP) {
+    up.innerHTML = UI_ICONS.chevronUp;
+    down.innerHTML = UI_ICONS.chevronDown;
+    up._activate = function () {
+      if (liveList) { liveList.scrollBy({ top: -360, behavior: 'smooth' }); }
+    };
+    down._activate = function () {
+      if (liveList) { liveList.scrollBy({ top: 360, behavior: 'smooth' }); }
+    };
+  } else {
+    up._activate = function () { setChannel(state.channel - 1, true); };
+    down._activate = function () { setChannel(state.channel + 1, true); };
+  }
   page.appendChild(up);
   page.appendChild(down);
+
+  if (window.XUPER_DESKTOP) {
+    page.appendChild(createChannelSearchBox('is-home', 'Buscar canal en vivo…'));
+  }
 
   liveList = el('div', 'live-list scrollable');
   page.appendChild(liveList);

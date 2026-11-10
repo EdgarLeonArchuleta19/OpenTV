@@ -54,7 +54,9 @@ function buildHistoryDrawer() {
 }
 
 function historyDrawerRecords() {
-  if (historyDrawerTab === 'history') { return localProfile.history || []; }
+  if (historyDrawerTab === 'history') {
+    return (localProfile.history || []).filter(function (r) { return !!vodForHistoryRecord(r); });
+  }
   var out = [];
   for (var v = 0; v < VOD.length; v++) {
     if (state.favs && state.favs[VOD[v].id]) {
@@ -213,7 +215,7 @@ function buildHistoryPanel() {
 
   var records = [];
   if (historyViewTab === 'history') {
-    records = localProfile.history || [];
+    records = (localProfile.history || []).filter(function (r) { return !!vodForHistoryRecord(r); });
   } else if (historyViewTab === 'favs') {
     for (var v = 0; v < VOD.length; v++) {
       if (state.favs && state.favs[VOD[v].id]) {

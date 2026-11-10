@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
   service: (method, parameters) => ipcRenderer.invoke('desktop:service', method, parameters),
   fullscreen: (flag) => ipcRenderer.invoke('desktop:fullscreen', flag),
+  pin: (flag) => ipcRenderer.invoke('desktop:pin', flag),
   info: () => ipcRenderer.invoke('desktop:info'),
   // Shows opentv.log (page errors and crashes) in the file explorer.
   openLogs: () => ipcRenderer.invoke('desktop:open-logs'),

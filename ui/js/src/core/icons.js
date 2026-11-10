@@ -41,7 +41,11 @@ var UI_ICONS = {
   check: uiSvg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
   expand: uiSvg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>'),
   folder: uiSvg('<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/>'),
-  speed: uiSvg('<path d="M12 14.5l4.5-4.5"/><path d="M3.6 18.5a9.5 9.5 0 1 1 16.8 0"/><circle cx="12" cy="14.5" r="1.2"/>')
+  speed: uiSvg('<path d="M12 14.5l4.5-4.5"/><path d="M3.6 18.5a9.5 9.5 0 1 1 16.8 0"/><circle cx="12" cy="14.5" r="1.2"/>'),
+  pin: uiSvg('<path d="M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6z"/><path d="M12 14v7"/><path d="M8 3h8"/>'),
+  addons: uiSvg('<path d="M12 3l9 4.5-9 4.5-9-4.5L12 3z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5L12 21l9-4.5"/>'),
+  chevronUp: uiSvg('<path d="M18 15l-6-6-6 6"/>'),
+  chevronDown: uiSvg('<path d="M6 9l6 6 6-6"/>')
 };
 
 /* Turns a text button into an icon button. The text becomes its tooltip

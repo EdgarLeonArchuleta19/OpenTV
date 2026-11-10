@@ -117,7 +117,9 @@ function dohQuery(host, provider, done) {
   var req = https.request({
     hostname: provider.ip,
     servername: provider.sni,
-    rejectUnauthorized: false,
+    /* Desktop checks the provider's certificate; older TVs stay lenient
+       because their certificate store lacks the newer roots. */
+    rejectUnauthorized: !!(process.versions && process.versions.electron),
     path: path,
     method: 'GET',
     headers: {

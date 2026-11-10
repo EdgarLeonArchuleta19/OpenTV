@@ -96,12 +96,16 @@ function setHeroArt(art) {
 /* Builds the hero block at the top of `page`. Returns the y where the rest
    of the page starts, or 0 when the section has no artwork to show. */
 function buildHero(page, source) {
+  var idx = pages.indexOf(page);
+  if (idx >= 0) { delete heroPages[idx]; }
   var items = [];
   for (var i = 0; i < source.length && items.length < HERO_MAX; i++) {
     if (heroArt(source[i]) && hasUsableCover(source[i])) { items.push(source[i]); }
   }
-  if (!items.length) { return 0; }
-  var idx = pages.indexOf(page);
+  if (!items.length) {
+    if (page.classList.contains('is-current') && idx >= 0) { showHeroForPage(idx); }
+    return 0;
+  }
   var info = el('div', 'hero-info');
   abs(info, 192, 70, 1180, 530);
   info.addEventListener('pointermove', function () { heroHoverAt = Date.now(); });

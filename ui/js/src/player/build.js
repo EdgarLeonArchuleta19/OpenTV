@@ -111,9 +111,11 @@ function buildPlayer() {
   dpsRowLang = $('dps-row-lang');
   dpsRowSize = $('dps-row-size');
   dpsRowStyle = $('dps-row-style');
+  dpsRowSync = $('dps-row-sync');
   dpsLangOptions = $('dps-lang-options');
   dpsSizeOptions = $('dps-size-options');
   dpsStyleOptions = $('dps-style-options');
+  dpsSyncOptions = $('dps-sync-options');
   dpsBtnExit = $('dps-btn-exit');
   playerSubtitles = $('player-subtitles');
   /* Desktop: subtitles go inside the video box, so the small player of the
@@ -166,6 +168,31 @@ function buildPlayer() {
           renderDialogSubtitle();
         };
       })(stBtns[sti]);
+    }
+  }
+
+  if (dpsSyncOptions) {
+    var syBtns = dpsSyncOptions.querySelectorAll('.dps-btn');
+    for (var syi = 0; syi < syBtns.length; syi++) {
+      (function (b) {
+        b._activate = function () {
+          var delta = parseFloat(b.getAttribute('data-sync') || '0');
+          if (delta === 0) {
+            vodSubOffset = 0;
+          } else {
+            vodSubOffset = Math.max(-15, Math.min(15, Math.round((vodSubOffset + delta) * 10) / 10));
+          }
+          updateSubtitleDisplay(vodPlaybackPosition());
+          renderDialogSubtitle();
+          var sign = vodSubOffset > 0 ? '+' : '';
+          setPlayerStatus('Sincronía de subtítulos: ' + (vodSubOffset === 0 ? '0.0 s (Normal)' : (sign + vodSubOffset.toFixed(1) + ' s')));
+          setTimeout(function () {
+            if (/^Sincronía de subtítulos/.test((playerStatus && playerStatus.textContent) || '')) {
+              setPlayerStatus('');
+            }
+          }, 1600);
+        };
+      })(syBtns[syi]);
     }
   }
 
@@ -251,11 +278,20 @@ function buildPlayer() {
   ];
   /* Desktop: no PIN lock (it never existed on Windows), so no dead button. */
   /* Formato is not used on Windows either (the picture always fits). */
-  if (window.XUPER_DESKTOP) actDefs = actDefs.filter(function (d) { return d.label !== 'Bloquear' && d.label !== 'Formato'; });
-  if (window.XUPER_DESKTOP) actDefs.unshift({ label: 'Reproducir', right: 0, w: 67 });
-  if (window.XUPER_DESKTOP) actDefs.push({ label: 'Canales', right: 0, w: 90 });
-  if (window.XUPER_DESKTOP && document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });
-  if (window.XUPER_DESKTOP) actDefs.push({ label: 'Pantalla completa', right: 0, w: 120 });
+  /* Play/pause is placed prominently in the exact center of the capsule. */
+  if (window.XUPER_DESKTOP) {
+    actDefs = [
+      { label: 'Canales', right: 0, w: 90 },
+      { label: 'Anterior', right: 333, w: 67 },
+      { label: 'Favorito', right: 219, w: 67 },
+      { label: 'HD', right: 389, w: 67 },
+      { label: 'Reproducir', right: 0, w: 67 },
+      { label: 'Reproductor 1', right: 151, w: 90 },
+      { label: 'Feedback', right: 50, w: 67 }
+    ];
+    if (document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });
+    actDefs.push({ label: 'Pantalla completa', right: 0, w: 120 });
+  }
   for (var i = 0; i < actDefs.length; i++) {
     var d = actDefs[i];
     if (d.hidden) { continue; }
@@ -339,9 +375,35 @@ function buildPlayer() {
   pcCategories.id = 'pc-categories';
   playerChannels.appendChild(pcCategories);
 
+  if (window.XUPER_DESKTOP) {
+    playerChannels.appendChild(createChannelSearchBox('is-player', 'Buscar canal por nombre o número…'));
+  }
+
   playerChannels.appendChild(el('div', 'pc-div'));
   var list = el('div', 'pc-list scrollable');
+  if (window.XUPER_DESKTOP) {
+    var pcUp = el('button', 'pc-scroll-arrow is-up focusable');
+    pcUp.type = 'button';
+    pcUp.title = 'Desplazar canales hacia arriba';
+    pcUp.innerHTML = UI_ICONS.chevronUp;
+    pcUp._activate = function () {
+      list.scrollBy({ top: -360, behavior: 'smooth' });
+    };
+    pcUp.addEventListener('click', function (ev) { ev.stopPropagation(); pcUp._activate(); });
+    playerChannels.appendChild(pcUp);
+  }
   playerChannels.appendChild(list);
+  if (window.XUPER_DESKTOP) {
+    var pcDown = el('button', 'pc-scroll-arrow is-down focusable');
+    pcDown.type = 'button';
+    pcDown.title = 'Desplazar canales hacia abajo';
+    pcDown.innerHTML = UI_ICONS.chevronDown;
+    pcDown._activate = function () {
+      list.scrollBy({ top: 360, behavior: 'smooth' });
+    };
+    pcDown.addEventListener('click', function (ev) { ev.stopPropagation(); pcDown._activate(); });
+    playerChannels.appendChild(pcDown);
+  }
   renderPlayerCategories();
   renderPlayerChannels();
 
@@ -566,14 +628,37 @@ function renderPlayerChannels(anchorIndex) {
     return;
   }
 
-  anchorIndex = Number(anchorIndex);
-  if (!isFinite(anchorIndex)) { anchorIndex = state.channel; }
-  anchorIndex = Math.max(0, Math.min(CHANNELS.length - 1, anchorIndex || 0));
-  var firstChannel = Math.max(0, anchorIndex - Math.floor(LIVE_PANEL_WINDOW / 2));
-  var lastChannel = Math.min(CHANNELS.length, firstChannel + LIVE_PANEL_WINDOW);
-  firstChannel = Math.max(0, lastChannel - LIVE_PANEL_WINDOW);
+  var hasQuery = !!(window.XUPER_DESKTOP && typeof liveChannelQuery === 'string' && norm(liveChannelQuery));
+  var indicesToRender = [];
+  if (hasQuery) {
+    for (var qi = 0; qi < CHANNELS.length; qi++) {
+      if (channelMatchesQuery(CHANNELS[qi], qi, liveChannelQuery)) {
+        indicesToRender.push(qi);
+        if (indicesToRender.length >= 120) { break; }
+      }
+    }
+    if (!indicesToRender.length) {
+      var noMatchRow = el('div', 'pc-empty-channels', 'Sin canales para «' + liveChannelQuery.trim() + '»');
+      noMatchRow.style.padding = '30px';
+      noMatchRow.style.color = '#888';
+      noMatchRow.style.fontSize = '20px';
+      list.appendChild(noMatchRow);
+      return;
+    }
+  } else {
+    anchorIndex = Number(anchorIndex);
+    if (!isFinite(anchorIndex)) { anchorIndex = state.channel; }
+    anchorIndex = Math.max(0, Math.min(CHANNELS.length - 1, anchorIndex || 0));
+    var firstChannel = Math.max(0, anchorIndex - Math.floor(LIVE_PANEL_WINDOW / 2));
+    var lastChannel = Math.min(CHANNELS.length, firstChannel + LIVE_PANEL_WINDOW);
+    firstChannel = Math.max(0, lastChannel - LIVE_PANEL_WINDOW);
+    for (var ci = firstChannel; ci < lastChannel; ci++) {
+      indicesToRender.push(ci);
+    }
+  }
 
-  for (var c = firstChannel; c < lastChannel; c++) {
+  for (var k = 0; k < indicesToRender.length; k++) {
+    var c = indicesToRender[k];
     var row = el('div', 'pc-row focusable');
     row._channel = c;
     var ic = el('div', 'ic');

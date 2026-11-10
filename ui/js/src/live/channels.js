@@ -278,6 +278,10 @@ function switchLiveCategory(cat, done) {
 }
 
 function loadAddonChannels(done) {
+  /* Cancels a category still loading pages; a later choice cancels this. */
+  var addonSeq = ++liveChannelRequestSeq;
+  liveChannelsLoading = false;
+  liveChannelLoadColumnId = null;
   var addons = getSavedAddons();
   if (!addons || !addons.length) {
     CHANNELS.splice(0, CHANNELS.length);
@@ -302,6 +306,7 @@ function loadAddonChannels(done) {
           }
         }
         pending--;
+        if (pending <= 0 && addonSeq !== liveChannelRequestSeq) { return; }
         if (pending <= 0) {
           setPlayerStatus('');
           CHANNELS.splice(0, CHANNELS.length);
@@ -331,7 +336,7 @@ function loadLiveChannels(columnId, done) {
   var requestedColumnId = columnId || 76182;
   /* buildLivePage and the initial boot can both ask for Todos.  Keep the
      existing request instead of clearing the first page while it streams. */
-  if (liveChannelsLoading && liveChannelLoadColumnId === requestedColumnId) { return; }
+  if (liveChannelsLoading && liveChannelLoadColumnId === requestedColumnId) { if (done) { done(); } return; }
   var keepPlaying = livePlayingToKeep();
   var requestSeq = ++liveChannelRequestSeq;
   liveChannelLoadColumnId = requestedColumnId;
@@ -381,7 +386,7 @@ function loadLiveChannels(columnId, done) {
         if (firstPage && keepPlaying) { keepLivePlayingChannel(keepPlaying); }
         renderLiveRows(false);
         renderPlayerChannels();
-        if (state.channel >= CHANNELS.length) { state.channel = 0; }
+        if (state.channel < 0 || state.channel >= CHANNELS.length) { state.channel = 0; }
         if (CHANNELS[state.channel] && liveInfoText) {
           liveInfoText.textContent = CHANNELS[state.channel].name;
         }
@@ -452,18 +457,118 @@ function renderLiveRows(favOnly) {
      so rows are added in batches as the list scrolls (or as the current
      channel moves further down). */
   liveRowsFavOnly = !!favOnly;
-  var limit = window.XUPER_DESKTOP && !favOnly ? Math.min(CHANNELS.length, Math.max(LIVE_ROWS_BATCH, state.channel + 25)) : CHANNELS.length;
+  var hasQuery = !!(liveChannelQuery && norm(liveChannelQuery));
+  var limit = (window.XUPER_DESKTOP && !favOnly && !hasQuery)
+    ? Math.min(CHANNELS.length, Math.max(LIVE_ROWS_BATCH, state.channel + 25))
+    : CHANNELS.length;
   appendLiveRows(limit);
+  if (hasQuery && !liveRows.length) {
+    liveList.appendChild(el('div', 'live-list-status', 'Sin canales para «' + liveChannelQuery.trim() + '»'));
+  }
   if (CHANNELS[state.channel] && liveInfoText) {
     liveInfoText.textContent = CHANNELS[state.channel].name;
   }
-  scrollLiveList();
+  if (!hasQuery) { scrollLiveList(); }
   if (liveGuideOpen) { renderLiveGuideGrid(); }
 }
 
 var LIVE_ROWS_BATCH = 60;
 var liveRowsFavOnly = false;
 var liveRowsShown = 0;
+var liveChannelQuery = '';
+
+function channelMatchesQuery(ch, index, query) {
+  if (!query) { return true; }
+  var q = norm(query);
+  if (!q) { return true; }
+  var name = norm((ch && ch.name) || '');
+  var num = String((ch && ch.index) || (index + 1));
+  var code = norm((ch && ch.channelCode) || '');
+  return name.indexOf(q) !== -1 || num.indexOf(q) !== -1 || code.indexOf(q) !== -1;
+}
+
+function setLiveChannelQuery(val, sourceInput) {
+  liveChannelQuery = String(val || '');
+  var inputs = document.querySelectorAll('.csb-input');
+  for (var i = 0; i < inputs.length; i++) {
+    if (inputs[i] !== sourceInput && inputs[i].value !== liveChannelQuery) {
+      inputs[i].value = liveChannelQuery;
+    }
+    if (inputs[i].parentNode) {
+      inputs[i].parentNode.classList.toggle('has-text', !!liveChannelQuery);
+    }
+  }
+  renderLiveRows(liveRowsFavOnly);
+  if (playerChannels) { renderPlayerChannels(state.channel); }
+}
+
+function createChannelSearchBox(cls, placeholder) {
+  var wrap = el('div', 'channel-search-box ' + (cls || ''));
+  var ico = el('i', 'csb-icon');
+  ico.innerHTML = UI_ICONS.search;
+  var inp = document.createElement('input');
+  inp.type = 'search';
+  inp.className = 'csb-input';
+  inp.placeholder = placeholder || 'Buscar canal…';
+  inp.autocomplete = 'off';
+  inp.spellcheck = false;
+  inp.value = liveChannelQuery || '';
+  var clr = el('button', 'csb-clear');
+  clr.type = 'button';
+  clr.innerHTML = UI_ICONS.close;
+  clr.setAttribute('data-tip', 'Limpiar búsqueda');
+  clr.setAttribute('aria-label', 'Limpiar búsqueda');
+  wrap.classList.toggle('has-text', !!inp.value);
+  inp.addEventListener('input', function () {
+    setLiveChannelQuery(inp.value, inp);
+  });
+  inp.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (inp.value) {
+        setLiveChannelQuery('', null);
+      } else {
+        inp.blur();
+      }
+      return;
+    }
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      event.stopPropagation();
+      inp.blur();
+      if (cls === 'is-player' && playerChannels) {
+        var firstPc = playerChannels.querySelector('.pc-row');
+        if (firstPc) { setFocus(firstPc); }
+      } else if (liveRows && liveRows.length) {
+        setFocus(liveRows[0]);
+      }
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (cls === 'is-player' && playerChannels) {
+        var firstMatch = playerChannels.querySelector('.pc-row');
+        if (firstMatch && firstMatch._activate) { firstMatch._activate(); }
+      } else if (liveRows && liveRows.length && liveRows[0]._activate) {
+        setChannel(liveRows[0]._channel, true);
+      }
+      return;
+    }
+    event.stopPropagation();
+  });
+  clr.addEventListener('click', function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    setLiveChannelQuery('', null);
+    inp.focus();
+  });
+  wrap.appendChild(ico);
+  wrap.appendChild(inp);
+  wrap.appendChild(clr);
+  return wrap;
+}
 
 /* Renders channel rows up to (not including) index `upTo`. */
 function appendLiveRows(upTo) {
@@ -480,6 +585,7 @@ function appendLiveRows(upTo) {
   var frag = document.createDocumentFragment();
   for (var i = liveRowsShown; i < Math.min(upTo, CHANNELS.length); i++) {
     if (liveRowsFavOnly && !CHANNELS[i].fav) { continue; }
+    if (liveChannelQuery && !channelMatchesQuery(CHANNELS[i], i, liveChannelQuery)) { continue; }
     var row = makeLiveRow(i);
     frag.appendChild(row);
     liveRows.push(row);
@@ -583,6 +689,8 @@ function scrollLiveList() {
 }
 
 function setChannel(index, immediate) {
+  /* Arrow keys before the list has loaded must not leave channel -1. */
+  if (!CHANNELS.length) { return; }
   if (index < 0) { index = 0; }
   if (index > CHANNELS.length - 1) { index = CHANNELS.length - 1; }
   state.channel = index;

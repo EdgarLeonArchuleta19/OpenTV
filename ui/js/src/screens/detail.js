@@ -33,6 +33,20 @@ function openDetail(item) {
   }
   resetResumePlan();
   preferHistoryEpisode(item);
+  if (window.XUPER_DESKTOP && pendingHistoryRecord && item.seasons && item.seasons.length > 1) {
+    var wantedSid = String(pendingHistoryRecord.seasonId || pendingHistoryRecord.id || '');
+    for (var hs = 0; hs < item.seasons.length; hs++) {
+      if (String(item.seasons[hs].id) === wantedSid) {
+        state.detailSeason = hs;
+        state.playerSeasonIndex = hs;
+        if (item.seasons[hs]._episodes && item.seasons[hs]._episodes.length) {
+          item.episodes = item.seasons[hs]._episodes;
+          item.seasonId = item.seasons[hs].id;
+        }
+        break;
+      }
+    }
+  }
   applyPendingHistoryEpisode(item);
 
   /* New title: forget the previous audio/subtitle/rendition choice and ask
@@ -58,12 +72,31 @@ function openDetail(item) {
   if (f) { setFocus(f); }
 
   if (item._detailsLoaded) {
-    if (autoPreviewAllowed(item)) { startPlayerVideo(item, state.detailEpisode); }
+    var recSeason = window.XUPER_DESKTOP && pendingHistoryRecord && item.seasons && item.seasons[state.detailSeason];
+    if (recSeason && recSeason.id && String(recSeason.id) !== String(item.seasonId || item.id) &&
+        (!recSeason._episodes || !recSeason._episodes.length)) {
+      if (autoPreviewAllowed(item)) { setPlayerStatus('Preparando la reproducción…'); }
+      portalServiceCall('detail', { contentId: recSeason.id }, function (sErr, sPayload) {
+        if (!sErr && sPayload && sPayload.returnValue !== false) {
+          item.episodes = sPayload.episodes || [];
+          item.seasonId = recSeason.id;
+          recSeason._episodes = item.episodes;
+          applyPendingHistoryEpisode(item);
+        }
+        if (state.screen === 'detail' && state.detail === item) {
+          buildDetail(item);
+          if (autoPreviewAllowed(item)) { startPlayerVideo(item, state.detailEpisode); }
+        }
+      });
+    } else if (autoPreviewAllowed(item)) {
+      startPlayerVideo(item, state.detailEpisode);
+    }
   } else {
     if (autoPreviewAllowed(item)) { setPlayerStatus('Preparando la reproducción…'); }
     loadVodDetail(item, function (loaded) {
       if (loaded && state.screen === 'detail' && state.detail === loaded) {
         applyPendingHistoryEpisode(loaded);
+        buildDetail(loaded);
         if (autoPreviewAllowed(loaded)) { startPlayerVideo(loaded, state.detailEpisode); }
       }
     });
@@ -238,8 +271,12 @@ function buildDetail(item) {
         else if (kind === 'restart') {
           resumePlan = null;
           resumeSkipOnce = true;
+          resumeRestarted = true;
+          if (playerVideo) {
+            playerVideo.removeAttribute('src');
+            try { playerVideo.src = ''; } catch (eClr) { /* ignore */ }
+          }
           expandToFullscreen(it, state.detailEpisode);
-          setTimeout(function () { var at = vodPlaybackPosition(); if (at > 3) { playerSeek(-at); } }, 400);
         }
         else if (kind === 'language') { openPlaySettingsDialog(it); }
         else if (kind === 'favorite') {
@@ -380,6 +417,10 @@ function toggleSeasonPopup(anchorBtn, item) {
           if (targetSeason && targetSeason.id) {
             setPlayerStatus('Cargando temporada…');
             portalServiceCall('detail', { contentId: targetSeason.id }, function (err, payload) {
+              /* Another season (or title) was picked meanwhile: a late reply
+                 must not overwrite its episodes. */
+              if (state.detail !== item || state.detailSeason !== sIndex) { return; }
+              setPlayerStatus('');
               if (!err && payload && payload.returnValue !== false) {
                 if (payload.item) { mergeDetail(item, payload.item); }
                 item.episodes = payload.episodes || [];
@@ -387,6 +428,9 @@ function toggleSeasonPopup(anchorBtn, item) {
                 targetSeason._episodes = item.episodes;
                 state.detailEpisode = item.episodes[0] || null;
               }
+              /* The viewer left the detail page: keep the episodes for when
+                 it is opened again, but do not start a hidden video. */
+              if (state.screen !== 'detail') { state.detailNeedsRebuild = true; return; }
               buildDetail(item);
               if (state.detailEpisode) {
                 startPlayerVideo(item, state.detailEpisode);

@@ -13,10 +13,12 @@ html, body, .focusable, button, a, input { cursor: auto !important; }
 .desktop .live-list, .desktop .pc-list, .desktop .home-tabs {
   overflow-y: auto; overflow-x: hidden;
 }
-.desktop .scrollable { scrollbar-width: auto; scrollbar-color: #777777 #171717; }
-.desktop .scrollable::-webkit-scrollbar { display: block !important; width: 20px; height: 20px; }
-.desktop .scrollable::-webkit-scrollbar-thumb { background: #777777; border: 4px solid #171717; border-radius: 12px; }
-.desktop .scrollable::-webkit-scrollbar-track { background: #171717; }
+.desktop .scrollable { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .24) transparent; }
+.desktop .scrollable::-webkit-scrollbar { display: block !important; width: 8px; height: 8px; }
+.desktop .scrollable::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .24); border: 0; border-radius: 999px; }
+.desktop .scrollable::-webkit-scrollbar-track { background: transparent; }
+.desktop .pc-categories.scrollable { scrollbar-width: none !important; }
+.desktop .pc-categories.scrollable::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
 .desktop .kb-edit { padding: 0 18px; border: 2px solid #555; outline: none; font: 30px 'Segoe UI', sans-serif; text-align: left; cursor: text !important; }
 .desktop .kb-edit:focus { border-color: #909090; box-shadow: 0 0 0 3px #90909030; }
 .desktop .kb-edit::placeholder { color: #b4b4b4; }
@@ -42,7 +44,7 @@ html, body, .focusable, button, a, input { cursor: auto !important; }
 .desktop .vod-infobar-tips .vod-tip { margin-left: 0; }
 .desktop .pi-actions { display: flex !important; }
 .desktop .fb-qr[hidden] { display: none; }
-.desktop #screen-player:has(#player-vod-infobar.is-active) .player-subtitles:not(.shift-up) { bottom: 300px; }
+.desktop #screen-player:not(.is-mini):has(#player-vod-infobar.is-active) .player-subtitles:not(.shift-up) { bottom: 300px; }
 
 .desktop .vod-duration-note { color: #bababa; font: 22px/1.3 'Segoe UI',sans-serif; margin-top: 10px; }
 .desktop .vod-duration-note[hidden] { display: none; }

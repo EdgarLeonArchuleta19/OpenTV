@@ -188,6 +188,9 @@ function resolveStream(message, forceRelay) {
         var token = proxy.add(stream.url, stream.headers, stream.duration, resolvedIp);
         var extension = stream.mime === 'video/mp4' ? 'mp4' : 'ts';
         stream.proxyPath = proxy.baseUrl() + '/media/' + token + '/stream.' + extension;
+        if (relay.available()) {
+          stream.relayUrl = relay.register(stream, { hevc: isHevc, audio: Number(payload.audioTrack) || 0 });
+        }
         stream.isHls = false;
         attachSubtitles(stream);
         respond(message, null, stream);

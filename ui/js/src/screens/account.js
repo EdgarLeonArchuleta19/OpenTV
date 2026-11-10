@@ -9,7 +9,7 @@ function settingsIndexOf(id) {
 }
 
 function buildDesktopProfilePanel() {
-  var p = el('div', 'settings-panel account-panel acc-desktop');
+  var p = el('div', 'settings-panel account-panel acc-desktop scrollable');
 
   var head = el('div', 'acc-head');
   var me = activeProfile();
@@ -138,4 +138,336 @@ function buildPrivateSettingsCard() {
   }
   render();
   return card;
+}
+
+/* Ajustes → Fuentes (opción dedicada en la barra lateral de Ajustes) */
+function buildSourcesPanel() {
+  var page = desktopSettingsPage(
+    'sd-sources scrollable',
+    'Fuentes',
+    'Elige de dónde saca OpenTV las películas y series, y conecta tus listas M3U o addons de Stremio.'
+  );
+  page.body.appendChild(buildContentSourcesSection());
+  return page.panel;
+}
+
+/* Tarjeta "Modo del catálogo": tres opciones con descripción. Al elegir una
+   se guarda y el catálogo se recarga al momento (no hace falta reiniciar). */
+function buildSourceModeCard(onChange) {
+  var card = el('div', 'acc-source-card');
+  var text = el('div', 'acc-action-text');
+  text.appendChild(el('div', 'acc-action-title', 'Modo del catálogo'));
+  text.appendChild(el('div', 'acc-action-sub', 'Decide de dónde salen las películas y series. Al cambiar, el catálogo se recarga solo.'));
+  card.appendChild(text);
+
+  var grid = el('div', 'acc-mode-grid');
+  var status = el('div', 'acc-source-msg', '');
+  var busy = false;
+
+  function paint() {
+    var current = getVodSourcesConfig().mode;
+    var opts = grid.querySelectorAll('.acc-mode-opt');
+    for (var k = 0; k < opts.length; k++) {
+      var sel = opts[k]._mode === current;
+      opts[k].classList.toggle('is-selected', sel);
+      opts[k].setAttribute('aria-checked', sel ? 'true' : 'false');
+    }
+  }
+
+  VOD_SOURCE_MODES.forEach(function (m) {
+    var opt = el('div', 'acc-mode-opt focusable');
+    opt._mode = m.id;
+    opt.setAttribute('role', 'radio');
+    var head = el('div', 'acc-mode-head');
+    head.appendChild(el('span', 'acc-mode-radio'));
+    head.appendChild(el('span', 'acc-mode-title', m.title));
+    if (m.badge) { head.appendChild(el('span', 'acc-mode-badge', m.badge)); }
+    opt.appendChild(head);
+    opt.appendChild(el('div', 'acc-mode-desc', m.desc));
+    opt._activate = function () {
+      if (busy || getVodSourcesConfig().mode === m.id) { return; }
+      busy = true;
+      card.classList.add('is-busy');
+      status.textContent = 'Recargando catálogo…';
+      status.className = 'acc-source-msg';
+      applyVodSourceMode(m.id, function (err, count) {
+        busy = false;
+        card.classList.remove('is-busy');
+        paint();
+        if (err) {
+          status.textContent = err;
+          status.className = 'acc-source-msg is-err';
+        } else {
+          status.textContent = m.id === 'external'
+            ? '✔ Modo manual activo: ' + count + ' títulos de tus addons de Stremio.'
+            : (m.id === 'portal'
+                ? '✔ Modo servidor activo: catálogo recargado desde el servidor principal.'
+                : '✔ Respaldo automático activo: servidor principal con tus addons de respaldo.');
+          status.className = 'acc-source-msg is-ok';
+        }
+        if (onChange) { onChange(); }
+      });
+    };
+    grid.appendChild(opt);
+  });
+  card.appendChild(grid);
+  card.appendChild(status);
+  paint();
+  card._paint = paint;
+  return card;
+}
+
+function buildContentSourcesSection() {
+  var wrap = el('div', 'acc-sources-wrap');
+  var modeCard = buildSourceModeCard(function () { renderVodSources(); });
+  wrap.appendChild(modeCard);
+
+  /* --- 1. Tarjeta de TV en Vivo (M3U / IPTV) --- */
+  var tvCard = el('div', 'acc-source-card');
+  var tvHead = el('div', 'acc-source-head');
+  var tvText = el('div', 'acc-action-text');
+  tvText.appendChild(el('div', 'acc-action-title', 'Televisión en Vivo · Listas M3U / IPTV'));
+  var tvSub = el('div', 'acc-action-sub', '');
+  tvText.appendChild(tvSub);
+  tvHead.appendChild(tvText);
+
+  var tvCatalogBtn = el('div', 'acc-seg-btn focusable is-selected', 'Listas recomendadas (1-Clic)');
+  tvCatalogBtn._activate = function () { openAddonsDialog(); };
+  tvHead.appendChild(tvCatalogBtn);
+  tvCard.appendChild(tvHead);
+
+  var tvInputRow = el('div', 'acc-source-input-row');
+  var tvInput = document.createElement('input');
+  tvInput.type = 'text';
+  tvInput.className = 'acc-source-input focusable';
+  tvInput.placeholder = 'Pega aquí un enlace .m3u o .m3u8 de canales de TV (https://ejemplo.com/lista.m3u)…';
+  tvInput.addEventListener('keydown', function (ev) {
+    ev.stopPropagation();
+    if (ev.keyCode === 13) {
+      ev.preventDefault();
+      if (tvAddBtn._activate) { tvAddBtn._activate(); }
+    }
+  });
+  var tvAddBtn = el('div', 'acc-seg-btn focusable is-selected', '+ Agregar M3U');
+  var tvStatus = el('div', 'acc-source-msg', '');
+  tvInputRow.appendChild(tvInput);
+  tvInputRow.appendChild(tvAddBtn);
+  tvCard.appendChild(tvInputRow);
+  tvCard.appendChild(tvStatus);
+
+  var tvList = el('div', 'acc-source-list');
+  tvCard.appendChild(tvList);
+
+  function renderTvSources() {
+    var saved = getSavedAddons();
+    var totalCh = 0;
+    for (var c = 0; c < saved.length; c++) { totalCh += (parseInt(saved[c].count, 10) || 0); }
+    tvSub.textContent = saved.length
+      ? (saved.length + (saved.length === 1 ? ' lista M3U activa' : ' listas M3U activas') + (totalCh ? (' · ' + totalCh + ' canales extra disponibles en la categoría Addons M3U') : ''))
+      : 'Si el servidor de TV falla o quieres sumar tus propios canales IPTV, agrega cualquier enlace M3U/M3U8.';
+    clear(tvList);
+    for (var i = 0; i < saved.length; i++) {
+      (function (ad, idx) {
+        var row = el('div', 'acc-source-item');
+        var info = el('div', 'acc-source-item-info');
+        info.appendChild(el('div', 'acc-source-item-name', ad.name || 'Lista M3U'));
+        info.appendChild(el('div', 'acc-source-item-meta', (ad.count ? (ad.count + ' canales · ') : '') + ad.url));
+        row.appendChild(info);
+        var del = el('div', 'acc-seg-btn is-danger focusable', 'Quitar');
+        del._activate = function () {
+          var current = getSavedAddons();
+          current.splice(idx, 1);
+          saveSavedAddons(current);
+          renderTvSources();
+          if (currentLiveCategory && currentLiveCategory.isAddon) { loadAddonChannels(); }
+        };
+        row.appendChild(del);
+        tvList.appendChild(row);
+      })(saved[i], i);
+    }
+  }
+
+  tvAddBtn._activate = function () {
+    var url = (tvInput.value || '').trim();
+    if (!url || !/^https?:\/\//i.test(url)) {
+      tvStatus.textContent = 'Escribe una URL válida que empiece con http:// o https://';
+      tvStatus.className = 'acc-source-msg is-err';
+      return;
+    }
+    tvAddBtn.textContent = 'Descargando…';
+    tvStatus.textContent = 'Verificando lista M3U…';
+    tvStatus.className = 'acc-source-msg';
+    installAddon({ id: 'custom_' + Date.now(), name: 'Lista M3U Personalizada', url: url }, function (err, count) {
+      tvAddBtn.textContent = '+ Agregar M3U';
+      if (err) {
+        tvStatus.textContent = 'No se pudo cargar la lista: ' + err;
+        tvStatus.className = 'acc-source-msg is-err';
+      } else {
+        tvInput.value = '';
+        tvStatus.textContent = '✔ Lista agregada con éxito (' + count + ' canales).';
+        tvStatus.className = 'acc-source-msg is-ok';
+        renderTvSources();
+        if (currentLiveCategory && currentLiveCategory.isAddon) { loadAddonChannels(); }
+      }
+    });
+  };
+  renderTvSources();
+  wrap.appendChild(tvCard);
+
+  /* --- 2. Tarjeta de Películas y Series (Stremio Addons / Catálogo Externo) --- */
+  var vodCard = el('div', 'acc-source-card');
+  var vodHead = el('div', 'acc-source-head');
+  var vodText = el('div', 'acc-action-text');
+  vodText.appendChild(el('div', 'acc-action-title', 'Películas y Series · Addons de Stremio y Fuentes Externas'));
+  var vodSub = el('div', 'acc-action-sub', '');
+  vodText.appendChild(vodSub);
+  vodHead.appendChild(vodText);
+  vodCard.appendChild(vodHead);
+
+  var vodInputRow = el('div', 'acc-source-input-row');
+  var vodInput = document.createElement('input');
+  vodInput.type = 'text';
+  vodInput.className = 'acc-source-input focusable';
+  vodInput.placeholder = 'Pega un addon de Stremio (https://.../manifest.json o stremio://...) o catálogo .json / .m3u…';
+  vodInput.addEventListener('keydown', function (ev) {
+    ev.stopPropagation();
+    if (ev.keyCode === 13) {
+      ev.preventDefault();
+      if (vodAddBtn._activate) { vodAddBtn._activate(); }
+    }
+  });
+  var vodAddBtn = el('div', 'acc-seg-btn focusable is-selected', '+ Conectar Addon');
+  var vodSyncBtn = el('div', 'acc-seg-btn focusable', 'Sincronizar');
+  vodInputRow.appendChild(vodInput);
+  vodInputRow.appendChild(vodAddBtn);
+  vodInputRow.appendChild(vodSyncBtn);
+  vodCard.appendChild(vodInputRow);
+
+  var vodStatus = el('div', 'acc-source-msg', '');
+  vodCard.appendChild(vodStatus);
+
+  var vodPresetsRow = el('div', 'acc-source-presets');
+  vodCard.appendChild(vodPresetsRow);
+
+  var vodList = el('div', 'acc-source-list');
+  vodCard.appendChild(vodList);
+
+  function renderVodSources() {
+    var cfg = getVodSourcesConfig();
+    var installedUrls = {};
+    var totalTitles = 0;
+    for (var i = 0; i < cfg.addons.length; i++) {
+      installedUrls[cfg.addons[i].url] = true;
+      totalTitles += (parseInt(cfg.addons[i].count, 10) || 0);
+    }
+    var modeDesc = cfg.mode === 'external'
+      ? 'Modo manual: el catálogo sale solo de estos addons.'
+      : (cfg.mode === 'portal'
+          ? 'Modo servidor: estos addons quedan guardados pero no se usan.'
+          : 'Respaldo automático: si el servidor principal falla, OpenTV usará estos addons.');
+    vodSub.textContent = modeDesc + (cfg.addons.length ? (' · ' + cfg.addons.length + ' fuente(s) conectada(s) (' + totalTitles + ' títulos)') : '');
+
+    clear(vodPresetsRow);
+    for (var p = 0; p < PRESET_VOD_ADDONS.length; p++) {
+      (function (preset) {
+        var isInst = !!installedUrls[preset.url];
+        var pb = el('div', 'acc-seg-btn acc-preset-pill focusable' + (isInst ? ' is-installed' : ''),
+          (isInst ? '✔ ' : '+ Instalar ') + preset.name);
+        pb._activate = function () {
+          if (isInst) { return; }
+          pb.textContent = 'Conectando…';
+          installVodAddon(preset, function (err, count) {
+            if (err) {
+              vodStatus.textContent = 'Error al instalar ' + preset.name + ': ' + err;
+              vodStatus.className = 'acc-source-msg is-err';
+            } else {
+              vodStatus.textContent = '✔ ' + preset.name + ' conectado (' + count + ' títulos sincronizados).';
+              vodStatus.className = 'acc-source-msg is-ok';
+            }
+            renderVodSources();
+          });
+        };
+        vodPresetsRow.appendChild(pb);
+      })(PRESET_VOD_ADDONS[p]);
+    }
+
+    clear(vodList);
+    for (var a = 0; a < cfg.addons.length; a++) {
+      (function (ad, idx) {
+        var row = el('div', 'acc-source-item');
+        var info = el('div', 'acc-source-item-info');
+        info.appendChild(el('div', 'acc-source-item-name', ad.name || 'Addon Stremio'));
+        info.appendChild(el('div', 'acc-source-item-meta',
+          (ad.kind === 'stremio' ? 'Stremio · ' : '') +
+          (ad.count ? (ad.count + ' títulos · ') : '') + ad.url));
+        row.appendChild(info);
+        var del = el('div', 'acc-seg-btn is-danger focusable', 'Quitar');
+        del._activate = function () {
+          var current = getVodSourcesConfig();
+          current.addons.splice(idx, 1);
+          saveVodSourcesConfig(current);
+          renderVodSources();
+          /* En modo manual, el catálogo se rehace sin ese addon; si ya no
+             queda ninguno, se vuelve al respaldo automático. */
+          if (current.mode === 'external') {
+            applyVodSourceMode(current.addons.length ? 'external' : 'auto', function () {
+              if (modeCard._paint) { modeCard._paint(); }
+              renderVodSources();
+            });
+          }
+        };
+        row.appendChild(del);
+        vodList.appendChild(row);
+      })(cfg.addons[a], a);
+    }
+  }
+
+  vodAddBtn._activate = function () {
+    var rawUrl = (vodInput.value || '').trim();
+    if (!rawUrl) {
+      vodStatus.textContent = 'Pega la URL de un addon de Stremio (manifest.json) o catálogo externo.';
+      vodStatus.className = 'acc-source-msg is-err';
+      return;
+    }
+    vodAddBtn.textContent = 'Conectando…';
+    vodStatus.textContent = 'Consultando addon y descargando catálogo…';
+    vodStatus.className = 'acc-source-msg';
+    installVodAddon({ url: rawUrl }, function (err, count, meta) {
+      vodAddBtn.textContent = '+ Conectar Addon';
+      if (err) {
+        vodStatus.textContent = 'No se pudo conectar el addon: ' + err;
+        vodStatus.className = 'acc-source-msg is-err';
+      } else {
+        vodInput.value = '';
+        vodStatus.textContent = '✔ Addon "' + ((meta && meta.name) || 'Stremio') + '" conectado (' + count + ' títulos cargados).';
+        vodStatus.className = 'acc-source-msg is-ok';
+        renderVodSources();
+      }
+    });
+  };
+
+  vodSyncBtn._activate = function () {
+    var cfg = getVodSourcesConfig();
+    if (!cfg.addons.length) {
+      vodStatus.textContent = 'Primero instala o conecta al menos un addon de Stremio arriba.';
+      vodStatus.className = 'acc-source-msg is-err';
+      return;
+    }
+    if (cfg.mode === 'portal') {
+      vodStatus.textContent = 'Estás en Modo servidor: los addons no se usan. Cambia a Respaldo automático o Modo manual arriba.';
+      vodStatus.className = 'acc-source-msg is-err';
+      return;
+    }
+    vodSyncBtn.textContent = 'Sincronizando…';
+    syncExternalVodCatalogs(function (err, count) {
+      vodSyncBtn.textContent = 'Sincronizar';
+      vodStatus.textContent = '✔ Catálogo externo sincronizado (' + (count || 0) + ' títulos disponibles en Inicio).';
+      vodStatus.className = 'acc-source-msg is-ok';
+      renderVodSources();
+    }, true);
+  };
+
+  renderVodSources();
+  wrap.appendChild(vodCard);
+  return wrap;
 }

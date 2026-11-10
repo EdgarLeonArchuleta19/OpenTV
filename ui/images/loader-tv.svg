@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 60 392 400" width="160" height="164">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 52 392 400" width="160" height="164">
   <!-- OpenTV loading animation: the logo's TV with a tracing frame, a
        swaying antenna, a breathing play sign and a scanline. -->
   <defs>
-    <clipPath id="screen"><rect x="104" y="164" width="304" height="208" rx="32"/></clipPath>
+    <clipPath id="screen"><rect x="104" y="156" width="304" height="208" rx="32"/></clipPath>
     <linearGradient id="scan" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#fff" stop-opacity="0"/>
       <stop offset=".5" stop-color="#fff" stop-opacity=".22"/>
@@ -11,21 +11,21 @@
   </defs>
   <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="24">
     <g>
-      <path d="M196 92 256 152 316 92"/>
-      <animateTransform attributeName="transform" type="rotate" values="-7 256 152;7 256 152;-7 256 152" dur="1.6s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"/>
+      <path d="M196 84 256 144 316 84"/>
+      <animateTransform attributeName="transform" type="rotate" values="-7 256 144;7 256 144;-7 256 144" dur="1.6s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"/>
     </g>
-    <rect x="92" y="152" width="328" height="232" rx="44" stroke-opacity=".22"/>
-    <rect x="92" y="152" width="328" height="232" rx="44" pathLength="100" stroke-dasharray="26 74">
+    <rect x="92" y="144" width="328" height="232" rx="44" stroke-opacity=".22"/>
+    <rect x="92" y="144" width="328" height="232" rx="44" pathLength="100" stroke-dasharray="26 74">
       <animate attributeName="stroke-dashoffset" values="100;0" dur="1.4s" repeatCount="indefinite"/>
     </rect>
-    <path d="M188 432h136" stroke-opacity=".5"/>
+    <path d="M188 424h136" stroke-opacity=".5"/>
   </g>
   <g clip-path="url(#screen)">
-    <rect x="104" y="120" width="304" height="60" fill="url(#scan)">
-      <animate attributeName="y" values="110;380" dur="1.8s" repeatCount="indefinite"/>
+    <rect x="104" y="112" width="304" height="60" fill="url(#scan)">
+      <animate attributeName="y" values="102;372" dur="1.8s" repeatCount="indefinite"/>
     </rect>
   </g>
-  <path d="M226 222v72l62-36z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round">
+  <path d="M231 224v72l62-36z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round">
     <animate attributeName="opacity" values=".35;1;.35" dur="1.4s" repeatCount="indefinite"/>
   </path>
 </svg>

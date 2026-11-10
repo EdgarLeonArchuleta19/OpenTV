@@ -9,6 +9,7 @@ function resetMediaSelection() {
   vodCurrentSubtitle = null;
   vodSubActive = false;
   vodSubChosen = false;
+  vodSubOffset = 0;
   subtitleSeq++;
   state.trackIndex = 0;
   activeSubtitleCues = [];

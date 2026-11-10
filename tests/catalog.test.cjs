@@ -40,7 +40,7 @@ test('continueRecords keeps unfinished titles, newest first, and honours filters
     { id: 'm1', title: 'Película a medias', series: false, position: 600, duration: 6000 },
     { id: 'm2', title: 'Película terminada', series: false, position: 5900, duration: 6000 },
     { id: 's1', title: 'Serie', series: true, episodeNumber: 3, position: 1500, duration: 1600 },
-    { id: 'm3', title: 'Recién empezada', series: false, position: 5, duration: 6000 },
+    { id: 'm3', title: 'Recién empezada', series: false, position: 3, duration: 6000 }, // under the 5 s minimum
     { id: 'm4', title: 'Quitada', series: false, position: 900, duration: 6000, hideContinue: true }
   ];
   const ctx = loadModules(BASE.concat('home/rows.js'), { localProfile: { history } });
@@ -70,7 +70,7 @@ test('localSuggestions ranks title starts first and skips duplicates', () => {
     vod('4', 'Casa de mi padre'),
     vod('5', 'Otra cosa')
   ];
-  const ctx = loadModules(BASE.concat('screens/search-suggest.js'), { VOD: list, isSeriesItem });
+  const ctx = loadModules(BASE.concat('screens/search-suggest.js'), { VOD: list, isSeriesItem, localProfile: { history: [] } });
   const titles = plain(ctx.localSuggestions('casa').map((i) => i.title));
   assert.deepEqual(titles, ['Casa de mi padre', 'La casa de papel', 'Mi casa']);
   assert.deepEqual(plain(ctx.localSuggestions('c')), [], 'one letter is not enough');

@@ -219,11 +219,12 @@ function applyPortalRefresh(roots) {
   }
   var demo = openSamples();
   for (var d = 0; d < demo.length; d++) { records.push(demo[d]); }
+  if (getVodSourcesConfig().mode === 'external') { return; }
   if (records.length) { replaceVod(records, 'portal', true); }
 }
 
 function refreshPortalCatalog() {
-  if (portalState.refreshing) { return; }
+  if (portalState.refreshing || getVodSourcesConfig().mode === 'external') { return; }
   portalState.refreshing = true;
   portalState.error = null;
   portalState.roots = 0;
@@ -232,11 +233,17 @@ function refreshPortalCatalog() {
   function next() {
     if (index >= PORTAL_ROOTS.length) {
       portalState.refreshing = false;
+      if (getVodSourcesConfig().mode === 'external') { return; }
       if (portalState.roots > 0) {
         portalState.lastSync = Date.now();
         applyPortalRefresh(fresh);
       } else {
         portalState.error = portalState.error || 'No se pudo actualizar el catálogo del servicio';
+        /* Respaldo automático: si el servidor principal (magis.js) falla, cargar addons Stremio/externos del usuario */
+        var vodCfgFallback = getVodSourcesConfig();
+        if (vodCfgFallback.mode !== 'portal' && vodCfgFallback.addons.length) {
+          syncExternalVodCatalogs();
+        }
       }
       return;
     }
@@ -266,12 +273,26 @@ function startCatalogAutoRefresh() {
   });
   setInterval(function () {
     if (portalState.refreshing || Date.now() - portalState.lastSync < CATALOG_REFRESH_MS) { return; }
+    if (getVodSourcesConfig().mode === 'external') { return; }
     var browsingHome = state.screen === 'home' && Date.now() - lastUserActivity < 60000;
     if (!browsingHome) { refreshPortalCatalog(); }
   }, 60000);
 }
 
 function loadPortalCatalog() {
+  /* Modo manual: solo addons de Stremio. Si ninguno responde, se usa el
+     servidor para no dejar la app vacía. */
+  var vodCfg = getVodSourcesConfig();
+  if (vodCfg.mode === 'external' && vodCfg.addons.length) {
+    syncExternalVodCatalogs(function (err, count) {
+      if (!count) { loadPortalCatalogFromServer(); }
+    });
+    return;
+  }
+  loadPortalCatalogFromServer();
+}
+
+function loadPortalCatalogFromServer() {
   var snap = portalSnapshot();
   if (snap.length) {
     replaceVod(snap, 'portal-snapshot', true);
@@ -346,6 +367,7 @@ function loadVodDetail(item, done) {
   done = done || function () {};
   if (!item) { return done(null); }
   if (item._detailsLoaded) { return done(item); }
+  if (item._stremio) { return loadStremioMeta(item, done); }
   if (item._detailLoading) {
     item._detailWait = item._detailWait || [];
     item._detailWait.push(done);
@@ -409,25 +431,60 @@ function loadVodDetail(item, done) {
             }
           }
           state.detailSeason = activeIdx;
+          if (item.seasons[activeIdx]) {
+            item.seasons[activeIdx]._episodes = item.episodes;
+          }
         }
 
-        /* Episodio por defecto si no hay uno seleccionado */
-        if (item.episodes && item.episodes.length && !state.detailEpisode) {
-          state.detailEpisode = item.episodes[0];
+        /* Si el historial apunta a otra temporada de esta serie, cargar sus capítulos antes de terminar */
+        var histRec = window.XUPER_DESKTOP ? (pendingHistoryRecord || historyRecordFor(item)) : null;
+        var targetSeasonObj = null;
+        var targetSeasonIdx = -1;
+        if (histRec && item.seasons && item.seasons.length > 1) {
+          var wantedSeasonId = String(histRec.seasonId || histRec.id || '');
+          for (var hs = 0; hs < item.seasons.length; hs++) {
+            if (String(item.seasons[hs].id) === wantedSeasonId) {
+              targetSeasonIdx = hs;
+              targetSeasonObj = item.seasons[hs];
+              break;
+            }
+          }
         }
-        applyPendingHistoryEpisode(item);
 
-        item._detailsLoaded = true;
-      }
-      var wait = item._detailWait || [];
-      item._detailWait = [];
-      var hadWaiters = wait.length > 0;
-      for (var i = 0; i < wait.length; i++) { wait[i](item); }
-      if (state.detail === item && state.screen === 'detail') {
-        buildDetail(item);
-        if (!hadWaiters && (!playerVideo || !playerVideo.src || playerVideo.paused) && autoPreviewAllowed(item)) {
-          startPlayerVideo(item, state.detailEpisode);
+        function finishDetailLoad() {
+          if (item.episodes && item.episodes.length && !state.detailEpisode) {
+            state.detailEpisode = item.episodes[0];
+          }
+          applyPendingHistoryEpisode(item);
+          item._detailsLoaded = true;
+          var wait = item._detailWait || [];
+          item._detailWait = [];
+          var hadWaiters = wait.length > 0;
+          for (var i = 0; i < wait.length; i++) { wait[i](item); }
+          if (state.detail === item && state.screen === 'detail') {
+            buildDetail(item);
+            if (!hadWaiters && (!playerVideo || !playerVideo.src || playerVideo.paused) && autoPreviewAllowed(item)) {
+              startPlayerVideo(item, state.detailEpisode);
+            }
+          }
         }
+
+        if (targetSeasonObj && targetSeasonObj.id && String(targetSeasonObj.id) !== String(item.seasonId || item.id)) {
+          state.detailSeason = targetSeasonIdx;
+          state.playerSeasonIndex = targetSeasonIdx;
+          portalServiceCall('detail', { contentId: targetSeasonObj.id }, function (sErr, sPayload) {
+            if (!sErr && sPayload && sPayload.returnValue !== false && sPayload.episodes && sPayload.episodes.length) {
+              item.episodes = sPayload.episodes;
+              item.seasonId = targetSeasonObj.id;
+              targetSeasonObj._episodes = item.episodes;
+            }
+            finishDetailLoad();
+          });
+          return;
+        }
+
+        finishDetailLoad();
+        return;
       }
     });
     return;

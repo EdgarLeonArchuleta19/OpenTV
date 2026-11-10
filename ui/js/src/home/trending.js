@@ -34,7 +34,7 @@ function catalogMatch(t, pool) {
   var best = null;
   for (var i = 0; i < pool.length; i++) {
     var v = pool[i];
-    if (!v || !v._portal || !hasUsableCover(v)) { continue; }
+    if (!v || !hasUsableCover(v)) { continue; }
     if (!!isSeriesItem(v) !== (t.kind === 'tv')) { continue; }
     var vt = titleKey(v.title), va = titleKey(v.alias);
     /* A catalogue title with an extra qualifier in brackets is a different
@@ -57,7 +57,7 @@ function catalogMatch(t, pool) {
 }
 
 function searchPortalFor(t, done) {
-  if (vodApi.mode !== 'portal') { done(null); return; }
+  if (vodApi.mode !== 'portal' || getVodSourcesConfig().mode === 'external') { done(null); return; }
   portalServiceCall('search', { value: t.title, pageNum: 1, pageSize: 10 }, function (error, payload) {
     if (error || !payload || !payload.items) { done(null); return; }
     var found = [];
@@ -143,13 +143,20 @@ function refreshTrendingPage() {
   }
 }
 
-/* kind: 'movie' / 'series' shows only that row (Películas, Series pages). */
+/* kind: 'movie' / 'series' shows only that row (Películas, Series pages).
+   Only titles currently available in the active VOD catalogue are shown. */
 function appendTrendingRows(page, y, kind) {
   for (var i = 0; i < trendingRows.length; i++) {
     var row = trendingRows[i];
-    if (kind && row && row.items && row.items[0] && (!!isSeriesItem(row.items[0])) !== (kind === 'series')) { continue; }
-    if (row && row.items && row.items.length >= 4) {
-      y = appendPosterRow(page, y, kind ? 'Tendencias de la semana' : row.title, row.items.filter(hasUsableCover));
+    if (!row || !row.items || !row.items.length) { continue; }
+    if (kind && row.items[0] && (!!isSeriesItem(row.items[0])) !== (kind === 'series')) { continue; }
+    var avail = [];
+    for (var j = 0; j < row.items.length; j++) {
+      var found = row.items[j] && vodById(row.items[j].id);
+      if (found && hasUsableCover(found)) { avail.push(found); }
+    }
+    if (avail.length >= 4) {
+      y = appendPosterRow(page, y, kind ? 'Tendencias de la semana' : row.title, avail);
     }
   }
   return y;

@@ -13,7 +13,9 @@ var PRIVATE_MAX_TRIES = 5;
 var privateCategories = [];
 var privateUnlocked = false;
 var privateFailedTries = 0;
-var privateBlockedUntil = 0;
+/* The 30 s lock after too many wrong PINs survives a restart of the app. */
+var PRIVATE_BLOCK_KEY = 'opentv_private_block_v1';
+var privateBlockedUntil = Number(safeLocalRead(PRIVATE_BLOCK_KEY, 0)) || 0;
 
 function privateSettings() {
   var s = safeLocalRead(PRIVATE_KEY, null);
@@ -185,7 +187,7 @@ function askPrivatePin(title, onOk) {
       checkPin(pin, function (ok) {
         if (!ok) {
           privateFailedTries++;
-          if (privateFailedTries >= PRIVATE_MAX_TRIES) { privateFailedTries = 0; privateBlockedUntil = Date.now() + 30000; retry('PIN incorrecto. Espera 30 segundos.'); }
+          if (privateFailedTries >= PRIVATE_MAX_TRIES) { privateFailedTries = 0; privateBlockedUntil = Date.now() + 30000; safeLocalWrite(PRIVATE_BLOCK_KEY, privateBlockedUntil); retry('PIN incorrecto. Espera 30 segundos.'); }
           else { retry('PIN incorrecto'); }
           return;
         }

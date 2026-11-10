@@ -33,6 +33,7 @@ function buildSettings() {
   settingsPanels.history = buildHistoryPanel();
   settingsPanels.share = buildSharePanel();
   settingsPanels.playback = buildPlaybackPanel();
+  settingsPanels.sources = buildSourcesPanel();
   settingsPanels.netdiag = buildNetdiagPanel();
   settingsPanels.parent = buildParentPanel();
   settingsPanels.feedback = buildFeedbackPanel();
@@ -62,6 +63,10 @@ function showSettingsPanel(index, focus) {
     var refreshedHistory = buildHistoryPanel();
     settingsRight.replaceChild(refreshedHistory, settingsPanels.history);
     settingsPanels.history = refreshedHistory;
+  } else if (activeId === 'sources' && settingsPanels.sources && settingsRight) {
+    var refreshedSources = buildSourcesPanel();
+    settingsRight.replaceChild(refreshedSources, settingsPanels.sources);
+    settingsPanels.sources = refreshedSources;
   } else if (activeId === 'netdiag' && settingsPanels.netdiag && settingsPanels.netdiag._ensureDiag) {
     settingsPanels.netdiag._ensureDiag();
   }

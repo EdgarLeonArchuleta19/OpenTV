@@ -17,7 +17,9 @@ function showLiveDockToast(icon, text) {
     liveVolToast = el('div', 'live-vol-toast');
     liveMain.appendChild(liveVolToast);
   }
-  liveVolToast.innerHTML = icon + '<span>' + text + '</span>';
+  /* The text can carry a channel name from an addon: never as HTML. */
+  liveVolToast.innerHTML = icon;
+  liveVolToast.appendChild(el('span', null, text));
   liveVolToast.classList.add('is-visible');
   if (liveVolToastTimer) { clearTimeout(liveVolToastTimer); }
   liveVolToastTimer = setTimeout(function () { liveVolToast.classList.remove('is-visible'); }, 1400);

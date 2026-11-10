@@ -18,17 +18,18 @@ function ensurePageBuilt(idx) {
   }
   if (pagesBuilt[idx] || !pages[idx] || !pageDefs[idx]) { return; }
   pagesBuilt[idx] = true;
-  pageBuiltAt[idx] = Date.now();
+  pageBuiltAt[idx] = catalogStaleAt || Date.now();
   pageDefs[idx](pages[idx]);
 }
 
-/* Desktop: a new catalog (or a broken cover) refreshes the VOD pages the
-   next time they are opened. The TV page and the page on screen are left
-   alone, so nothing reloads in front of the viewer. */
+/* Desktop: a new catalog (or a broken cover) refreshes the VOD pages. */
 function markCatalogPagesStale() {
-  catalogStaleAt = Date.now();
+  catalogStaleAt = Math.max(Date.now() + 1, catalogStaleAt + 1);
   var current = TABS[state.tab] ? TABS[state.tab].page : 0;
-  if (state.screen !== 'home' && current > 0) { ensurePageBuilt(current); }
+  if (current > 0 && pages[current]) {
+    ensurePageBuilt(current);
+    if (window.XUPER_DESKTOP && state.screen === 'home') { showHeroForPage(current); }
+  }
 }
 
 function buildHome() {

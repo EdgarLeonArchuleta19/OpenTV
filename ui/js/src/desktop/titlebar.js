@@ -26,6 +26,33 @@ function installTitleBar() {
   brand.appendChild(el('span', 'atb-name', 'OpenTV'));
   titleBarEl.appendChild(brand);
   titleBarEl.appendChild(el('div', 'atb-section', ''));
+  if (window.desktop && window.desktop.pin) {
+    var pinBtn = el('button', 'atb-pin');
+    pinBtn.type = 'button';
+    pinBtn.id = 'atb-pin';
+    pinBtn.innerHTML = UI_ICONS.pin;
+    var applyPinState = function (pinned) {
+      pinBtn.classList.toggle('is-pinned', !!pinned);
+      var tip = pinned ? 'Ventana siempre visible activada (clic para desactivar)' : 'Fijar ventana siempre encima';
+      pinBtn.setAttribute('data-tip', tip);
+      pinBtn.setAttribute('aria-label', tip);
+      pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+    };
+    applyPinState(false);
+    pinBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      try {
+        var p = window.desktop.pin();
+        if (p && p.then) { p.then(applyPinState).catch(function () {}); }
+      } catch (ePin) { /* ignore */ }
+    });
+    try {
+      var qp = window.desktop.pin('query');
+      if (qp && qp.then) { qp.then(applyPinState).catch(function () {}); }
+    } catch (ePinQ) { /* ignore */ }
+    titleBarEl.appendChild(pinBtn);
+  }
   document.body.insertBefore(titleBarEl, document.body.firstChild);
   document.body.classList.add('has-titlebar');
   if (window.desktop.onFullscreenChanged) {

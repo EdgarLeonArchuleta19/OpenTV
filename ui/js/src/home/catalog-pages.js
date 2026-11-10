@@ -161,7 +161,7 @@ function allVodFor(category) {
       }
     }
   }
-  return withCovers(out.length ? out : VOD);
+  return withCovers(out.length ? out : (!category || category === 'destacado' ? VOD : []));
 }
 
 function appendCatalogGrid(page, items, startY, titleText) {
@@ -359,10 +359,18 @@ function buildExplorePage(page) {
    and the full catalogue grid. Falls back to the tile mosaic when no title
    of the section has wide artwork. */
 function buildDesktopSection(page, all, opts) {
+  if (!all || !all.length) {
+    var idxEmpty = pages.indexOf(page);
+    if (idxEmpty >= 0) { delete heroPages[idxEmpty]; }
+    var empty = el('div', 'catalog-empty', 'No hay títulos de esta sección disponibles en el catálogo actual.');
+    abs(empty, 192, 170, 1500, 80);
+    page.appendChild(empty);
+    return;
+  }
   var y = buildHero(page, all);
   if (!y) {
-    var real = !!(all[0] && all[0]._portal);
-    bentoPage(page, all, { titles: real, dots: real ? 4 : 0, shade: real });
+    var real = !!(all[0] && (all[0]._portal || all[0]._stremio));
+    bentoPage(page, all, { titles: real, dots: real ? Math.min(4, all.length) : 0, shade: real });
     y = 830;
   }
   if (opts.continueFilter !== undefined) { y = appendContinueRow(page, y, opts.continueFilter); }
@@ -387,12 +395,14 @@ function buildDesktopSection(page, all, opts) {
 }
 
 /* Always ten when the catalogue has them: the portal's ranking first, then
-   this week's TMDB trends, then other titles of the section (same kind). */
+   this week's TMDB trends, then other titles of the section (same kind).
+   Only titles currently available in the active VOD catalogue are included. */
 function fillTop10(ranked, series, section) {
   var out = [], seen = {};
   function add(list) {
     for (var i = 0; i < list.length && out.length < 10; i++) {
-      var v = list[i];
+      var raw = list[i];
+      var v = raw && vodById(raw.id);
       if (!v || seen[v.id] || !!isSeriesItem(v) !== series || !hasUsableCover(v)) { continue; }
       seen[v.id] = true;
       out.push(v);

@@ -97,7 +97,10 @@ function applyLiveAudio(save) {
   var off = liveAudio.muted || liveAudio.volume === 0;
   var pct = Math.round(liveAudio.volume * 100);
   if (liveMuteBtn) {
-    liveMuteBtn.innerHTML = off ? LIVE_DOCK_ICONS.mute : (liveAudio.volume < 0.5 ? LIVE_DOCK_ICONS.soundLow : LIVE_DOCK_ICONS.sound);
+    var muteSvg = off ? LIVE_DOCK_ICONS.mute : (liveAudio.volume < 0.5 ? LIVE_DOCK_ICONS.soundLow : LIVE_DOCK_ICONS.sound);
+    var muteIco = liveMuteBtn.querySelector('.live-dock-ico');
+    if (muteIco) { muteIco.innerHTML = muteSvg; }
+    else { liveMuteBtn.innerHTML = '<i class="live-dock-ico">' + muteSvg + '</i>'; }
     liveMuteBtn.setAttribute('data-tip', off ? 'Activar sonido (M)' : 'Silenciar (M)');
     liveMuteBtn.classList.toggle('is-off', off);
   }
@@ -185,7 +188,6 @@ function buildLiveDock(page) {
     else { liveAudio.muted = !liveAudio.muted; }
     applyLiveAudio(true);
   });
-  liveMuteBtn.innerHTML = '';
   bar.appendChild(liveMuteBtn);
   /* Volume: a slider (drag, click or mouse wheel) and its value. */
   var volWrap = el('div', 'live-dock-volume');

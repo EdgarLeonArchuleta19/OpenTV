@@ -122,6 +122,7 @@ function renderDialogSubtitle() {
   if (dpsRowLang) dpsRowLang.classList.toggle('is-visible', vodSubActive && list.length > 0);
   if (dpsRowSize) dpsRowSize.classList.toggle('is-visible', vodSubActive && list.length > 0);
   if (dpsRowStyle) dpsRowStyle.classList.toggle('is-visible', vodSubActive && list.length > 0);
+  if (dpsRowSync) dpsRowSync.classList.toggle('is-visible', vodSubActive && list.length > 0);
 
   if (!vodSubActive) return;
 
@@ -163,6 +164,18 @@ function renderDialogSubtitle() {
     for (var sti = 0; sti < stBtns.length; sti++) {
       var st = stBtns[sti].getAttribute('data-style');
       stBtns[sti].classList.toggle('is-selected', st === vodSubStyle);
+    }
+  }
+
+  /* Sync buttons */
+  if (dpsSyncOptions) {
+    var resetBtn = $('dps-sync-reset');
+    if (resetBtn) {
+      var sign = vodSubOffset > 0 ? '+' : '';
+      resetBtn.textContent = vodSubOffset === 0
+        ? '0.0 s (Normal)'
+        : (sign + vodSubOffset.toFixed(1) + ' s · Restablecer');
+      resetBtn.classList.toggle('is-selected', vodSubOffset !== 0);
     }
   }
 }
@@ -240,6 +253,11 @@ function switchAudioTrack(trackIndex) {
 function restartCurrentPlayback() {
   if (!playerVideo) return;
   var curSec = relayBaseUrl ? (relayStartOffset + (playerVideo.currentTime || 0)) : (playerVideo.currentTime || 0);
+  if (window.XUPER_DESKTOP && resumePlan && state.playerItem &&
+      (resumePlan.item === state.playerItem || String(resumePlan.itemId) === String(state.playerItem.id)) &&
+      resumePlan.pos > curSec) {
+    curSec = resumePlan.pos;
+  }
   var wasPaused = playerVideo.paused;
   var item = state.playerItem;
   stopPlayerVideo();

@@ -87,6 +87,19 @@ function flushSeek() {
   var dur = vodPlaybackDuration();
   if (t < 0) { t = 0; }
   if (dur > 0 && t > dur - 1) { t = dur - 1; }
+  if (window.XUPER_DESKTOP && state.playerMode === 'vod' && state.playerItem && state.playerItem._relayUrl &&
+      /\/media\/[^/]+\/stream\.ts$/i.test(lastPlayingUrl || '')) {
+    var seekEnd = (playerVideo.seekable && playerVideo.seekable.length) ? playerVideo.seekable.end(playerVideo.seekable.length - 1) : 0;
+    if (t > seekEnd + 10) {
+      if (relaySeekInFlight) { return; }
+      relaySeekInFlight = true;
+      var keepPausedTs = playerVideo.paused;
+      var relaySeekUrl = state.playerItem._relayUrl + '?start=' + Math.floor(t) + '&a=' + (vodCurrentAudioTrack || 0);
+      relaySeekWatchdog = setTimeout(releaseRelaySeek, 12000);
+      playUrl(relaySeekUrl, { remainPaused: keepPausedTs });
+      return;
+    }
+  }
   try { playerVideo.currentTime = t; } catch (eSeek) { /* ignore */ }
 }
 function playerSeek(delta) {
@@ -269,6 +282,25 @@ function playUrl(url, playOptions) {
   if (!playerVideo || !url) { return; }
   playOptions = playOptions || {};
   var useNativeHlsFallback = !!playOptions.nativeHls;
+  if (window.XUPER_DESKTOP && state.playerMode === 'vod' && !/[?&]start=\d+/.test(url)) {
+    var planMatches = resumePlan && state.playerItem &&
+      (resumePlan.item === state.playerItem || String(resumePlan.itemId) === String(state.playerItem.id)) &&
+      (!resumePlan.episodeId || (state.playerEpisode && String(state.playerEpisode.id) === String(resumePlan.episodeId)));
+    var targetStart = (playOptions.startPosition > 0) ? Math.floor(playOptions.startPosition)
+                    : (planMatches && resumePlan.pos >= RESUME_MIN_S ? Math.floor(resumePlan.pos) : 0);
+    if (targetStart >= RESUME_MIN_S) {
+      if (/^https?:\/\/127\.0\.0\.1:\d+\/s\//i.test(url)) {
+        url = url.split('?')[0] + '?start=' + targetStart + '&a=' + (vodCurrentAudioTrack || 0);
+        playOptions.startPosition = 0;
+      } else if (/\/media\/[^/]+\/stream\.ts$/i.test(url) && state.playerItem && state.playerItem._relayUrl) {
+        url = state.playerItem._relayUrl + '?start=' + targetStart + '&a=' + (vodCurrentAudioTrack || 0);
+        playOptions.startPosition = 0;
+      } else {
+        playOptions.startPosition = targetStart;
+        playerVideo._xuperStartPos = targetStart;
+      }
+    }
+  }
   stopPlayerVideo();
   relayPaused = false;
   lastPlayingUrl = url;
@@ -569,6 +601,8 @@ function resolvePlayerStream(item, done) {
       rememberCdnProbe('vod', payload);
       item.streamMime = payload.mime || '';
       item.streamCodec = payload.codec || '';
+      item._relayUrl = payload.relayUrl || (/^https?:\/\/127\.0\.0\.1:\d+\/s\//i.test(payload.proxyPath || '') ? payload.proxyPath.split('?')[0] : '');
+      if (state.playerEpisode) { state.playerEpisode._relayUrl = item._relayUrl; }
       if (durationToSeconds(payload.duration) > 0) {
         item.duration = durationToSeconds(payload.duration);
         if (state.playerEpisode) { state.playerEpisode.duration = payload.duration; }
@@ -671,8 +705,16 @@ function startPlayerVideo(item, episode) {
     });
     return;
   }
-  if (!it.streamUrl) { return; }
-  playUrl(it.streamUrl);
+  if (it._stremio && !it.streamUrl && !(episode && episode.streamUrl)) {
+    setPlayerStatus('Buscando stream en addons de Stremio…');
+    resolveStremioStream(it, episode || state.playerEpisode, function (url) {
+      if (url) { playUrl(url); }
+    });
+    return;
+  }
+  var directUrl = (episode && episode.streamUrl) || it.streamUrl || '';
+  if (!directUrl) { return; }
+  playUrl(directUrl);
 }
 
 function expandToFullscreen(item, episode) {

@@ -1119,8 +1119,20 @@ function parseM3u(content) {
   return channels;
 }
 
-function fetchM3u(urlStr, done) {
+var M3U_MAX_BYTES = 20 * 1024 * 1024;
+var M3U_MAX_REDIRECTS = 5;
+function fetchM3u(urlStr, callback, redirects) {
+  /* Abort, timeout and error can each fire: answer only once. */
+  var answered = false;
+  function done(err, chs) {
+    if (answered) { return; }
+    answered = true;
+    callback(err, chs);
+  }
   if (!urlStr) { return done(new Error('URL de addon requerida')); }
+  if (!/^https?:\/\//i.test(urlStr)) { return done(new Error('El addon debe ser una dirección http(s)')); }
+  redirects = redirects || 0;
+  if (redirects > M3U_MAX_REDIRECTS) { return done(new Error('Demasiadas redirecciones al descargar addon')); }
   var isHttps = urlStr.indexOf('https://') === 0;
   var mod = isHttps ? https : http;
   var opts = url.parse(urlStr);
@@ -1134,14 +1146,26 @@ function fetchM3u(urlStr, done) {
     var req = mod.get(prepped, function (res) {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
-        return fetchM3u(url.resolve(urlStr, res.headers.location), done);
+        return fetchM3u(url.resolve(urlStr, res.headers.location), done, redirects + 1);
       }
       if (res.statusCode !== 200) {
+        res.resume();
         return done(new Error('HTTP ' + res.statusCode + ' al descargar addon'));
       }
       var chunks = [];
-      res.on('data', function (c) { chunks.push(c); });
+      var size = 0;
+      res.on('data', function (c) {
+        if (answered) { return; }
+        size += c.length;
+        if (size > M3U_MAX_BYTES) {
+          done(new Error('El addon es demasiado grande'));
+          try { req.abort(); } catch (eAbort) { /* ignore */ }
+          return;
+        }
+        chunks.push(c);
+      });
       res.on('end', function () {
+        if (answered) { return; }
         var raw = Buffer.concat(chunks).toString('utf8');
         var chs = parseM3u(raw);
         done(null, chs);
