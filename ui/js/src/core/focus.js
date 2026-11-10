@@ -72,7 +72,7 @@ function reveal(node) {
 /* Desktop: the focus ring (white frame + zoom) is shown only while the
    keyboard is being used, like Windows does. With the mouse, the current
    element is still tracked, just not highlighted. The TV always shows it. */
-var focusRingVisible = !window.XUPER_DESKTOP;
+var focusRingVisible = !window.XUPER_DESKTOP || platformIsTv();
 
 function setFocusRingVisible(on) {
   on = !!on;
@@ -83,7 +83,10 @@ function setFocusRingVisible(on) {
 }
 
 function installFocusRingMode() {
-  if (!window.XUPER_DESKTOP) { return; }
+  if (!window.XUPER_DESKTOP || platformIsTv()) {
+    if (focusRingVisible && document.body) { document.body.classList.add('is-keyboard-nav'); }
+    return;
+  }
   var NAV_KEYS = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, Tab: 1, PageUp: 1, PageDown: 1 };
   document.addEventListener('keydown', function (event) {
     if (NAV_KEYS[event.key] && !(event.target && event.target.tagName === 'INPUT')) { setFocusRingVisible(true); }
@@ -116,6 +119,9 @@ function setFocus(node, silent) {
     /* Desktop: the rail always shows icon + label; the pages make room for
        it (desktop/theme.css) instead of the rail covering them. */
     var keepOpen = !!window.XUPER_DESKTOP;
+    /* TVs: the menu on the left opens over the page; only opacities change,
+       nothing on the page moves ("Teles" in desktop/tw/input.css). */
+    if (keepOpen && platformIsTv()) { document.body.classList.toggle('tv-rail-open', !!inRail); }
     rail.classList.toggle('is-expanded', keepOpen || !!inRail);
     rail.classList.toggle('is-collapsed', !keepOpen && !inRail);
     var railBg = document.querySelector('.home-sidebar-bg');
@@ -200,12 +206,13 @@ function moveFocus(dir) {
     return;
   }
 
-  if (window.XUPER_DESKTOP && dir === 'up' && inPage) {
+  if (window.XUPER_DESKTOP && !platformIsTv() && dir === 'up' && inPage) {
     if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
     return;
   }
-  /* Leftmost limit reached in page content: now focus sidebar tab */
-  if (dir === 'left' && inPage && !window.XUPER_DESKTOP) {
+  /* Leftmost limit reached in page content: now focus sidebar tab (the TV
+     menu on the left). */
+  if (dir === 'left' && inPage && (!window.XUPER_DESKTOP || platformIsTv())) {
     if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
   }
 }

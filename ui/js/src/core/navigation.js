@@ -141,6 +141,11 @@ function back() {
     return;
   }
   if (state.screen === 'home') {
+    /* TVs: Back from the content returns to the menu on the left first. */
+    if (platformIsTv() && window.XUPER_DESKTOP && state.focus && !closest(state.focus, '.home-tabs') && tabEls[state.tab]) {
+      setFocus(tabEls[state.tab]);
+      return;
+    }
     /* Back on the home screen goes to the first section first (Inicio on
        desktop, TV on the TV set). */
     if (state.tab !== homeTabIndex()) {
@@ -152,6 +157,8 @@ function back() {
       window.webOSTV.platformBack();
     } else if (window.PalmSystem && window.PalmSystem.platformBack) {
       window.PalmSystem.platformBack();
+    } else if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+      window.Capacitor.Plugins.App.exitApp();   /* Android / Fire TV */
     }
   }
 }

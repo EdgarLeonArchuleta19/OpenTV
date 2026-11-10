@@ -1683,6 +1683,23 @@
     /* A kids profile only sees Kids (no TV, no Inicio or Anime, which also
        carry titles for adults). */
     if (isKidsProfile()) { TABS = TABS.filter(function (t) { return t.page === 4; }); }
+    /* TVs (LG, Android TV, Fire TV): the same sections in a menu on the left,
+       like the LG version, with search, Mi lista and the account at its foot
+       (there is no top bar). Line icons in the style of the rest of the app. */
+    if (platformIsTv()) {
+      var TV_RAIL_ICONS = {
+        tv: uiSvg('<rect x="2.5" y="5" width="19" height="13" rx="2"/><path d="M8 21h8"/>'),
+        thumb: uiSvg('<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h13V9"/><path d="M10 20v-6h4v6"/>'),
+        film: uiSvg('<rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M7.5 3.5v17M16.5 3.5v17M3 8h4.5M3 12h4.5M3 16h4.5M16.5 8H21M16.5 12H21M16.5 16H21"/>'),
+        strip: uiSvg('<rect x="2.5" y="6.5" width="19" height="13" rx="2"/><path d="M8 2.5l4 4 4-4"/>'),
+        kids: uiSvg('<circle cx="12" cy="13" r="7.5"/><circle cx="6" cy="5.5" r="2.5"/><circle cx="18" cy="5.5" r="2.5"/><path d="M9.5 15.5c1.4 1.3 3.6 1.3 5 0"/><path d="M9.5 11h.01M14.5 11h.01"/>'),
+        anime: uiSvg('<path d="M12 3l2.4 5.6 6.1.6-4.6 4 1.4 6-5.3-3.2L6.7 19.2l1.4-6-4.6-4 6.1-.6z"/>')
+      };
+      TABS.forEach(function (t) { t.svg = TV_RAIL_ICONS[t.icon]; });
+      if (!isKidsProfile()) { TABS.push({ label: 'Buscar', page: -1, svg: UI_ICONS.search, action: 'search', tool: true }); }
+      TABS.push({ label: 'Mi lista', page: -1, svg: UI_ICONS.mylist, action: 'mylist', tool: true });
+      TABS.push({ label: 'Mi cuenta', page: -1, svg: UI_ICONS.user, action: 'account', tool: true });
+    }
   }
 
   var SETTINGS_ITEMS = [
@@ -1959,7 +1976,7 @@
   /* Desktop: the focus ring (white frame + zoom) is shown only while the
      keyboard is being used, like Windows does. With the mouse, the current
      element is still tracked, just not highlighted. The TV always shows it. */
-  var focusRingVisible = !window.XUPER_DESKTOP;
+  var focusRingVisible = !window.XUPER_DESKTOP || platformIsTv();
 
   function setFocusRingVisible(on) {
     on = !!on;
@@ -1970,7 +1987,10 @@
   }
 
   function installFocusRingMode() {
-    if (!window.XUPER_DESKTOP) { return; }
+    if (!window.XUPER_DESKTOP || platformIsTv()) {
+      if (focusRingVisible && document.body) { document.body.classList.add('is-keyboard-nav'); }
+      return;
+    }
     var NAV_KEYS = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, Tab: 1, PageUp: 1, PageDown: 1 };
     document.addEventListener('keydown', function (event) {
       if (NAV_KEYS[event.key] && !(event.target && event.target.tagName === 'INPUT')) { setFocusRingVisible(true); }
@@ -2003,6 +2023,9 @@
       /* Desktop: the rail always shows icon + label; the pages make room for
          it (desktop/theme.css) instead of the rail covering them. */
       var keepOpen = !!window.XUPER_DESKTOP;
+      /* TVs: the menu on the left opens over the page; only opacities change,
+         nothing on the page moves ("Teles" in desktop/tw/input.css). */
+      if (keepOpen && platformIsTv()) { document.body.classList.toggle('tv-rail-open', !!inRail); }
       rail.classList.toggle('is-expanded', keepOpen || !!inRail);
       rail.classList.toggle('is-collapsed', !keepOpen && !inRail);
       var railBg = document.querySelector('.home-sidebar-bg');
@@ -2087,12 +2110,13 @@
       return;
     }
 
-    if (window.XUPER_DESKTOP && dir === 'up' && inPage) {
+    if (window.XUPER_DESKTOP && !platformIsTv() && dir === 'up' && inPage) {
       if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
       return;
     }
-    /* Leftmost limit reached in page content: now focus sidebar tab */
-    if (dir === 'left' && inPage && !window.XUPER_DESKTOP) {
+    /* Leftmost limit reached in page content: now focus sidebar tab (the TV
+       menu on the left). */
+    if (dir === 'left' && inPage && (!window.XUPER_DESKTOP || platformIsTv())) {
       if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
     }
   }
@@ -2241,6 +2265,11 @@
       return;
     }
     if (state.screen === 'home') {
+      /* TVs: Back from the content returns to the menu on the left first. */
+      if (platformIsTv() && window.XUPER_DESKTOP && state.focus && !closest(state.focus, '.home-tabs') && tabEls[state.tab]) {
+        setFocus(tabEls[state.tab]);
+        return;
+      }
       /* Back on the home screen goes to the first section first (Inicio on
          desktop, TV on the TV set). */
       if (state.tab !== homeTabIndex()) {
@@ -2252,6 +2281,8 @@
         window.webOSTV.platformBack();
       } else if (window.PalmSystem && window.PalmSystem.platformBack) {
         window.PalmSystem.platformBack();
+      } else if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+        window.Capacitor.Plugins.App.exitApp();   /* Android / Fire TV */
       }
     }
   }
@@ -2692,38 +2723,67 @@
     host.classList.add('scrollable');
     host.classList.add('is-expanded');
     tabEls = [];
+    /* TVs: a vertical menu on the left (like the LG version). Moving through it
+       only previews the section once the remote rests on it, so holding the
+       arrow does not build every page on the way. */
+    var railTv = platformIsTv();
+    var railTimer = null;
+    function railPreview(idx) {
+      if (railTimer) { clearTimeout(railTimer); }
+      railTimer = setTimeout(function () {
+        railTimer = null;
+        if (state.focus === tabEls[idx] && state.screen === 'home') { selectTab(idx, false); }
+      }, 280);
+    }
+    function railMoveTo(idx) {
+      if (!tabEls[idx]) { return; }
+      setFocus(tabEls[idx]);
+      if (railTv) { railPreview(idx); } else { selectTab(idx, false); }
+    }
+    function enterTab(idx) {
+      if (railTimer) { clearTimeout(railTimer); railTimer = null; }
+      if (TABS[idx].action) {
+        runTabAction(TABS[idx].action);
+        return;
+      }
+      selectTab(idx, false);
+      if (TABS[idx].page === 0) {
+        var row = liveRows.filter(function (r) { return r._channel === state.channel; })[0];
+        if (row) { setFocus(row); }
+        else if (liveRows.length) { setFocus(liveRows[0]); }
+        else if (liveFocus) { setFocus(liveFocus); }
+      } else if (TABS[idx].page >= 0) {
+        var f = firstIn(pages[TABS[idx].page]);
+        if (f) { setFocus(f); }
+      }
+    }
     for (var i = 0; i < TABS.length; i++) {
-      var item = el('div', 'tab-item focusable');
+      var item = el('div', 'tab-item focusable' + (TABS[i].tool ? ' is-tool' : ''));
+      if (TABS[i].tool && !(TABS[i - 1] && TABS[i - 1].tool)) { item.classList.add('is-first-tool'); }
       item.appendChild(el('div', 'tab-pill'));
       var icon = el('div', 'tab-icon');
-      icon.innerHTML = TAB_ICONS[TABS[i].icon] || '';
+      icon.innerHTML = TABS[i].svg || TAB_ICONS[TABS[i].icon] || '';
       item.appendChild(icon);
       var title = el('div', 'tab-title', TABS[i].label);
       item.appendChild(title);
       item._tab = i;
       item._activate = (function (idx) {
-        return function () {
-          if (TABS[idx].action === 'history') {
-            historyViewTab = 'history';
-            openSettings();
-            showSettingsPanel(1, true);
-            return;
-          }
-          selectTab(idx, false);
-          if (idx === 0) {
-            var row = liveRows.filter(function (r) { return r._channel === state.channel; })[0];
-            if (row) { setFocus(row); }
-            else if (liveRows.length) { setFocus(liveRows[0]); }
-            else if (liveFocus) { setFocus(liveFocus); }
-          } else if (TABS[idx].page >= 0) {
-            var page = pages[TABS[idx].page];
-            var f = firstIn(page);
-            if (f) { setFocus(f); }
-          }
-        };
+        return function () { enterTab(idx); };
       })(i);
       item._onMove = (function (idx) {
         return function (dir) {
+          if (railTv) {
+            if (dir === 'up') { railMoveTo(idx - 1); return true; }
+            if (dir === 'down') { railMoveTo(idx + 1); return true; }
+            if (dir === 'left') { return true; }
+            if (dir === 'right') {
+              /* Right enters the section; on a tool (Buscar, Mi lista…) it
+                 goes back to the section that is showing instead. */
+              if (TABS[idx].action) { enterTab(state.tab); } else { enterTab(idx); }
+              return true;
+            }
+            return false;
+          }
           /* Desktop: the tabs are a horizontal bar at the top (left/right
              change tab, down goes into the page). */
           if (window.XUPER_DESKTOP) {
@@ -2779,6 +2839,22 @@
       })(i);
       host.appendChild(item);
       tabEls.push(item);
+    }
+  }
+
+  /* Rail entries that open a screen instead of a section. */
+  function runTabAction(action) {
+    if (action === 'history') {
+      historyViewTab = 'history';
+      openSettings();
+      showSettingsPanel(1, true);
+    } else if (action === 'search') {
+      openSearch();
+    } else if (action === 'mylist') {
+      openSettings();
+      showSettingsPanel(1, true);
+    } else if (action === 'account') {
+      openSettings();
     }
   }
 

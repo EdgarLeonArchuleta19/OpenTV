@@ -43,6 +43,23 @@ if (window.XUPER_DESKTOP) {
   /* A kids profile only sees Kids (no TV, no Inicio or Anime, which also
      carry titles for adults). */
   if (isKidsProfile()) { TABS = TABS.filter(function (t) { return t.page === 4; }); }
+  /* TVs (LG, Android TV, Fire TV): the same sections in a menu on the left,
+     like the LG version, with search, Mi lista and the account at its foot
+     (there is no top bar). Line icons in the style of the rest of the app. */
+  if (platformIsTv()) {
+    var TV_RAIL_ICONS = {
+      tv: uiSvg('<rect x="2.5" y="5" width="19" height="13" rx="2"/><path d="M8 21h8"/>'),
+      thumb: uiSvg('<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h13V9"/><path d="M10 20v-6h4v6"/>'),
+      film: uiSvg('<rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M7.5 3.5v17M16.5 3.5v17M3 8h4.5M3 12h4.5M3 16h4.5M16.5 8H21M16.5 12H21M16.5 16H21"/>'),
+      strip: uiSvg('<rect x="2.5" y="6.5" width="19" height="13" rx="2"/><path d="M8 2.5l4 4 4-4"/>'),
+      kids: uiSvg('<circle cx="12" cy="13" r="7.5"/><circle cx="6" cy="5.5" r="2.5"/><circle cx="18" cy="5.5" r="2.5"/><path d="M9.5 15.5c1.4 1.3 3.6 1.3 5 0"/><path d="M9.5 11h.01M14.5 11h.01"/>'),
+      anime: uiSvg('<path d="M12 3l2.4 5.6 6.1.6-4.6 4 1.4 6-5.3-3.2L6.7 19.2l1.4-6-4.6-4 6.1-.6z"/>')
+    };
+    TABS.forEach(function (t) { t.svg = TV_RAIL_ICONS[t.icon]; });
+    if (!isKidsProfile()) { TABS.push({ label: 'Buscar', page: -1, svg: UI_ICONS.search, action: 'search', tool: true }); }
+    TABS.push({ label: 'Mi lista', page: -1, svg: UI_ICONS.mylist, action: 'mylist', tool: true });
+    TABS.push({ label: 'Mi cuenta', page: -1, svg: UI_ICONS.user, action: 'account', tool: true });
+  }
 }
 
 var SETTINGS_ITEMS = [

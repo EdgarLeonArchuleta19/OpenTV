@@ -67,38 +67,67 @@ function buildTabs() {
   host.classList.add('scrollable');
   host.classList.add('is-expanded');
   tabEls = [];
+  /* TVs: a vertical menu on the left (like the LG version). Moving through it
+     only previews the section once the remote rests on it, so holding the
+     arrow does not build every page on the way. */
+  var railTv = platformIsTv();
+  var railTimer = null;
+  function railPreview(idx) {
+    if (railTimer) { clearTimeout(railTimer); }
+    railTimer = setTimeout(function () {
+      railTimer = null;
+      if (state.focus === tabEls[idx] && state.screen === 'home') { selectTab(idx, false); }
+    }, 280);
+  }
+  function railMoveTo(idx) {
+    if (!tabEls[idx]) { return; }
+    setFocus(tabEls[idx]);
+    if (railTv) { railPreview(idx); } else { selectTab(idx, false); }
+  }
+  function enterTab(idx) {
+    if (railTimer) { clearTimeout(railTimer); railTimer = null; }
+    if (TABS[idx].action) {
+      runTabAction(TABS[idx].action);
+      return;
+    }
+    selectTab(idx, false);
+    if (TABS[idx].page === 0) {
+      var row = liveRows.filter(function (r) { return r._channel === state.channel; })[0];
+      if (row) { setFocus(row); }
+      else if (liveRows.length) { setFocus(liveRows[0]); }
+      else if (liveFocus) { setFocus(liveFocus); }
+    } else if (TABS[idx].page >= 0) {
+      var f = firstIn(pages[TABS[idx].page]);
+      if (f) { setFocus(f); }
+    }
+  }
   for (var i = 0; i < TABS.length; i++) {
-    var item = el('div', 'tab-item focusable');
+    var item = el('div', 'tab-item focusable' + (TABS[i].tool ? ' is-tool' : ''));
+    if (TABS[i].tool && !(TABS[i - 1] && TABS[i - 1].tool)) { item.classList.add('is-first-tool'); }
     item.appendChild(el('div', 'tab-pill'));
     var icon = el('div', 'tab-icon');
-    icon.innerHTML = TAB_ICONS[TABS[i].icon] || '';
+    icon.innerHTML = TABS[i].svg || TAB_ICONS[TABS[i].icon] || '';
     item.appendChild(icon);
     var title = el('div', 'tab-title', TABS[i].label);
     item.appendChild(title);
     item._tab = i;
     item._activate = (function (idx) {
-      return function () {
-        if (TABS[idx].action === 'history') {
-          historyViewTab = 'history';
-          openSettings();
-          showSettingsPanel(1, true);
-          return;
-        }
-        selectTab(idx, false);
-        if (idx === 0) {
-          var row = liveRows.filter(function (r) { return r._channel === state.channel; })[0];
-          if (row) { setFocus(row); }
-          else if (liveRows.length) { setFocus(liveRows[0]); }
-          else if (liveFocus) { setFocus(liveFocus); }
-        } else if (TABS[idx].page >= 0) {
-          var page = pages[TABS[idx].page];
-          var f = firstIn(page);
-          if (f) { setFocus(f); }
-        }
-      };
+      return function () { enterTab(idx); };
     })(i);
     item._onMove = (function (idx) {
       return function (dir) {
+        if (railTv) {
+          if (dir === 'up') { railMoveTo(idx - 1); return true; }
+          if (dir === 'down') { railMoveTo(idx + 1); return true; }
+          if (dir === 'left') { return true; }
+          if (dir === 'right') {
+            /* Right enters the section; on a tool (Buscar, Mi lista…) it
+               goes back to the section that is showing instead. */
+            if (TABS[idx].action) { enterTab(state.tab); } else { enterTab(idx); }
+            return true;
+          }
+          return false;
+        }
         /* Desktop: the tabs are a horizontal bar at the top (left/right
            change tab, down goes into the page). */
         if (window.XUPER_DESKTOP) {
@@ -154,6 +183,22 @@ function buildTabs() {
     })(i);
     host.appendChild(item);
     tabEls.push(item);
+  }
+}
+
+/* Rail entries that open a screen instead of a section. */
+function runTabAction(action) {
+  if (action === 'history') {
+    historyViewTab = 'history';
+    openSettings();
+    showSettingsPanel(1, true);
+  } else if (action === 'search') {
+    openSearch();
+  } else if (action === 'mylist') {
+    openSettings();
+    showSettingsPanel(1, true);
+  } else if (action === 'account') {
+    openSettings();
   }
 }
 
