@@ -113,7 +113,7 @@ function toggleLivePreviewPip() {
 function appendLiveDockTools(bar) {
   bar.appendChild(dockButton('is-tool', UI_ICONS.retry, '', 'Reintentar señal', retryLivePreview));
   bar.appendChild(dockButton('is-tool', UI_ICONS.quality, '', 'Calidad', cycleLivePreviewQuality));
-  bar.appendChild(dockButton('is-tool', UI_ICONS.pip, '', 'Ventana flotante', toggleLivePreviewPip));
+  if (platformHas('pip')) { bar.appendChild(dockButton('is-tool', UI_ICONS.pip, '', 'Ventana flotante', toggleLivePreviewPip)); }
   bar.appendChild(dockButton('is-tool', UI_ICONS.diagnostics, '', 'Diagnóstico de red', openDesktopDiagnostic));
 }
 

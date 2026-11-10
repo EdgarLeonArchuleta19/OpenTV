@@ -3,15 +3,16 @@
 
 /* "Modo ligero" turns off the costly effects (background blur, the slow
    zoom of the big image, entrance animations, the enlarged card on hover)
-   so menus stay fluid on modest hardware. Off by default on the PC, where
-   it is chosen in Mi cuenta → Apariencia; it is shared by all profiles. */
+   so menus stay fluid on modest hardware. On by default on TVs, off on the
+   PC; Mi cuenta → Apariencia changes it. Shared by all profiles. */
 var LITE_KEY = 'opentv_lite_mode_v1';
 
 function liteMode() {
   var saved = null;
   try { saved = JSON.parse(localStorage.getItem(LITE_KEY) || 'null'); } catch (eRead) { saved = null; }
   if (saved === true || saved === false) { return saved; }
-  return false;
+  /* TV LG, Android TV and Fire TV start light; the PC starts full. */
+  return platformIsTv();
 }
 
 function applyLiteMode() {

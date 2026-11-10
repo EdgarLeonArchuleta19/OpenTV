@@ -1,5 +1,6 @@
 [
   "core/utils.js",
+  "core/platform.js",
   "core/profiles.js",
   "core/icons.js",
   "data/demo-catalog.js",

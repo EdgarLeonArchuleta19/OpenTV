@@ -289,8 +289,8 @@ function buildPlayer() {
       { label: 'Reproductor 1', right: 151, w: 90 },
       { label: 'Feedback', right: 50, w: 67 }
     ];
-    if (document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });
-    actDefs.push({ label: 'Pantalla completa', right: 0, w: 120 });
+    if (platformHas('pip') && document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });
+    if (platformHas('window')) actDefs.push({ label: 'Pantalla completa', right: 0, w: 120 });
   }
   for (var i = 0; i < actDefs.length; i++) {
     var d = actDefs[i];

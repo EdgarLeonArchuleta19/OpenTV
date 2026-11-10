@@ -55,13 +55,13 @@ function installTitleBar() {
   }
   document.body.insertBefore(titleBarEl, document.body.firstChild);
   document.body.classList.add('has-titlebar');
-  if (window.desktop.onFullscreenChanged) {
+  if (window.desktop && window.desktop.onFullscreenChanged) {
     window.desktop.onFullscreenChanged(function (isFull) {
       document.body.classList.toggle('is-window-fullscreen', !!isFull);
       fitDesignViewport();
     });
   }
-  if (window.desktop.fullscreen) {
+  if (window.desktop && window.desktop.fullscreen) {
     try {
       var q = window.desktop.fullscreen('query');
       if (q && q.then) {

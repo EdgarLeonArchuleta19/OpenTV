@@ -9,7 +9,7 @@ var tooltipTarget = null;
 var tooltipTimer = null;
 
 function installTooltips() {
-  if (tooltipEl || !window.XUPER_DESKTOP) { return; }
+  if (tooltipEl || !window.XUPER_DESKTOP || !platformHas('mouse')) { return; }
   tooltipEl = el('div', 'ui-tooltip');
   tooltipEl.setAttribute('role', 'tooltip');
   document.body.appendChild(tooltipEl);

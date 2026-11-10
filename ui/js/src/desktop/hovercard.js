@@ -19,7 +19,7 @@ function hoverPosterFrom(target) {
 }
 
 function installHoverCards() {
-  if (!window.XUPER_DESKTOP) { return; }
+  if (!window.XUPER_DESKTOP || !platformHas('mouse')) { return; }
   document.addEventListener('mouseover', function (event) {
     if (hoverCard && hoverCard.contains(event.target)) { cancelHoverHide(); return; }
     var poster = hoverPosterFrom(event.target);

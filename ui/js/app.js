@@ -44,6 +44,23 @@
   }
   function each(list, fn) { for (var i = 0; i < list.length; i++) { fn(list[i], i); } }
 
+  /* ---- core/platform.js ------------------------------------------------------ */
+  /* core/platform.js — Acceso a la plataforma (ver ui/js/platform.js).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* window.XUPER_DESKTOP means "the new interface" and is on everywhere.
+     What only some devices can do (a window of its own, a mouse, the
+     system volume...) is asked here instead. */
+  function platformName() {
+    return window.OPENTV_PLATFORM ? window.OPENTV_PLATFORM.name : 'browser';
+  }
+  function platformHas(cap) {
+    return !!(window.OPENTV_PLATFORM && window.OPENTV_PLATFORM.has(cap));
+  }
+  function platformIsTv() {
+    return !!(window.OPENTV_PLATFORM && window.OPENTV_PLATFORM.tv);
+  }
+
   /* ---- core/profiles.js ------------------------------------------------------ */
   /* core/profiles.js — Perfiles locales (como en Netflix): lista, perfil activo y avatares.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
@@ -1846,15 +1863,16 @@
 
   /* "Modo ligero" turns off the costly effects (background blur, the slow
      zoom of the big image, entrance animations, the enlarged card on hover)
-     so menus stay fluid on modest hardware. Off by default on the PC, where
-     it is chosen in Mi cuenta → Apariencia; it is shared by all profiles. */
+     so menus stay fluid on modest hardware. On by default on TVs, off on the
+     PC; Mi cuenta → Apariencia changes it. Shared by all profiles. */
   var LITE_KEY = 'opentv_lite_mode_v1';
 
   function liteMode() {
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(LITE_KEY) || 'null'); } catch (eRead) { saved = null; }
     if (saved === true || saved === false) { return saved; }
-    return false;
+    /* TV LG, Android TV and Fire TV start light; the PC starts full. */
+    return platformIsTv();
   }
 
   function applyLiteMode() {
@@ -3583,7 +3601,7 @@
   function appendLiveDockTools(bar) {
     bar.appendChild(dockButton('is-tool', UI_ICONS.retry, '', 'Reintentar señal', retryLivePreview));
     bar.appendChild(dockButton('is-tool', UI_ICONS.quality, '', 'Calidad', cycleLivePreviewQuality));
-    bar.appendChild(dockButton('is-tool', UI_ICONS.pip, '', 'Ventana flotante', toggleLivePreviewPip));
+    if (platformHas('pip')) { bar.appendChild(dockButton('is-tool', UI_ICONS.pip, '', 'Ventana flotante', toggleLivePreviewPip)); }
     bar.appendChild(dockButton('is-tool', UI_ICONS.diagnostics, '', 'Diagnóstico de red', openDesktopDiagnostic));
   }
 
@@ -12374,8 +12392,8 @@
         { label: 'Reproductor 1', right: 151, w: 90 },
         { label: 'Feedback', right: 50, w: 67 }
       ];
-      if (document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });
-      actDefs.push({ label: 'Pantalla completa', right: 0, w: 120 });
+      if (platformHas('pip') && document.pictureInPictureEnabled) actDefs.push({ label: 'Ventana flotante', right: 0, w: 120 });
+      if (platformHas('window')) actDefs.push({ label: 'Pantalla completa', right: 0, w: 120 });
     }
     for (var i = 0; i < actDefs.length; i++) {
       var d = actDefs[i];
@@ -14046,13 +14064,13 @@
     }
     document.body.insertBefore(titleBarEl, document.body.firstChild);
     document.body.classList.add('has-titlebar');
-    if (window.desktop.onFullscreenChanged) {
+    if (window.desktop && window.desktop.onFullscreenChanged) {
       window.desktop.onFullscreenChanged(function (isFull) {
         document.body.classList.toggle('is-window-fullscreen', !!isFull);
         fitDesignViewport();
       });
     }
-    if (window.desktop.fullscreen) {
+    if (window.desktop && window.desktop.fullscreen) {
       try {
         var q = window.desktop.fullscreen('query');
         if (q && q.then) {
@@ -14478,7 +14496,7 @@
   var tooltipTimer = null;
 
   function installTooltips() {
-    if (tooltipEl || !window.XUPER_DESKTOP) { return; }
+    if (tooltipEl || !window.XUPER_DESKTOP || !platformHas('mouse')) { return; }
     tooltipEl = el('div', 'ui-tooltip');
     tooltipEl.setAttribute('role', 'tooltip');
     document.body.appendChild(tooltipEl);
@@ -14554,7 +14572,7 @@
   }
 
   function installHoverCards() {
-    if (!window.XUPER_DESKTOP) { return; }
+    if (!window.XUPER_DESKTOP || !platformHas('mouse')) { return; }
     document.addEventListener('mouseover', function (event) {
       if (hoverCard && hoverCard.contains(event.target)) { cancelHoverHide(); return; }
       var poster = hoverPosterFrom(event.target);
@@ -15133,11 +15151,13 @@
       { id: 'vod-speed', group: 'right', icon: UI_ICONS.speed, tip: 'Velocidad', run: function () { toggleSpeedMenu($('vod-speed')); } },
       { id: 'vod-settings', group: 'right', icon: UI_ICONS.settings, tip: 'Audio, subtítulos y más (↓)', run: openPlaySettingView }
     ];
-    if (document.pictureInPictureEnabled) {
+    if (platformHas('pip') && document.pictureInPictureEnabled) {
       defs.push({ id: 'vod-pip', group: 'right', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
     }
     defs.push({ id: 'vod-quality', group: 'right', icon: UI_ICONS.quality, tip: 'Calidad', run: function () { toggleQualityMenu($('vod-quality')); } });
-    defs.push({ id: 'vod-fullscreen', group: 'right', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
+    if (platformHas('window')) {
+      defs.push({ id: 'vod-fullscreen', group: 'right', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
+    }
     /* Three zones: Volver on the left, seek/play in the middle, the rest on the right. */
     var groups = { left: el('div', 'vt-group vt-left'), center: el('div', 'vt-group vt-center'), right: el('div', 'vt-group vt-right'), top: el('div', 'vod-topbar') };
     tips.appendChild(groups.left);

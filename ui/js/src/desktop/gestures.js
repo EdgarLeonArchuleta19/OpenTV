@@ -192,11 +192,13 @@ function bindDesktopPlayback() {
     { id: 'vod-speed', group: 'right', icon: UI_ICONS.speed, tip: 'Velocidad', run: function () { toggleSpeedMenu($('vod-speed')); } },
     { id: 'vod-settings', group: 'right', icon: UI_ICONS.settings, tip: 'Audio, subtítulos y más (↓)', run: openPlaySettingView }
   ];
-  if (document.pictureInPictureEnabled) {
+  if (platformHas('pip') && document.pictureInPictureEnabled) {
     defs.push({ id: 'vod-pip', group: 'right', icon: UI_ICONS.pip, tip: 'Ventana flotante (Ctrl+P)', run: togglePictureInPicture });
   }
   defs.push({ id: 'vod-quality', group: 'right', icon: UI_ICONS.quality, tip: 'Calidad', run: function () { toggleQualityMenu($('vod-quality')); } });
-  defs.push({ id: 'vod-fullscreen', group: 'right', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
+  if (platformHas('window')) {
+    defs.push({ id: 'vod-fullscreen', group: 'right', icon: UI_ICONS.fullscreen, tip: 'Pantalla completa (F)', run: function () { window.desktop.fullscreen(); } });
+  }
   /* Three zones: Volver on the left, seek/play in the middle, the rest on the right. */
   var groups = { left: el('div', 'vt-group vt-left'), center: el('div', 'vt-group vt-center'), right: el('div', 'vt-group vt-right'), top: el('div', 'vod-topbar') };
   tips.appendChild(groups.left);
