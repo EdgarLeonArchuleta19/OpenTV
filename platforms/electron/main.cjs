@@ -14,7 +14,6 @@ const { createService } = require('./service.cjs');
 const systemAudio = require('./system-volume.cjs');
 const updates = require('./updater.cjs');
 const logger = require('./logger.cjs');
-const tmdb = require('./tmdb.cjs');
 const backup = require('./backup.cjs');
 let windowRef;
 let shortcutFor = () => null;
@@ -151,10 +150,6 @@ async function start() {
     if (command === 'read') return backup.read();
     if (command === 'write') return backup.write(data);
     return null;
-  });
-  ipcMain.handle('desktop:tmdb', (event, name) => {
-    if (!trusted(event) || typeof name !== 'string') return { error: 'Operación no permitida' };
-    return tmdb.list(name);
   });
   ipcMain.handle('desktop:open-logs', (event) => {
     if (!trusted(event) || !logger.file()) return false;

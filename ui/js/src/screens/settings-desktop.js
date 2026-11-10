@@ -123,8 +123,6 @@ function buildDesktopAboutPanel() {
   page.body.appendChild(desktopSettingsCard(UI_ICONS.channels, 'Películas, series y TV en vivo en un solo lugar',
     'Catálogo que se actualiza solo, reproducción automática con modo compatible, ventana flotante y tu lista guardada en este equipo.'));
   page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Desarrollado por TECHPOINT Software™', null));
-  page.body.appendChild(desktopSettingsCard(UI_ICONS.star, 'Tendencias con datos de TMDB',
-    'Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB. Las listas de tendencias vienen de themoviedb.org.'));
   page.body.appendChild(desktopSettingsCard(UI_ICONS.info, 'Componentes de código abierto',
     'Electron, HLS.js (Apache 2.0) y FFmpeg (GPL v3). Las licencias completas están en la carpeta "licenses" de la instalación.'));
   return page.panel;

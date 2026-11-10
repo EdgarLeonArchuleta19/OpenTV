@@ -305,24 +305,3 @@ function refreshContinueRows() {
   }
 }
 
-/* ------------------------------------------------------------------ Top 10 */
-/* Big outlined rank number behind each poster, like the streaming apps. The
-   ranking comes from the portal's own "TOP 15" shelves. */
-var TOP10_STEP = 410;
-function appendTop10Row(page, y, titleText, items) {
-  if (!items || !items.length) { return y; }
-  var height = ROW_TITLE_H + 360 + ROW_PAD * 2 + 26;
-  var host = makeRowShell(page, y, height, titleText, 'is-top10');
-  for (var i = 0; i < items.length; i++) {
-    var cell = el('div', 'top10-cell');
-    abs(cell, ROW_PAD + i * TOP10_STEP, ROW_PAD, TOP10_STEP - 20, 360);
-    var num = el('div', 'top10-num', String(i + 1));
-    cell.appendChild(num);
-    cell.appendChild(makePoster(items[i], 140, 0, 250, 360, { gold: true }));
-    host._strip.appendChild(cell);
-  }
-  var tail = el('div', 'd-row-tail');
-  abs(tail, ROW_PAD + items.length * TOP10_STEP, 0, ROW_PAD, 1);
-  host._strip.appendChild(tail);
-  return y + height;
-}

@@ -5048,7 +5048,7 @@
 
   function buildFeaturedPage(page) {
     var all = allVodFor('destacado');
-    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: '', top10: 'destacado', rows: 'destacado', gridTitle: 'Títulos destacados' }); return; }
+    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: '', rows: 'destacado', gridTitle: 'Títulos destacados' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
     bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
@@ -5069,7 +5069,7 @@
 
   function buildMoviesPage(page) {
     var all = allVodFor('pelicula');
-    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', trending: 'movie', rows: 'pelicula', grid: true, gridTitle: 'Todas las películas' }); return; }
+    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', rows: 'pelicula', grid: true, gridTitle: 'Todas las películas' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
     bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
@@ -5082,7 +5082,7 @@
 
   function buildSeriesPage(page) {
     var all = allVodFor('serie');
-    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', trending: 'series', rows: 'serie', grid: true, gridTitle: 'Todas las series' }); return; }
+    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', rows: 'serie', grid: true, gridTitle: 'Todas las series' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
     bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
@@ -5196,8 +5196,9 @@
     page.appendChild(strip);
   }
 
-  /* Desktop section: big hero, "Seguir viendo", Top 10, the portal shelves
-     and the full catalogue grid. Falls back to the tile mosaic when no title
+  /* Desktop section: big hero, "Seguir viendo", the portal shelves and the
+     full catalogue grid. The portal's ranking shelves ("TOP 15", "Mejor
+     clasificadas") are left out: no Top 10 rows. Falls back to the tile mosaic when no title
      of the section has wide artwork. */
   function buildDesktopSection(page, all, opts) {
     if (!all || !all.length) {
@@ -5215,45 +5216,14 @@
       y = 830;
     }
     if (opts.continueFilter !== undefined) { y = appendContinueRow(page, y, opts.continueFilter); }
-    if (opts.top10) { y = appendTrendingRows(page, y); }
-    else if (opts.trending) { y = appendTrendingRows(page, y, opts.trending); }
-    var shelves = opts.rows ? portalRowsFor(opts.rows, 4) : [];
-    if (opts.top10) {
-      var regular = [];
-      for (var t = 0; t < shelves.length; t++) {
-        if (/top\s*1[05]|clasificad/i.test(shelves[t].title)) {
-          var isSeries = shelves[t].items.length && isSeriesItem(shelves[t].items[0]);
-          y = appendTop10Row(page, y, isSeries ? 'Top 10 series hoy' : 'Top 10 películas hoy', fillTop10(shelves[t].items, !!isSeries, all));
-        } else {
-          regular.push(shelves[t]);
-        }
-      }
-      shelves = regular;
+    var shelves = [];
+    var portalShelves = opts.rows ? portalRowsFor(opts.rows, 4) : [];
+    for (var t = 0; t < portalShelves.length; t++) {
+      if (!/top\s*1[05]|clasificad/i.test(portalShelves[t].title)) { shelves.push(portalShelves[t]); }
     }
     for (var r = 0; r < shelves.length; r++) { y = appendPosterRow(page, y, shelves[r].title, shelves[r].items); }
     /* Sections end with the whole catalogue; Inicio only when it has no shelves. */
     if (opts.grid || !shelves.length || !opts.rows) { appendCatalogGrid(page, all, y + 20, opts.gridTitle || 'Catálogo'); }
-  }
-
-  /* Always ten when the catalogue has them: the portal's ranking first, then
-     this week's TMDB trends, then other titles of the section (same kind).
-     Only titles currently available in the active VOD catalogue are included. */
-  function fillTop10(ranked, series, section) {
-    var out = [], seen = {};
-    function add(list) {
-      for (var i = 0; i < list.length && out.length < 10; i++) {
-        var raw = list[i];
-        var v = raw && vodById(raw.id);
-        if (!v || seen[v.id] || !!isSeriesItem(v) !== series || !hasUsableCover(v)) { continue; }
-        seen[v.id] = true;
-        out.push(v);
-      }
-    }
-    add(ranked);
-    for (var t = 0; t < trendingRows.length && out.length < 10; t++) { add(trendingRows[t].items || []); }
-    add(section || []);
-    add(VOD);
-    return out;
   }
 
   /* ---- home/rows.js ---------------------------------------------------------- */
@@ -5564,28 +5534,6 @@
     }
   }
 
-  /* ------------------------------------------------------------------ Top 10 */
-  /* Big outlined rank number behind each poster, like the streaming apps. The
-     ranking comes from the portal's own "TOP 15" shelves. */
-  var TOP10_STEP = 410;
-  function appendTop10Row(page, y, titleText, items) {
-    if (!items || !items.length) { return y; }
-    var height = ROW_TITLE_H + 360 + ROW_PAD * 2 + 26;
-    var host = makeRowShell(page, y, height, titleText, 'is-top10');
-    for (var i = 0; i < items.length; i++) {
-      var cell = el('div', 'top10-cell');
-      abs(cell, ROW_PAD + i * TOP10_STEP, ROW_PAD, TOP10_STEP - 20, 360);
-      var num = el('div', 'top10-num', String(i + 1));
-      cell.appendChild(num);
-      cell.appendChild(makePoster(items[i], 140, 0, 250, 360, { gold: true }));
-      host._strip.appendChild(cell);
-    }
-    var tail = el('div', 'd-row-tail');
-    abs(tail, ROW_PAD + items.length * TOP10_STEP, 0, ROW_PAD, 1);
-    host._strip.appendChild(tail);
-    return y + height;
-  }
-
   /* ---- home/hero.js ---------------------------------------------------------- */
   /* home/hero.js — Escritorio: portada grande de cada sección (imagen a todo el ancho, título y botones).
      Parte del módulo único de la app (ver ui/js/src/README.md). */
@@ -5795,178 +5743,6 @@
       heroLayer.style.transform = 'translateY(' + (-y) + 'px)';
     }
     document.body.classList.toggle('is-home-scrolled', y > 140);
-  }
-
-  /* ---- home/trending.js ------------------------------------------------------ */
-  /* home/trending.js — Escritorio: "Tendencias de la semana" de TMDB, solo con títulos de nuestro catálogo.
-     Parte del módulo único de la app (ver ui/js/src/README.md). */
-
-  /* TMDB says what is popular this week; each title is looked up in the
-     catalogue (first the loaded one, then the portal search) and only the
-     ones that can actually be played make it into the row, in TMDB's order.
-     The result is kept for a few hours so the home screen shows it at once. */
-  var TRENDING_KEY = 'opentv_trending_v1';
-  var TRENDING_TTL_MS = 6 * 60 * 60 * 1000;
-  var TRENDING_MAX = 14;
-  var TRENDING_SEARCHES = 10;
-  var TRENDING_LISTS = [
-    { list: 'movie-week', title: 'Tendencias de la semana · Películas', series: false },
-    { list: 'tv-week', title: 'Tendencias de la semana · Series', series: true }
-  ];
-  var trendingRows = [];
-  var trendingLoading = false;
-
-  function tmdbApi() {
-    return window.XUPER_DESKTOP && window.desktop && window.desktop.tmdb ? window.desktop.tmdb : null;
-  }
-
-  /* "Spider-Man: Un nuevo día (2026) T2" -> "spider-man un nuevo dia" */
-  function titleKey(s) {
-    return norm(String(s || ''))
-      .replace(/\(\d{4}\)/g, ' ')
-      .replace(/\s+(t|temporada|season|s)\s*\d+\s*$/, '')
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
-  }
-
-  function catalogMatch(t, pool) {
-    var local = titleKey(t.title), original = titleKey(t.original);
-    var best = null;
-    for (var i = 0; i < pool.length; i++) {
-      var v = pool[i];
-      if (!v || !hasUsableCover(v)) { continue; }
-      if (!!isSeriesItem(v) !== (t.kind === 'tv')) { continue; }
-      var vt = titleKey(v.title), va = titleKey(v.alias);
-      /* A catalogue title with an extra qualifier in brackets is a different
-         film ("La odisea (The Asylum)"): only its own exact title counts. */
-      if (/\([^)]*[a-z][^)]*\)/i.test(String(v.title || ''))) { va = ''; }
-      var yearMatch = String(v.year || v.releaseDate || '').match(/\d{4}/);
-      var sameYear = !!(t.year && yearMatch && Math.abs(parseInt(yearMatch[0], 10) - parseInt(t.year, 10)) <= 1);
-      var unknownYear = !t.year || !yearMatch;
-      /* The Spanish title is enough when the year agrees (or is unknown); a
-         match on the original title alone also needs the same year, or
-         look-alike films ("La odisea (The Asylum)") slip in. */
-      if (local && local.length >= 2 && (local === vt || local === va)) {
-        if (sameYear) { return v; }
-        if (unknownYear) { best = best || v; }
-      } else if (original && original.length >= 2 && (original === vt || original === va) && sameYear) {
-        return v;
-      }
-    }
-    return best;
-  }
-
-  function searchPortalFor(t, done) {
-    if (vodApi.mode !== 'portal' || getVodSourcesConfig().mode === 'external') { done(null); return; }
-    portalServiceCall('search', { value: t.title, pageNum: 1, pageSize: 10 }, function (error, payload) {
-      if (error || !payload || !payload.items) { done(null); return; }
-      var found = [];
-      for (var i = 0; i < payload.items.length; i++) {
-        var item = normalizeVod(payload.items[i], i + 1);
-        item._portal = true;
-        found.push(item);
-      }
-      done(catalogMatch(t, found));
-    });
-  }
-
-  /* Keeps the matched titles for a TMDB list, in TMDB order. */
-  function matchTrending(def, tmdbItems, done) {
-    var out = new Array(tmdbItems.length);
-    var missing = [];
-    for (var i = 0; i < tmdbItems.length; i++) {
-      var hit = catalogMatch(tmdbItems[i], VOD);
-      if (hit) { out[i] = hit; } else { missing.push(i); }
-    }
-    var pending = Math.min(missing.length, TRENDING_SEARCHES);
-    function finish() {
-      var items = [], seen = {};
-      for (var j = 0; j < out.length && items.length < TRENDING_MAX; j++) {
-        if (out[j] && !seen[out[j].id]) { seen[out[j].id] = true; items.push(out[j]); }
-      }
-      done({ title: def.title, items: items });
-    }
-    if (!pending) { finish(); return; }
-    missing.slice(0, TRENDING_SEARCHES).forEach(function (idx) {
-      searchPortalFor(tmdbItems[idx], function (hit) {
-        if (hit) { out[idx] = hit; }
-        if (--pending === 0) { finish(); }
-      });
-    });
-  }
-
-  function trendingRowsFromCache() {
-    var saved = safeLocalRead(TRENDING_KEY, null);
-    if (!saved || !saved.rows || Date.now() - (saved.at || 0) > TRENDING_TTL_MS * 4) { return null; }
-    return saved;
-  }
-
-  /* Called on start-up and every few hours (desktop only). */
-  function loadTrending() {
-    var api = tmdbApi();
-    if (!api || trendingLoading) { return; }
-    var cached = trendingRowsFromCache();
-    if (cached) {
-      trendingRows = cached.rows;
-      if (Date.now() - cached.at < TRENDING_TTL_MS) { return; }
-    }
-    trendingLoading = true;
-    var results = [];
-    var left = TRENDING_LISTS.length;
-    TRENDING_LISTS.forEach(function (def, n) {
-      api(def.list).then(function (answer) {
-        if (!answer || !answer.items || !answer.items.length) { step(n, null); return; }
-        matchTrending(def, answer.items, function (row) { step(n, row); });
-      }).catch(function () { step(n, null); });
-    });
-    function step(n, row) {
-      results[n] = row && row.items.length >= 4 ? row : null;
-      if (--left > 0) { return; }
-      trendingLoading = false;
-      var rows = results.filter(function (r) { return !!r; });
-      if (!rows.length) { return; }
-      trendingRows = rows;
-      safeLocalWrite(TRENDING_KEY, { at: Date.now(), rows: rows });
-      refreshTrendingPage();
-    }
-  }
-
-  /* New rows: rebuild Inicio now if the viewer is not in the middle of it,
-     otherwise the next time it is shown. */
-  function refreshTrendingPage() {
-    catalogStaleAt = Date.now() + 1;
-    var tab = TABS[state.tab];
-    var page = tab ? pages[tab.page] : null;
-    if (tab && tab.page === 1 && page && state.screen === 'home' && page.scrollTop < 80) {
-      ensurePageBuilt(1);
-      showHeroForPage(1);
-    }
-  }
-
-  /* kind: 'movie' / 'series' shows only that row (Películas, Series pages).
-     Only titles currently available in the active VOD catalogue are shown. */
-  function appendTrendingRows(page, y, kind) {
-    for (var i = 0; i < trendingRows.length; i++) {
-      var row = trendingRows[i];
-      if (!row || !row.items || !row.items.length) { continue; }
-      if (kind && row.items[0] && (!!isSeriesItem(row.items[0])) !== (kind === 'series')) { continue; }
-      var avail = [];
-      for (var j = 0; j < row.items.length; j++) {
-        var found = row.items[j] && vodById(row.items[j].id);
-        if (found && hasUsableCover(found)) { avail.push(found); }
-      }
-      if (avail.length >= 4) {
-        y = appendPosterRow(page, y, kind ? 'Tendencias de la semana' : row.title, avail);
-      }
-    }
-    return y;
-  }
-
-  function installTrending() {
-    if (!tmdbApi()) { return; }
-    /* The catalogue must be there to match against: wait for it a little. */
-    setTimeout(loadTrending, 6000);
-    setInterval(loadTrending, TRENDING_TTL_MS);
   }
 
   /* ---- screens/detail.js ----------------------------------------------------- */
@@ -9154,8 +8930,6 @@
     page.body.appendChild(desktopSettingsCard(UI_ICONS.channels, 'Películas, series y TV en vivo en un solo lugar',
       'Catálogo que se actualiza solo, reproducción automática con modo compatible, ventana flotante y tu lista guardada en este equipo.'));
     page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Desarrollado por TECHPOINT Software™', null));
-    page.body.appendChild(desktopSettingsCard(UI_ICONS.star, 'Tendencias con datos de TMDB',
-      'Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB. Las listas de tendencias vienen de themoviedb.org.'));
     page.body.appendChild(desktopSettingsCard(UI_ICONS.info, 'Componentes de código abierto',
       'Electron, HLS.js (Apache 2.0) y FFmpeg (GPL v3). Las licencias completas están en la carpeta "licenses" de la instalación.'));
     return page.panel;
@@ -15395,7 +15169,7 @@
       settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); }
     };
 
-    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); installTrending(); installProfiles(); startCatalogAutoRefresh(); }
+    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); installProfiles(); startCatalogAutoRefresh(); }
 
     applyQuery();
   }

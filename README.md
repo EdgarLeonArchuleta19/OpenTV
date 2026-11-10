@@ -22,7 +22,7 @@ Interfaz moderna estilo streaming, rápida con ratón y teclado.
 
 | | |
 |---|---|
-| 🎬 **Inicio estilo streaming** | Portada a todo el ancho que rota entre títulos, **Seguir viendo** con progreso, **Top 10** con números grandes y filas por temas. Al dejar el ratón sobre un póster aparece una tarjeta con reproducir, Mi lista y detalles. |
+| 🎬 **Inicio estilo streaming** | Portada a todo el ancho que rota entre títulos, **Seguir viendo** con progreso y filas por temas. Al dejar el ratón sobre un póster aparece una tarjeta con reproducir, Mi lista y detalles. |
 | 📺 **TV en vivo** | Más de 1000 canales por país y tema, vista previa sin salir del inicio, **Guía de canales** (tecla `G`) con buscador, **Favoritos** y **Recientes**. |
 | 🔎 **Buscador** | Sugerencias del catálogo mientras escribes y búsquedas recientes. |
 | ▶️ **Reproductor** | Controles tipo Netflix, volumen (controla el de Windows), velocidad 0,5×–2×, calidad, audio y subtítulos, siguiente episodio automático, ventana flotante y pantalla completa. Si un vídeo falla, cambia solo a un modo compatible. |
@@ -36,8 +36,7 @@ Interfaz moderna estilo streaming, rápida con ratón y teclado.
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/top10.jpg" alt="Seguir viendo y Top 10"></td>
-    <td><img src="docs/screenshots/peliculas.jpg" alt="Películas"></td>
+    <td colspan="2"><img src="docs/screenshots/peliculas.jpg" alt="Películas"></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/guia.jpg" alt="Guía de canales"></td>

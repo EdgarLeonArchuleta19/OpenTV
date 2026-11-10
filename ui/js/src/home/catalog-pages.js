@@ -207,7 +207,7 @@ function appendCatalogGrid(page, items, startY, titleText) {
 
 function buildFeaturedPage(page) {
   var all = allVodFor('destacado');
-  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: '', top10: 'destacado', rows: 'destacado', gridTitle: 'Títulos destacados' }); return; }
+  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: '', rows: 'destacado', gridTitle: 'Títulos destacados' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
   bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
@@ -228,7 +228,7 @@ function buildFeaturedPage(page) {
 
 function buildMoviesPage(page) {
   var all = allVodFor('pelicula');
-  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', trending: 'movie', rows: 'pelicula', grid: true, gridTitle: 'Todas las películas' }); return; }
+  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', rows: 'pelicula', grid: true, gridTitle: 'Todas las películas' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
   bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
@@ -241,7 +241,7 @@ function buildMoviesPage(page) {
 
 function buildSeriesPage(page) {
   var all = allVodFor('serie');
-  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', trending: 'series', rows: 'serie', grid: true, gridTitle: 'Todas las series' }); return; }
+  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', rows: 'serie', grid: true, gridTitle: 'Todas las series' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
   bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
@@ -355,8 +355,9 @@ function buildExplorePage(page) {
   page.appendChild(strip);
 }
 
-/* Desktop section: big hero, "Seguir viendo", Top 10, the portal shelves
-   and the full catalogue grid. Falls back to the tile mosaic when no title
+/* Desktop section: big hero, "Seguir viendo", the portal shelves and the
+   full catalogue grid. The portal's ranking shelves ("TOP 15", "Mejor
+   clasificadas") are left out: no Top 10 rows. Falls back to the tile mosaic when no title
    of the section has wide artwork. */
 function buildDesktopSection(page, all, opts) {
   if (!all || !all.length) {
@@ -374,43 +375,13 @@ function buildDesktopSection(page, all, opts) {
     y = 830;
   }
   if (opts.continueFilter !== undefined) { y = appendContinueRow(page, y, opts.continueFilter); }
-  if (opts.top10) { y = appendTrendingRows(page, y); }
-  else if (opts.trending) { y = appendTrendingRows(page, y, opts.trending); }
-  var shelves = opts.rows ? portalRowsFor(opts.rows, 4) : [];
-  if (opts.top10) {
-    var regular = [];
-    for (var t = 0; t < shelves.length; t++) {
-      if (/top\s*1[05]|clasificad/i.test(shelves[t].title)) {
-        var isSeries = shelves[t].items.length && isSeriesItem(shelves[t].items[0]);
-        y = appendTop10Row(page, y, isSeries ? 'Top 10 series hoy' : 'Top 10 películas hoy', fillTop10(shelves[t].items, !!isSeries, all));
-      } else {
-        regular.push(shelves[t]);
-      }
-    }
-    shelves = regular;
+  var shelves = [];
+  var portalShelves = opts.rows ? portalRowsFor(opts.rows, 4) : [];
+  for (var t = 0; t < portalShelves.length; t++) {
+    if (!/top\s*1[05]|clasificad/i.test(portalShelves[t].title)) { shelves.push(portalShelves[t]); }
   }
   for (var r = 0; r < shelves.length; r++) { y = appendPosterRow(page, y, shelves[r].title, shelves[r].items); }
   /* Sections end with the whole catalogue; Inicio only when it has no shelves. */
   if (opts.grid || !shelves.length || !opts.rows) { appendCatalogGrid(page, all, y + 20, opts.gridTitle || 'Catálogo'); }
 }
 
-/* Always ten when the catalogue has them: the portal's ranking first, then
-   this week's TMDB trends, then other titles of the section (same kind).
-   Only titles currently available in the active VOD catalogue are included. */
-function fillTop10(ranked, series, section) {
-  var out = [], seen = {};
-  function add(list) {
-    for (var i = 0; i < list.length && out.length < 10; i++) {
-      var raw = list[i];
-      var v = raw && vodById(raw.id);
-      if (!v || seen[v.id] || !!isSeriesItem(v) !== series || !hasUsableCover(v)) { continue; }
-      seen[v.id] = true;
-      out.push(v);
-    }
-  }
-  add(ranked);
-  for (var t = 0; t < trendingRows.length && out.length < 10; t++) { add(trendingRows[t].items || []); }
-  add(section || []);
-  add(VOD);
-  return out;
-}
