@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!-- Android TV / Fire TV launcher banner (16:9, full bleed: the launcher
+       shows it as a horizontal card). Rendered to res/drawable-*dpi/tv_banner.png
+       by platforms/android/banner/render-banner.cjs. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1B1B22"/>
+      <stop offset="1" stop-color="#0A0A0D"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.29" cy="0.5" r="0.42">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <rect width="1280" height="720" fill="url(#glow)"/>
+  <!-- TV mark (same drawing as ui/images/logo-mark.svg) -->
+  <g transform="translate(150 178) scale(0.98)" fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M124 16 184 76 244 16"/>
+    <rect x="20" y="76" width="328" height="232" rx="44"/>
+    <path d="M159 156v72l62-36z" fill="#fff"/>
+    <path d="M116 356h136"/>
+  </g>
+  <text x="560" y="414" fill="#fff" font-family="Segoe UI, Inter, Roboto, Arial, sans-serif" font-weight="700" font-size="150" letter-spacing="-2">OpenTV</text>
+</svg>

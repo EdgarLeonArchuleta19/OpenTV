@@ -1,0 +1,9 @@
+{
+  "appId": "com.techpoint.opentv",
+  "appName": "OpenTV",
+  "webDir": "www",
+  "backgroundColor": "#0E0E11",
+  "appendUserAgent": "OpenTVImg/1",
+  "server": { "androidScheme": "http", "cleartext": true },
+  "android": { "allowMixedContent": true, "backgroundColor": "#0E0E11" }
+}

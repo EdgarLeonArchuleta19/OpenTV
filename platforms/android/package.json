@@ -1,0 +1,17 @@
+{
+  "name": "opentv-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OpenTV para Android, Android TV y Fire TV (Capacitor). La interfaz sale de ../../ui; ver docs/PLATAFORMAS.md.",
+  "scripts": {
+    "build": "node ../../scripts/build-android.cjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/core": "^6.2.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.1"
+  }
+}

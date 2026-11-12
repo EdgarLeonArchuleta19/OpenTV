@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OpenTV</string>
+    <string name="title_activity_main">OpenTV</string>
+    <string name="package_name">com.techpoint.opentv</string>
+    <string name="custom_url_scheme">com.techpoint.opentv</string>
+</resources>

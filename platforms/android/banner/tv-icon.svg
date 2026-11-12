@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Launcher icon on TVs (res/mipmap-television-*/ic_launcher.png, made by
+       render-banner.cjs). Fire TV draws apps not installed from its Appstore
+       as a square in the middle of a wide card: full bleed (no rounded
+       corners showing the gray behind) with the name under the mark. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1B1B22"/>
+      <stop offset="1" stop-color="#0A0A0D"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.4" r="0.55">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#glow)"/>
+  <!-- TV mark (ui/images/logo-mark.svg), centred in the upper part -->
+  <g transform="translate(140 74) scale(0.63)" fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M124 16 184 76 244 16"/>
+    <rect x="20" y="76" width="328" height="232" rx="44"/>
+    <path d="M159 156v72l62-36z" fill="#fff"/>
+    <path d="M116 356h136"/>
+  </g>
+  <text x="256" y="420" text-anchor="middle" fill="#fff" font-family="Segoe UI, Inter, Roboto, Arial, sans-serif" font-weight="700" font-size="84" letter-spacing="-1">OpenTV</text>
+</svg>

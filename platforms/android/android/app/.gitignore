@@ -1,0 +1,6 @@
+/build/*
+!/build/.npmkeep
+
+# TMDB key copied from config/tmdb.json by scripts/build-android.cjs
+src/main/assets/tmdb.json
+src/main/assets/tmdb.bin

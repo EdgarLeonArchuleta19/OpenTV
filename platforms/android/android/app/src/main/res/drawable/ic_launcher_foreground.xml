@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- OpenTV logo (ui/images/logo-mark.svg) on the 108 dp adaptive icon
+     canvas, inside the 66 dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.1613"
+        android:scaleY="0.1613"
+        android:translateX="12.71"
+        android:translateY="13.03">
+        <path
+            android:pathData="M196,84 L256,144 L316,84"
+            android:strokeColor="#FFFFFF" android:strokeWidth="24"
+            android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path
+            android:pathData="M136,144 L376,144 A44,44 0 0 1 420,188 L420,332 A44,44 0 0 1 376,376 L136,376 A44,44 0 0 1 92,332 L92,188 A44,44 0 0 1 136,144 Z"
+            android:strokeColor="#FFFFFF" android:strokeWidth="24"
+            android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path
+            android:pathData="M231,224 L231,296 L293,260 Z"
+            android:strokeColor="#FFFFFF" android:strokeWidth="24"
+            android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path
+            android:pathData="M188,424 L324,424"
+            android:strokeColor="#FFFFFF" android:strokeWidth="24"
+            android:strokeLineCap="round" android:strokeLineJoin="round" />
+    </group>
+</vector>
