@@ -29,7 +29,6 @@ function startLiveChannel(ch, immediate) {
         setPlayerStatus(state.streamError);
         return;
       }
-      rememberCdnProbe('live', payload);
       var streamUrl = payload.proxyPath || payload.url;
       if (!streamUrl) {
         state.streamError = 'Señal no disponible';
@@ -38,6 +37,8 @@ function startLiveChannel(ch, immediate) {
       }
       setPlayerStatus('');
       showInfobar();
+      /* (A title's still from the details screen does not belong to a channel.) */
+      if (playerVideo) { playerVideo.removeAttribute('poster'); }
       playUrl(streamUrl);
     });
   };
@@ -81,7 +82,8 @@ function updatePlayer() {
     idx.textContent = pad2(ch.index || (state.channel + 1));
     name.textContent = ch.name || '';
     nameRowPosition();
-    date.textContent = 'Hoy';
+    /* "Hoy" only makes sense next to a programme time. */
+    date.textContent = ch.time ? 'Hoy' : '';
     range.textContent = ch.time || '';
     now.style.display = 'block';
     now.textContent = ch.now || 'En vivo';
@@ -202,7 +204,13 @@ function restorePlayerReturn() {
   if (ret && ret.screen === 'detail') {
     var scrPlayer = $('screen-player');
     var scrDetail = $('screen-detail');
-    if (scrPlayer) {
+    if (scrPlayer && platformIsTv()) {
+      /* TVs: back on the details screen the video stops (no small player
+         there, only the title's picture). */
+      stopPlayerVideo();
+      scrPlayer.classList.remove('is-mini');
+      scrPlayer.classList.remove('is-active');
+    } else if (scrPlayer) {
       scrPlayer.classList.add('is-mini');
       scrPlayer.classList.add('is-active');
     }
@@ -221,6 +229,9 @@ function restorePlayerReturn() {
       if (sBtn) { setFocus(sBtn); }
     } else if (state.detail) {
       syncDetailEpisodeHighlight(state.detail);
+      /* The progress saved while watching changes the main button
+         ("Reanudar · 25:10"). */
+      rebuiltDetail = refreshDetailResume(state.detail);
     }
     if (!rebuiltDetail) {
       if (ret.focus && isVisible(ret.focus)) {

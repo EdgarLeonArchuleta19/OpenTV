@@ -45,6 +45,7 @@ Se hizo así a propósito:
 | `screens/` | bienvenida, inicio, ficha, búsqueda, ajustes, historial, diagnóstico |
 | `home/` | pósteres, TV del inicio y páginas de catálogo |
 | `live/` | canales en vivo, listas M3U y diálogo de addons |
-| `player/` | reproductor: barras, audio/subtítulos, episodios, reproducción, modo compatible |
-| `desktop/` | solo escritorio: escalado de ventana, PiP, botones flotantes, gestos del ratón |
+| `player/` | reproductor: barras, audio/subtítulos, episodios, reproducción, modo compatible; `stremio-sources.js` = panel "Elegir fuente" y torrents del modo manual (solo PC) |
+| `desktop/` | diseño moderno (PC y teles): escalado de ventana, PiP, botones flotantes, gestos del ratón |
+| `mobile/` | diseño de celular (Android): pantallas táctiles propias sobre el mismo estado y servicios |
 | `main.js` | arranque (`boot`), API de depuración `window.__xuper` y enlaces profundos |

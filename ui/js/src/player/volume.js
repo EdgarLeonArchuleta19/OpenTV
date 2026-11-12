@@ -119,7 +119,9 @@ function installSeekHoverPreview() {
 }
 
 function installPlayerVolume() {
-  if (!window.XUPER_DESKTOP) { return; }
+  /* TVs: the remote changes the TV's own volume; the slider, the wheel and
+     the seek preview on hover are mouse controls. */
+  if (!window.XUPER_DESKTOP || platformIsTv()) { return; }
   var left = document.querySelector('.vod-infobar-tips .vt-left');
   if (left && !left.querySelector('.vod-volume')) { buildPlayerVolume(left); }
   playerVideo.addEventListener('playing', applyPlayerAudio);

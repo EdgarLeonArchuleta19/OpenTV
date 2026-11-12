@@ -18,6 +18,8 @@
      'logs'          carpeta del registro de errores (Electron)
      'backup'        copia de perfiles fuera de la app (Electron)
      'hls-js'        reproducir HLS con hls.js (Electron; las TV lo hacen nativo)
+     'native-player' el vídeo lo reproduce la app nativa (Android: ExoPlayer,
+                     js/native-player.js + NativePlayerPlugin.java)
 
    Para probar otra plataforma en el PC: añade ?platform=webos (o android,
    android-tv) a la dirección de la página. */
@@ -44,10 +46,25 @@
     tv = true;
   }
 
+  function nativePlayerPlugin() {
+    var cap = window.Capacitor;
+    if (!cap) { return false; }
+    /* localStorage opentv_player = 'web' goes back to hls.js (tests). */
+    try { if (localStorage.getItem('opentv_player') === 'web') { return false; } } catch (e) { /* ignore */ }
+    var headers = cap.PluginHeaders || [];
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i] && headers[i].name === 'NativePlayer') { return true; }
+    }
+    return !!(cap.Plugins && cap.Plugins.NativePlayer);
+  }
+
   var CAPS = {
-    electron: ['window', 'pip', 'mouse', 'system-volume', 'updates', 'logs', 'backup', 'hls-js'],
+    /* addons: the catalog modes (automatic / Stremio) and torrents, PC only. */
+    electron: ['window', 'pip', 'mouse', 'system-volume', 'updates', 'logs', 'backup', 'hls-js', 'addons', 'torrents'],
     webos: ['mouse'],
-    android: [],
+    /* Android: the app's native player (ExoPlayer) when the app has it;
+       hls.js in the WebView otherwise. */
+    android: nativePlayerPlugin() ? ['native-player'] : ['hls-js'],
     browser: ['mouse', 'pip', 'hls-js']
   };
   var caps = CAPS[name] || CAPS.browser;

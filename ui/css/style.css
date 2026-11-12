@@ -466,29 +466,6 @@ div, section, span { outline: none; }
 }
 
 /* mLlFastBtn : left 129dp, bottom 67dp ; 53dp buttons, 27dp gaps */
-.live-fast {
-  position: absolute;
-  left: 193.5px; bottom: 100.5px;
-  height: 79.5px;
-  white-space: nowrap;
-}
-.live-fast .fast-btn {
-  position: relative;
-  display: inline-block;
-  width: 79.5px; height: 79.5px;
-  margin-right: 40.5px;             /* 27dp */
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-size: 79.5px 79.5px;
-  vertical-align: top;
-}
-.live-fast .fast-btn:last-child { margin-right: 0; }
-.live-fast .fast-btn.f-all  { background-image: url(../assets/original/home/home_live_btn_all_normal.png); }
-.live-fast .fast-btn.f-fav  { background-image: url(../assets/original/home/home_live_btn_fav_normal.png); }
-.live-fast .fast-btn.f-srch { background-image: url(../assets/original/home/home_live_btn_search_normal.png); }
-.live-fast .fast-btn.f-all.is-focused  { background-image: url(../assets/original/home/home_live_btn_all_focus.png); }
-.live-fast .fast-btn.f-fav.is-focused  { background-image: url(../assets/original/home/home_live_btn_fav_focus.png); }
-.live-fast .fast-btn.f-srch.is-focused { background-image: url(../assets/original/home/home_live_btn_search_focus.png); }
 
 .live-arrow-up,
 .live-arrow-down {
@@ -572,7 +549,6 @@ div, section, span { outline: none; }
 /* =============================================================================
    HOME / POSTER GRIDS
    ============================================================================= */
-.poster-area { position: absolute; left: 90px; top: 0; width: 1830px; height: 940.5px; }
 
 /* FocusBorderView : the gold frame observed around the live video
    (3 px, peak #989898). */
@@ -709,128 +685,7 @@ div, section, span { outline: none; }
 /* =============================================================================
    HOME / FREE  (fragment_freefragment.xml + item_free_*)
    grid padding 60/20/60dp, 6 columns, hSpacing 32dp, vSpacing 7dp
-   ============================================================================= */
-.free-scroll {
-  position: absolute;
-  left: 0; top: 0;
-  width: 1920px; height: 940.5px;
-  overflow: hidden;
-}
-.free-section { position: absolute; left: 0; width: 1920px; }
-.free-header {
-  position: absolute;
-  left: 90px; top: 0;               /* 60dp */
-  height: 31.5px;
-  white-space: nowrap;
-}
-.free-header.vod { left: 100.5px; } /* 67dp */
-.free-header img {
-  position: absolute;
-  left: 0; top: 0;
-  width: 36px; height: 31.5px;      /* 24dp x 21dp */
-}
-.free-header span {
-  position: absolute;
-  left: 46.5px;                     /* 24dp + 7dp */
-  top: 0;
-  font-size: 31.5px;                /* 21sp */
-  line-height: 31.5px;
-  color: #ffffff;
-  white-space: nowrap;
-}
-.free-grid {
-  position: absolute;
-  left: 90px; top: 61.5px;          /* paddingTop 20dp after 31.5 header */
-  width: 1740px;
-  height: 500px;
-}
-.free-tile {
-  position: absolute;
-  width: 250px;                     /* 167dp */
-  overflow: visible;
-}
-.free-tile .tile-poster {
-  position: absolute;
-  left: 0; top: 0;
-  width: 250px;
-  height: 199.5px;                  /* 133dp */
-  overflow: hidden;
-  background: rgba(255,255,255,0.2) url(../assets/original/home/icon_live_free_placeholder.png) center center no-repeat;
-  background-size: 250px 199.5px;
-}
-.free-tile .tile-img {
-  position: absolute;
-  left: 0; top: 0;
-  width: 100%; height: 100%;
-  object-fit: fill;                 /* mPosterImg scaleType=fitXY */
-}
-.free-tile .tile-name {
-  position: absolute;
-  left: 4.5px; right: 4.5px;        /* 3dp */
-  font-size: 31.5px;                /* 21sp */
-  line-height: 40px;
-  text-align: center;
-  color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.free-tile.t-channel { height: 259.5px; }   /* 173dp */
-.free-tile.t-channel .tile-name { top: 210px; height: 40px; }
-.free-tile.t-vod { height: 450px; }         /* 300dp */
-.free-tile.t-vod .tile-poster {
-  height: 367.5px;                  /* 245dp */
-  /* item_free_area_vod_list has no placeholder src; the adapter loads the
-     cover into mPosterImg (fitXY). With no data PosterView shows the
-     vertical no-image bitmap. */
-  background: url(../assets/original/common/bg_placehoder_vertical.png) 0 0 no-repeat;
-  background-size: 100% 100%;
-}
-.free-tile.t-vod .tile-name { top: 378px; height: 40px; }
-
-.free-tile.is-focused .tile-poster::after {
-  content: "";
-  position: absolute;
-  left: 0; top: 0; right: 0; bottom: 0;
-  border: 3px solid transparent;
-  border-image: url(../assets/original/vod/poster_focus_nohalo.9.png) 2 2 2 2 repeat;
-}
-
-.free-tile.free-more .tile-poster {
-  background: url(../assets/original/common/bg_vod_more.png) center center no-repeat;
-  background-size: 100% 100%;
-}
-.free-more .more-icon {
-  position: absolute;
-  left: 50%; top: 133.5px;          /* 89dp */
-  margin-left: -48.75px;
-  width: 97.5px; height: 100.5px;   /* 65dp x 67dp */
-  background: url(../assets/original/home/icon_free_more.png) center center no-repeat;
-  background-size: contain;
-}
-.free-more.is-live .tile-poster {
-  /* mLayoutMore color_33ffffff over mPosterImg (icon_live_free_placeholder) */
-  background: linear-gradient(rgba(255,255,255,0.2), rgba(255,255,255,0.2)),
-              url(../assets/original/home/icon_live_free_placeholder.png) center center no-repeat;
-  background-size: 100% 100%, 250px 199.5px;
-}
-.free-more.is-live .more-icon { top: 49.5px; }
-.free-more.is-live .more-label {
-  bottom: auto;
-  top: 150px;                       /* icon bottom = 49.5 + 100.5 */
-  height: 34px;
-  font-size: 31.5px;                /* 21sp */
-  line-height: 34px;
-}
-.free-more .more-label {
-  position: absolute;
-  left: 0; right: 0; bottom: 123px; /* poster 367.5 - marginBottom 40.5 */
-  height: 42px;
-  font-size: 40.5px;                /* 27dp used as textSize in XML */
-  line-height: 42px;
-  text-align: center;
-  color: #ffffff;
-}
+   ============================================================================= */ /* 67dp */   /* 173dp */         /* 300dp */
 
 /* =============================================================================
    VOD DETAILS  (activity_voddetails.xml + layout_vod_detail_*)
@@ -1010,19 +865,6 @@ div, section, span { outline: none; }
 }
 
 /* mTvTs : 765px x 48px, top 480px, right 80px (GONE by default) */
-.detail-ts {
-  position: absolute;
-  right: 80px; top: 480px;
-  width: 765px; height: 48px;
-  padding-left: 52px;
-  font-size: 28px;
-  line-height: 48px;
-  color: #ffffff;
-  background: #494b4d;
-  overflow: hidden;
-  white-space: nowrap;
-  display: none;
-}
 
 /* mLayoutButtons : 80px / 540px ; detail_button_style 276x68 */
 .detail-buttons {
@@ -1591,106 +1433,10 @@ div, section, span { outline: none; }
   line-height: 32px;
   font-weight: 500;
 }
-.sp-about-mail {
-  position: absolute;
-  left: 80px; bottom: 84px;
-  height: 32px;
-  font-size: 24px;
-  line-height: 32px;
-  color: #b3b3b3;
-}
-.sp-about-mail img { position: absolute; left: 0; top: 0; width: 32px; height: 32px; }
-.sp-about-mail span { display: block; margin-left: 42px; }
 
 /* upgrade / cache */
-.sp-card {
-  position: absolute;
-  left: 30px; right: 108px;
-  background: rgba(41,42,43,.66);   /* color_a8292a2b */
-  border-radius: 10px;
-}
-.sp-card h3 {
-  position: absolute;
-  left: 64px; top: 27px;
-  height: 50px;
-  font-size: 40px;
-  line-height: 50px;
-  font-weight: bold;
-  color: #ffffff;
-}
-.sp-version {
-  position: absolute;
-  left: 64px; top: 163px;
-  height: 40px;
-  font-size: 30px;
-  line-height: 40px;
-  color: #858d94;                   /* color_detail_font_des */
-}
-.sp-clear-row { position: absolute; left: 65px; height: 68px; white-space: nowrap; }
-.sp-clear-row .lbl {
-  display: inline-block;
-  width: 197px;
-  font-size: 32px;
-  line-height: 68px;
-  color: #c4c4c4;
-  vertical-align: top;
-}
-.sp-clear-row .btn {
-  display: inline-block;
-  width: 245px; height: 68px;
-  margin-left: 33px;
-  font-size: 32px;
-  line-height: 68px;
-  text-align: center;
-  color: #c4c4c4;
-  background: linear-gradient(135deg, #51545b 0%, #3a3f43 100%);
-  vertical-align: top;
-}
-.sp-clear-row .btn.is-focused { color: #ffffff; background: linear-gradient(135deg, #6d6d6d 0%, #404040 100%); }
 
 /* adult content (fragment_cr_switch.xml) */
-.cr-head { position: absolute; left: 59px; top: 94px; height: 51px; white-space: nowrap; }
-.cr-head .t {
-  display: inline-block;
-  height: 51px;
-  font-size: 42px;
-  line-height: 51px;
-  color: #ffffff;
-  vertical-align: top;
-}
-.cr-head .sw {
-  position: relative;
-  display: inline-block;
-  width: 106px; height: 51px;
-  margin-left: 17px;
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-size: 96px 38px;
-  vertical-align: top;
-  border-radius: 30px;
-}
-.cr-head .sw.on  { background-image: url(../assets/original/settings/icon_subtitle_switch_on.png); }
-.cr-head .sw.off { background-image: url(../assets/original/settings/icon_subtitle_switch_off.png); }
-.cr-head .sw.is-focused { box-shadow: inset 0 0 0 3px #717171; }
-.cr-tip { position: absolute; left: 59px; top: 147px; font-size: 28px; line-height: 36px; color: rgba(255,255,255,.38); }
-.cr-btn {
-  position: absolute;
-  left: 59px; top: 212px;           /* 94 + 51 (head) + 67 */
-  width: 572px; height: 93px;
-  padding: 0 10px;
-  font-size: 33px;
-  line-height: 38px;                /* TextView wraps: 2 lines fit in 93px */
-  text-align: center;
-  color: #ffffff;
-  background: rgba(255,255,255,.231); /* color_3bffffff */
-  border-radius: 8px;                /* 8px */
-  /* centre the (possibly two-line) label vertically */
-  display: -webkit-box; display: -ms-flexbox; display: flex;
-  -webkit-box-align: center; -ms-flex-align: center; align-items: center;
-  -webkit-box-pack: center; -ms-flex-pack: center; justify-content: center;
-}
-.cr-btn.is-focused { background: #717171; }
-.cr-warn { position: absolute; left: 59px; top: 329px; font-size: 28px; line-height: 36px; color: #717171; }
 
 /* parental */
 .pl-title { position: absolute; left: 80px; top: 96px; height: 60px; font-size: 48px; line-height: 60px; font-weight: bold; color: #ffffff; }
@@ -1752,52 +1498,8 @@ div, section, span { outline: none; }
 .fb-help.is-focused { background: #717171; color: #ffffff; }
 
 /* account / purchase (not reconstructed in this pass) */
-.sp-pending {
-  position: absolute;
-  left: 52px; top: 210px;
-  width: 1000px;
-  font-size: 28px;
-  line-height: 40px;
-  color: #858d94;
-}
-.sp-pending b { color: #ffffff; }
 
 /* Local profile and continue-watching history. */
-.profile-caption {
-  position: absolute;
-  left: 52px; top: 188px;
-  font-size: 32px;
-  color: #ffffff;
-}
-.profile-id {
-  position: absolute;
-  left: 52px; top: 239px;
-  padding: 9px 16px;
-  font-size: 22px;
-  color: #aeb8c6;
-  background: rgba(255,255,255,.08);
-  border-radius: 5px;
-}
-.profile-history {
-  position: absolute;
-  left: 52px; top: 325px;
-  width: 1160px;
-  bottom: 60px;
-  overflow: hidden;
-}
-.profile-history-row {
-  position: relative;
-  width: 100%; height: 82px;
-  margin-bottom: 12px;
-  padding: 12px 22px;
-  box-sizing: border-box;
-  background: rgba(255,255,255,.07);
-  border-left: 4px solid rgba(113, 113, 113,.75);
-}
-.profile-history-row.is-focused { background: linear-gradient(90deg, #5a5a5a, #323232); outline: 2px solid #fff; }
-.profile-history-title { font-size: 27px; line-height: 32px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.profile-history-detail { margin-top: 4px; font-size: 20px; line-height: 24px; color: #b8c0cb; }
-.profile-empty { padding-top: 18px; font-size: 28px; color: #9ca6b3; }
 
 /* XuperTV account-style settings shell: a calm black rail, clear icons and
    a rounded red selection instead of the former full-width technical list. */
@@ -2497,27 +2199,6 @@ div, section, span { outline: none; }
 /* =============================================================================
    VOD BOTTOM MENU OVERLAY (Capítulos, Idioma, Subtítulos)
    ============================================================================= */
-.player-vod-menu {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 380px;
-  background: -webkit-linear-gradient(bottom, rgba(10, 12, 16, 0.98) 0%, rgba(15, 18, 24, 0.92) 75%, rgba(15, 18, 24, 0) 100%);
-  background: linear-gradient(to top, rgba(10, 12, 16, 0.98) 0%, rgba(15, 18, 24, 0.92) 75%, rgba(15, 18, 24, 0) 100%);
-  display: none;
-  z-index: 25;
-  box-sizing: border-box;
-  padding: 0 80px 24px 80px;
-}
-.player-vod-menu.is-active {
-  display: -webkit-box;
-  display: flex;
-  -webkit-box-orient: vertical;
-  flex-direction: column;
-  -webkit-box-pack: end;
-  justify-content: flex-end;
-}
 
 /* Subtitle overlay */
 .player-subtitles {
@@ -2617,9 +2298,7 @@ div, section, span { outline: none; }
   color: #ffffff;
 }
 
-.psv-grid,
-.psv-seasons-row,
-.psv-groups-row {
+.psv-grid {
   display: -webkit-box;
   display: flex;
   margin-top: 12px;
@@ -2627,9 +2306,7 @@ div, section, span { outline: none; }
   overflow-y: hidden;
   padding: 0;
 }
-.psv-grid::-webkit-scrollbar,
-.psv-seasons-row::-webkit-scrollbar,
-.psv-groups-row::-webkit-scrollbar { display: none; }
+.psv-grid::-webkit-scrollbar { display: none; }
 
 /* Episode selector: match the original player panel -- six wide dark tiles,
    then a plain range rail underneath. */
@@ -2773,84 +2450,8 @@ div, section, span { outline: none; }
 
 
 /* Range groups (1-20, 21-40...) */
-.psv-groups-row {
-  display: -webkit-box;
-  display: flex;
-  margin-top: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-.psv-group-btn {
-  height: 44px;
-  min-width: 100px;
-  margin-right: 8px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 6px;
-  background: rgba(85, 91, 102, 0.7);
-  color: #c0c4cb;
-  font-size: 20px;
-  font-weight: 500;
-  outline: none;
-  cursor: pointer;
-  box-sizing: border-box;
-  display: -webkit-inline-box;
-  display: inline-flex;
-  -webkit-box-align: center;
-  align-items: center;
-  -webkit-box-pack: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.psv-group-btn.is-selected {
-  background: rgba(119, 119, 119, 0.4);
-  color: #ffffff;
-  border-bottom: 3px solid #777777;
-}
-.psv-group-btn.is-focused {
-  background: #777777;
-  color: #ffffff;
-}
 
 /* Season buttons (if series has multiple seasons) */
-.psv-seasons-row {
-  display: -webkit-box;
-  display: flex;
-  margin-bottom: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-.psv-season-btn {
-  height: 46px;
-  min-width: 140px;
-  margin-right: 8px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: 6px;
-  background: rgba(85, 91, 102, 0.7);
-  color: #c0c4cb;
-  font-size: 21px;
-  font-weight: 500;
-  outline: none;
-  cursor: pointer;
-  box-sizing: border-box;
-  display: -webkit-inline-box;
-  display: inline-flex;
-  -webkit-box-align: center;
-  align-items: center;
-  -webkit-box-pack: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.psv-season-btn.is-selected {
-  background: rgba(119, 119, 119, 0.4);
-  color: #ffffff;
-  border-bottom: 3px solid #777777;
-}
-.psv-season-btn.is-focused {
-  background: #777777;
-  color: #ffffff;
-}
 
 #psv-btn-p1, #psv-btn-p2 {
   width: auto;

@@ -1,0 +1,415 @@
+/* 07-inicio-hero-perfiles.css — Inicio con pestañas, portada (hero), tarjeta ampliada, pantalla de arranque, reproductor estilo Netflix y perfiles.
+   Parte de ui/desktop/tw/input.css (el orden de los archivos importa). */
+
+/* =====================================================================
+   Inicio: barra superior con pestañas (sin menú lateral)
+   ===================================================================== */
+.desktop .home-sidebar-bg { display: none !important; }
+.desktop #screen-home::before {
+  content: ""; position: absolute; z-index: 20; pointer-events: none;
+  left: calc(var(--ox, 0px) * -1); top: calc(var(--oy, 0px) * -1);
+  width: var(--cw, 1920px); height: calc(var(--oy, 0px) + 128px);
+  background: linear-gradient(to bottom, rgba(8, 8, 10, .7) 0%, rgba(8, 8, 10, .3) 60%, rgba(8, 8, 10, 0) 100%);
+  transition: background-color .3s ease;
+}
+.desktop.is-home-scrolled #screen-home::before { background-color: rgba(14, 14, 17, .96); box-shadow: 0 1px 0 rgba(255, 255, 255, .06); }
+.desktop .home-port-credit,
+.desktop .home-notify { z-index: 31 !important; }
+.desktop .home-tabs {
+  position: absolute !important;
+  left: 310px !important; top: 28px !important;
+  width: auto !important; height: 64px !important;
+  padding: 0 !important; margin: 0 !important;
+  display: flex !important; flex-direction: row !important; align-items: center; gap: 4px;
+  overflow: visible !important; background: none !important; z-index: 31 !important;
+}
+.desktop .home-tabs .tab-item {
+  position: relative !important; flex: 0 0 auto;
+  width: auto !important; height: 56px !important; padding: 0 20px !important; margin: 0 !important;
+  display: flex !important; align-items: center; border-radius: 14px;
+  animation: none !important; cursor: pointer;
+}
+.desktop .home-tabs .tab-item .tab-pill,
+.desktop .home-tabs .tab-item .tab-icon,
+.desktop .home-tabs .tab-item::before { display: none !important; }
+.desktop .home-tabs .tab-item .tab-title {
+  position: static !important; width: auto !important; height: auto !important;
+  line-height: 1.2 !important; font-size: 27px !important; letter-spacing: 0 !important;
+  color: rgba(255, 255, 255, .68) !important; font-weight: 500 !important;
+  transform: none !important; transition: color .18s ease !important;
+}
+.desktop .home-tabs .tab-item:hover .tab-title { color: #fff !important; }
+.desktop .home-tabs .tab-item.is-selected .tab-title { color: #fff !important; font-weight: 700 !important; }
+.desktop .home-tabs .tab-item::after {
+  content: ""; position: absolute; left: 20px; right: 20px; bottom: 4px; height: 3px; border-radius: 2px;
+  background: #fff; transform: scaleX(0); transition: transform .3s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .home-tabs .tab-item.is-selected::after { transform: scaleX(1); }
+.desktop .home-tabs .tab-item.is-focused { box-shadow: inset 0 0 0 2px #fff; }
+.desktop .home-tabs .tab-item.is-focused .tab-title { color: #fff !important; }
+/* The pages use the whole width now that the rail is gone. */
+.desktop .home-pages {
+  transform: translateX(-72px) !important;
+  top: 118px !important;
+  height: calc(962px + var(--oy, 0px)) !important;
+}
+.desktop .home-page { height: calc(962px + var(--oy, 0px)) !important; }
+
+/* =====================================================================
+   Hero (portada a todo el ancho)
+   ===================================================================== */
+.desktop .home-hero {
+  position: absolute; z-index: 0; pointer-events: none;
+  left: calc(var(--ox, 0px) * -1); top: calc(var(--oy, 0px) * -1);
+  width: var(--cw, 1920px); height: calc(var(--oy, 0px) + 900px);
+  overflow: hidden; opacity: 0; transition: opacity .4s ease;
+  will-change: transform;
+}
+.desktop .home-hero.is-visible { opacity: 1; }
+.desktop .home-hero .hh-img {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: center 20%;
+  opacity: 0; transition: opacity 1.1s ease;
+}
+.desktop .home-hero .hh-img.is-shown { opacity: 1; animation: ot-kenburns 22s ease-in-out infinite alternate; }
+@keyframes ot-kenburns { from { transform: scale(1); } to { transform: scale(1.07) translate(-1%, -1%); } }
+.desktop .home-hero .hh-shade {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(90deg, rgba(14, 14, 17, .94) 0%, rgba(14, 14, 17, .7) 28%, rgba(14, 14, 17, .15) 58%, rgba(14, 14, 17, 0) 75%),
+    linear-gradient(0deg, #0e0e11 0%, rgba(14, 14, 17, .85) 14%, rgba(14, 14, 17, 0) 45%);
+}
+.desktop .home-pages { z-index: 1; }
+.desktop .hero-info {
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 14px;
+  transition: opacity .25s ease, transform .35s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .hero-info.is-swapping { opacity: 0; transform: translateY(12px); }
+.desktop .hero-kicker { font-size: 22px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: rgba(255, 255, 255, .7); }
+.desktop .hero-title {
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-size: 84px; line-height: 1.02; font-weight: 800; letter-spacing: -.02em; color: #fff;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, .45);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.desktop .hero-meta { font-size: 26px; font-weight: 600; color: rgba(255, 255, 255, .9); }
+.desktop .hero-genres { font-size: 23px; color: rgba(255, 255, 255, .65); }
+.desktop .hero-synopsis {
+  max-width: 900px; font-size: 26px; line-height: 1.45; color: rgba(255, 255, 255, .82);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.desktop .hero-buttons { display: flex; gap: 16px; margin-top: 10px; }
+.desktop .hero-btn {
+  display: inline-flex; align-items: center; gap: 14px;
+  height: 76px; padding: 0 38px; border-radius: 12px;
+  background: rgba(109, 109, 115, .55); color: #fff;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  font-size: 28px; font-weight: 700; cursor: pointer;
+  transition: background-color .15s ease, transform .2s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .hero-btn svg { width: 34px; height: 34px; }
+.desktop .hero-btn:hover { background: rgba(109, 109, 115, .8); transform: translateY(-2px); }
+.desktop .hero-btn.is-primary { background: #fff; color: #0e0e11; }
+.desktop .hero-btn.is-primary:hover { background: rgba(255, 255, 255, .86); }
+.desktop .hero-btn.is-primary svg { fill: currentColor; }
+.desktop .hero-btn.is-round { width: 76px; padding: 0; justify-content: center; border-radius: 50%; background: rgba(20, 20, 24, .5); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .55); }
+.desktop .hero-btn.is-round:hover { box-shadow: inset 0 0 0 2px #fff; }
+.desktop .hero-btn.is-focused { box-shadow: 0 0 0 4px #0e0e11, 0 0 0 7px #fff; }
+.desktop .hero-dots { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.desktop .hero-dot { width: 26px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .3); cursor: pointer; transition: width .3s cubic-bezier(.16, 1, .3, 1), background-color .2s ease; }
+.desktop .hero-dot.is-active { width: 54px; background: #fff; }
+.desktop .home-page.is-current > .hero-info { animation: ot-rise .6s cubic-bezier(.16, 1, .3, 1) backwards; }
+
+/* Top 10 */
+.desktop .top10-cell { cursor: pointer; }
+.desktop .top10-num {
+  position: absolute; left: -6px; bottom: -34px; z-index: 0;
+  font-family: "Arial Black", "Segoe UI Black", "Segoe UI", sans-serif;
+  font-size: 330px; line-height: 1; font-weight: 900; letter-spacing: -22px;
+  color: #0e0e11; -webkit-text-stroke: 5px rgba(255, 255, 255, .62);
+  pointer-events: none; user-select: none;
+}
+.desktop .top10-cell .poster { z-index: 1; }
+.desktop .top10-cell:hover .top10-num { -webkit-text-stroke-color: #fff; }
+
+/* =====================================================================
+   Tarjeta ampliada sobre los pósteres (px reales)
+   ===================================================================== */
+.hover-card {
+  position: fixed; left: 0; top: 0; z-index: 10300;
+  border-radius: 12px; overflow: hidden;
+  background: #18181d; color: #fff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .06);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  opacity: 0; transform: scale(.72); pointer-events: none;
+  transition: opacity .18s ease, transform .32s cubic-bezier(.16, 1, .3, 1);
+}
+.hover-card.is-open { opacity: 1; transform: none; pointer-events: auto; }
+.hover-card.is-measuring { visibility: hidden; transition: none; }
+.hover-card .hc-art { position: relative; aspect-ratio: 16 / 9; background: #23232a; cursor: pointer; overflow: hidden; }
+.hover-card .hc-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s ease; }
+.hover-card .hc-art.is-loaded img { opacity: 1; }
+.hover-card .hc-art-shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0, 0, 0, .75), rgba(0, 0, 0, 0) 55%); }
+.hover-card .hc-art-title {
+  position: absolute; left: 14px; right: 14px; bottom: 10px;
+  font-size: 18px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 6px rgba(0, 0, 0, .7);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.hover-card .hc-body { padding: 12px 14px 14px; }
+.hover-card .hc-buttons { display: flex; gap: 8px; margin-bottom: 10px; }
+.hover-card .hc-btn {
+  width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); background: rgba(30, 30, 36, .9); color: #fff; cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, transform .15s ease;
+}
+.hover-card .hc-btn svg { width: 19px; height: 19px; }
+.hover-card .hc-btn:hover { border-color: #fff; transform: scale(1.06); }
+.hover-card .hc-btn.is-play { background: #fff; border-color: #fff; color: #0e0e11; }
+.hover-card .hc-btn.is-play svg { fill: currentColor; margin-left: 2px; }
+.hover-card .hc-btn.is-play:hover { background: rgba(255, 255, 255, .85); }
+.hover-card .hc-btn.is-info { margin-left: auto; }
+.hover-card .hc-meta { font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, .85); }
+.hover-card .hc-genres { margin-top: 5px; font-size: 12.5px; color: rgba(255, 255, 255, .6); }
+
+/* =====================================================================
+   Pantalla de arranque
+   ===================================================================== */
+.boot-splash {
+  position: fixed; inset: 0; z-index: 99999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: radial-gradient(60% 60% at 50% 45%, #1b1b21 0%, #0e0e11 70%);
+  color: #fff; font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  transition: opacity .5s ease, transform .5s cubic-bezier(.16, 1, .3, 1);
+}
+.boot-splash.is-leaving { opacity: 0; transform: scale(1.03); pointer-events: none; }
+.boot-splash .bs-name { font-size: 30px; font-weight: 700; letter-spacing: -.01em; }
+.boot-splash .bs-sub { font-size: 14px; color: rgba(255, 255, 255, .5); }
+@keyframes bs-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* (Full window: the title bar is drawn above it, so the text never jumps.) */
+
+/* =====================================================================
+   Reproductor estilo Netflix
+   ===================================================================== */
+/* Volver arriba a la izquierda, sobre un degradado. (position: fixed is
+   relative to the scaled #app canvas, i.e. the window.) */
+.desktop .player-vod-infobar::before {
+  content: ""; position: fixed; left: 0; top: 0; width: var(--cw, 1920px); height: 230px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, .7), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+.desktop .vod-topbar { position: fixed; left: 44px; top: 34px; z-index: 5; display: flex; align-items: center; gap: 16px; }
+.desktop .vod-topbar #vod-back.vod-tip {
+  width: 72px; height: 72px; padding: 0; border-radius: 50%;
+  background: rgba(0, 0, 0, .25); border: 0; box-shadow: none;
+}
+.desktop .vod-topbar #vod-back svg { width: 40px; height: 40px; }
+.desktop .vod-topbar #vod-back:hover { background: rgba(255, 255, 255, .16); transform: scale(1.06); }
+/* Abajo: [play −10 +10 volumen] · título · [resto] */
+.desktop .vod-infobar-tips { grid-template-columns: 1fr minmax(0, auto) 1fr !important; }
+.desktop .vt-left { gap: 10px; }
+.desktop .vt-center { justify-self: center; min-width: 0; max-width: 600px; gap: 0; padding: 0 20px; }
+.desktop .vt-center .vod-infobar-title {
+  position: static !important; margin: 0 !important; order: 0 !important;
+  font-size: 26px !important; line-height: 1.2 !important; font-weight: 600 !important; color: rgba(255, 255, 255, .92);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; max-width: 560px;
+}
+.desktop .vt-left .vod-tip.is-icon-btn:not(#vod-toggle),
+.desktop .vt-right .vod-tip.is-icon-btn {
+  width: 64px; height: 64px; padding: 0; border-radius: 50%;
+  background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none;
+}
+.desktop .vt-left .vod-tip.is-icon-btn:not(#vod-toggle) svg,
+.desktop .vt-right .vod-tip.is-icon-btn svg { width: 34px; height: 34px; }
+.desktop .vt-left .vod-tip.is-icon-btn:not(#vod-toggle):hover,
+.desktop .vt-right .vod-tip.is-icon-btn:hover { background: rgba(255, 255, 255, .14); transform: scale(1.08); }
+.desktop .vod-infobar-tips #vod-toggle.is-icon-btn { width: 72px; height: 72px; margin-right: 6px; }
+.desktop .vod-infobar-tips #vod-toggle svg { width: 36px; height: 36px; }
+.desktop .vt-right { gap: 6px; }
+.desktop #vod-speed { position: relative; }
+.desktop #vod-speed .speed-badge:not(:empty) {
+  position: absolute; right: 2px; bottom: 4px; padding: 1px 5px; border-radius: 6px;
+  background: #fff; color: #0e0e11; font-size: 13px; font-weight: 800; line-height: 1.2;
+}
+.desktop .vod-volume .vod-mute { width: 64px; border-radius: 50%; background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+
+/* Hero: no visible edge where the artwork ends (the whole layer fades out),
+   and long titles shrink instead of being cut. */
+.desktop .home-hero {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+          mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+}
+.desktop .hero-info { overflow: visible; }
+.desktop .hero-title { -webkit-line-clamp: 3; padding-bottom: 4px; }
+.desktop .hero-title.is-long { font-size: 66px; line-height: 1.06; }
+.desktop .hero-title.is-xlong { font-size: 54px; line-height: 1.1; }
+.desktop .hero-title.is-long ~ .hero-synopsis,
+.desktop .hero-title.is-xlong ~ .hero-synopsis { -webkit-line-clamp: 2; }
+
+/* Reproductor: controles en el centro, título junto a Volver arriba. */
+.desktop .vod-topbar { gap: 22px; }
+.desktop .vod-topbar #vod-back.vod-tip {
+  background: rgba(20, 20, 24, .62) !important;
+  border: 1px solid rgba(255, 255, 255, .22) !important;
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  color: #fff;
+}
+.desktop .vod-topbar #vod-back svg { width: 38px; height: 38px; stroke-width: 2.4; }
+.desktop .vod-topbar .vod-infobar-title {
+  position: static !important; margin: 0 !important;
+  font-size: 34px !important; line-height: 1.2 !important; font-weight: 700 !important; color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, .6);
+  max-width: 1300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.desktop .vt-center { max-width: none; padding: 0; gap: 22px; }
+
+/* Quizás te guste: fila deslizable con flechas */
+.desktop .dd-related-wrap { position: relative; }
+.desktop .dd-related { padding: 10px 4px 12px !important; scrollbar-width: none; scroll-behavior: auto !important; }
+.desktop .dd-related::-webkit-scrollbar { display: none; }
+.desktop .dd-rel-arrow {
+  position: absolute; top: 50%; z-index: 5; width: 56px; height: 56px; margin-top: -42px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .14); border-radius: 50%;
+  background: rgba(22, 22, 26, .86); color: #fff; cursor: pointer;
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  opacity: 0; transition: opacity .2s ease, transform .2s ease, background-color .15s ease;
+}
+.desktop .dd-rel-arrow svg { width: 26px; height: 26px; }
+.desktop .dd-rel-arrow.is-prev { left: -22px; }
+.desktop .dd-rel-arrow.is-next { right: -22px; }
+.desktop .dd-related-wrap:hover .dd-rel-arrow { opacity: 1; }
+.desktop .dd-rel-arrow:hover { background: rgba(255, 255, 255, .2); transform: scale(1.06); }
+.desktop .dd-related-wrap.at-start .dd-rel-arrow.is-prev,
+.desktop .dd-related-wrap.at-end .dd-rel-arrow.is-next { opacity: 0 !important; pointer-events: none; }
+
+/* Volver + título: fuera de la barra, arriba a la izquierda de la pantalla. */
+.desktop .player-vod-infobar::before { display: none; }
+.desktop .vod-topbar {
+  position: absolute !important; z-index: 60;
+  left: calc(var(--ox, 0px) * -1 + 44px) !important; top: calc(var(--oy, 0px) * -1 + 34px) !important;
+  opacity: 0; pointer-events: none; transition: opacity .25s ease;
+}
+.desktop .vod-topbar::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  left: -44px; top: -34px; width: var(--cw, 1920px); height: 230px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, .7), rgba(0, 0, 0, 0));
+}
+.desktop .player-vod-infobar.is-active + .vod-topbar { opacity: 1; pointer-events: auto; }
+.desktop #screen-player.is-mini .vod-topbar { display: none; }
+
+/* =====================================================================
+   Perfiles
+   ===================================================================== */
+.profile-picker, .profile-editor, .profile-restore {
+  position: fixed; inset: 0; z-index: 100001;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #fff;
+}
+body.has-titlebar .profile-picker, body.has-titlebar .profile-restore { top: 36px; }
+.profile-picker { background: radial-gradient(70% 70% at 50% 40%, #1a1a20 0%, #0e0e11 70%); opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+.profile-picker.is-open { opacity: 1; pointer-events: auto; }
+.profile-picker .pp-box { display: flex; flex-direction: column; align-items: center; gap: 40px; padding: 20px; }
+.profile-picker .pp-title { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; font-size: clamp(30px, 4vw, 52px); font-weight: 600; letter-spacing: -.01em; animation: bs-in .5s cubic-bezier(.16, 1, .3, 1) both; }
+.profile-picker .pp-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(18px, 2.4vw, 36px); max-width: 1100px; }
+.profile-picker .pp-tile { width: clamp(110px, 11vw, 170px); display: flex; flex-direction: column; align-items: center; gap: 14px; cursor: pointer; animation: bs-in .5s cubic-bezier(.16, 1, .3, 1) both; }
+.profile-picker .pp-tile:nth-child(2) { animation-delay: .05s; }
+.profile-picker .pp-tile:nth-child(3) { animation-delay: .1s; }
+.profile-picker .pp-tile:nth-child(4) { animation-delay: .15s; }
+.profile-picker .pp-tile:nth-child(n+5) { animation-delay: .2s; }
+.profile-picker .pp-avatar {
+  position: relative; width: 100%; aspect-ratio: 1; border-radius: 16%; overflow: hidden;
+  transition: transform .25s cubic-bezier(.16, 1, .3, 1), box-shadow .2s ease;
+}
+.profile-picker .pp-avatar svg { display: block; width: 100%; height: 100%; }
+.profile-picker .is-add .pp-avatar { display: flex; align-items: center; justify-content: center; border: 2px dashed rgba(255, 255, 255, .3); background: rgba(255, 255, 255, .03); box-sizing: border-box; }
+.profile-picker .is-add .pp-avatar svg { width: 40%; height: 40%; color: rgba(255, 255, 255, .6); }
+.profile-picker .pp-name { font-size: clamp(15px, 1.3vw, 20px); color: rgba(255, 255, 255, .65); transition: color .2s ease; text-align: center; }
+.profile-picker .pp-tile:hover .pp-avatar,
+.profile-picker .pp-tile.is-focused .pp-avatar { transform: scale(1.05); box-shadow: 0 0 0 4px #fff; }
+.profile-picker .pp-tile:hover .pp-name,
+.profile-picker .pp-tile.is-focused .pp-name { color: #fff; }
+.profile-picker .pp-kids { position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, .55); font-size: 12px; font-weight: 800; }
+.profile-picker .pp-edit { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, .5); }
+.profile-picker .pp-edit svg { width: 34%; height: 34%; color: #fff; }
+.profile-picker.is-editing .pp-tile:not(.is-add) .pp-edit { display: flex; }
+.profile-picker .pp-manage {
+  padding: 12px 28px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 10px; background: transparent;
+  color: rgba(255, 255, 255, .75); font: inherit; font-size: 16px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+.profile-picker .pp-manage:hover,
+.profile-picker .pp-manage.is-focused { color: #fff; border-color: #fff; }
+.profile-picker .pp-manage.is-on { background: #fff; color: #0e0e11; }
+
+.profile-editor, .profile-restore { background: rgba(6, 6, 8, .7); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); z-index: 100002; }
+.profile-editor { opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+.profile-editor.is-open { opacity: 1; pointer-events: auto; }
+.pe2-card, .pr-card {
+  width: min(560px, calc(100vw - 40px)); max-height: calc(100vh - 80px); overflow: auto;
+  padding: 26px 28px; box-sizing: border-box; border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, .12); background: rgba(22, 22, 27, .98);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .6);
+}
+.pe2-title, .pr-title { font-size: 22px; font-weight: 700; margin-bottom: 18px; }
+.pr-text { font-size: 15px; line-height: 1.5; color: rgba(255, 255, 255, .7); margin-bottom: 20px; }
+.pe2-top { display: flex; align-items: center; gap: 18px; margin-bottom: 20px; }
+.pe2-preview { flex: 0 0 84px; height: 84px; border-radius: 16px; overflow: hidden; }
+.pe2-preview svg { width: 100%; height: 100%; display: block; }
+.pe2-name {
+  flex: 1 1 auto; height: 50px; padding: 0 16px; border-radius: 12px; outline: none;
+  border: 1px solid rgba(255, 255, 255, .15); background: rgba(255, 255, 255, .06); color: #fff; font: inherit; font-size: 18px;
+}
+.pe2-name:focus { border-color: #fff; }
+.pe2-label { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 255, 255, .5); margin-bottom: 10px; }
+.pe2-avatars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 18px; }
+.pe2-av { padding: 0; border: 0; border-radius: 12px; overflow: hidden; aspect-ratio: 1; background: none; cursor: pointer; opacity: .75; transition: transform .2s cubic-bezier(.16, 1, .3, 1), opacity .15s ease, box-shadow .15s ease; }
+.pe2-av svg { width: 100%; height: 100%; display: block; }
+.pe2-av:hover { opacity: 1; transform: scale(1.05); }
+.pe2-av.is-selected { opacity: 1; box-shadow: 0 0 0 3px #fff; }
+.pe2-kids { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, .05); cursor: pointer; }
+.pe2-kids input { width: 20px; height: 20px; margin-top: 2px; accent-color: #fff; }
+.pe2-kids span { display: flex; flex-direction: column; gap: 2px; }
+.pe2-kids b { font-size: 15px; }
+.pe2-kids small { font-size: 13px; color: rgba(255, 255, 255, .55); }
+.pe2-msg { min-height: 20px; margin: 10px 0 4px; font-size: 13px; color: #ff8a8a; }
+.pe2-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.pe2-btn { padding: 11px 22px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .18); background: transparent; color: #fff; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.pe2-btn:hover { background: rgba(255, 255, 255, .1); }
+.pe2-btn.is-primary { background: #fff; color: #0e0e11; border-color: #fff; }
+.pe2-btn.is-danger { margin-left: auto; color: #ff8a8a; border-color: rgba(255, 138, 138, .35); }
+
+/* Avatar en la barra superior y en Mi cuenta */
+.desktop .notify-item.personal .n-normal.is-avatar { width: 100% !important; height: 100% !important; border-radius: 50%; overflow: hidden; background: none !important; }
+.desktop .notify-item.personal .n-normal.is-avatar svg { width: 100%; height: 100%; display: block; }
+.desktop .notify-item.personal:has(.is-avatar) { padding: 0 !important; overflow: hidden; }
+/* Focused, the round buttons turn white (theme.css inverts their icon). The
+   avatar covers that white and an inverted gradient looks odd: paint it like
+   the others instead, a white disc with the face in dark. */
+.desktop .notify-item.personal.is-focused .n-normal.is-avatar { filter: none !important; }
+.desktop .notify-item.personal.is-focused .n-normal.is-avatar svg rect[fill^="url"] { fill: #fff; }
+.desktop .notify-item.personal.is-focused .n-normal.is-avatar svg [fill="#fff"] { fill: #0e0e11; }
+.desktop .notify-item.personal.is-focused .n-normal.is-avatar svg [stroke="#fff"] { stroke: #0e0e11; }
+.desktop .acc-avatar.is-profile { background: none !important; overflow: hidden; border-radius: 24px !important; }
+.desktop .acc-avatar.is-profile svg { width: 100% !important; height: 100% !important; }
+.desktop .acc-head-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.desktop .acc-head-actions .acc-seg-btn { border: 1px solid rgba(255, 255, 255, .12); }
+.desktop .notify-item.is-hidden-kids { display: none !important; }
+
+/* Volver a la izquierda del título. */
+.desktop .vod-topbar #vod-back { order: -1; }
+
+/* Ajustes: el menú lateral llega a los bordes de la ventana aunque no sea 16:9. */
+.desktop .settings-menu {
+  left: calc(var(--ox, 0px) * -1) !important;
+  top: calc(var(--oy, 0px) * -1) !important;
+  width: calc(442px + var(--ox, 0px)) !important;
+  height: var(--ch, 1080px) !important;
+  padding-left: calc(38px + var(--ox, 0px)) !important;
+  padding-top: calc(110px + var(--oy, 0px)) !important;
+}
+
+/* The section's scrollbar sat over the hero picture at all times: it only
+   shows while the mouse is over the page. */
+.desktop:not(.is-tv) .home-page.scrollable::-webkit-scrollbar-thumb { background: transparent; }
+.desktop:not(.is-tv) .home-page.scrollable:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .24); }

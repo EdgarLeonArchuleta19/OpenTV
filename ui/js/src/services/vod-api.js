@@ -263,7 +263,14 @@ function replaceVod(records, source, portal) {
   var normalizedItems = [];
   for (var i = 0; i < records.length; i++) {
     var item = normalizeVod(records[i], i + 1);
+    keepKidsSafe(item);
     if (portal && records[i].portal !== false) { item._portal = true; }
+    /* Keep the addon fields (Stremio mode: _stremioId, _stremioBase…). */
+    for (var key in records[i]) {
+      if (Object.prototype.hasOwnProperty.call(records[i], key) && /^_(stremio|plain)/.test(key) && item[key] === undefined) {
+        item[key] = records[i][key];
+      }
+    }
     var old = previous[String(item.id)];
     if (old) {
       /* Keep what the detail/player already learned about this title. */
@@ -374,42 +381,72 @@ function bundledCatalog() {
   return data ? apiArray(data) : [];
 }
 
-/* ------------------------------------------- Fuentes Externas VOD y Stremio Addons
-   Permite que el usuario conecte addons compatibles con el protocolo de Stremio
-   (manifest.json / catalog / meta / stream) o catálogos JSON/M3U externos para
-   que la app siga funcionando incluso si el servidor principal (magis.js) falla. */
+/* ------------------------------------------- Modos del catálogo (solo PC)
+   Películas y series salen del catálogo integrado (magis.js) o, en modo
+   manual, solo de los addons de Stremio que añade el usuario
+   (manifest.json / catalog / meta / stream). La app no trae ningún addon.
+   TV en vivo no depende de esto: tiene sus propias listas M3U.
+   Solo en PC (capacidad 'addons'); en teles y celulares es siempre automático. */
 var VOD_SOURCES_STORAGE_KEY = 'opentv_vod_sources_v1';
-var PRESET_VOD_ADDONS = [
-  {
-    id: 'stremio_cinemeta',
-    name: 'Cinemeta (Catálogo Oficial Stremio)',
-    desc: 'Catálogo público de películas y series con pósteres HD, sinopsis y temporadas (IMDb).',
-    url: 'https://v3-cinemeta.strem.io/manifest.json',
-    kind: 'stremio'
-  },
-  {
-    id: 'stremio_public_movies',
-    name: 'Archivo de Cine Abierto (Streams Directos)',
-    desc: 'Películas clásicas y cortos abiertos listos para reproducir al instante sin servidor.',
-    url: 'builtin://open-cinema',
-    kind: 'builtin'
-  }
-];
 
 function getVodSourcesConfig() {
+  var cfg = { mode: 'auto', addons: [] };
   try {
     var raw = localStorage.getItem(VOD_SOURCES_STORAGE_KEY);
-    if (raw) {
-      var parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        return {
-          mode: parsed.mode || 'auto',
-          addons: Object.prototype.toString.call(parsed.addons) === '[object Array]' ? parsed.addons : []
-        };
+    var parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && typeof parsed === 'object') {
+      /* 'portal' (old "Modo servidor") and the old fallback mode are both
+         the automatic mode now. */
+      cfg.mode = parsed.mode === 'external' ? 'external' : 'auto';
+      if (Object.prototype.toString.call(parsed.addons) === '[object Array]') {
+        for (var i = 0; i < parsed.addons.length; i++) {
+          var ad = parsed.addons[i];
+          /* Dropped from old configs: the built-in sample addon and the
+             preinstalled WatchHub (it only linked to other apps). */
+          if (ad && ad.url && !/^builtin:\/\//i.test(ad.url) && ad.id !== 'default_watchhub') { cfg.addons.push(ad); }
+        }
       }
     }
   } catch (e) {}
-  return { mode: 'auto', addons: [] };
+  if (!platformHas('addons')) { cfg.mode = 'auto'; return cfg; }
+  seedDefaultVodAddons(cfg);
+  if (cfg.mode === 'external' && !cfg.addons.length) { cfg.mode = 'auto'; }
+  return cfg;
+}
+
+/* PC: the addons Stremio itself comes with, installed once (the viewer can
+   remove them; they are not added again). They are only URLs: nothing is
+   asked of them until the Stremio mode is on.
+   (Stremio's "Local Files" lives in Stremio's own local server, so it cannot
+   be part of OpenTV.) */
+var VOD_DEFAULTS_KEY = 'opentv_vod_defaults_v1';
+var DEFAULT_VOD_ADDONS = [
+  { id: 'default_cinemeta', name: 'Cinemeta', url: 'https://v3-cinemeta.strem.io/manifest.json' },
+  { id: 'default_opensubtitles', name: 'OpenSubtitles v3', url: 'https://opensubtitles-v3.strem.io/manifest.json' }
+];
+
+function seedDefaultVodAddons(cfg) {
+  try {
+    if (localStorage.getItem(VOD_DEFAULTS_KEY)) { return; }
+    localStorage.setItem(VOD_DEFAULTS_KEY, '1');
+  } catch (e) { return; }
+  var have = {};
+  for (var i = 0; i < cfg.addons.length; i++) { have[stremioBaseFromUrl(cfg.addons[i].url)] = true; }
+  for (var d = 0; d < DEFAULT_VOD_ADDONS.length; d++) {
+    var def = DEFAULT_VOD_ADDONS[d];
+    if (have[stremioBaseFromUrl(def.url)]) { continue; }
+    cfg.addons.push({ id: def.id, name: def.name, url: def.url, baseUrl: stremioBaseFromUrl(def.url), kind: 'stremio' });
+  }
+  saveVodSourcesConfig(cfg);
+}
+
+function stremioModeOn() {
+  return getVodSourcesConfig().mode === 'external';
+}
+
+/* The "Stremio" mark next to the logo and in Mi cuenta (body class). */
+function paintStremioModeMark() {
+  if (document.body) { document.body.classList.toggle('is-stremio-mode', stremioModeOn()); }
 }
 
 function saveVodSourcesConfig(cfg) {
@@ -424,7 +461,6 @@ function saveVodSourcesConfig(cfg) {
 function normalizeStremioManifestUrl(url) {
   var clean = String(url || '').trim().replace(/^stremio:\/\//i, 'https://');
   if (!clean) { return ''; }
-  if (/^builtin:\/\//i.test(clean)) { return clean; }
   if (!/^https?:\/\//i.test(clean)) { clean = 'https://' + clean; }
   return clean;
 }
@@ -434,242 +470,325 @@ function stremioBaseFromUrl(url) {
   return clean.replace(/\/manifest\.json(\?.*)?$/i, '').replace(/\/$/, '');
 }
 
-function stremioMetaToVodRecord(meta, baseUrl, forcedCat) {
-  if (!meta || (!meta.id && !meta.name)) { return null; }
+/* Addon requests carry no custom headers: those would force a CORS
+   preflight, and Stremio addons only promise plain GET with CORS. */
+function addonRequest(url, done, timeoutMs) {
+  var xhr = new XMLHttpRequest();
+  var finished = false;
+  function finish(error, payload) {
+    if (finished) { return; }
+    finished = true;
+    done(error, payload);
+  }
+  try {
+    xhr.open('GET', url, true);
+    xhr.timeout = timeoutMs || 15000;
+  } catch (eOpen) { return finish('Enlace no válido'); }
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) { return; }
+    if (xhr.status < 200 || xhr.status >= 300) { finish('HTTP ' + xhr.status); return; }
+    try { finish(null, JSON.parse(xhr.responseText)); }
+    catch (err) { finish('El addon no devolvió JSON válido'); }
+  };
+  xhr.onerror = function () { finish('No se pudo conectar con el addon'); };
+  xhr.ontimeout = function () { finish('El addon tardó demasiado en responder'); };
+  try { xhr.send(null); } catch (err) { finish(err.message || 'No se pudo iniciar la petición'); }
+}
+
+/* ---- What an addon offers (from its manifest) ---- */
+function stremioResources(manifest) {
+  var out = [];
+  var list = (manifest && manifest.resources) || [];
+  for (var i = 0; i < list.length; i++) {
+    var r = list[i];
+    if (typeof r === 'string') { out.push({ name: r }); }
+    else if (r && r.name) { out.push({ name: r.name, types: r.types, idPrefixes: r.idPrefixes }); }
+  }
+  return out;
+}
+
+function catalogExtras(cat) {
+  var names = [], required = [];
+  var extra = (cat && cat.extra) || [];
+  for (var i = 0; i < extra.length; i++) {
+    if (!extra[i] || !extra[i].name) { continue; }
+    names.push(extra[i].name);
+    if (extra[i].isRequired) { required.push(extra[i].name); }
+  }
+  var supported = (cat && cat.extraSupported) || [];
+  for (var s = 0; s < supported.length; s++) { if (names.indexOf(supported[s]) === -1) { names.push(supported[s]); } }
+  var req = (cat && cat.extraRequired) || [];
+  for (var q = 0; q < req.length; q++) { if (required.indexOf(req[q]) === -1) { required.push(req[q]); } }
+  return { names: names, required: required };
+}
+
+/* The parts of a manifest kept with the installed addon. */
+function stremioAddonInfo(manifest, url) {
+  var catalogs = [];
+  var list = (manifest && manifest.catalogs) || [];
+  for (var i = 0; i < list.length; i++) {
+    var cat = list[i];
+    if (!cat || !cat.id || (cat.type !== 'movie' && cat.type !== 'series')) { continue; }
+    var ex = catalogExtras(cat);
+    catalogs.push({ type: cat.type, id: cat.id, name: cat.name || '',
+      home: !ex.required.length, search: ex.names.indexOf('search') !== -1 });
+  }
+  return {
+    url: url,
+    baseUrl: stremioBaseFromUrl(url),
+    kind: 'stremio',
+    name: (manifest && manifest.name) || 'Addon',
+    desc: (manifest && manifest.description) || '',
+    logo: (manifest && manifest.logo) || '',
+    configurable: !!(manifest && manifest.behaviorHints && (manifest.behaviorHints.configurable || manifest.behaviorHints.configurationRequired)),
+    types: (manifest && manifest.types) || [],
+    idPrefixes: (manifest && manifest.idPrefixes) || null,
+    resources: stremioResources(manifest),
+    catalogs: catalogs
+  };
+}
+
+/* Does this addon answer `resource` for that type and id? */
+function addonSupports(ad, resource, type, id) {
+  var res = ad && ad.resources;
+  if (!res || !res.length) { return false; }
+  for (var i = 0; i < res.length; i++) {
+    if (res[i].name !== resource) { continue; }
+    var types = res[i].types || ad.types || [];
+    if (types.length && type && types.indexOf(type) === -1) { return false; }
+    var prefixes = res[i].idPrefixes || ad.idPrefixes;
+    if (prefixes && prefixes.length && id) {
+      for (var p = 0; p < prefixes.length; p++) { if (String(id).indexOf(prefixes[p]) === 0) { return true; } }
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+/* Addon ids in the app are 'stremio:<id>' so they never mix with the
+   integrated catalog (history, Mi lista); _stremioId is the addon's own. */
+function stremioMetaToVodRecord(meta, baseUrl, rowName) {
+  if (!meta || !meta.id) { return null; }
   var isSeries = meta.type === 'series' || meta.type === 'tv';
   var genres = meta.genres || meta.genre || [];
-  var catParts = [];
-  if (forcedCat) { catParts.push(forcedCat); }
-  catParts.push('featured');
-  catParts.push(isSeries ? 'series' : 'movies');
+  if (Object.prototype.toString.call(genres) !== '[object Array]') { genres = [String(genres)]; }
+  var catParts = ['destacado', isSeries ? 'serie' : 'pelicula'];
   for (var g = 0; g < genres.length; g++) {
     var gn = norm(String(genres[g] || ''));
     if (gn.indexOf('anim') !== -1) { catParts.push('anime'); }
-    if (gn.indexOf('family') !== -1 || gn.indexOf('kids') !== -1 || gn.indexOf('infantil') !== -1) { catParts.push('kids'); }
+    if (gn.indexOf('family') !== -1 || gn.indexOf('kids') !== -1 || gn.indexOf('infantil') !== -1) { catParts.push('infantil'); }
   }
   return {
-    id: String(meta.id || meta.imdb_id || ('stremio-' + Math.random())),
+    id: 'stremio:' + meta.id,
     title: String(meta.name || meta.title || 'Sin título'),
     category: catParts.join(','),
-    row: isSeries ? 'Series (Stremio)' : 'Películas (Stremio)',
-    _rows: ['Destacados (Stremio)', isSeries ? 'Series (Stremio)' : 'Películas (Stremio)'],
+    row: rowName || '',
+    _rows: rowName ? [rowName] : [],
     score: String(meta.imdbRating || meta.rating || '—'),
     year: String(meta.releaseInfo || meta.year || '—').slice(0, 4),
     duration: meta.runtime || '—',
-    genres: genres.length ? genres : ['Stremio'],
+    genres: genres.length ? genres : [],
     director: Object.prototype.toString.call(meta.director) === '[object Array]' ? meta.director.join(', ') : (meta.director || '—'),
     actors: Object.prototype.toString.call(meta.cast) === '[object Array]' ? meta.cast.join(', ') : (meta.cast || '—'),
-    synopsis: meta.description || meta.overview || 'Catálogo externo conectado desde Stremio.',
+    synopsis: meta.description || meta.overview || '',
     kind: isSeries ? 'serie' : 'película',
     type: isSeries ? 'teleplay' : 'movie',
     poster: meta.poster || '',
     landscape: meta.background || meta.poster || '',
     backdrop: meta.background || meta.poster || '',
-    streamUrl: meta.streamUrl || '',
+    logo: meta.logo || '',
     portal: false,
     _portal: false,
     _stremio: true,
+    _stremioId: String(meta.id),
     _stremioBase: baseUrl || '',
     _stremioType: isSeries ? 'series' : 'movie'
   };
 }
 
-function fetchSingleVodAddonItems(addon, done) {
-  var url = normalizeStremioManifestUrl(addon && addon.url);
-  if (!url) { return done('URL vacía', []); }
-  if (url === 'builtin://open-cinema') {
-    var openItems = openSamples();
-    for (var o = 0; o < openItems.length; o++) {
-      openItems[o].category = 'featured,movies,free';
-      openItems[o].row = 'Cine Abierto';
-      openItems[o]._rows = ['Cine Abierto'];
-      openItems[o].portal = false;
-    }
-    return done(null, openItems, { name: 'Archivo de Cine Abierto', kind: 'builtin' });
+function catalogUrl(base, cat, extra) {
+  return base + '/catalog/' + encodeURIComponent(cat.type) + '/' + encodeURIComponent(cat.id) +
+    (extra ? '/' + extra : '') + '.json';
+}
+
+/* Row names: "Popular · Películas"; with several addons that would repeat,
+   the addon's name is added. */
+function stremioRowName(ad, cat, taken) {
+  var kind = cat.type === 'series' ? 'Series' : 'Películas';
+  var name = cat.name ? (cat.name + ' · ' + kind) : kind;
+  if (taken[name]) { name += ' (' + ad.name + ')'; }
+  taken[name] = true;
+  return name;
+}
+
+var STREMIO_HOME_CATALOGS = 12;   /* rows per addon */
+var STREMIO_CATALOG_PAGES = 2;    /* two pages per row (usually 100 titles or more) */
+
+/* Every home catalog of one addon, one row each. */
+function fetchAddonCatalogs(ad, taken, done) {
+  var cats = [];
+  for (var i = 0; i < (ad.catalogs || []).length && cats.length < STREMIO_HOME_CATALOGS; i++) {
+    if (ad.catalogs[i].home) { cats.push(ad.catalogs[i]); }
   }
-  if (/\.m3u8?(\?.*)?$/i.test(url)) {
-    portalServiceCall('fetchM3u', { url: url }, function (err, payload) {
-      if (err || !payload || !payload.channels || !payload.channels.length) {
-        return done(err || 'No se encontraron elementos en la lista M3U', []);
+  var items = [];
+  var pending = cats.length;
+  if (!pending) { return done(items); }
+  cats.forEach(function (cat) {
+    var rowName = stremioRowName(ad, cat, taken);
+    var got = 0;
+    function page(n) {
+      addonRequest(catalogUrl(ad.baseUrl, cat, n ? 'skip=' + got : ''), function (err, payload) {
+        var metas = (!err && payload && payload.metas) ? payload.metas : [];
+        for (var m = 0; m < metas.length; m++) {
+          var rec = stremioMetaToVodRecord(metas[m], ad.baseUrl, rowName);
+          if (rec) { items.push(rec); }
+        }
+        got += metas.length;
+        if (metas.length && n + 1 < STREMIO_CATALOG_PAGES) { return page(n + 1); }
+        if (--pending === 0) { done(items); }
+      });
+    }
+    page(0);
+  });
+}
+
+/* Reads a manifest (or the user's own JSON / M3U catalogue). */
+function inspectVodAddon(url, done) {
+  if (/\.m3u8?(\?.*)?$/i.test(url)) { return done(null, { url: url, baseUrl: '', kind: 'm3u', name: 'Lista M3U', resources: [], catalogs: [] }); }
+  var manifestUrl = /\/manifest\.json(\?.*)?$/i.test(url) ? url : (stremioBaseFromUrl(url) + '/manifest.json');
+  addonRequest(manifestUrl, function (err, manifest) {
+    if (!err && manifest && (manifest.id || manifest.name) && (manifest.resources || manifest.catalogs)) {
+      return done(null, stremioAddonInfo(manifest, manifestUrl));
+    }
+    addonRequest(url, function (jErr, jPayload) {
+      if (jErr || !jPayload || !(jPayload.metas || apiArray(jPayload).length)) {
+        return done(err || jErr || 'No es un addon compatible (manifest.json) ni un catálogo válido');
       }
+      done(null, { url: url, baseUrl: stremioBaseFromUrl(url), kind: 'json', name: 'Catálogo JSON', resources: [], catalogs: [] });
+    });
+  });
+}
+
+/* Titles of a user's plain JSON or M3U catalogue. */
+function fetchPlainCatalog(ad, done) {
+  if (ad.kind === 'm3u') {
+    portalServiceCall('fetchM3u', { url: ad.url }, function (err, payload) {
       var items = [];
-      for (var i = 0; i < payload.channels.length; i++) {
-        var ch = payload.channels[i];
-        items.push({
-          id: 'm3uvod-' + (ch.id || (i + 1)),
-          title: ch.name || ('Vídeo ' + (i + 1)),
-          category: 'featured,movies',
-          row: ch.group || 'Catálogo M3U',
-          _rows: [ch.group || 'Catálogo M3U'],
-          poster: ch.logo || '',
-          landscape: ch.logo || '',
-          backdrop: ch.logo || '',
-          streamUrl: ch.streamUrl || '',
-          kind: 'película',
-          type: 'movie',
-          portal: false,
-          _portal: false
-        });
+      var list = (!err && payload && payload.channels) || [];
+      for (var i = 0; i < list.length; i++) {
+        var ch = list[i];
+        var row = ch.group || ad.name || 'Catálogo M3U';
+        items.push({ id: 'm3uvod-' + (ch.id || (i + 1)), title: ch.name || ('Vídeo ' + (i + 1)),
+          category: 'destacado,pelicula', row: row, _rows: [row], poster: ch.logo || '', landscape: ch.logo || '',
+          backdrop: ch.logo || '', streamUrl: ch.streamUrl || '', kind: 'película', type: 'movie',
+          portal: false, _portal: false, _stremio: true, _plain: true });
       }
-      done(null, items, { name: addon.name || 'Catálogo M3U VOD', kind: 'm3u' });
+      done(items);
     });
     return;
   }
-  var baseUrl = stremioBaseFromUrl(url);
-  var manifestUrl = /\/manifest\.json(\?.*)?$/i.test(url) ? url : (baseUrl + '/manifest.json');
-  apiRequest(manifestUrl, function (err, manifest) {
-    if (!err && manifest && (manifest.id || manifest.name) && manifest.catalogs) {
-      var catalogs = [];
-      for (var c = 0; c < manifest.catalogs.length; c++) {
-        var cat = manifest.catalogs[c];
-        if (cat && (cat.type === 'movie' || cat.type === 'series') && (!cat.extraRequired || !cat.extraRequired.length)) {
-          catalogs.push(cat);
-        }
-      }
-      if (!catalogs.length) {
-        catalogs = [{ type: 'movie', id: 'top' }, { type: 'series', id: 'top' }];
-      } else if (catalogs.length > 3) {
-        catalogs = catalogs.slice(0, 3);
-      }
-      var collected = [];
-      var idx = 0;
-      function nextCat() {
-        if (idx >= catalogs.length) {
-          return done(null, collected, {
-            name: manifest.name || addon.name || 'Addon Stremio',
-            desc: manifest.description || '',
-            kind: 'stremio',
-            baseUrl: baseUrl
-          });
-        }
-        var cObj = catalogs[idx++];
-        var catUrl = baseUrl + '/catalog/' + encodeURIComponent(cObj.type) + '/' + encodeURIComponent(cObj.id) + '.json';
-        apiRequest(catUrl, function (cErr, cPayload) {
-          var metas = (!cErr && cPayload && cPayload.metas) ? cPayload.metas : [];
-          for (var m = 0; m < Math.min(metas.length, 45); m++) {
-            var rec = stremioMetaToVodRecord(metas[m], baseUrl);
-            if (rec) { collected.push(rec); }
-          }
-          nextCat();
-        });
-      }
-      nextCat();
-      return;
+  addonRequest(ad.url, function (err, payload) {
+    var arr = (!err && payload) ? (payload.metas || apiArray(payload)) : [];
+    var out = [];
+    for (var k = 0; k < arr.length; k++) {
+      var rec = arr[k] && arr[k].id && arr[k].type ? stremioMetaToVodRecord(arr[k], ad.baseUrl, ad.name) : null;
+      if (rec) { if (arr[k].streamUrl) { rec.streamUrl = arr[k].streamUrl; } out.push(rec); }
     }
-    /* Fallback: probar si la URL es un JSON directo con películas/series */
-    apiRequest(url, function (jErr, jPayload) {
-      if (jErr || !jPayload) {
-        return done(err || jErr || 'No se pudo leer el manifest.json ni el catálogo JSON', []);
-      }
-      var arr = jPayload.metas || apiArray(jPayload);
-      if (!arr.length) { return done('El enlace no contiene títulos compatibles', []); }
-      var out = [];
-      for (var k = 0; k < arr.length; k++) {
-        if (arr[k].id && arr[k].type && (arr[k].poster || arr[k].imdbRating)) {
-          var sRec = stremioMetaToVodRecord(arr[k], baseUrl);
-          if (sRec) { out.push(sRec); }
-        } else {
-          var rawRec = arr[k];
-          rawRec.portal = false;
-          if (!rawRec.category) { rawRec.category = 'featured,movies'; }
-          out.push(rawRec);
-        }
-      }
-      done(null, out, { name: addon.name || 'Catálogo JSON Externo', kind: 'json', baseUrl: baseUrl });
-    });
+    done(out);
   });
 }
 
 function installVodAddon(addonInput, done) {
   done = done || function () {};
   var url = normalizeStremioManifestUrl(addonInput && addonInput.url);
-  if (!url) { return done('Escribe una URL válida (https://.../manifest.json o .m3u)'); }
-  fetchSingleVodAddonItems({ name: addonInput.name, url: url }, function (err, items, meta) {
+  if (!url) { return done('Pega la URL de un addon (https://…/manifest.json)'); }
+  inspectVodAddon(url, function (err, info) {
     if (err) { return done(err); }
     var cfg = getVodSourcesConfig();
-    var exists = false;
+    var replaced = false;
     for (var i = 0; i < cfg.addons.length; i++) {
-      if (cfg.addons[i].url === url) {
-        cfg.addons[i].name = (meta && meta.name) || addonInput.name || cfg.addons[i].name;
-        cfg.addons[i].count = items.length;
-        cfg.addons[i].kind = (meta && meta.kind) || 'stremio';
-        cfg.addons[i].baseUrl = (meta && meta.baseUrl) || stremioBaseFromUrl(url);
-        exists = true;
+      if (cfg.addons[i].url === info.url || cfg.addons[i].url === url) {
+        info.id = cfg.addons[i].id;
+        cfg.addons[i] = info;
+        replaced = true;
         break;
       }
     }
-    if (!exists) {
-      cfg.addons.push({
-        id: (addonInput && addonInput.id) || ('vod_addon_' + Date.now()),
-        name: (meta && meta.name) || (addonInput && addonInput.name) || 'Addon Stremio',
-        desc: (meta && meta.desc) || (addonInput && addonInput.desc) || '',
-        url: url,
-        baseUrl: (meta && meta.baseUrl) || stremioBaseFromUrl(url),
-        kind: (meta && meta.kind) || 'stremio',
-        count: items.length
-      });
+    if (!replaced) {
+      info.id = 'vod_addon_' + Date.now();
+      cfg.addons.push(info);
     }
     saveVodSourcesConfig(cfg);
-    syncExternalVodCatalogs(function () {
-      done(null, items.length, meta);
+    if (cfg.mode !== 'external') { return done(null, 0, info); }
+    syncExternalVodCatalogs(function (sErr, count) { done(null, count, info); });
+  });
+}
+
+/* Old installs kept only the URL: read their manifests again once. */
+function refreshAddonManifests(cfg, done) {
+  var stale = [];
+  for (var i = 0; i < cfg.addons.length; i++) {
+    if (!cfg.addons[i].resources && cfg.addons[i].kind !== 'm3u' && cfg.addons[i].kind !== 'json') { stale.push(i); }
+  }
+  if (!stale.length) { return done(); }
+  var left = stale.length;
+  stale.forEach(function (idx) {
+    inspectVodAddon(cfg.addons[idx].url, function (err, info) {
+      if (!err && info) { info.id = cfg.addons[idx].id; cfg.addons[idx] = info; }
+      if (--left === 0) { saveVodSourcesConfig(cfg); done(); }
     });
   });
 }
 
+/* Manual (Stremio) mode: the whole catalog comes from the user's addons. */
 function syncExternalVodCatalogs(done, forceApply) {
   done = done || function () {};
   var cfg = getVodSourcesConfig();
-  if (cfg.mode === 'portal' && !forceApply) { return done(null, 0); }
+  if (cfg.mode !== 'external' && !forceApply) { return done(null, 0); }
   if (!cfg.addons.length) { return done(null, 0); }
-  var allExternal = [];
-  var idx = 0;
-  function next() {
-    if (idx >= cfg.addons.length) {
-      saveVodSourcesConfig(cfg);
-      if (allExternal.length) {
-        var combined = allExternal.slice();
-        /* Modo manual: el catálogo es solo de tus addons. Respaldo automático:
-           se suman a los títulos que ya había. */
-        if (cfg.mode !== 'external') {
-          var seen = {};
-          for (var e = 0; e < combined.length; e++) { seen[String(combined[e].id)] = true; }
-          for (var v = 0; v < VOD.length; v++) {
-            if (!seen[String(VOD[v].id)]) {
-              combined.push(VOD[v]);
-              seen[String(VOD[v].id)] = true;
-            }
-          }
+  refreshAddonManifests(cfg, function () {
+    var byId = {}, all = [], taken = {};
+    var left = cfg.addons.length;
+    function collect(items) {
+      for (var j = 0; j < items.length; j++) {
+        var it = items[j];
+        var prev = byId[it.id];
+        if (!prev) { byId[it.id] = it; all.push(it); continue; }
+        /* The same title in two rows: keep one record, in both rows. */
+        for (var r = 0; r < it._rows.length; r++) {
+          if (prev._rows.indexOf(it._rows[r]) === -1) { prev._rows.push(it._rows[r]); }
         }
-        replaceVod(combined, 'stremio-external', false);
       }
-      return done(null, allExternal.length);
     }
-    var ad = cfg.addons[idx++];
-    fetchSingleVodAddonItems(ad, function (err, items, meta) {
-      if (!err && items && items.length) {
-        ad.count = items.length;
-        if (meta && meta.name && (!ad.name || ad.name === 'Addon Stremio')) { ad.name = meta.name; }
-        for (var j = 0; j < items.length; j++) { allExternal.push(items[j]); }
+    function finished() {
+      if (--left > 0) { return; }
+      if (all.length) { replaceVod(all, 'stremio-external', false); }
+      done(null, all.length);
+    }
+    /* Addons are read in parallel; rows keep the order of the list. */
+    var results = [];
+    cfg.addons.forEach(function (ad, idx) {
+      function store(items) {
+        results[idx] = items;
+        if (left === 1) { for (var k = 0; k < results.length; k++) { collect(results[k] || []); } }
+        finished();
       }
-      next();
+      if (ad.kind === 'm3u' || ad.kind === 'json') { fetchPlainCatalog(ad, store); }
+      else { fetchAddonCatalogs(ad, taken, store); }
     });
-  }
-  next();
+  });
 }
 
-/* Modos del catálogo de películas y series:
-   - 'auto'     Respaldo automático (recomendado): servidor principal y, si
-                falla, tus addons.
-   - 'external' Modo manual: solo tus addons de Stremio, sin servidor.
-   - 'portal'   Modo servidor: solo el servidor principal, sin addons.
-   Cambiar de modo guarda la opción y recarga el catálogo al momento. */
+/* Catalog modes for movies and series (PC only):
+   - 'auto'      the integrated catalog (recommended).
+   - 'external'  only what the user's Stremio addons bring.
+   Switching saves the choice and reloads the catalog at once. */
 var VOD_SOURCE_MODES = [
-  { id: 'auto', title: 'Respaldo automático', badge: 'Recomendado',
-    desc: 'Usa el servidor principal y, si falla o deja de funcionar, cambia solo a tus addons de Stremio.' },
-  { id: 'external', title: 'Modo manual · Stremio',
-    desc: 'Solo muestra lo que traen tus addons de Stremio. No se conecta al servidor principal.' },
-  { id: 'portal', title: 'Modo servidor',
-    desc: 'Solo usa el servidor principal. Tus addons quedan guardados pero no se usan.' }
+  { id: 'auto', title: 'Modo automático', badge: 'Recomendado',
+    desc: 'Películas y series del catálogo integrado de OpenTV. No necesitas configurar nada.' },
+  { id: 'external', title: 'Modo Addons',
+    desc: 'Películas y series solo de los addons que tú agregues abajo (compatibles con Stremio). Al reproducir eliges la fuente: enlace directo o torrent.' }
 ];
 
 function applyVodSourceMode(mode, done) {
@@ -677,122 +796,170 @@ function applyVodSourceMode(mode, done) {
   var cfg = getVodSourcesConfig();
   var previous = cfg.mode;
   if (mode === 'external' && !cfg.addons.length) {
-    return done('Primero conecta al menos un addon de Stremio abajo para usar el modo manual.');
+    return done('Primero agrega al menos un addon abajo.');
   }
-  cfg.mode = mode;
+  if (mode === 'external' && !cfg.addons.some(function (ad) {
+    return ad.kind === 'm3u' || ad.kind === 'json' || (ad.catalogs && ad.catalogs.length) || !ad.resources;
+  })) {
+    /* (Torrentio, for example, only gives sources: it has nothing to browse.) */
+    return done('Ninguno de tus addons tiene Catálogo. Agrega uno con Catálogo para tener películas y series; los que solo dan Fuentes se usan al reproducir.');
+  }
+  cfg.mode = mode === 'external' ? 'external' : 'auto';
   saveVodSourcesConfig(cfg);
-  if (mode === 'external') {
+  if (cfg.mode === 'external') {
     syncExternalVodCatalogs(function (err, count) {
       if (!count) {
-        /* Ningún addon respondió: volver al modo anterior para no dejar la app vacía. */
+        /* No addon answered: keep the previous mode so the app is not left empty. */
         var back = getVodSourcesConfig();
         back.mode = previous;
         saveVodSourcesConfig(back);
-        return done('Tus addons no devolvieron títulos. Revisa que estén en línea; se mantuvo el modo anterior.');
+        return done('Tus addons no devolvieron títulos (¿tienen catálogo y están en línea?). Se mantuvo el modo anterior.');
       }
+      vodApiState.error = null;
+      paintStremioModeMark();
+      if (typeof resetTrendingForMode === 'function') { resetTrendingForMode(); }
       done(null, count);
     }, true);
     return;
   }
-  /* Respaldo automático o servidor: quitar lo que vino de Stremio y recargar
-     desde el servidor principal. */
+  /* Automatic: drop the addon titles and load the integrated catalog. */
   var own = [];
   for (var i = 0; i < VOD.length; i++) { if (!VOD[i]._stremio) { own.push(VOD[i]); } }
   if (own.length && own.length !== VOD.length) { replaceVod(own, 'portal-snapshot', false); }
+  vodApiState.error = null;
+  paintStremioModeMark();
   loadVodCatalog();
+  if (typeof resetTrendingForMode === 'function') { resetTrendingForMode(); }
   done(null, own.length);
 }
 
-function loadStremioMeta(item, done) {
-  done = done || function () {};
-  if (!item || !item._stremio) { return done(item); }
-  var baseUrl = item._stremioBase || 'https://v3-cinemeta.strem.io';
-  var type = item._stremioType || (isSeriesItem(item) ? 'series' : 'movie');
-  var metaUrl = baseUrl.replace(/\/$/, '') + '/meta/' + encodeURIComponent(type) + '/' + encodeURIComponent(item.id) + '.json';
-  item._detailLoading = true;
-  apiRequest(metaUrl, function (err, payload) {
-    item._detailLoading = false;
-    var meta = (!err && payload && payload.meta) ? payload.meta : null;
-    if (meta) {
-      if (meta.description) { item.synopsis = meta.description; }
-      if (meta.runtime) { item.duration = meta.runtime; }
-      if (meta.imdbRating) { item.score = String(meta.imdbRating); }
-      if (meta.genres && meta.genres.length) { item.genres = meta.genres; }
-      if (meta.videos && meta.videos.length && isSeriesItem(item)) {
-        var seasonsMap = {};
-        var seasonsList = [];
-        for (var v = 0; v < meta.videos.length; v++) {
-          var vid = meta.videos[v];
-          var sNum = parseInt(vid.season, 10);
-          if (!sNum || sNum < 1) { continue; }
-          if (!seasonsMap[sNum]) {
-            seasonsMap[sNum] = { id: item.id + ':S' + sNum, number: sNum, _episodes: [] };
-            seasonsList.push(seasonsMap[sNum]);
-          }
-          var epNum = parseInt(vid.episode || vid.number, 10) || (seasonsMap[sNum]._episodes.length + 1);
-          seasonsMap[sNum]._episodes.push({
-            id: vid.id || (item.id + ':' + sNum + ':' + epNum),
-            number: epNum,
-            seriesNumber: epNum,
-            title: vid.name || vid.title || ('Capítulo ' + epNum),
-            synopsis: vid.overview || vid.description || '',
-            thumb: vid.thumbnail || item.backdrop || item.poster || '',
-            streamUrl: vid.streamUrl || ''
-          });
-        }
-        seasonsList.sort(function (a, b) { return a.number - b.number; });
-        for (var s = 0; s < seasonsList.length; s++) {
-          seasonsList[s]._episodes.sort(function (a, b) { return a.number - b.number; });
-        }
-        if (seasonsList.length) {
-          item.seasons = seasonsList;
-          item.episodes = seasonsList[0]._episodes;
-          state.detailSeason = 0;
-          state.detailEpisode = item.episodes[0] || null;
-        }
+/* Search in the addons that offer it (catalogs with the "search" extra). */
+function searchStremioAddons(query, done) {
+  var cfg = getVodSourcesConfig();
+  var jobs = [];
+  for (var i = 0; i < cfg.addons.length; i++) {
+    var ad = cfg.addons[i];
+    for (var c = 0; c < (ad.catalogs || []).length; c++) {
+      if (ad.catalogs[c].search) { jobs.push({ ad: ad, cat: ad.catalogs[c] }); }
+    }
+  }
+  if (!jobs.length) { return done([]); }
+  var results = [], left = jobs.length;
+  jobs.forEach(function (job, idx) {
+    addonRequest(catalogUrl(job.ad.baseUrl, job.cat, 'search=' + encodeURIComponent(query)), function (err, payload) {
+      var metas = (!err && payload && payload.metas) ? payload.metas : [];
+      var recs = [];
+      for (var m = 0; m < metas.length; m++) {
+        var rec = stremioMetaToVodRecord(metas[m], job.ad.baseUrl, '');
+        if (rec) { recs.push(rec); }
       }
-    }
-    item._detailsLoaded = true;
-    if (state.detail === item && state.screen === 'detail') {
-      buildDetail(item);
-    }
-    done(item);
+      results[idx] = recs;
+      if (--left === 0) {
+        var out = [], seen = {};
+        for (var r = 0; r < results.length; r++) {
+          for (var k = 0; k < (results[r] || []).length; k++) {
+            if (!seen[results[r][k].id]) { seen[results[r][k].id] = true; out.push(results[r][k]); }
+          }
+        }
+        done(out);
+      }
+    }, 12000);
   });
 }
 
-function resolveStremioStream(item, episode, done) {
+/* Details (synopsis, seasons, episodes) from the first addon with "meta"
+   for this title: the one it came from first. */
+function loadStremioMeta(item, done) {
   done = done || function () {};
-  if (episode && episode.streamUrl) { return done(episode.streamUrl); }
-  if (item && item.streamUrl) { return done(item.streamUrl); }
+  if (!item || !item._stremio || item._plain) { return done(item); }
+  var type = item._stremioType || (isSeriesItem(item) ? 'series' : 'movie');
+  var sid = item._stremioId || String(item.id).replace(/^stremio:/, '');
   var cfg = getVodSourcesConfig();
   var bases = [];
-  if (item && item._stremioBase) { bases.push(item._stremioBase); }
   for (var i = 0; i < cfg.addons.length; i++) {
-    var b = cfg.addons[i].baseUrl || stremioBaseFromUrl(cfg.addons[i].url);
-    if (b && /^https?:\/\//i.test(b) && bases.indexOf(b) === -1) { bases.push(b); }
-  }
-  var type = (item && item._stremioType) || (isSeriesItem(item) ? 'series' : 'movie');
-  var streamId = (episode && episode.id) ? episode.id : (item ? item.id : '');
-  var idx = 0;
-  function tryNext() {
-    if (idx >= bases.length) {
-      /* Si el usuario solo instaló un addon de catálogo (ej. Cinemeta) sin addon de streams,
-         avisar claramente cómo agregar un addon de streams o usar muestra abierta */
-      state.streamError = 'Este addon (ej. Cinemeta) aporta el catálogo y fichas; agrega en Mi cuenta un addon de Stremio con streams HTTP/HLS directos para reproducirlo.';
-      setPlayerStatus(state.streamError);
-      return done('');
+    if (addonSupports(cfg.addons[i], 'meta', type, sid)) {
+      if (cfg.addons[i].baseUrl === item._stremioBase) { bases.unshift(cfg.addons[i].baseUrl); }
+      else { bases.push(cfg.addons[i].baseUrl); }
     }
-    var base = bases[idx++].replace(/\/$/, '');
-    var url = base + '/stream/' + encodeURIComponent(type) + '/' + encodeURIComponent(streamId) + '.json';
-    apiRequest(url, function (err, payload) {
-      var streams = (!err && payload && payload.streams) ? payload.streams : [];
-      for (var s = 0; s < streams.length; s++) {
-        if (streams[s] && streams[s].url && /^https?:\/\//i.test(streams[s].url)) {
-          return done(streams[s].url);
-        }
+  }
+  item._detailLoading = true;
+  var idx = 0;
+  function next() {
+    if (idx >= bases.length) {
+      item._detailLoading = false;
+      item._detailsLoaded = true;
+      if (isSeriesItem(item) && !(item.episodes && item.episodes.length)) {
+        item._detailError = 'Ninguno de tus addons da los capítulos de esta serie';
       }
-      tryNext();
+      if (state.detail === item && state.screen === 'detail') { buildDetail(item); }
+      return done(item);
+    }
+    var base = bases[idx++];
+    addonRequest(base + '/meta/' + encodeURIComponent(type) + '/' + encodeURIComponent(sid) + '.json', function (err, payload) {
+      var meta = (!err && payload && payload.meta) ? payload.meta : null;
+      if (!meta) { return next(); }
+      applyStremioMeta(item, meta);
+      item._detailLoading = false;
+      item._detailsLoaded = true;
+      if (state.detail === item && state.screen === 'detail') { buildDetail(item); }
+      done(item);
     });
   }
-  tryNext();
+  next();
+}
+
+function applyStremioMeta(item, meta) {
+  if (meta.description) { item.synopsis = meta.description; }
+  if (meta.runtime) { item.duration = meta.runtime; }
+  if (meta.imdbRating) { item.score = String(meta.imdbRating); }
+  if (meta.genres && meta.genres.length) { item.genres = meta.genres; }
+  if (meta.background) { item.backdrop = meta.background; item.landscape = meta.background; }
+  if (meta.cast && meta.cast.length) { item.actors = meta.cast.join(', '); }
+  if (meta.director && meta.director.length) { item.director = [].concat(meta.director).join(', '); }
+  if (!(meta.videos && meta.videos.length && isSeriesItem(item))) { return; }
+  var seasonsMap = {}, seasonsList = [];
+  for (var v = 0; v < meta.videos.length; v++) {
+    var vid = meta.videos[v];
+    var sNum = parseInt(vid.season, 10);
+    if (!sNum || sNum < 1) { continue; }   /* season 0: extras */
+    if (!seasonsMap[sNum]) {
+      seasonsMap[sNum] = { id: item.id + ':S' + sNum, number: sNum, title: 'Temporada ' + sNum, _episodes: [] };
+      seasonsList.push(seasonsMap[sNum]);
+    }
+    var epNum = parseInt(vid.episode || vid.number, 10) || (seasonsMap[sNum]._episodes.length + 1);
+    seasonsMap[sNum]._episodes.push({
+      id: vid.id || (item._stremioId + ':' + sNum + ':' + epNum),
+      number: epNum,
+      seriesNumber: epNum,
+      title: vid.name || vid.title || ('Capítulo ' + epNum),
+      synopsis: vid.overview || vid.description || '',
+      thumb: vid.thumbnail || item.backdrop || item.poster || '',
+      released: vid.released || ''
+    });
+  }
+  seasonsList.sort(function (a, b) { return a.number - b.number; });
+  for (var s = 0; s < seasonsList.length; s++) {
+    seasonsList[s]._episodes.sort(function (a, b) { return a.number - b.number; });
+    seasonsList[s].episodes = seasonsList[s]._episodes;
+  }
+  if (seasonsList.length) {
+    item.seasons = seasonsList;
+    item.episodes = seasonsList[0]._episodes;
+    state.detailSeason = 0;
+    state.detailEpisode = item.episodes[0] || null;
+  }
+}
+
+/* "Seguir viendo" in Stremio mode: a title watched from a search or a row
+   that is no longer in the catalog is rebuilt from its history record. */
+var stremioHistoryItems = {};
+function stremioItemFromHistory(r) {
+  var key = String(r.id);
+  if (stremioHistoryItems[key]) { return stremioHistoryItems[key]; }
+  var item = stremioMetaToVodRecord({
+    id: key.replace(/^stremio:/, ''), type: r.series ? 'series' : 'movie',
+    name: r.title, poster: r.poster, background: r.landscape
+  }, r.stremioBase || '', '');
+  stremioHistoryItems[key] = item;
+  return item;
 }

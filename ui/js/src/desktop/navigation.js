@@ -21,15 +21,22 @@ function installDesktopNavigation() {
   var lastScreen = '';
   setInterval(function () {
     var onPlayer = state.screen === 'player';
+    /* TV en vivo full screen can be showing the home preview's own <video>
+       (live/channels.js hands it over): that one is what plays, and the
+       player's element stays empty and paused. */
+    var shown = (liveHandoff && liveHandoff.type === 'preview' && livePreviewVideo) ? livePreviewVideo : playerVideo;
     var controlsUp = onPlayer && (state.infobar || state.episodeBrowserOpen || playSettingViewOpen ||
-      state.channelsOpen || state.categoryPickerOpen || dialogPlaySettingsOpen || dialogAddonsOpen ||
-      historyDrawerOpen || !playerVideo || playerVideo.paused);
+      state.channelsOpen || state.categoryPickerOpen || dialogPlaySettingsOpen || dialogAddonsOpen || sourcePickerOpen ||
+      historyDrawerOpen || !shown || shown.paused);
     body.classList.toggle('is-playing-idle', onPlayer && !controlsUp);
     if (state.screen !== lastScreen) { lastScreen = state.screen; body.setAttribute('data-screen', state.screen); }
     /* The movie player has its own Volver (top left), so no second one. */
-    button.hidden = state.screen === 'welcome' ||
+    var hide = state.screen === 'welcome' ||
       (state.screen === 'home' && !dialogAddonsOpen && !historyDrawerOpen) ||
       (state.screen === 'player' && state.playerMode === 'vod');
-    button.disabled = false;
+    /* Only when it changes: writing the same value is still an attribute
+       change, and restyled the page every 150 ms (seen on a Fire TV). */
+    if (button.hidden !== hide) { button.hidden = hide; }
+    if (button.disabled) { button.disabled = false; }
   }, 150);
 }

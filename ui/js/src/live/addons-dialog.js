@@ -1,15 +1,29 @@
-/* live/addons-dialog.js — Diálogo de addons y listas M3U.
+/* live/addons-dialog.js — "Buscar listas de TV": las listas M3U recomendadas
+   (PRESET_ADDONS), con un buscador. Se abre con el botón Buscar de Ajustes →
+   Fuentes y desde el panel de canales del reproductor.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-/* --- Addon Manager Dialog logic --- */
+var addonsDialogReturn = null;
+
 function openAddonsDialog() {
-  dialogAddonsOpen = true;
   var dlg = $('dialog-addons');
   if (!dlg) { return; }
+  dialogAddonsOpen = true;
+  addonsDialogReturn = state.focus;
   dlg.classList.add('is-active');
+  var search = $('da-search');
+  if (search && !search._bound) {
+    search._bound = true;
+    search.addEventListener('input', function () { renderAddonsDialog(); });
+    search.addEventListener('keydown', function (ev) {
+      if (ev.keyCode === 27) { ev.preventDefault(); closeAddonsDialog(); return; }
+      ev.stopPropagation();
+    });
+  }
+  if (search) { search.value = ''; }
   renderAddonsDialog();
-  var firstBtn = dlg.querySelector('.focusable');
-  if (firstBtn) { setFocus(firstBtn); }
+  var first = dlg.querySelector('.da-preset-item.focusable') || search;
+  if (first) { setFocus(first); }
 }
 
 function closeAddonsDialog() {
@@ -21,116 +35,58 @@ function closeAddonsDialog() {
     var btn = playerChannels ? playerChannels.querySelector('#pc-btn-addons') : null;
     if (btn) { setFocus(btn); }
     else { setFocus(playerStage); }
+    return;
   }
+  /* From Ajustes → Fuentes: show the lists just added there. */
+  if (state.screen === 'settings' && typeof settingsIndexOf === 'function') {
+    showSettingsPanel(settingsIndexOf('sources'), false);
+    var again = settingsRight && settingsRight.querySelector('.fx-btn.is-search');
+    if (again) { setFocus(again); return; }
+  }
+  if (addonsDialogReturn && isVisible(addonsDialogReturn)) { setFocus(addonsDialogReturn); }
 }
 
 function renderAddonsDialog() {
-  var presetsBox = $('da-presets-list');
-  var installedBox = $('da-installed-list');
-  var saved = getSavedAddons();
-  var savedUrls = {};
-  for (var s = 0; s < saved.length; s++) { savedUrls[saved[s].url] = true; }
-
-  if (presetsBox) {
-    clear(presetsBox);
-    for (var p = 0; p < PRESET_ADDONS.length; p++) {
-      (function (preset) {
-        var item = el('div', 'da-preset-item');
-        var info = el('div', 'da-preset-info');
-        info.appendChild(el('div', 'da-preset-name', preset.name));
-        info.appendChild(el('div', 'da-preset-desc', preset.desc));
-        item.appendChild(info);
-
-        var isInst = !!savedUrls[preset.url];
-        var btn = el('button', 'da-preset-btn focusable' + (isInst ? ' is-installed' : ''), isInst ? '✔ Instalado' : '+ Instalar');
-        btn.disabled = isInst;
-        btn._activate = function () {
-          if (isInst) { return; }
-          btn.disabled = true;
-          btn.textContent = 'Instalando…';
-          installAddon(preset, function (err, count) {
-            if (err) {
-              btn.disabled = false;
-              btn.textContent = 'Error';
-              setTimeout(function () { btn.textContent = '+ Instalar'; }, 2000);
-            } else {
-              renderAddonsDialog();
-              if (currentLiveCategory && currentLiveCategory.isAddon) {
-                loadAddonChannels();
-              }
-            }
-          });
-        };
-        item.appendChild(btn);
-        presetsBox.appendChild(item);
-      })(PRESET_ADDONS[p]);
-    }
-  }
-
-  if (installedBox) {
-    clear(installedBox);
-    if (!saved.length) {
-      installedBox.appendChild(el('div', 'da-installed-empty', 'No hay addons personalizados instalados aún. Instala una lista recomendada arriba o escribe una URL.'));
-    } else {
-      for (var i = 0; i < saved.length; i++) {
-        (function (ad, idx) {
-          var row = el('div', 'da-installed-item');
-          var info = el('div', 'da-installed-info');
-          var nm = el('div', 'da-preset-name', ad.name);
-          var sub = el('div', 'da-preset-desc', (ad.count ? (ad.count + ' canales • ') : '') + ad.url);
-          info.appendChild(nm);
-          info.appendChild(sub);
-          row.appendChild(info);
-
-          var delBtn = el('button', 'da-del-btn focusable', 'Eliminar');
-          delBtn._activate = function () {
-            saved.splice(idx, 1);
-            saveSavedAddons(saved);
-            renderAddonsDialog();
-            if (currentLiveCategory && currentLiveCategory.isAddon) {
-              loadAddonChannels();
-            }
-          };
-          row.appendChild(delBtn);
-          installedBox.appendChild(row);
-        })(saved[i], i);
-      }
-    }
-  }
-
-  var addCustomBtn = $('da-btn-add-custom');
-  if (addCustomBtn) {
-    addCustomBtn._activate = function () {
-      var inp = $('da-custom-url');
-      var url = inp ? (inp.value || '').trim() : '';
-      if (!url || !/^https?:\/\//i.test(url)) {
-        addCustomBtn.textContent = 'URL inválida';
-        setTimeout(function () { addCustomBtn.textContent = 'Agregar'; }, 2000);
-        return;
-      }
-      addCustomBtn.textContent = 'Descargando…';
-      addCustomBtn.disabled = true;
-      installAddon({ id: 'custom_' + Date.now(), name: 'Lista Personalizada', url: url }, function (err, count) {
-        addCustomBtn.disabled = false;
+  var box = $('da-presets-list');
+  if (!box) { return; }
+  var q = norm(($('da-search') || {}).value || '');
+  var saved = {};
+  getSavedAddons().forEach(function (ad) { saved[ad.url] = true; });
+  clear(box);
+  var shown = 0;
+  PRESET_ADDONS.forEach(function (preset) {
+    if (q && norm(preset.name + ' ' + preset.desc).indexOf(q) === -1) { return; }
+    shown++;
+    var on = !!saved[preset.url];
+    var item = el('div', 'da-preset-item focusable' + (on ? ' is-installed' : ''));
+    var info = el('div', 'da-preset-info');
+    info.appendChild(el('div', 'da-preset-name', preset.name));
+    info.appendChild(el('div', 'da-preset-desc', preset.desc));
+    item.appendChild(info);
+    var tag = el('span', 'da-preset-tag', on ? '✔ Agregada' : '+ Agregar');
+    item.appendChild(tag);
+    item._activate = function () {
+      if (on || item._busy) { return; }
+      item._busy = true;
+      tag.textContent = 'Agregando…';
+      installAddon(preset, function (err, count) {
+        item._busy = false;
         if (err) {
-          addCustomBtn.textContent = 'Error M3U';
-          setTimeout(function () { addCustomBtn.textContent = 'Agregar'; }, 2500);
-        } else {
-          addCustomBtn.textContent = 'Agregar';
-          if (inp) { inp.value = ''; }
-          renderAddonsDialog();
-          if (currentLiveCategory && currentLiveCategory.isAddon) {
-            loadAddonChannels();
-          }
+          tag.textContent = 'No cargó';
+          setTimeout(function () { tag.textContent = '+ Agregar'; }, 2500);
+          return;
         }
+        on = true;
+        item.classList.add('is-installed');
+        tag.textContent = '✔ ' + count + ' canales';
+        if (currentLiveCategory && currentLiveCategory.isAddon) { loadAddonChannels(); }
       });
     };
-  }
-
+    box.appendChild(item);
+  });
+  if (!shown) { box.appendChild(el('div', 'da-empty', 'No hay listas con ese nombre.')); }
   var exitBtn = $('da-btn-exit');
-  if (exitBtn) {
-    exitBtn._activate = function () { closeAddonsDialog(); };
-  }
+  if (exitBtn) { exitBtn._activate = function () { closeAddonsDialog(); }; }
 }
 
 function installAddon(addon, done) {

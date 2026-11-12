@@ -6,6 +6,25 @@
    DOM/focus graph intact, but attach each source only when its tile is near
    the visible viewport and release it again when changing page/screen. */
 var posterMemoryTimer = null;
+
+/* Android app (Capacitor, "OpenTVImg" in its user agent): images go through
+   the app, which downloads each one once, decodes it already reduced to the
+   size it is shown at and keeps that small copy on disk, like Glide in
+   native TV apps. The WebView then never decodes a full-size cover for a
+   small tile (the main cause of stutter on the Fire TV). `w` is the width in
+   page pixels. */
+var nativeImageSizer = /OpenTVImg\/\d/.test(navigator.userAgent || '');
+function sizedImageUrl(url, w) {
+  if (!nativeImageSizer || !url || !w || !/^https?:\/\//i.test(url)) { return url; }
+  var px = Math.round(w * (window.innerWidth || 1920) / 1920 * (window.devicePixelRatio || 1));
+  return 'https://opentv-img.local/i?w=' + px + '&u=' + encodeURIComponent(url);
+}
+function tileImageUrl(img) {
+  var src = img.getAttribute('data-poster-src');
+  var tile = closest(img, '.poster, .bento, .continue-card');
+  return sizedImageUrl(src, tile ? parseFloat(tile.style.width) : 0);
+}
+
 function schedulePosterMemoryPass() {
   /* Desktop: throttle instead of debounce, so posters keep appearing while
      a list is still gliding under the mouse wheel. */
@@ -16,7 +35,7 @@ function schedulePosterMemoryPass() {
   posterMemoryTimer = setTimeout(function () {
     posterMemoryTimer = null;
     refreshPosterMemory();
-  }, 80);
+  }, platformIsTv() ? 150 : 80);
 }
 function posterBelongsToVisiblePage(img) {
   if (state.screen === 'home') {
@@ -39,7 +58,29 @@ function posterBelongsToVisiblePage(img) {
 function refreshPosterMemory() {
   /* Desktop never unloads a poster, so only the ones still waiting need a
      look (a long session has hundreds already on screen). */
-  var imgs = document.querySelectorAll(window.XUPER_DESKTOP ? 'img[data-poster-src]:not([src])' : 'img[data-poster-src]');
+  var sel = window.XUPER_DESKTOP ? 'img[data-poster-src]:not([src])' : 'img[data-poster-src]';
+  /* TVs: only the posters of the page on screen, and rows far from the
+     scroll position are skipped by their written position (measuring
+     hundreds of catalogue posters after every key press cost ~18 ms). */
+  var tvPage = null;
+  if (platformIsTv() && window.XUPER_DESKTOP && state.screen === 'home') {
+    tvPage = document.querySelector('.home-page.is-current');
+  }
+  var imgs;
+  if (tvPage) {
+    /* Only the rows (and catalogue lines) near the scroll position. */
+    imgs = [];
+    var top0 = tvPage.scrollTop;
+    var lines = tvPage.children;
+    for (var l = 0; l < lines.length; l++) {
+      var lineTop = parseFloat(lines[l].style.top);
+      if (!isNaN(lineTop) && (lineTop < top0 - 900 || lineTop > top0 + 1800)) { continue; }
+      var found = lines[l].querySelectorAll(sel);
+      for (var k = 0; k < found.length; k++) { imgs.push(found[k]); }
+    }
+  } else {
+    imgs = document.querySelectorAll(sel);
+  }
   var viewW = window.innerWidth || 1920;
   var viewH = window.innerHeight || 1080;
   for (var i = 0; i < imgs.length; i++) {
@@ -53,7 +94,7 @@ function refreshPosterMemory() {
     if (near) {
       if (!img.getAttribute('src')) {
         img.style.display = '';
-        img.src = img.getAttribute('data-poster-src');
+        img.src = tileImageUrl(img);
       }
     } else if (img.getAttribute('src') && !window.XUPER_DESKTOP) {
       /* (TV only: a PC has memory to spare, and reloading on the way back
@@ -136,7 +177,7 @@ function posterImageError() {
       var src = img.getAttribute('data-poster-src');
       if (!src || !img.isConnected) { return; }
       img.removeAttribute('src');
-      img.src = src;
+      img.src = tileImageUrl(img);
     }, 1500 * (tries + 1));
     return;
   }
@@ -176,17 +217,4 @@ function makePoster(item, x, y, w, h, opts) {
   p._activate = function () { openDetail(item); };
   schedulePosterMemoryPass();
   return p;
-}
-
-function addPosters(page, areaLeft, areaTop, list, items) {
-  var area = el('div', 'poster-area');
-  abs(area, areaLeft, areaTop, 1830, 940.5);
-  var source = (items && items.length) ? items : VOD;
-  if (!source.length) { page.appendChild(area); return area; }
-  for (var i = 0; i < list.length; i++) {
-    var d = list[i];
-    area.appendChild(makePoster(source[i % source.length], d.x, d.y, d.w, d.h, d.opts));
-  }
-  page.appendChild(area);
-  return area;
 }

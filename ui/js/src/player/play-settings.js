@@ -86,29 +86,6 @@ function renderPlaySettingAudio() {
   psvSecAudio.classList.remove('is-hidden');
 }
 
-/* ud/n1.dd() builds the RESOLUCIÓN row from the portal's quality map and
-   shows shifted labels: the 720p copy is titled "1080P" and the 1080p copy
-   "4K". Mirror that so the row matches the real app. */
-function qualityChoices(info) {
-  var tracks = (info && info.tracks) || [];
-  var out = [];
-  var seen = {};
-  for (var i = 0; i < tracks.length; i++) {
-    var raw = String(tracks[i].quality || '').toLowerCase().replace(/p$/, '');
-    var label = raw === '480' ? '480P'
-              : raw === '720' ? '1080P'
-              : raw === '1080' ? '4K'
-              : qualityLabel(tracks[i]);
-    if (seen[label]) { continue; }
-    seen[label] = true;
-    out.push({ label: label, trackIndex: i });
-  }
-  /* The APK adds a "4K" pill whenever the 720p copy is present and the
-     portal has no separate 1080p entry. */
-  if (seen['1080P'] && !seen['4K']) { out.push({ label: '4K', trackIndex: -1 }); }
-  return out;
-}
-
 /* Desktop "Calidad" row. Most portal episodes have a single version, so the
    row only appears when the current episode offers more than one height.
    The choice is a preferred height (e.g. 720) kept for later titles too;

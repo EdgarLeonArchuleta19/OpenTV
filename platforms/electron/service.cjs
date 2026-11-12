@@ -48,6 +48,9 @@ function createService() {
       require('../../service/media-duration.js').close();
       require('../../service/ffmpeg-relay.js').close();
       require('../../service/proxy.js').close();
+      /* Only loaded when a torrent was played: stop it and delete its cache. */
+      const torrentsPath = require.resolve('../../service/torrents.js');
+      if (require.cache[torrentsPath]) require(torrentsPath).close();
     }
   };
 }

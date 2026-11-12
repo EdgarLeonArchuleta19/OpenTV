@@ -16,6 +16,7 @@ var relay = require('./ffmpeg-relay');
 var mediaDuration = require('./media-duration');
 var dnsx = require('./dnsx');
 var netdiag = require('./netdiag');
+var tmdb = require('./tmdb');
 var urlmod = require('url');
 
 try {
@@ -65,6 +66,17 @@ function respond(message, err, payload) {
   out.returnValue = true;
   message.respond(out);
 }
+
+/* tmdb({ list: 'movie-week' | 'tv-week' | 'movie-top' | 'tv-top' }): this
+   week's trends for the home screen (TVs and Android; Electron calls
+   tmdb.js directly). The key stays in the service. */
+service.register('tmdb', function (message) {
+  var payload = message.payload || {};
+  tmdb.list(String(payload.list || ''), function (out) {
+    if (out.error) { return message.respond({ returnValue: false, errorText: out.error, unavailable: !!out.unavailable }); }
+    respond(message, null, { items: out.items });
+  });
+});
 
 service.register('ping', function (message) {
   message.respond({
@@ -165,8 +177,16 @@ function resolveStream(message, forceRelay) {
        on webOS it can leave both waiting for the other side and the player
        remains permanently at "Conectando…".  The proxy is still started for
        subtitle URLs only. */
+    /* The UI sets videoCopy when its player decodes this video codec itself
+       (for example Electron with HEVC): FFmpeg then copies the video and only
+       converts Dolby audio to AAC, instead of re-encoding everything. */
+    var relayOpts = {
+      hevc: isHevc,
+      audio: Number(payload.audioTrack) || 0,
+      videoCopy: payload.videoCopy === true || payload.videoCopy === 'true'
+    };
     if (useSmoothMode) {
-      var relayUrl = relay.register(stream, { hevc: isHevc, audio: Number(payload.audioTrack) || 0 });
+      var relayUrl = relay.register(stream, relayOpts);
       console.log('[opentv-service] routing stream via direct ffmpeg relay: ' + relayUrl);
       stream.proxyPath = relayUrl;
       stream.mime = 'video/mp4';
@@ -189,7 +209,7 @@ function resolveStream(message, forceRelay) {
         var extension = stream.mime === 'video/mp4' ? 'mp4' : 'ts';
         stream.proxyPath = proxy.baseUrl() + '/media/' + token + '/stream.' + extension;
         if (relay.available()) {
-          stream.relayUrl = relay.register(stream, { hevc: isHevc, audio: Number(payload.audioTrack) || 0 });
+          stream.relayUrl = relay.register(stream, relayOpts);
         }
         stream.isHls = false;
         attachSubtitles(stream);
@@ -199,6 +219,93 @@ function resolveStream(message, forceRelay) {
   });
 }
 service.register('resolve', function (message) { resolveStream(message, false); });
+
+/* resolveExternal({url, headers, name, forceRelay, videoCopy, audioTrack, duration})
+ * A link chosen in Stremio mode (an addon's HTTP/HLS source, or a torrent
+ * already served on loopback by torrentStart). Same answer shape as resolve,
+ * so the player handles it like a portal title:
+ *   HLS               -> as is, or through the proxy when it needs headers
+ *   MP4/WebM          -> as is (proxy when it needs headers); FFmpeg relay ready
+ *   MKV/AVI/other     -> FFmpeg relay (copies the video when the UI allows it) */
+service.register('resolveExternal', function (message) {
+  var p = message.payload || {};
+  var url = String(p.url || '');
+  if (!/^https?:\/\//i.test(url)) { return fail(message, new Error('La fuente no tiene un enlace http(s) válido')); }
+  var headers = (p.headers && typeof p.headers === 'object') ? p.headers : {};
+  var hasHeaders = Object.keys(headers).length > 0;
+  var name = String(p.name || '') + ' ' + url.split('?')[0];
+  var isHls = /\.m3u8\b/i.test(name);
+  var webReady = /\.(mp4|m4v|webm|mov)\b/i.test(name) && p.notWebReady !== true && p.notWebReady !== 'true';
+  var stream = { url: url, headers: headers, duration: mediaDuration.seconds(p.duration) };
+
+  if (isHls) {
+    if (!hasHeaders) { return respond(message, null, { url: url, proxyPath: url, isHls: true, mime: 'application/vnd.apple.mpegurl' }); }
+    return proxy.start(function (perr) {
+      if (perr) { return fail(message, perr); }
+      var token = proxy.add(url, headers, 0, '');
+      respond(message, null, { proxyPath: proxy.baseUrl() + '/media/' + token + '/stream.m3u8', isHls: true, mime: 'application/vnd.apple.mpegurl' });
+    });
+  }
+
+  var forceRelay = p.forceRelay === true || p.forceRelay === 'true' || !webReady;
+  if (forceRelay && !relay.available()) {
+    return fail(message, new Error('Este vídeo necesita el modo compatible y falta ffmpeg.exe en la carpeta bin de OpenTV'));
+  }
+  var relayOpts = { hevc: false, audio: Number(p.audioTrack) || 0, videoCopy: p.videoCopy === true || p.videoCopy === 'true' };
+  var out = { mime: 'video/mp4', isHls: false, durationId: mediaDuration.register(stream) };
+  if (relay.available()) { out.relayUrl = relay.register(stream, relayOpts); }
+  if (forceRelay) {
+    out.proxyPath = out.relayUrl;
+    out.isRelay = true;
+    return respond(message, null, out);
+  }
+  if (!hasHeaders) {
+    out.proxyPath = url;
+    return respond(message, null, out);
+  }
+  proxy.start(function (perr) {
+    if (perr) { return fail(message, perr); }
+    out.proxyPath = proxy.baseUrl() + '/media/' + proxy.add(url, headers, stream.duration, '') + '/stream.mp4';
+    respond(message, null, out);
+  });
+});
+
+/* proxySubtitles({subtitles:[{lang, url}]}): subtitle files from a Stremio
+ * addon, served through the loopback proxy like the catalog's own. */
+service.register('proxySubtitles', function (message) {
+  var list = ((message.payload || {}).subtitles || []).filter(function (s) {
+    return s && /^https?:\/\//i.test(String(s.url || ''));
+  }).slice(0, 60);
+  proxy.start(function (perr) {
+    if (perr) { return fail(message, perr); }
+    respond(message, null, { subtitles: list.map(function (s) {
+      return { lang: String(s.lang || ''), format: 'srt', url: proxy.addSubtitle(s.url) };
+    }) });
+  });
+});
+
+/* Torrents (PC only: the Electron service is the only one with the engine;
+ * on other platforms these methods answer "not available"). */
+var torrentsAvailable = !!(process.versions && process.versions.electron);
+function torrents() { return require('./torrents'); }
+
+service.register('torrentStart', function (message) {
+  if (!torrentsAvailable) { return fail(message, new Error('Los torrents solo están disponibles en la app de PC')); }
+  var p = message.payload || {};
+  torrents().start({ infoHash: p.infoHash, fileIdx: p.fileIdx, sources: p.sources }, function (err, info) {
+    respond(message, err, info);
+  });
+});
+
+service.register('torrentStats', function (message) {
+  if (!torrentsAvailable) { return respond(message, null, { active: false }); }
+  respond(message, null, torrents().stats());
+});
+
+service.register('torrentStop', function (message) {
+  if (!torrentsAvailable) { return respond(message, null, {}); }
+  torrents().stop(function () { respond(message, null, {}); });
+});
 /* Separate Luna method: avoids older webOS bridges dropping custom boolean
    fields from a resolve payload. */
 service.register('resolveSmooth', function (message) { resolveStream(message, true); });

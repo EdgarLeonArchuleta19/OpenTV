@@ -159,6 +159,14 @@ function dockButton(cls, icon, label, title, run) {
   if (label) { b.appendChild(el('span', null, label)); }
   if (title) { b.setAttribute('data-tip', title); b.setAttribute('aria-label', title); }
   b._activate = run;
+  /* TVs: up goes back to the preview above; nothing below the bar. */
+  if (platformIsTv() && window.XUPER_DESKTOP) {
+    b._onMove = function (dir) {
+      if (dir === 'up' && liveFocus) { setFocus(liveFocus); return true; }
+      if (dir === 'down') { return true; }
+      return false;
+    };
+  }
   return b;
 }
 
@@ -178,12 +186,12 @@ function buildLiveDock(page) {
     dockBar.appendChild(dockRight);
   }
   var bar = dockCenter;
-  bar.appendChild(dockButton('', LIVE_DOCK_ICONS.prev, 'Anterior', 'Canal anterior', function () { setChannel(state.channel - 1, true); }));
+  bar.appendChild(dockButton('is-zap', LIVE_DOCK_ICONS.prev, 'Anterior', 'Canal anterior', function () { setChannel(state.channel - 1, true); }));
   if (window.XUPER_DESKTOP) { bar.appendChild(makeLiveDockPlayButton()); }
-  bar.appendChild(dockButton('', LIVE_DOCK_ICONS.next, 'Siguiente', 'Canal siguiente', function () { setChannel(state.channel + 1, true); }));
+  bar.appendChild(dockButton('is-zap', LIVE_DOCK_ICONS.next, 'Siguiente', 'Canal siguiente', function () { setChannel(state.channel + 1, true); }));
   if (!window.XUPER_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); }
   bar = dockLeft;
-  liveMuteBtn = dockButton('is-icon', LIVE_DOCK_ICONS.sound, '', 'Silenciar', function () {
+  liveMuteBtn = dockButton('is-icon is-mute', LIVE_DOCK_ICONS.sound, '', 'Silenciar', function () {
     if (liveAudio.volume === 0) { liveAudio.volume = 0.5; liveAudio.muted = false; }
     else { liveAudio.muted = !liveAudio.muted; }
     applyLiveAudio(true);

@@ -268,6 +268,15 @@ body.desktop {
   color: var(--accent);
 }
 .desktop .detail-btn[data-kind="favorite"].is-selected path { fill: currentColor; }
+/* Favorito y Mi lista: solo el icono (el texto queda como ayuda). */
+.desktop .detail-btn.is-icon-only { width: 58px; padding: 0; justify-content: center; border-radius: 50%; }
+.desktop .detail-btn.is-icon-only span { display: none; }
+.desktop .detail-btn[data-kind="mylist"].is-selected {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.desktop .detail-btn[data-kind="mylist"].is-selected path { fill: currentColor; }
 /* Interruptor del Modo fluido. */
 .desktop .detail-switch {
   position: relative;
@@ -717,29 +726,6 @@ body.desktop {
 html.is-drag-scrolling, html.is-drag-scrolling * { cursor: grabbing !important; }
 
 /* ------------------------------------------------ botón Historial */
-.desktop #desktop-history {
-  position: fixed;
-  top: 12px; left: 118px;
-  z-index: 10100;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 15px 9px 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: rgba(18, 18, 18, .78);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  color: #fff;
-  font: 600 14px var(--font);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
-  transition: background .15s var(--ease), border-color .15s var(--ease);
-}
-.desktop #desktop-history svg { width: 16px; height: 16px; display: block; }
-.desktop #desktop-history:hover { background: rgba(42, 42, 42, .9); }
-.desktop #desktop-history.is-active { background: var(--accent); border-color: transparent; color: var(--on-accent); }
-.desktop #desktop-history[hidden] { display: none; }
-.desktop #desktop-history:focus-visible { outline: 3px solid #ffffff; outline-offset: 4px; }
 
 /* ------------------------------------------------ pantalla de historial */
 .desktop .history-panel { background: transparent; }
@@ -842,6 +828,32 @@ html.is-drag-scrolling, html.is-drag-scrolling * { cursor: grabbing !important; 
 .desktop .history-card.is-focused .history-play { opacity: 1; transform: none; }
 .desktop .history-card.is-focused .history-card-title { color: var(--text); }
 .desktop .history-grid-empty { grid-column: 1 / -1; padding: 40px 0; font-size: 22px; color: var(--muted); }
+
+/* Mi lista (Historial · Mi lista · Mis favoritos): pósteres, cuatro por fila,
+   con la barra de avance sobre el póster en Historial. */
+.desktop .history-grid.library-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 34px 28px; }
+.desktop .library-card { position: relative; background: none; border: 0; border-radius: 0; overflow: visible; }
+.desktop .library-card:hover,
+.desktop .library-card.is-focused { background: none; transform: none; outline: none; }
+.desktop .library-art {
+  position: relative; border-radius: 14px; overflow: hidden; background: var(--surface);
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+.desktop .library-card:hover .library-art { transform: translateY(-4px); box-shadow: 0 14px 34px rgba(0, 0, 0, .5); }
+.desktop .library-card.is-focused .library-art { transform: translateY(-4px); box-shadow: 0 0 0 3px #fff, 0 14px 34px rgba(0, 0, 0, .5); }
+.desktop .library-art .history-poster { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; }
+.desktop .library-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(0, 0, 0, .55); }
+.desktop .library-bar i { background: #fff; border-radius: 0; }
+.desktop .library-card .history-card-title { padding: 12px 2px 0; }
+.desktop .library-card .history-sub { padding: 4px 2px 0; }
+.desktop .library-remove {
+  position: absolute; top: 10px; left: 10px; width: 38px; height: 38px; padding: 9px;
+  border: 0; border-radius: 50%; background: rgba(0, 0, 0, .62); color: #fff; cursor: pointer;
+  opacity: 0; transition: opacity .15s ease;
+}
+.desktop .library-remove svg { display: block; width: 100%; height: 100%; }
+.desktop .library-card:hover .library-remove { opacity: 1; }
+.desktop .library-remove:hover { background: rgba(0, 0, 0, .85); }
 
 /* Cuadrícula de episodios compacta: caben más por fila. */
 .desktop .dd-grid {

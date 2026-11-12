@@ -1,0 +1,398 @@
+/* 04-en-vivo-ajustes-posteres.css — Vista previa de TV en vivo, portada genérica, Ajustes, pósteres, episodios, fin de episodio y menú de calidad.
+   Parte de ui/desktop/tw/input.css (el orden de los archivos importa). */
+
+/* =====================================================================
+   TV del inicio: vídeo con esquinas redondeadas
+   ===================================================================== */
+.desktop .live-main {
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .06);
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+}
+.desktop .live-focus.is-focused::after { border-radius: 24px; }
+
+/* Volumen en el pie de la vista previa (rueda del ratón o tecla M). */
+.desktop .live-vol-toast {
+  position: absolute;
+  left: 50%; top: 28px;
+  z-index: 6;
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 22px;
+  transform: translate(-50%, -8px);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(10, 10, 12, .7);
+  backdrop-filter: blur(16px);
+  color: #fff;
+  font-size: 22px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .3s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .live-vol-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.desktop .live-vol-toast svg { width: 30px; height: 30px; }
+.desktop .live-vol-toast i { display: block; width: 180px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .22); overflow: hidden; }
+.desktop .live-vol-toast b { display: block; height: 100%; border-radius: inherit; background: #fff; transition: width .15s ease; }
+.desktop .live-vol-toast span { min-width: 92px; }
+
+/* Barra de volumen del dock. */
+.desktop .live-dock-volume { display: flex; align-items: center; gap: 14px; padding: 0 8px 0 4px; }
+.desktop .live-vol-range {
+  -webkit-appearance: none; appearance: none;
+  width: 190px; height: 28px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  --vol: 80%;
+}
+.desktop .live-vol-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #fff 0, #fff var(--vol), rgba(255, 255, 255, .2) var(--vol), rgba(255, 255, 255, .2) 100%);
+  transition: height .15s ease;
+}
+.desktop .live-vol-range:hover::-webkit-slider-runnable-track { height: 8px; }
+.desktop .live-vol-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px; height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .5);
+  transition: transform .15s ease;
+}
+.desktop .live-vol-range:hover::-webkit-slider-thumb { transform: scale(1.15); margin-top: -7px; }
+.desktop .live-vol-range:focus-visible { outline: 2px solid #fff; outline-offset: 6px; border-radius: 999px; }
+.desktop .live-dock-vol { min-width: 120px; text-align: left; font-size: 18px; color: rgba(255, 255, 255, .7); }
+.desktop .live-dock-btn.is-off { color: rgba(255, 255, 255, .55); }
+
+/* Lista de canales: botón "pantalla grande" al pasar y canal en reproducción. */
+.desktop .live-row { position: relative; }
+.desktop .live-row .row-open {
+  position: absolute;
+  right: 14px; top: 50%;
+  width: 52px; height: 52px;
+  margin-top: -26px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 14px;
+  background: rgba(20, 20, 24, .85);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(.85);
+  transition: opacity .18s ease, transform .22s cubic-bezier(.16, 1, .3, 1), background-color .15s ease;
+}
+.desktop .live-row .row-open svg { width: 26px; height: 26px; }
+.desktop .live-row:hover .row-open { opacity: 1; transform: none; }
+.desktop .live-row .row-open:hover { background: #fff; color: #000; }
+.desktop .live-row.is-current { background: rgba(255, 255, 255, .08); }
+.desktop .live-row.is-current .row-name { font-weight: 600; }
+@keyframes ot-eq { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
+.desktop .live-row.is-current .row-play {
+  background: none !important;
+  display: flex; align-items: flex-end; gap: 4px;
+}
+.desktop .live-row.is-current .row-play::before,
+.desktop .live-row.is-current .row-play::after {
+  content: "";
+  width: 5px; height: 24px;
+  border-radius: 2px;
+  background: #fff;
+  transform-origin: bottom;
+  animation: ot-eq .9s ease-in-out infinite;
+}
+.desktop .live-row.is-current .row-play::after { animation-delay: .3s; height: 18px; }
+
+/* =====================================================================
+   Portada genérica de OpenTV (títulos sin imagen o con imagen rota)
+   ===================================================================== */
+.desktop .generic-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px;
+  padding: 22px;
+  box-sizing: border-box;
+  border-radius: inherit;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, .09), transparent 60%),
+    linear-gradient(160deg, #1d1d22 0%, #111114 100%);
+  text-align: center;
+}
+.desktop .generic-cover .gc-mark { width: 34%; max-width: 120px; opacity: .3; }
+.desktop .generic-cover .gc-title {
+  font-size: 22px; line-height: 1.25; font-weight: 600;
+  color: rgba(255, 255, 255, .85);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.desktop .bento .generic-cover .gc-title { font-size: 30px; }
+.desktop .sr-art .generic-cover .gc-title { font-size: 17px; }
+.desktop .poster.is-generic .p-title { display: none !important; }
+
+.desktop #screen-search .search-keyboard { background-color: transparent; }
+
+/* =====================================================================
+   Ajustes: menú y paneles con el mismo diseño
+   ===================================================================== */
+.desktop .settings-right,
+.desktop .settings-panel,
+.desktop .history-panel,
+.desktop .account-panel { background: transparent !important; }
+.desktop .settings-menu { padding-top: 110px; }
+.desktop .settings-item {
+  height: 78px;
+  margin: 0 24px 8px;
+  padding-left: 30px;
+  display: flex; align-items: center;
+  font-size: 30px; line-height: 78px; font-weight: 500;
+}
+.desktop .settings-item:hover:not(.is-selected) { padding-left: 40px; }
+.desktop .settings-item.is-selected { font-weight: 600; background: rgba(255, 255, 255, .09); box-shadow: inset 3px 0 0 #fff; }
+.desktop .settings-icon { width: 34px; height: 34px; flex: 0 0 34px; margin-right: 22px; display: flex; align-items: center; }
+.desktop .settings-icon svg { width: 30px; height: 30px; margin: 0; fill: none !important; stroke: currentColor; stroke-width: 2; }
+.desktop .settings-icon svg path,
+.desktop .settings-icon svg circle,
+.desktop .settings-icon svg rect { fill: none !important; }
+.desktop .settings-item img { display: none; }
+
+/* Página tipo: cabecera + tarjetas, con scroll si no cabe. */
+.desktop .sd-page {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 104px 110px 80px 80px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .2) transparent;
+}
+.desktop .sd-page.is-active { display: block; }
+.desktop .sd-head { margin-bottom: 40px; }
+.desktop .sd-title { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; font-size: 54px; line-height: 1.1; font-weight: 650; letter-spacing: -.02em; color: #fff; }
+.desktop .sd-sub { margin-top: 12px; font-size: 24px; line-height: 1.4; color: rgba(255, 255, 255, .55); max-width: 1100px; }
+.desktop .sd-body { display: flex; flex-direction: column; gap: 20px; max-width: 1180px; }
+.desktop .sd-card {
+  display: flex; align-items: flex-start; flex-wrap: wrap; gap: 24px;
+  padding: 30px 34px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .045);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+  animation: ot-rise .45s cubic-bezier(.16, 1, .3, 1) backwards;
+  transition: background-color .2s ease, transform .25s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .sd-card:hover { background: rgba(255, 255, 255, .065); }
+.desktop .sd-body > :nth-child(2) { animation-delay: .05s; }
+.desktop .sd-body > :nth-child(3) { animation-delay: .1s; }
+.desktop .sd-body > :nth-child(4) { animation-delay: .15s; }
+.desktop .sd-card-icon {
+  flex: 0 0 64px; width: 64px; height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 18px; background: rgba(255, 255, 255, .1); color: #fff;
+}
+.desktop .sd-card-icon svg { width: 30px; height: 30px; }
+.desktop .sd-card-text { flex: 1; min-width: 0; padding-top: 4px; }
+.desktop .sd-card-title { font-size: 28px; line-height: 1.25; font-weight: 600; color: #fff; }
+.desktop .sd-card-sub { margin-top: 8px; font-size: 21px; line-height: 1.5; color: rgba(255, 255, 255, .6); }
+.desktop .sd-btn {
+  margin-left: 88px;
+  display: inline-flex; align-items: center; gap: 12px;
+  height: 60px; padding: 0 28px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(255, 255, 255, .08);
+  color: #fff; font-size: 22px; font-weight: 600;
+  cursor: pointer;
+  transition: transform .22s cubic-bezier(.16, 1, .3, 1), background-color .2s ease;
+}
+.desktop .sd-btn:hover { transform: translateY(-2px); background: rgba(255, 255, 255, .16); }
+.desktop .sd-btn.is-primary { background: #fff; color: #000; border-color: transparent; }
+.desktop .sd-btn.is-primary:hover { background: rgba(255, 255, 255, .9); }
+.desktop .sd-btn.is-focused { outline: 2px solid #fff; outline-offset: 3px; }
+.desktop .sd-btn-icon svg { width: 24px; height: 24px; display: block; }
+.desktop .sd-keys { flex-direction: column; gap: 22px; }
+.desktop .sd-keys-head { display: flex; align-items: center; gap: 24px; }
+.desktop .sd-keys-grid { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 40px; }
+.desktop .sd-key-row { display: flex; align-items: center; gap: 18px; font-size: 21px; color: rgba(255, 255, 255, .75); }
+.desktop .sd-key-row kbd {
+  flex: 0 0 auto; min-width: 54px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-bottom-width: 3px;
+  background: rgba(255, 255, 255, .06);
+  font: 600 19px "Segoe UI", system-ui, sans-serif;
+  color: #fff; text-align: center;
+}
+.desktop .sd-about-hero { display: flex; align-items: center; gap: 34px; margin-bottom: 12px; animation: ot-rise .45s cubic-bezier(.16, 1, .3, 1) backwards; }
+.desktop .sd-about-logo { width: 112px; height: 112px; border-radius: 32px; box-shadow: 0 20px 50px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .1); }
+.desktop .sd-about-name { font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; font-size: 60px; font-weight: 650; letter-spacing: -.02em; color: #fff; }
+.desktop .sd-about-ver { margin-top: 6px; font-size: 23px; color: rgba(255, 255, 255, .5); }
+.desktop .sd-about-tag { margin-top: 10px; font-size: 22px; color: rgba(255, 255, 255, .72); }
+/* Créditos, al final de Acerca de. */
+.desktop .sd-credits {
+  margin-top: 28px; padding-top: 30px; border-top: 1px solid rgba(255, 255, 255, .1);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.desktop .sd-credits-by { font-size: 24px; font-weight: 650; color: #fff; }
+.desktop .sd-credits-line { font-size: 18px; line-height: 1.5; color: rgba(255, 255, 255, .5); max-width: 1000px; }
+
+/* Mi lista (historial y favoritos) alineado con las demás páginas. */
+.desktop .history-panel .history-tabs { left: 80px; top: 104px; }
+.desktop .history-panel .history-total { left: 80px; right: 110px; top: 190px; }
+.desktop .history-panel .history-grid { left: 80px; right: 100px; top: 250px; }
+.desktop .history-grid-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  padding: 90px 0 !important;
+  border: 1px dashed rgba(255, 255, 255, .14);
+  border-radius: 24px;
+  text-align: center;
+  font-size: 23px !important;
+  color: rgba(255, 255, 255, .55) !important;
+}
+.desktop .history-grid-empty::before {
+  content: "";
+  width: 72px; height: 72px;
+  background: url(../images/placeholder-mark.svg) center / contain no-repeat;
+  opacity: 1;
+  filter: brightness(2.2);
+}
+/* Diagnóstico: botones con el mismo estilo. */
+.desktop .dg-btn { border-radius: 16px !important; border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .08) !important; transition: background-color .2s ease, transform .22s cubic-bezier(.16, 1, .3, 1); }
+.desktop .dg-btn:hover { background: rgba(255, 255, 255, .16) !important; transform: translateY(-2px); }
+
+/* Focus on "gold" posters and cards: only the rounded white ring. The old
+   app's 9-patch gold frame (css/style.css, border-image) has square corners
+   and showed outside the ring. */
+.desktop .poster.gold.is-focused::after { border: 0 !important; border-image: none !important; }
+
+/* =====================================================================
+   Pósteres: título al pasar el ratón
+   ===================================================================== */
+.desktop .poster .p-hover {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 3;
+  padding: 60px 16px 14px;
+  background: linear-gradient(to top, rgba(0, 0, 0, .9) 0%, rgba(0, 0, 0, .55) 55%, rgba(0, 0, 0, 0) 100%);
+  color: #fff;
+  font-size: 22px; line-height: 1.25; font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .6);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .2s ease, transform .3s cubic-bezier(.16, 1, .3, 1);
+  pointer-events: none;
+}
+.desktop .poster:hover .p-hover,
+.desktop .poster.is-focused .p-hover { opacity: 1; transform: none; }
+.desktop .poster:hover .p-title,
+.desktop .poster:hover .p-shade { display: none !important; }
+.desktop .poster.is-generic .p-hover { display: none; }
+
+/* =====================================================================
+   Episodios en la ficha: solo el número, en una cuadrícula ordenada
+   ===================================================================== */
+.desktop .dd-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)) !important; gap: 12px !important; }
+.desktop .dd-grid .detail-episode {
+  height: 76px !important;
+  padding: 0 !important;
+  justify-content: center;
+  border-radius: 16px !important;
+}
+.desktop .dd-grid .detail-episode .ep-num {
+  flex: 1 1 auto !important;
+  height: 100%;
+  border-right: 0 !important;
+  background: none !important;
+  font-size: 28px !important;
+  font-weight: 650;
+}
+.desktop .dd-grid .ep-info,
+.desktop .dd-grid .ep-play { display: none !important; }
+.desktop .dd-grid .detail-episode:hover { background: rgba(255, 255, 255, .12) !important; }
+.desktop .dd-grid .detail-episode.is-playing { background: #fff !important; border-color: transparent !important; }
+.desktop .dd-grid .detail-episode.is-playing .ep-num { color: #000 !important; }
+
+/* =====================================================================
+   Fin de episodio: "Siguiente episodio" con cuenta atrás
+   ===================================================================== */
+.desktop .next-episode-prompt {
+  position: absolute;
+  right: 90px; bottom: 150px;
+  z-index: 12;
+  width: 620px;
+  padding: 30px 32px 28px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 26px;
+  background: rgba(14, 14, 17, .82);
+  backdrop-filter: blur(22px) saturate(140%);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+  color: #fff;
+  opacity: 0;
+  transform: translateY(20px) scale(.98);
+  pointer-events: none;
+  transition: opacity .3s ease, transform .4s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .next-episode-prompt.is-visible { opacity: 1; transform: none; pointer-events: auto; cursor: auto !important; }
+.desktop .next-episode-prompt * { cursor: auto !important; }
+.desktop .nep-kicker { font-size: 18px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
+.desktop .nep-title { margin-top: 8px; font-size: 30px; line-height: 1.25; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.desktop .nep-bar { margin-top: 22px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .18); overflow: hidden; }
+@keyframes ot-countdown { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.desktop .nep-fill { display: block; height: 100%; background: #fff; border-radius: inherit; transform-origin: left center; animation: ot-countdown 10s linear forwards; }
+.desktop .nep-actions { display: flex; gap: 14px; margin-top: 24px; }
+.desktop .nep-btn {
+  display: inline-flex; align-items: center; gap: 12px;
+  height: 62px; padding: 0 26px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  background: rgba(255, 255, 255, .08);
+  font-size: 22px; font-weight: 600;
+  cursor: pointer !important;
+  transition: transform .22s cubic-bezier(.16, 1, .3, 1), background-color .2s ease;
+}
+.desktop .nep-btn svg { width: 24px; height: 24px; }
+.desktop .nep-btn:hover { transform: translateY(-2px); background: rgba(255, 255, 255, .16); }
+.desktop .nep-btn.is-primary { background: #fff; color: #000; border-color: transparent; }
+.desktop .nep-btn.is-primary:hover { background: rgba(255, 255, 255, .9); }
+.desktop .nep-btn.is-focused { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* =====================================================================
+   Menú de calidad del reproductor (px reales, fuera del lienzo)
+   ===================================================================== */
+.quality-menu {
+  position: fixed; left: 0; top: 0;
+  z-index: 10400;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 14px;
+  background: rgba(18, 18, 22, .94);
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  color: #fff;
+  display: none;
+}
+.quality-menu.is-open { display: block; animation: ot-pop .16s ease-out; }
+.quality-menu .qm-title { padding: 6px 10px 8px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgba(255, 255, 255, .5); }
+.quality-menu .qm-item {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px 9px 8px;
+  border: 0; border-radius: 9px;
+  background: transparent;
+  color: #fff; font: 600 13.5px "Segoe UI", system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer !important;
+  transition: background-color .12s ease;
+}
+.quality-menu .qm-item:hover { background: rgba(255, 255, 255, .1); }
+.quality-menu .qm-check { width: 18px; height: 18px; flex: 0 0 18px; }
+.quality-menu .qm-check svg { width: 18px; height: 18px; display: block; }
+.quality-menu .qm-label { flex: 1; }
+.quality-menu .qm-note { font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, .5); }

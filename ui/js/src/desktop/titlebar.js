@@ -53,6 +53,22 @@ function installTitleBar() {
     } catch (ePinQ) { /* ignore */ }
     titleBarEl.appendChild(pinBtn);
   }
+  /* Next to the pin: the whole app in full screen (the bar hides itself
+     there; Esc or F11 brings the window back). */
+  if (window.desktop && window.desktop.fullscreen) {
+    var fullBtn = el('button', 'atb-pin atb-full');
+    fullBtn.type = 'button';
+    fullBtn.id = 'atb-full';
+    fullBtn.innerHTML = UI_ICONS.fullscreen;
+    fullBtn.setAttribute('data-tip', 'Pantalla completa (F11)');
+    fullBtn.setAttribute('aria-label', 'Pantalla completa');
+    fullBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      try { window.desktop.fullscreen(true); } catch (eFull) { /* ignore */ }
+    });
+    titleBarEl.appendChild(fullBtn);
+  }
   document.body.insertBefore(titleBarEl, document.body.firstChild);
   document.body.classList.add('has-titlebar');
   if (window.desktop && window.desktop.onFullscreenChanged) {

@@ -99,8 +99,8 @@ function localSuggestions(raw) {
   }
   for (var i = 0; i < pool.length; i++) {
     var item = pool[i];
-    var t = norm(item.title || '');
-    var a = item.alias ? norm(item.alias) : '';
+    var t = itemNorm(item, 'title');
+    var a = itemNorm(item, 'alias');
     var key = t + '|' + (isSeriesItem(item) ? 's' : 'm');
     if (seen[key]) { continue; }
     var rank = -1;
@@ -144,6 +144,8 @@ function suggestRow(cls, iconHtml, title, meta, run) {
 
 function updateSearchSuggest() {
   if (!window.XUPER_DESKTOP || !searchInput) { return; }
+  /* TV: the system keyboard covers the suggestions; skip the work. */
+  if (platformIsTv()) { return; }
   var raw = searchInput.value;
   var q = String(raw || '').trim();
   var box = ensureSearchSuggestBox();

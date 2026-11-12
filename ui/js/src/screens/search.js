@@ -41,6 +41,8 @@ function buildSearch() {
     searchInput.placeholder = 'Buscar películas o series';
     searchInput.setAttribute('aria-label', 'Buscar películas o series');
     searchInput.autocomplete = 'off';
+    /* The system keyboard (Fire TV, Android TV) shows "Buscar" on its action key. */
+    searchInput.setAttribute('enterkeyhint', 'search');
     /* Typing only edits the query. The server is asked once, on Enter or
        the Buscar button, instead of on every letter. Emptying the box
        (or its ✕) goes back to the popular titles. */
@@ -55,10 +57,42 @@ function buildSearch() {
     searchInput.addEventListener('compositionend', function () { state.searchQuery = searchInput.value; });
     searchInput.addEventListener('keydown', function (event) {
       if (event.isComposing) return;
+      /* TV: the remote already left the field but the WebView kept it as
+         the page's focus; its keys belong to the app's navigation. */
+      if (platformIsTv() && state.focus !== searchInput) {
+        event.preventDefault();
+        event.stopPropagation();
+        handleKey({ keyCode: event.keyCode, key: event.key, target: document.body, preventDefault: function () {}, stopPropagation: function () {} });
+        return;
+      }
       if (searchSuggestKey(event)) { event.stopPropagation(); return; }
-      if (event.key === 'Enter') { event.preventDefault(); state.searchQuery = searchInput.value; runSearch(); }
+      if (event.key === 'Enter' || event.keyCode === 13) {
+        event.preventDefault();
+        state.searchQuery = searchInput.value;
+        if (platformIsTv()) { submitTvSearch(); return; }
+        runSearch();
+      }
       if (event.key === 'Escape') { searchInput.blur(); back(); }
+      /* TV: the remote's up/down leave the field (to the results, the
+         Buscar button…) like any other control. */
+      /* (Moved here: on the Fire TV blur() does not release the field, and
+         the global handler ignores keys aimed at a text field, so the
+         arrow did nothing.) */
+      if (platformIsTv() && (event.keyCode === 38 || event.keyCode === 40)) {
+        event.preventDefault();
+        event.stopPropagation();
+        searchInput.blur();
+        moveFocus(event.keyCode === 40 ? 'down' : 'up');
+        return;
+      }
       event.stopPropagation();
+    });
+    /* TV: the system keyboard's "Siguiente" / "Listo" may only close the
+       keyboard (no Enter): searching then too. */
+    searchInput.addEventListener('change', function () {
+      if (!platformIsTv()) { return; }
+      state.searchQuery = searchInput.value;
+      if (norm(state.searchQuery.trim()) !== tvSearchedQuery) { submitTvSearch(); }
     });
     searchInput._activate = function () { searchInput.focus(); };
   } else {
@@ -125,10 +159,6 @@ function buildSearch() {
     searchKeyboard.appendChild(row);
   }
 
-  var feedback = el('div', 'kb-feedback focusable', 'Diagnóstico');
-  feedback._activate = openDesktopDiagnostic;
-  searchKeyboard.appendChild(feedback);
-
   /* --- hot search grid (observed "Búsqueda popular", 10 portrait cells) --- */
   renderPopularSearch();
 
@@ -136,6 +166,17 @@ function buildSearch() {
   searchEmpty.classList.remove('is-active');
   searchHot.classList.remove('is-hidden');
   updateSearchInput();
+}
+
+/* TV, the system keyboard's action key: search, close the keyboard and move
+   to the first result as soon as there is one (renderDesktopSearchList). */
+var tvSearchedQuery = '';
+var tvFocusResults = false;
+function submitTvSearch() {
+  tvSearchedQuery = norm(String(state.searchQuery || '').trim());
+  tvFocusResults = !!tvSearchedQuery;
+  try { searchInput.blur(); } catch (eBlur) { /* ignore */ }
+  runSearch();
 }
 
 function makeSearchCell(item, index) {
@@ -223,8 +264,8 @@ function runSearch() {
   /* Instant local matches (0ms response) */
   var localMatches = [];
   for (var i = 0; i < VOD.length; i++) {
-    var tNorm = norm(VOD[i].title || '');
-    var aNorm = VOD[i].alias ? norm(VOD[i].alias) : '';
+    var tNorm = itemNorm(VOD[i], 'title');
+    var aNorm = itemNorm(VOD[i], 'alias');
     if (tNorm.indexOf(q) !== -1 || (aNorm && aNorm.indexOf(q) !== -1)) {
       localMatches.push(VOD[i]);
     }

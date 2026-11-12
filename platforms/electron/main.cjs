@@ -14,6 +14,7 @@ const { createService } = require('./service.cjs');
 const systemAudio = require('./system-volume.cjs');
 const updates = require('./updater.cjs');
 const logger = require('./logger.cjs');
+const tmdb = require('../../service/tmdb.js');
 const backup = require('./backup.cjs');
 let windowRef;
 let shortcutFor = () => null;
@@ -150,6 +151,20 @@ async function start() {
     if (command === 'read') return backup.read();
     if (command === 'write') return backup.write(data);
     return null;
+  });
+  ipcMain.handle('desktop:tmdb', (event, name) => {
+    if (!trusted(event) || typeof name !== 'string') return { error: 'Operación no permitida' };
+    return new Promise((resolve) => tmdb.list(name, resolve));
+  });
+  /* Stremio mode: an addon's own settings page opens in the browser. Only an
+     https ".../configure" page, so the page cannot open anything else. */
+  ipcMain.handle('desktop:open-addon-config', (event, url) => {
+    if (!trusted(event) || typeof url !== 'string' || url.length > 2048) return false;
+    let parsed;
+    try { parsed = new URL(url); } catch { return false; }
+    if (parsed.protocol !== 'https:' || !/\/configure\/?$/.test(parsed.pathname)) return false;
+    shell.openExternal(parsed.href);
+    return true;
   });
   ipcMain.handle('desktop:open-logs', (event) => {
     if (!trusted(event) || !logger.file()) return false;

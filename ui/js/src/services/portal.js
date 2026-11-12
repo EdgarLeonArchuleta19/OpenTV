@@ -57,12 +57,16 @@ if (/denied|permission|not permitted/i.test(raw)) {
 return raw;
 }
 
-/* The network test can only judge the carrier by touching the real CDN, so the
- page remembers the last raw CDN URLs the portal handed out.  Loopback proxy
- URLs are useless here: they always answer, even when the carrier drops the
- upstream connection. */
-var lastCdnProbe = { live: null, vod: null };
 var lastVodAttempt = { phase: 'sin intento', status: 'sin datos', error: '' };
+/* An error shown on screen must never expose a playable URL, signed query,
+   token or request header: only a short, readable reason. */
+function reportSafeText(value) {
+  var text = String(value == null ? '' : value);
+  text = text.replace(/https?:\/\/[^\s"']+/ig, '[URL OCULTA]');
+  text = text.replace(/(token|signature|authorization|cookie|key)=?[^\s,&]*/ig, '$1=[OCULTO]');
+  text = text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ');
+  return text.slice(0, 150);
+}
 function vodFailure(phase, message) {
 var safe = reportSafeText(String(message || 'El servicio no devolvió los datos necesarios'));
 lastVodAttempt = { phase: phase, status: 'error', error: safe };
@@ -74,15 +78,6 @@ if (state.playerMode === 'vod' && (state.screen === 'detail' || state.screen ===
   vodFailure(lastVodAttempt.phase, 'La carga no terminó dentro de 30 segundos');
 }
 });
-function rememberCdnProbe(kind, payload) {
-try {
-  if (!payload) { return; }
-  var url = payload.url || '';
-  if (!/^https?:\/\//i.test(url)) { return; }
-  if (/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/i.test(url)) { return; }
-  lastCdnProbe[kind] = { url: url, headers: payload.headers || {} };
-} catch (eProbe) { /* ignore */ }
-}
 
 function portalServiceCall(method, params, done, customTimeout) {
 var serviceId = vodApi.serviceId || 'com.webosflux.xuptertv.fidelity.service';
@@ -180,6 +175,20 @@ function openSamples() {
   return out;
 }
 
+/* The portal's kids section also carries mature anime (Tokyo Ghoul,
+   Beastars...). Those titles keep their other sections but leave Kids. */
+var KIDS_BLOCKED_GENRES = /crime|crimen|thriller|suspense|erotic|adult|war\b|guerra|gore/;
+var KIDS_BLOCKED_TITLES = /tokyo ghoul|beastars|attack on titan|shingeki|death note|chainsaw|jujutsu|berserk|devilman|parasyte|kiseijuu|hellsing|elfen lied|kimetsu|demon slayer|hunter x hunter|akame|goblin slayer|psycho.?pass|vinland|banana fish|terror in resonance/;
+function notForKids(item) {
+  var genres = item.genres || [];
+  if (Object.prototype.toString.call(genres) !== '[object Array]') { genres = [String(genres)]; }
+  return KIDS_BLOCKED_GENRES.test(norm(genres.join(' '))) || KIDS_BLOCKED_TITLES.test(norm(item.title || ''));
+}
+function keepKidsSafe(item) {
+  if (!item || String(item.category || '').indexOf('infantil') === -1 || !notForKids(item)) { return; }
+  item.category = String(item.category).split(',').filter(function (c) { return c !== 'infantil'; }).join(',');
+}
+
 function applyPortalRefresh(roots) {
   var byId = {}, order = [], cats = {};
   function absorb(item) {
@@ -203,9 +212,32 @@ function applyPortalRefresh(roots) {
     cats[id] = cats[id] || {};
     for (var c = 0; c < list.length; c++) { if (list[c]) { cats[id][list[c]] = true; } }
   }
+  var ROOT_CATEGORY = { featured: 'destacado', movies: 'pelicula', series: 'serie', anime: 'anime', kids: 'infantil', free: 'gratis' };
   for (var r = 0; r < PORTAL_ROOTS.length; r++) {
     var list = roots[PORTAL_ROOTS[r]] || [];
     for (var i = 0; i < list.length; i++) { list[i].portal = true; absorb(list[i]); }
+  }
+  if (!order.length) {
+    /* Refresh received no items (service offline or slow): preserve snapshot catalog! */
+    return;
+  }
+  /* A section that did not answer keeps the titles it had (the Fire TV
+     showed an empty Anime for 20 minutes after one timeout). */
+  for (var m = 0; m < PORTAL_ROOTS.length; m++) {
+    var cat = ROOT_CATEGORY[PORTAL_ROOTS[m]];
+    if (roots[PORTAL_ROOTS[m]] || !cat) { continue; }
+    for (var v = 0; v < VOD.length; v++) {
+      if (!VOD[v]._portal || String(VOD[v].category || '').split(',').indexOf(cat) === -1) { continue; }
+      var known = String(VOD[v].id);
+      /* Also in a section that did answer: its fresh data stays, it only
+         gets this section back. */
+      if (byId[known]) { cats[known][cat] = true; continue; }
+      var keep = {};
+      for (var key in VOD[v]) { if (Object.prototype.hasOwnProperty.call(VOD[v], key)) { keep[key] = VOD[v][key]; } }
+      keep.category = cat;
+      keep.portal = true;
+      absorb(keep);
+    }
   }
   if (!order.length) {
     /* Refresh received no items (service offline or slow): preserve snapshot catalog! */
@@ -239,22 +271,25 @@ function refreshPortalCatalog() {
         applyPortalRefresh(fresh);
       } else {
         portalState.error = portalState.error || 'No se pudo actualizar el catálogo del servicio';
-        /* Respaldo automático: si el servidor principal (magis.js) falla, cargar addons Stremio/externos del usuario */
-        var vodCfgFallback = getVodSourcesConfig();
-        if (vodCfgFallback.mode !== 'portal' && vodCfgFallback.addons.length) {
-          syncExternalVodCatalogs();
-        }
       }
       return;
     }
     var root = PORTAL_ROOTS[index++];
+    ask(root, 0);
+  }
+  /* A section that fails (a timeout on a slow network) is asked once more;
+     applyPortalRefresh keeps its previous titles if it still fails, instead
+     of leaving the section empty until the next refresh. */
+  function ask(root, attempt) {
     portalServiceCall('home', { root: root }, function (error, payload) {
       if (!error && payload && payload.returnValue !== false && payload.items && payload.items.length) {
         fresh[root] = payload.items;
         portalState.roots++;
-      } else if (error) {
-        portalState.error = error;
+        next();
+        return;
       }
+      if (attempt < 1) { setTimeout(function () { ask(root, attempt + 1); }, 1500); return; }
+      if (error) { portalState.error = error; }
       next();
     });
   }
@@ -280,12 +315,12 @@ function startCatalogAutoRefresh() {
 }
 
 function loadPortalCatalog() {
-  /* Modo manual: solo addons de Stremio. Si ninguno responde, se usa el
-     servidor para no dejar la app vacía. */
-  var vodCfg = getVodSourcesConfig();
-  if (vodCfg.mode === 'external' && vodCfg.addons.length) {
+  /* Modo manual (Stremio, solo PC): solo los addons del usuario, nunca el
+     catálogo integrado (sus títulos se reproducirían con él). Si ninguno
+     responde, se dice abajo en el inicio. */
+  if (stremioModeOn()) {
     syncExternalVodCatalogs(function (err, count) {
-      if (!count) { loadPortalCatalogFromServer(); }
+      if (!count) { vodApiState.error = 'Tus addons no respondieron'; }
     });
     return;
   }

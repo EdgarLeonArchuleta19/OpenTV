@@ -1,6 +1,29 @@
 /* home/live-page.js — Página TV del inicio (vista previa del canal y lista).
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
+/* PC: a channel list's up/down arrows sat over the first and last rows
+   even with nothing more to scroll that way. Each one hides at its end. */
+function bindScrollArrows(list, up, down) {
+  var pending = false;
+  function sync() {
+    pending = false;
+    var max = list.scrollHeight - list.clientHeight;
+    var upOff = list.scrollTop <= 2, downOff = max <= 2 || list.scrollTop >= max - 2;
+    /* (A hidden arrow is not a keyboard stop either.) */
+    up.classList.toggle('is-off', upOff); up.classList.toggle('focusable', !upOff);
+    down.classList.toggle('is-off', downOff); down.classList.toggle('focusable', !downOff);
+  }
+  function later() {
+    if (pending) { return; }
+    pending = true;
+    (window.requestAnimationFrame || setTimeout)(sync);
+  }
+  list.addEventListener('scroll', later, { passive: true });
+  if (window.MutationObserver) { new MutationObserver(later).observe(list, { childList: true }); }
+  window.addEventListener('resize', later);
+  later();
+}
+
 /* ------------------------------------------------------------- home live */
 function buildLivePage(page) {
   liveMain = el('div', 'live-main');
@@ -56,11 +79,22 @@ function buildLivePage(page) {
 
   liveList = el('div', 'live-list scrollable');
   page.appendChild(liveList);
+  if (window.XUPER_DESKTOP) { bindScrollArrows(liveList, up, down); }
   renderLiveRows(false);
   loadLiveChannels();
 
   liveFocus = el('div', 'live-focus focusable');
   liveFocus._onMove = function (dir) {
+    /* TVs: down goes to the controls under the preview and up to the icons
+       at the top (the channel list on the right changes channel). */
+    if (platformIsTv() && window.XUPER_DESKTOP) {
+      if (dir === 'down') {
+        var dockBtn = liveDock && (liveDock.querySelector('.live-dock-btn.is-play') || firstIn(liveDock));
+        if (dockBtn && isVisible(dockBtn)) { setFocus(dockBtn); }
+        return true;
+      }
+      if (dir === 'up') { focusHomeTopIcons(); return true; }
+    }
     if (dir === 'up') {
       if (state.channel > 0) { setChannel(state.channel - 1); }
       return true;

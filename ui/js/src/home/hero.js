@@ -20,14 +20,36 @@ var GENRE_ES = {
   'history': 'Historia', 'horror': 'Terror', 'music': 'Música', 'musical': 'Musical', 'mystery': 'Misterio',
   'romance': 'Romance', 'sci-fi': 'Ciencia ficción', 'science fiction': 'Ciencia ficción', 'sport': 'Deporte',
   'thriller': 'Suspenso', 'war': 'Bélica', 'western': 'Western', 'biography': 'Biografía', 'reality-tv': 'Reality',
-  'anime': 'Anime', 'short': 'Corto', 'tv movie': 'Película de TV', 'game show': 'Concurso', 'news': 'Noticias'
+  'anime': 'Anime', 'short': 'Corto', 'tv movie': 'Película de TV', 'game show': 'Concurso', 'news': 'Noticias',
+  'kids': 'Infantil', 'reality': 'Reality', 'talk-show': 'Entrevistas', 'soap': 'Telenovela', 'suspense': 'Suspenso',
+  'sci-fi & fantasy': 'Ciencia ficción', 'action & adventure': 'Acción', 'war & politics': 'Bélica', 'film-noir': 'Cine negro'
 };
 function genreName(g) {
   var k = String(g || '').trim().toLowerCase();
   return GENRE_ES[k] || String(g || '').trim();
 }
 
-function heroArt(item) { return item ? (item.backdrop || item.landscape || '') : ''; }
+/* The catalog writes countries in English or without accents. */
+var COUNTRY_ES = {
+  'mexico': 'México', 'usa': 'Estados Unidos', 'us': 'Estados Unidos', 'united states': 'Estados Unidos',
+  'united states of america': 'Estados Unidos', 'uk': 'Reino Unido', 'united kingdom': 'Reino Unido',
+  'spain': 'España', 'espana': 'España', 'japan': 'Japón', 'japon': 'Japón', 'china': 'China',
+  'south korea': 'Corea del Sur', 'korea': 'Corea del Sur', 'france': 'Francia', 'germany': 'Alemania',
+  'italy': 'Italia', 'canada': 'Canadá', 'brazil': 'Brasil', 'argentina': 'Argentina', 'colombia': 'Colombia',
+  'peru': 'Perú', 'chile': 'Chile', 'india': 'India', 'australia': 'Australia', 'turkey': 'Turquía',
+  'russia': 'Rusia', 'thailand': 'Tailandia', 'taiwan': 'Taiwán', 'hong kong': 'Hong Kong'
+};
+function countryName(c) {
+  var parts = String(c || '').split(/\s*[,/]\s*/), out = [];
+  for (var i = 0; i < parts.length; i++) {
+    if (!parts[i]) { continue; }
+    var es = COUNTRY_ES[norm(parts[i]).trim()] || parts[i];
+    if (out.indexOf(es) === -1) { out.push(es); }
+  }
+  return out.join(', ');
+}
+
+function heroArt(item) { return item ? (item.backdrop || item.landscape || item._trendArt || '') : ''; }
 
 function itemMetaLine(item) {
   var bits = [];
@@ -149,11 +171,11 @@ function renderHeroInfo(h) {
     var more = el('div', 'hero-btn focusable');
     more.innerHTML = UI_ICONS.info + '<span>Más información</span>';
     more._activate = function () { openDetail(item); };
-    var fav = el('div', 'hero-btn is-round focusable' + (state.favs[String(item.id)] ? ' is-on' : ''));
-    fav.innerHTML = state.favs[String(item.id)] ? UI_ICONS.check : UI_ICONS.mylist;
-    fav.setAttribute('data-tip', state.favs[String(item.id)] ? 'Quitar de Mi lista' : 'Añadir a Mi lista');
+    var fav = el('div', 'hero-btn is-round focusable' + (inMyList(item) ? ' is-on' : ''));
+    fav.innerHTML = inMyList(item) ? UI_ICONS.check : UI_ICONS.mylist;
+    fav.setAttribute('data-tip', inMyList(item) ? 'Quitar de Mi lista' : 'Añadir a Mi lista');
     fav._activate = function () {
-      var on = toggleFavorite(item);
+      var on = toggleMyList(item);
       fav.classList.toggle('is-on', on);
       fav.innerHTML = on ? UI_ICONS.check : UI_ICONS.mylist;
       fav.setAttribute('data-tip', on ? 'Quitar de Mi lista' : 'Añadir a Mi lista');

@@ -19,6 +19,7 @@ var PORT = 8787;
 
 var sessions = {};        // token -> { url, headers, audio, hevc }
 var current = null;       // { ff } stream activo (solo uno a la vez)
+var requestSeq = 0;       // la peticion mas reciente gana (un salto anula el anterior)
 
 function log() {
   var args = Array.prototype.slice.call(arguments);
@@ -66,12 +67,15 @@ function register(stream, opts) {
     url: stream.url,
     headers: stream.headers || {},
     audio: opts.audio || 0,
-    hevc: !!opts.hevc
+    hevc: !!opts.hevc,
+    /* The player can decode this video itself: only the audio is converted
+       (AC3/EAC3, which Chromium cannot play, becomes AAC). */
+    videoCopy: !!opts.videoCopy
   };
   return 'http://' + HOST + ':' + PORT + '/s/' + token + '.mp4';
 }
 
-function buildArgs(s, start, audio) {
+function inputArgs(s) {
   var h = splitHeaders(s.headers);
   var args = [
     '-hide_banner', '-loglevel', 'warning', '-nostdin',
@@ -83,17 +87,100 @@ function buildArgs(s, start, audio) {
     if (h.ua) args.push('-user_agent', h.ua);
     if (h.rest) args.push('-headers', h.rest);
   }
+  return args;
+}
+
+/*
+ * A copied video can only start on a keyframe. Asked to start at second 17
+ * with keyframes every 10 s, ffmpeg starts the video at 10 but the audio at
+ * 17, and in a fragmented MP4 that audio plays from the first frame: audio
+ * and subtitles end up seconds ahead of the picture. So first find the
+ * keyframe at or before `start` (one packet is read, ~0.1 s) and start both
+ * tracks there. Answers `start` itself when the probe fails or looks wrong
+ * (some TS files seek imprecisely): the old behaviour.
+ *
+ * `from` is where the viewer was when jumping forward. If the keyframe
+ * before `start` is not past it (keyframes far apart), the jump would go
+ * nowhere: use the next keyframe instead (that probe reads one whole GOP,
+ * so it only runs in that case).
+ */
+function keyframeTimes(input, start, count, done) {
+  var finished = false;
+  var probe = null;
+  var timer = null;
+  function finish(list) {
+    if (finished) { return; }
+    finished = true;
+    if (timer) { clearTimeout(timer); }
+    try { if (probe) { probe.kill('SIGKILL'); } } catch (eKill) { /* ya termino */ }
+    done(list);
+  }
+  var args = inputArgs(input).concat(['-noaccurate_seek', '-ss', String(start), '-i', input.url,
+    '-map', '0:v:0', '-c', 'copy']);
+  // Only keyframes (the noise filter drops the rest without decoding).
+  if (count > 1) { args.push('-bsf:v', 'noise=drop=not(key)'); }
+  args.push('-frames:v', String(count), '-f', 'framecrc', 'pipe:1');
+  try { probe = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }); }
+  catch (eSpawn) { return done([]); }
+  timer = setTimeout(function () { finish([]); }, 8000);
+  var out = '';
+  probe.on('error', function () { finish([]); });
+  probe.stdout.on('data', function (d) { out += String(d); });
+  probe.on('close', function () {
+    var tb = /^#tb 0: (\d+)\/(\d+)/m.exec(out);
+    if (!tb) { return finish([]); }
+    // Packet times relative to `start` (negative = earlier).
+    var re = /^0,\s*(-?\d+),\s*(-?\d+),/mg, m, list = [];
+    while ((m = re.exec(out))) { list.push(Number(m[2]) * Number(tb[1]) / Number(tb[2])); }
+    finish(list);
+  });
+}
+
+function probeKeyframe(input, start, from, done) {
+  function at(rel) { return Math.max(0, Math.round((start + rel) * 1000) / 1000); }
+  keyframeTimes(input, start, 1, function (list) {
+    var rel = list[0];
+    if (!isFinite(rel) || rel > 0.25 || rel < -20) { return done(start); }
+    var prev = at(Math.min(0, rel));
+    if (!(from >= 0) || from >= start || prev > from + 1) { return done(prev); }
+    keyframeTimes(input, start, 2, function (both) {
+      var next = both[1];
+      if (isFinite(next) && next > 0 && next < 30) { return done(at(next)); }
+      done(prev);
+    });
+  });
+}
+
+function buildArgs(s, start, audio) {
+  var args = inputArgs(s);
+  // Files from addons and torrents (MKV/AVI/TS with cuts) often lack or
+  // repeat timestamps: regenerate the missing ones so audio and video keep
+  // the same clock.
+  args.push('-fflags', '+genpts');
   if (start > 0) args.push('-ss', String(start));
   args.push(
     '-i', s.url,
-    '-map', '0:v:0', '-map', '0:a:' + audio + '?',
-    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', '-pix_fmt', 'yuv420p',
+    '-map', '0:v:0', '-map', '0:a:' + audio + '?'
+  );
+  if (s.videoCopy) {
+    // El reproductor decodifica este vídeo por hardware: se copia tal cual
+    // (casi sin CPU, arranque y saltos inmediatos) y solo se convierte el audio.
+    args.push('-c:v', 'copy');
+    if (s.hevc) args.push('-tag:v', 'hvc1');   // la etiqueta que Chromium acepta para HEVC en MP4
+  } else {
+    args.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', '-pix_fmt', 'yuv420p');
+  }
+  args.push(
+    // Audio follows the video clock: gaps are filled with silence and small
+    // drift is corrected by stretching (up to 1000 samples/s, inaudible),
+    // instead of the audio sliding further behind after each cut.
+    '-af', 'aresample=async=1000',
     '-c:a', 'aac', '-b:a', '160k',
     // El portal entrega AAC dentro de TS como ADTS. MP4/fMP4 exige el Audio
     // Specific Config, que este filtro extrae sin recodificar el audio.
     '-bsf:a', 'aac_adtstoasc'
   );
-  if (s.hevc) args.push('-tag:v', 'avc1');   // hvc1 es la etiqueta que el reproductor nativo acepta bien
+  if (s.hevc && !s.videoCopy) args.push('-tag:v', 'avc1');
   args.push(
     '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
     '-f', 'mp4', 'pipe:1'
@@ -110,7 +197,7 @@ function resolveForFfmpeg(s, done) {
   var fixedUrl = require('./cachefly').ffmpegUrl(s.url);
   if (fixedUrl !== s.url) {
     log('CDN CacheFly: ffmpeg usa HTTP (su certificado HTTPS no cubre el dominio)');
-    s = { url: fixedUrl, headers: s.headers, audio: s.audio, hevc: s.hevc };
+    s = { url: fixedUrl, headers: s.headers, audio: s.audio, hevc: s.hevc, videoCopy: s.videoCopy };
   }
   var parsed = urlmod.parse(s.url || '');
   // Solo HTTP: con HTTPS, cambiar el nombre por la IP rompe la verificación
@@ -135,7 +222,8 @@ function resolveForFfmpeg(s, done) {
         url: urlmod.format(parsed),
         headers: headers,
         audio: s.audio,
-        hevc: s.hevc
+        hevc: s.hevc,
+        videoCopy: s.videoCopy
       });
     }
 
@@ -159,7 +247,8 @@ function resolveForFfmpeg(s, done) {
         url: urlmod.format(parsed),
         headers: headers2,
         audio: s.audio,
-        hevc: s.hevc
+        hevc: s.hevc,
+        videoCopy: s.videoCopy
       });
     });
   });
@@ -202,13 +291,35 @@ var server = http.createServer(function (req, res) {
     return res.end();
   }
 
+  // ?where=<start>: where the stream asked at <start> really begins (the
+  // player lines up its clock and the subtitles with it).
+  if (u.query.where != null) {
+    var asked = Math.max(0, Number(u.query.where) || 0);
+    var real = s.starts && s.starts[String(asked)];
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({ start: real != null ? real : asked }));
+  }
+
   var start = Math.max(0, Number(u.query.start) || 0);
   var audio = Number(u.query.a != null ? u.query.a : s.audio) || 0;
 
   stopCurrent();   // el player a veces abre y aborta peticiones; no dejamos procesos huerfanos
+  var mySeq = ++requestSeq;
+  var gone = false;
+  res.on('close', function () { gone = true; });
 
   resolveForFfmpeg(s, function (input) {
-    var ff = spawn(FFMPEG, buildArgs(input, start, audio), { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    var from = u.query.from != null ? Number(u.query.from) : -1;
+    if (s.videoCopy && start > 0) { probeKeyframe(input, start, from, run); }
+    else { run(start); }
+
+  function run(realStart) {
+    // A newer request or a closed player while probing: nothing to start.
+    if (gone || mySeq !== requestSeq) { return res.end(); }
+    s.starts = s.starts || {};
+    s.starts[String(start)] = realStart;
+    if (realStart !== start) { log('inicio en el keyframe ' + realStart + 's (pedido ' + start + 's)'); }
+    var ff = spawn(FFMPEG, buildArgs(input, realStart, audio), { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     current = { ff: ff };
     var started = false;
 
@@ -252,6 +363,7 @@ var server = http.createServer(function (req, res) {
   });
 
     res.on('close', function () { try { ff.kill('SIGKILL'); } catch (e) { /* ya termino */ } });
+  }
   });
 });
 

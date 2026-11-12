@@ -1,5 +1,7 @@
 (function () {
   'use strict';
+  // Android with the native player (js/native-player.js): no hls.js.
+  if (window.OPENTV_PLATFORM && window.OPENTV_PLATFORM.has('native-player')) return;
   // Chromium needs MediaSource/HLS.js for HLS and raw MPEG-TS. Keep all of
   // the upstream player's controls, progress, episode and subtitle handlers.
   var nativeLoad = HTMLMediaElement.prototype.load;

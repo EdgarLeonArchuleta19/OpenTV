@@ -36,6 +36,14 @@ app.whenReady().then(async () => {
   try { service = require(path.join(ROOT, 'platforms', 'electron', 'service.cjs')).createService(); } catch (e) { pageErrors.push('service: ' + e.message); }
   ipcMain.handle('desktop:service', (_e, m, p) => (service && service.methods.includes(m) ? service.call(m, p || {}) : { returnValue: false }));
   ipcMain.handle('desktop:fullscreen', () => false);
+  /* TMDB trends: no network calls in the test (the rows simply stay off). */
+  ipcMain.handle('desktop:tmdb', () => ({ results: [] }));
+  /* The rest of the real main process (platforms/electron/main.cjs) that the
+     interface calls on start: answered with "nothing to do". */
+  ipcMain.handle('desktop:pin', () => false);
+  ipcMain.handle('desktop:update', () => null);
+  ipcMain.handle('desktop:backup', () => null);
+  ipcMain.handle('desktop:open-addon-config', () => false);
   ipcMain.handle('desktop:info', () => ({ version: require(path.join(ROOT, 'package.json')).version }));
   const volume = { volume: 0.5, muted: false };
   ipcMain.handle('desktop:system-volume', (_e, c, v) => {
@@ -106,12 +114,29 @@ app.whenReady().then(async () => {
         done({ ok: window.__xuper.state.screen === 'detail', detail: window.__xuper.state.screen });
       }, 1200); });
     })()`);
-  await check('settings has no PIN lock entry', `(function(){
+  await check('settings: no PIN lock, Compartir or Diagnóstico', `(function(){
       window.__xuper.settingsPanel(0);
       var labels = Array.prototype.map.call(document.querySelectorAll('.settings-item'), function (n) { return n.textContent.trim(); });
-      return { ok: labels.length >= 5 && labels.indexOf('Bloqueo') === -1 && !!document.querySelector('.acc-seg'), detail: labels.join(', ') };
+      var gone = ['Bloqueo', 'Compartir', 'Diagnóstico'].every(function (x) { return labels.indexOf(x) === -1; });
+      return { ok: labels.length >= 5 && gone && !!document.querySelector('.acc-seg'), detail: labels.join(', ') };
     })()`, 600);
   await check('title bar is shown', "!!document.getElementById('app-titlebar')", 0);
+  await check('Fuentes on PC has the two movie modes', `(function(){
+      window.__xuper.settingsPanel(window.__xuper.settingsIndexOf('sources'));
+      var m = Array.prototype.map.call(document.querySelectorAll('.fx-mode .fx-mode-title'), function (n) { return n.textContent; });
+      return { ok: m.join('|') === 'Automático|Addons', detail: m.join(', ') };
+    })()`, 600);
+  /* The same interface as a TV: no movie modes, no Stremio addons. */
+  await win.loadURL('xuper://app/index.html?screen=home&platform=android-tv');
+  await check('TV has no movie modes or Stremio addons', `(function(){
+      window.__xuper.skipWelcome();
+      window.__xuper.settingsPanel(window.__xuper.settingsIndexOf('sources'));
+      return new Promise(function (done) { setTimeout(function () {
+        var modes = document.querySelectorAll('.fx-mode').length;
+        var titles = Array.prototype.map.call(document.querySelectorAll('.fx-section .fx-title'), function (n) { return n.textContent; });
+        done({ ok: modes === 0 && titles.length === 1 && /TV en vivo/.test(titles[0]), detail: modes + ' modos · ' + titles.join(', ') });
+      }, 800); });
+    })()`, 2500);
 
   await wait(500);
   try { service && service.close(); } catch { /* closing */ }

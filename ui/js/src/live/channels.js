@@ -26,7 +26,22 @@ var PRESET_ADDONS = [
     name: 'Cine y Series 24/7',
     url: 'https://iptv-org.github.io/iptv/categories/movies.m3u',
     desc: 'Cine clásico, cine de acción y canales continuos de series'
-  }
+  },
+  /* More free lists from iptv-org, found with "Buscar" in Ajustes → Fuentes. */
+  { id: 'mx', name: 'México', url: 'https://iptv-org.github.io/iptv/countries/mx.m3u', desc: 'Canales abiertos y locales de México' },
+  { id: 'ar', name: 'Argentina', url: 'https://iptv-org.github.io/iptv/countries/ar.m3u', desc: 'Canales abiertos y locales de Argentina' },
+  { id: 'co', name: 'Colombia', url: 'https://iptv-org.github.io/iptv/countries/co.m3u', desc: 'Canales abiertos y locales de Colombia' },
+  { id: 'cl', name: 'Chile', url: 'https://iptv-org.github.io/iptv/countries/cl.m3u', desc: 'Canales abiertos y locales de Chile' },
+  { id: 'pe', name: 'Perú', url: 'https://iptv-org.github.io/iptv/countries/pe.m3u', desc: 'Canales abiertos y locales de Perú' },
+  { id: 've', name: 'Venezuela', url: 'https://iptv-org.github.io/iptv/countries/ve.m3u', desc: 'Canales abiertos y locales de Venezuela' },
+  { id: 'ec', name: 'Ecuador', url: 'https://iptv-org.github.io/iptv/countries/ec.m3u', desc: 'Canales abiertos y locales de Ecuador' },
+  { id: 'us', name: 'Estados Unidos', url: 'https://iptv-org.github.io/iptv/countries/us.m3u', desc: 'Canales de EE. UU., muchos en inglés' },
+  { id: 'news', name: 'Noticias', url: 'https://iptv-org.github.io/iptv/categories/news.m3u', desc: 'Canales de noticias de todo el mundo' },
+  { id: 'kids', name: 'Infantil', url: 'https://iptv-org.github.io/iptv/categories/kids.m3u', desc: 'Dibujos y programas para niños' },
+  { id: 'animation', name: 'Animación', url: 'https://iptv-org.github.io/iptv/categories/animation.m3u', desc: 'Canales de dibujos y anime' },
+  { id: 'music', name: 'Música', url: 'https://iptv-org.github.io/iptv/categories/music.m3u', desc: 'Videoclips y radios con imagen' },
+  { id: 'documentary', name: 'Documentales', url: 'https://iptv-org.github.io/iptv/categories/documentary.m3u', desc: 'Naturaleza, historia y ciencia' },
+  { id: 'comedy', name: 'Comedia', url: 'https://iptv-org.github.io/iptv/categories/comedy.m3u', desc: 'Series y programas de humor' }
 ];
 
 function getSavedAddons() {
@@ -164,7 +179,6 @@ function startLivePreview(ch) {
   var params = ch.streamUrl ? { streamUrl: ch.streamUrl } : { channelCode: ch.channelCode };
   portalServiceCall('resolveLive', params, function (err, payload) {
     if (mySeq !== livePreviewSeq || state.screen !== 'home' || !onTvTab()) { return; }
-    if (!err && payload) { rememberCdnProbe('live', payload); }
     var url = !err && payload && payload.returnValue !== false && (payload.proxyPath || payload.url);
     if (!url) {
       liveMain.classList.remove('is-preview-loading');
@@ -184,7 +198,7 @@ function startLivePreview(ch) {
     };
     /* Desktop: play HLS with hls.js, like the full-screen player. Chromium's
        own HLS support rejects some channels (ECDF: error 4). */
-    if (window.XUPER_DESKTOP && window.Hls && window.Hls.isSupported() && /\.m3u8(?:\?|$)/i.test(url)) {
+    if (window.XUPER_DESKTOP && !platformHas('native-player') && window.Hls && window.Hls.isSupported() && /\.m3u8(?:\?|$)/i.test(url)) {
       try {
         var hls = new window.Hls({ enableWorker: true, maxBufferLength: 20, backBufferLength: 10 });
         livePreviewHls = hls;
@@ -374,8 +388,8 @@ function loadLiveChannels(columnId, done) {
         if (window.XUPER_DESKTOP && !firstPage) {
           /* Later pages: redraw the list in batches instead of on every page
              (it flickered and kept restarting the preview for ~15 s). */
-          scheduleLiveRowsRender(payload && payload.hasMore);
           if (!(payload && payload.hasMore)) { liveChannelsLoading = false; }
+          scheduleLiveRowsRender(payload && payload.hasMore);
           if (payload && payload.hasMore) { pageNum++; setTimeout(fetchNextPage, 25); }
           return;
         }
@@ -409,6 +423,11 @@ function loadLiveChannels(columnId, done) {
       }
 
       liveChannelsLoading = false;
+      /* The last page can come back empty: nothing redraws the guide then,
+         and its header said "cargando…" for good. */
+      if (liveGuideOpen && liveGuideCount) {
+        liveGuideCount.textContent = liveGuideCount.textContent.replace(' · cargando…', '');
+      }
       if (err && !liveChannelsLoaded) {
         setTimeout(function () {
           if (requestSeq === liveChannelRequestSeq) { loadLiveChannels(requestedColumnId); }
@@ -437,6 +456,17 @@ function scheduleLiveRowsRender(more) {
 
 function renderLiveRows(favOnly) {
   if (!liveList) { return; }
+  /* The remote was on a channel of the list: it stays on that channel's new
+     row (the list is redrawn when the channels refresh). */
+  var focusedChannel = state.focus && liveList.contains(state.focus) ? state.focus._channel : undefined;
+  renderLiveRowsNow(favOnly);
+  if (focusedChannel !== undefined && !liveList.contains(state.focus)) {
+    var again = liveRows.filter(function (r) { return r._channel === focusedChannel; })[0] || liveRows[0];
+    if (again) { setFocus(again, true); }
+  }
+}
+
+function renderLiveRowsNow(favOnly) {
   liveRowsRenderedAt = Date.now();
   var keepScroll = window.XUPER_DESKTOP ? liveList.scrollTop : 0;
   clear(liveList);
@@ -455,7 +485,7 @@ function renderLiveRows(favOnly) {
   liveRowsFavOnly = !!favOnly;
   var hasQuery = !!(liveChannelQuery && norm(liveChannelQuery));
   var limit = (window.XUPER_DESKTOP && !favOnly && !hasQuery)
-    ? Math.min(CHANNELS.length, Math.max(LIVE_ROWS_BATCH, state.channel + 25))
+    ? Math.min(CHANNELS.length, Math.max(LIVE_ROWS_BATCH, state.channel + (platformIsTv() ? 12 : 25)))
     : CHANNELS.length;
   appendLiveRows(limit);
   if (hasQuery && !liveRows.length) {
@@ -468,7 +498,9 @@ function renderLiveRows(favOnly) {
   if (liveGuideOpen) { renderLiveGuideGrid(); }
 }
 
-var LIVE_ROWS_BATCH = 60;
+/* TVs show bigger rows (about seven at a time): a smaller first batch makes
+   TV en vivo quicker to open; more are added as the remote goes down. */
+var LIVE_ROWS_BATCH = (typeof platformIsTv === 'function' && platformIsTv()) ? 24 : 60;
 var liveRowsFavOnly = false;
 var liveRowsShown = 0;
 var liveChannelQuery = '';
@@ -652,6 +684,9 @@ function makeLiveRow(i) {
       if (dir === 'up') {
         if (rowIdx > 0 && liveRows[rowIdx - 1]) {
           setFocus(liveRows[rowIdx - 1]);
+        } else {
+          /* From the first channel: up to Buscar, Mi lista and the profile. */
+          focusHomeTopIcons();
         }
         return true;
       }
@@ -666,6 +701,15 @@ function makeLiveRow(i) {
     };
   })(liveRows.length);
   return row;
+}
+
+/* The round icons at the top of the home screen (Buscar first). */
+function focusHomeTopIcons() {
+  var bar = $('home-notify');
+  if (!bar) { return false; }
+  var first = bar.querySelector('.notify-item.search') || firstIn(bar);
+  if (first && isVisible(first)) { setFocus(first); return true; }
+  return false;
 }
 
 function scrollLiveList() {

@@ -112,12 +112,21 @@ function buildLiveGuide() {
   liveGuideSearch.addEventListener('input', renderLiveGuideGrid);
   liveGuideSearch.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeLiveGuide(); return; }
-    if (event.key === 'ArrowDown' || event.key === 'Enter') {
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.keyCode === 13) {
       event.preventDefault();
-      var first = liveGuideGrid.querySelector('.lg-card');
-      if (first) { liveGuideSearch.blur(); setFocusRingVisible(true); setFocus(first); }
+      guideSearchToResults();
+    } else if (platformIsTv() && /^Arrow(Up|Left|Right)$/.test(event.key)) {
+      /* TV, keyboard closed: the remote's arrows leave the field like any
+         other control (the page key handler ignores text fields). */
+      event.preventDefault();
+      liveGuideSearch.blur();
+      moveFocus(event.key === 'ArrowUp' ? 'up' : event.key === 'ArrowLeft' ? 'left' : 'right');
     }
     event.stopPropagation();
+  });
+  /* TV: the system keyboard's "Listo" may only close it (no Enter). */
+  liveGuideSearch.addEventListener('change', function () {
+    if (platformIsTv()) { guideSearchToResults(); }
   });
   liveGuideSearch._activate = function () { liveGuideSearch.focus(); };
   head.appendChild(liveGuideSearch);
@@ -133,6 +142,7 @@ function buildLiveGuide() {
   liveGuideCats = el('div', 'lg-cats scrollable');
   body.appendChild(liveGuideCats);
   liveGuideGrid = el('div', 'lg-grid scrollable');
+  liveGuideGrid.addEventListener('scroll', guideNeedMore, { passive: true });
   body.appendChild(liveGuideGrid);
   panel.appendChild(body);
   liveGuide.appendChild(panel);
@@ -179,6 +189,9 @@ function guideCategories() {
   }
   groups[0].items.push({ cat: LIVE_SAVED_CATS.favs, label: 'Favoritos', icon: UI_ICONS.star });
   groups[0].items.push({ cat: LIVE_SAVED_CATS.recent, label: 'Recientes', icon: UI_ICONS.history });
+  /* TVs: themes (Deportes, Cine y Series…) before the long country list,
+     which pushed them a dozen presses down. */
+  if (platformIsTv()) { return [groups[0], groups[2], groups[1]]; }
   return groups;
 }
 
@@ -193,17 +206,69 @@ function renderLiveGuideCats() {
       var b = el('div', 'lg-cat focusable' + (selected ? ' is-selected' : ''));
       if (it.icon) { b.innerHTML = it.icon; }
       b.appendChild(el('span', '', it.label));
+      b._catId = it.cat.id || it.label;
       b._activate = function () {
         liveGuideSearch.value = '';
         switchLiveCategory(it.cat, function () { renderLiveGuideGrid(); });
         renderLiveGuideCats();
         renderLiveDockCats();
         renderLiveGuideGrid();
-        setFocus(b, true);
+        /* The list was rebuilt: focus the new button of this category, not
+           the old one (detached, the next arrow would leave the guide). */
+        focusGuideCategory(b._catId);
       };
       liveGuideCats.appendChild(b);
     });
   });
+}
+
+/* From the guide's search field to the first channel found. */
+function guideSearchToResults() {
+  if (!liveGuideOpen) { return; }
+  var first = liveGuideGrid.querySelector('.lg-card');
+  liveGuideSearch.blur();
+  if (first) { setFocusRingVisible(true); setFocus(first); }
+}
+
+function focusGuideCategory(catId) {
+  var cats = liveGuideCats ? liveGuideCats.querySelectorAll('.lg-cat') : [];
+  for (var i = 0; i < cats.length; i++) {
+    if (cats[i]._catId === catId) { setFocus(cats[i], true); return; }
+  }
+  if (cats[0]) { setFocus(cats[0], true); }
+}
+
+/* Somewhere to put the focus back inside the open guide (a rebuilt card or
+   category, a key that tried to leave it). */
+function guideFocusFallback() {
+  if (!liveGuide) { return null; }
+  return liveGuide.querySelector('.lg-card.is-focused') || liveGuide.querySelector('.lg-cat.is-selected') ||
+    liveGuideGrid.querySelector('.lg-card.is-current') || liveGuideGrid.querySelector('.lg-card') || liveGuide.querySelector('.focusable');
+}
+
+var GUIDE_BATCH = 36;
+var guideIndexes = [];   /* CHANNELS indexes shown in the grid (search applied) */
+var guideShown = 0;      /* how many of them have a card */
+
+function appendGuideCards(upTo) {
+  var end = Math.min(upTo, guideIndexes.length);
+  if (end <= guideShown) { return; }
+  var frag = document.createDocumentFragment();
+  for (var i = guideShown; i < end; i++) {
+    var card = makeGuideCard(CHANNELS[guideIndexes[i]], guideIndexes[i]);
+    card._guidePos = i;
+    frag.appendChild(card);
+  }
+  guideShown = end;
+  liveGuideGrid.appendChild(frag);
+}
+
+/* Near the end of what is drawn (scrolling, or the remote going down). */
+function guideNeedMore() {
+  if (!liveGuideGrid || guideShown >= guideIndexes.length) { return; }
+  if (liveGuideGrid.scrollTop + liveGuideGrid.clientHeight > liveGuideGrid.scrollHeight - 600) {
+    appendGuideCards(guideShown + GUIDE_BATCH);
+  }
 }
 
 function renderLiveGuideGrid() {
@@ -212,17 +277,26 @@ function renderLiveGuideGrid() {
   var focusedKey = state.focus && state.focus._guideKey;
   clear(liveGuideGrid);
   var q = norm(String(liveGuideSearch.value || '').trim());
-  var shown = 0;
+  /* The channels that match; their cards are drawn in batches (a category
+     can hold 760 channels, about 7,000 elements at once on a Fire TV). */
+  guideIndexes = [];
+  var want = GUIDE_BATCH;
   for (var i = 0; i < CHANNELS.length; i++) {
     var ch = CHANNELS[i];
-    if (q && norm(ch.name || '').indexOf(q) === -1) { continue; }
-    liveGuideGrid.appendChild(makeGuideCard(ch, i));
-    shown++;
+    if (q && itemNorm(ch, 'name').indexOf(q) === -1) { continue; }
+    /* Far enough to include the channel playing and the focused card. */
+    if (i === state.channel || (focusedKey && liveChannelKey(ch) === focusedKey)) { want = Math.max(want, guideIndexes.length + 13); }
+    guideIndexes.push(i);
   }
+  guideShown = 0;
+  appendGuideCards(want);
+  var shown = guideIndexes.length;
   if (!shown) {
     var msg = !CHANNELS.length && liveChannelsLoading ? 'Cargando canales…'
       : q ? 'Ningún canal coincide con «' + liveGuideSearch.value.trim() + '»'
-      : currentLiveCategory && currentLiveCategory.isSaved === 'favs' ? 'Aún no tienes canales favoritos. Pasa el ratón por un canal y toca la estrella.'
+      : currentLiveCategory && currentLiveCategory.isSaved === 'favs' ? (platformIsTv()
+        ? 'Aún no tienes canales favoritos. Usa el botón Favorito debajo de la vista previa de TV en vivo.'
+        : 'Aún no tienes canales favoritos. Pasa el ratón por un canal y toca la estrella.')
       : currentLiveCategory && currentLiveCategory.isSaved === 'recent' ? 'Aquí aparecerán los últimos canales que veas.'
       : 'No hay canales en esta categoría.';
     var empty = el('div', 'lg-empty', msg);
@@ -278,6 +352,15 @@ function makeGuideCard(ch, idx) {
   });
   card.appendChild(big);
 
+  /* Up from the first row goes to the search field (it went to the
+     category list, the nearest by distance). */
+  card._onMove = function (dir) {
+    var first = liveGuideGrid.querySelector('.lg-card');
+    if (dir === 'up' && first && card.offsetTop <= first.offsetTop + 2) { setFocus(liveGuideSearch); return true; }
+    /* Down near the last drawn row: draw the next batch first. */
+    if (dir === 'down' && card._guidePos >= guideShown - 6) { appendGuideCards(guideShown + GUIDE_BATCH); }
+    return false;
+  };
   card._activate = function () {
     closeLiveGuide();
     if (idx !== state.channel) { setChannel(idx, true); }

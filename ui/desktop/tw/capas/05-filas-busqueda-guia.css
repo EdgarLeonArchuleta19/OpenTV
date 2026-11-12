@@ -1,0 +1,294 @@
+/* 05-filas-busqueda-guia.css — Filas horizontales y Seguir viendo, sugerencias de búsqueda, guía de canales y volumen del reproductor.
+   Parte de ui/desktop/tw/input.css (el orden de los archivos importa). */
+
+/* =====================================================================
+   Filas horizontales (Destacados) y "Seguir viendo"
+   ===================================================================== */
+.desktop .d-row { z-index: 1; }
+.desktop .d-row:hover { z-index: 30; }
+.desktop .d-row-head { position: absolute; left: 0; top: 0; right: 0; height: 54px; display: flex; align-items: center; }
+.desktop .d-row-title { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; font-size: 34px; font-weight: 600; letter-spacing: -.01em; color: #fff; }
+.desktop .d-row-strip {
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+}
+.desktop .d-row-strip::-webkit-scrollbar { display: none; }
+.desktop .d-row-arrow {
+  position: absolute; top: 50%; z-index: 40;
+  width: 64px; height: 64px; margin-top: 2px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .14); border-radius: 50%;
+  background: rgba(22, 22, 26, .82); color: #fff;
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  cursor: pointer; opacity: 0;
+  transition: opacity .2s ease, transform .25s cubic-bezier(.16, 1, .3, 1), background-color .2s ease;
+}
+.desktop .d-row-arrow svg { width: 30px; height: 30px; }
+.desktop .d-row-arrow.is-prev { left: -30px; }
+.desktop .d-row-arrow.is-next { right: -30px; }
+.desktop .d-row:hover .d-row-arrow { opacity: 1; }
+.desktop .d-row-arrow:hover { background: rgba(255, 255, 255, .2); transform: scale(1.06); }
+.desktop .d-row.at-start .d-row-arrow.is-prev,
+.desktop .d-row.at-end .d-row-arrow.is-next { opacity: 0 !important; pointer-events: none; }
+.desktop .home-page.is-current > .d-row { animation: ot-rise .55s cubic-bezier(.16, 1, .3, 1) backwards; }
+
+.desktop .continue-card { cursor: pointer; border-radius: 16px; }
+.desktop .continue-card .cc-frame {
+  position: absolute; left: 0; top: 0; width: var(--cc-w, 400px); height: var(--cc-h, 225px);
+  border-radius: 16px; overflow: hidden;
+  background: #1a1a1f;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07);
+  transition: transform .3s cubic-bezier(.16, 1, .3, 1), box-shadow .3s ease;
+}
+.desktop .continue-card .cc-frame.is-generic {
+  background: radial-gradient(120% 120% at 20% 0%, #2b2b33 0%, #141418 70%);
+}
+.desktop .continue-card .cc-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .35s ease, transform .5s cubic-bezier(.16, 1, .3, 1); }
+.desktop .continue-card .cc-img.is-loaded { opacity: 1; }
+.desktop .continue-card .cc-shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0, 0, 0, .7), rgba(0, 0, 0, 0) 55%); }
+.desktop .continue-card .cc-play {
+  position: absolute; left: 50%; top: 50%; width: 72px; height: 72px; margin: -36px 0 0 -36px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: rgba(255, 255, 255, .92); color: #0e0e11;
+  opacity: 0; transform: scale(.85);
+  transition: opacity .2s ease, transform .3s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .continue-card .cc-play svg { width: 32px; height: 32px; margin-left: 3px; }
+.desktop .continue-card .cc-progress { position: absolute; left: 16px; right: 16px; bottom: 14px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .25); overflow: hidden; }
+.desktop .continue-card .cc-progress i { display: block; height: 100%; border-radius: 3px; background: #fff; }
+.desktop .continue-card .cc-title { position: absolute; left: 4px; right: 4px; top: calc(var(--cc-h, 225px) + 13px); font-size: 24px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .continue-card .cc-sub { position: absolute; left: 4px; right: 4px; top: calc(var(--cc-h, 225px) + 47px); font-size: 20px; color: rgba(255, 255, 255, .55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .continue-card .cc-remove {
+  position: absolute; right: 10px; top: 10px; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .16); border-radius: 50%;
+  background: rgba(14, 14, 17, .7); color: #fff; cursor: pointer;
+  opacity: 0; transition: opacity .2s ease, background-color .2s ease;
+}
+.desktop .continue-card .cc-remove svg { width: 22px; height: 22px; }
+.desktop .continue-card .cc-remove:hover { background: rgba(255, 255, 255, .22); }
+.desktop .continue-card:hover .cc-frame { transform: translateY(-4px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), 0 22px 50px rgba(0, 0, 0, .55); }
+.desktop .continue-card:hover .cc-img { transform: scale(1.04); }
+.desktop .continue-card:hover .cc-play,
+.desktop .continue-card.is-focused .cc-play { opacity: 1; transform: none; }
+.desktop .continue-card:hover .cc-remove { opacity: 1; }
+.desktop .continue-card.is-focused .cc-frame { box-shadow: 0 0 0 4px #fff, 0 22px 50px rgba(0, 0, 0, .55); }
+
+/* =====================================================================
+   Búsqueda: sugerencias y búsquedas recientes
+   ===================================================================== */
+.desktop #screen-search .search-keyboard { z-index: 20; overflow: visible; }
+.desktop .search-suggest {
+  position: absolute; left: 320px; top: 158px; width: 1080px; z-index: 50;
+  padding: 10px; box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, .12); border-radius: 20px;
+  background: rgba(24, 24, 29, .97);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+  opacity: 0; transform: translateY(-6px); pointer-events: none;
+  transition: opacity .16s ease, transform .22s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .search-suggest.is-open { opacity: 1; transform: none; pointer-events: auto; }
+.desktop .search-suggest .ss-head { padding: 10px 16px 6px; font-size: 20px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: rgba(255, 255, 255, .45); }
+.desktop .search-suggest .ss-item {
+  display: flex; align-items: center; gap: 20px;
+  min-height: 68px; padding: 8px 16px; border-radius: 14px;
+  color: #fff; cursor: pointer;
+  transition: background-color .12s ease;
+}
+.desktop .search-suggest .ss-item.is-active { background: rgba(255, 255, 255, .1); }
+.desktop .search-suggest .ss-ico {
+  flex: 0 0 auto; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255, 255, 255, .7);
+}
+.desktop .search-suggest .ss-ico svg { width: 28px; height: 28px; }
+.desktop .search-suggest .is-title .ss-ico { width: 46px; height: 66px; border-radius: 8px; overflow: hidden; background: #26262c; }
+.desktop .search-suggest .is-title .ss-ico img { width: 100%; height: 100%; object-fit: cover; }
+.desktop .search-suggest .ss-text { min-width: 0; }
+.desktop .search-suggest .ss-title { font-size: 26px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .search-suggest .is-query .ss-title { font-weight: 600; }
+.desktop .search-suggest .ss-meta { margin-top: 2px; font-size: 20px; color: rgba(255, 255, 255, .5); }
+
+.desktop #screen-search .search-recent { flex: 0 0 100%; margin-bottom: 22px; }
+.desktop #screen-search .search-recent[hidden] { display: none; }
+.desktop .sr-recent-head { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; }
+.desktop .sr-recent-title { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -.02em; color: #fff; }
+.desktop .sr-recent-clear {
+  margin-left: auto; padding: 8px 18px; border: 0; border-radius: 12px;
+  background: transparent; color: rgba(255, 255, 255, .6); font: inherit; font-size: 22px; cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+.desktop .sr-recent-clear:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.desktop .sr-recent-chips { display: flex; flex-wrap: wrap; gap: 14px; }
+.desktop .sr-chip {
+  display: inline-flex; align-items: center; gap: 12px;
+  height: 58px; padding: 0 10px 0 20px; box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, .1); border-radius: 29px;
+  background: rgba(255, 255, 255, .06); color: #fff; font-size: 24px; cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, transform .2s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .sr-chip > svg { width: 24px; height: 24px; color: rgba(255, 255, 255, .55); }
+.desktop .sr-chip:hover { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .2); transform: translateY(-2px); }
+.desktop .sr-chip.is-focused { box-shadow: 0 0 0 3px #fff; }
+.desktop .sr-chip-x {
+  width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; background: transparent; color: rgba(255, 255, 255, .5); cursor: pointer;
+}
+.desktop .sr-chip-x svg { width: 20px; height: 20px; }
+.desktop .sr-chip-x:hover { background: rgba(255, 255, 255, .14); color: #fff; }
+
+/* =====================================================================
+   TV: guía de canales
+   ===================================================================== */
+.desktop .live-guide {
+  position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 300;
+  background: rgba(6, 6, 8, .62);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1); backdrop-filter: blur(18px) saturate(1.1);
+  opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.desktop .live-guide.is-open { opacity: 1; pointer-events: auto; }
+.desktop .lg-panel {
+  position: absolute; left: 90px; top: 70px; right: 90px; bottom: 60px;
+  display: flex; flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, .1); border-radius: 28px;
+  background: rgba(20, 20, 24, .96);
+  box-shadow: 0 40px 120px rgba(0, 0, 0, .6);
+  overflow: hidden;
+  transform: translateY(18px) scale(.985);
+  transition: transform .35s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .live-guide.is-open .lg-panel { transform: none; }
+.desktop .lg-head { display: flex; align-items: center; gap: 24px; padding: 30px 34px 24px 40px; border-bottom: 1px solid rgba(255, 255, 255, .07); }
+.desktop .lg-titles { flex: 1 1 auto; min-width: 0; }
+.desktop .lg-title { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; font-size: 40px; font-weight: 700; letter-spacing: -.02em; color: #fff; }
+.desktop .lg-count { margin-top: 4px; font-size: 22px; color: rgba(255, 255, 255, .5); }
+.desktop .lg-search {
+  flex: 0 0 520px; height: 66px; padding: 0 24px 0 66px; box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, .12); border-radius: 18px; outline: none;
+  background: rgba(255, 255, 255, .06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 22px center / 28px;
+  color: #fff; font: inherit; font-size: 26px;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.desktop .lg-search:focus { border-color: #fff; background-color: rgba(255, 255, 255, .09); }
+/* Chosen with the remote (not typing yet): it showed nothing on TVs. */
+.desktop .lg-search.is-focused { border-color: #fff; background-color: rgba(255, 255, 255, .12); box-shadow: 0 0 0 3px #fff; }
+.desktop .lg-close {
+  width: 66px; height: 66px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .12); border-radius: 50%;
+  background: rgba(255, 255, 255, .06); color: #fff; cursor: pointer;
+  transition: background-color .15s ease;
+}
+.desktop .lg-close svg { width: 30px; height: 30px; }
+.desktop .lg-close:hover { background: rgba(255, 255, 255, .16); }
+.desktop .lg-close.is-focused { box-shadow: 0 0 0 3px #fff; }
+.desktop .lg-body { flex: 1 1 auto; display: flex; min-height: 0; }
+.desktop .lg-cats { flex: 0 0 300px; overflow-y: auto; padding: 22px 16px 30px 24px; box-sizing: border-box; border-right: 1px solid rgba(255, 255, 255, .07); scrollbar-width: thin; }
+.desktop .lg-cat-label { margin: 22px 14px 8px; font-size: 18px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 255, 255, .4); }
+.desktop .lg-cat {
+  display: flex; align-items: center; gap: 14px;
+  height: 54px; padding: 0 16px; border-radius: 14px;
+  color: rgba(255, 255, 255, .78); font-size: 24px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background-color .15s ease, color .15s ease;
+}
+.desktop .lg-cat svg { width: 24px; height: 24px; flex: 0 0 auto; }
+.desktop .lg-cat:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+.desktop .lg-cat.is-selected { background: #fff; color: #0e0e11; font-weight: 600; }
+.desktop .lg-cat.is-focused { box-shadow: inset 0 0 0 3px #fff; }
+.desktop .lg-cat.is-selected.is-focused { box-shadow: 0 0 0 3px rgba(255, 255, 255, .4); }
+.desktop .lg-grid {
+  flex: 1 1 auto; overflow-y: auto; padding: 28px 34px 40px; box-sizing: border-box;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); grid-auto-rows: 116px; gap: 18px;
+  align-content: start;
+}
+.desktop .lg-card {
+  position: relative; display: flex; align-items: center; gap: 18px;
+  padding: 0 18px; border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, .07);
+  background: rgba(255, 255, 255, .045); cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, transform .25s cubic-bezier(.16, 1, .3, 1);
+  animation: ot-rise .4s cubic-bezier(.16, 1, .3, 1) backwards;
+}
+.desktop .lg-card:hover { background: rgba(255, 255, 255, .09); border-color: rgba(255, 255, 255, .16); transform: translateY(-2px); }
+.desktop .lg-card.is-current { border-color: rgba(255, 255, 255, .55); background: rgba(255, 255, 255, .1); }
+.desktop .lg-card.is-focused { box-shadow: 0 0 0 3px #fff; }
+.desktop .lg-logo {
+  flex: 0 0 120px; height: 80px; border-radius: 12px;
+  background: #0e0e11 no-repeat center / contain; background-origin: content-box; padding: 8px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+}
+.desktop .lg-initial { font-size: 38px; font-weight: 700; color: rgba(255, 255, 255, .5); }
+.desktop .lg-info { min-width: 0; flex: 1 1 auto; padding-right: 90px; }
+/* Two lines before cutting: "La Granja VIP 1 HD" no longer ends in "…". */
+.desktop .lg-name {
+  font-size: 25px; line-height: 29px; font-weight: 600; color: #fff; overflow: hidden; word-break: break-word;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+.desktop .lg-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.desktop .lg-live { display: inline-flex; align-items: center; gap: 8px; font-size: 19px; color: rgba(255, 255, 255, .55); }
+.desktop .lg-live::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #ff4d4f; box-shadow: 0 0 0 3px rgba(255, 77, 79, .18); }
+.desktop .lg-card.is-current .lg-live { color: #fff; }
+.desktop .lg-badge { padding: 2px 8px; border-radius: 6px; background: rgba(255, 255, 255, .14); font-size: 16px; font-weight: 700; color: #fff; }
+.desktop .lg-fav,
+.desktop .lg-open {
+  position: absolute; top: 50%; width: 44px; height: 44px; margin-top: -22px;
+  display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; background: rgba(255, 255, 255, .08); color: #fff; cursor: pointer;
+  opacity: 0; transition: opacity .15s ease, background-color .15s ease;
+}
+.desktop .lg-fav { right: 66px; }
+.desktop .lg-open { right: 14px; }
+.desktop .lg-fav svg,
+.desktop .lg-open svg { width: 22px; height: 22px; }
+.desktop .lg-card:hover .lg-fav,
+.desktop .lg-card:hover .lg-open,
+.desktop .lg-card.is-focused .lg-fav,
+.desktop .lg-fav.is-on { opacity: 1; }
+.desktop .lg-fav.is-on { color: #ffd34d; }
+.desktop .lg-fav.is-on svg { fill: currentColor; }
+.desktop .lg-fav:hover,
+.desktop .lg-open:hover { background: rgba(255, 255, 255, .2); }
+.desktop .lg-empty { grid-column: 1 / -1; padding: 80px 20px; text-align: center; font-size: 26px; color: rgba(255, 255, 255, .5); }
+
+/* =====================================================================
+   Reproductor: volumen y tiempo al pasar por la barra
+   ===================================================================== */
+.desktop .vod-volume { display: flex; align-items: center; gap: 12px; padding-right: 6px; }
+.desktop .vod-infobar-tips .vod-mute { width: 54px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.desktop .vod-infobar-tips .vod-mute svg { width: 28px; height: 28px; }
+.desktop .vod-infobar-tips .vod-mute.is-off { color: rgba(255, 255, 255, .6); }
+.desktop .vod-vol-range { width: 160px; }
+.desktop .vod-vol-label { min-width: 104px; white-space: nowrap; font-size: 19px; color: rgba(255, 255, 255, .7); font-variant-numeric: tabular-nums; }
+.desktop #screen-player .live-vol-toast { top: 48px; z-index: 40; }
+
+.desktop .vod-seekbar { overflow: visible; }
+.desktop .vod-seek-ghost {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+  border-radius: inherit; background: rgba(255, 255, 255, .22);
+  pointer-events: none; opacity: 0; transition: opacity .15s ease;
+}
+.desktop .vod-seek-hover {
+  position: absolute; bottom: 30px; left: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 14px; border-radius: 12px;
+  background: rgba(14, 14, 17, .92); border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+  color: #fff; white-space: nowrap; pointer-events: none;
+  transform: translate(-50%, 6px); opacity: 0;
+  transition: opacity .12s ease, transform .2s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .vod-seek-hover b { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.desktop .vod-seek-hover span { font-size: 17px; color: rgba(255, 255, 255, .6); font-variant-numeric: tabular-nums; }
+.desktop .vod-seekbar.is-hovering .vod-seek-hover { opacity: 1; transform: translate(-50%, 0); }
+.desktop .vod-seekbar.is-hovering .vod-seek-ghost { opacity: 1; }
+
+/* Long titles (two lines) must not squash the genre chips: only the
+   synopsis gives up height. */
+.desktop #screen-detail .detail-left > * { flex-shrink: 0; }
+.desktop #screen-detail:not(.is-synopsis-open) .detail-left { overflow: hidden; }

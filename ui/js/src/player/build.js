@@ -48,7 +48,6 @@ function buildPlayer() {
   psvQualityRow = $('psv-quality-row');
   psvSecAspect = $('psv-sec-aspect');
   psvSecPlayer = $('psv-sec-player');
-  psvBtnFeedback = $('psv-btn-feedback');
   psvAspectRow = $('psv-aspect-row');
 
   /* Season/episode browser */
@@ -64,10 +63,6 @@ function buildPlayer() {
     psvBtnEpisodes._activate = function () { openEpisodeBrowser(); };
   }
 
-  if (psvBtnFeedback) {
-    if (window.XUPER_DESKTOP) psvBtnFeedback.textContent = 'Diagnóstico';
-    psvBtnFeedback._activate = openDesktopDiagnostic;
-  }
 
   if (psvBtnConfig) {
     psvBtnConfig._activate = function () {
@@ -237,6 +232,11 @@ function buildPlayer() {
       togglePlayerPlayPause();
       return;
     }
+    /* TVs: OK shows the channel banner; with it on screen, pauses/resumes. */
+    if (platformIsTv() && window.XUPER_DESKTOP) {
+      if (state.infobar) { toggleLivePlayPause(); } else { showInfobar(); }
+      return;
+    }
     if (state.infobar) { hideInfobar(); }
     else { showInfobar(); }
   };
@@ -294,7 +294,7 @@ function buildPlayer() {
   }
   for (var i = 0; i < actDefs.length; i++) {
     var d = actDefs[i];
-    if (d.hidden) { continue; }
+    if (d.hidden || d.label === 'Feedback') { continue; }   /* (diagnostics removed) */
     var b = el('div', 'pi-act focusable', d.label);
     b.style.width = (d.w * 1.5) + 'px';
     b.style.left = (1920 - d.right * 1.5 - d.w * 1.5) + 'px';
@@ -341,13 +341,24 @@ function buildPlayer() {
         else if (label === 'Reproducir') { toggleLivePlayPause(); }
         else if (label === 'Pantalla completa') { setWindowFullscreen(!isWindowFullscreen()); liveAutoFullscreen = false; }
         else if (label === 'Ventana flotante') { togglePictureInPicture(); }
-        else if (label === 'Feedback') { openDesktopDiagnostic(); }
         else if (label === 'Reproductor 1') { startLiveChannel(CHANNELS[state.channel], true); }
       };
     })(d.label);
     actions.appendChild(b);
   }
   playerInfo.appendChild(actions);
+  /* TVs: the live player shows a channel banner with what each key of the
+     remote does instead of the buttons (navigation.js handles the keys). */
+  if (window.XUPER_DESKTOP && platformIsTv()) {
+    var hints = el('div', 'pi-hints');
+    [['▲', 'Canal siguiente'], ['▼', 'Canal anterior'], ['▶', 'Lista de canales'], ['◀', 'Último canal'], ['OK', 'Pausa']].forEach(function (h) {
+      var chip = el('div', 'pi-hint');
+      chip.appendChild(el('span', 'pi-key', h[0]));
+      chip.appendChild(el('span', 'pi-hint-text', h[1]));
+      hints.appendChild(chip);
+    });
+    playerInfo.appendChild(hints);
+  }
 
   /* --- channel panel (frag_live_channel) with category bar and addons --- */
   var pcHeader = el('div', 'pc-header');
@@ -403,6 +414,7 @@ function buildPlayer() {
     };
     pcDown.addEventListener('click', function (ev) { ev.stopPropagation(); pcDown._activate(); });
     playerChannels.appendChild(pcDown);
+    bindScrollArrows(list, pcUp, pcDown);
   }
   renderPlayerCategories();
   renderPlayerChannels();

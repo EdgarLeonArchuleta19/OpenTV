@@ -10,22 +10,48 @@ var pageBuiltAt = {};
 var catalogStaleAt = 0;
 
 function ensurePageBuilt(idx) {
+  var rebuilt = false, hadFocus = false, focusId = null, keepScroll = 0;
   if (pagesBuilt[idx] && (pageBuiltAt[idx] || 0) < catalogStaleAt && idx > 0) {
-    /* Built with an older catalog (or with covers that turned out broken). */
+    /* Built with an older catalog (or with covers that turned out broken,
+       or before this week's trends arrived). */
+    hadFocus = !!(state.focus && pages[idx].contains(state.focus));
+    focusId = hadFocus && state.focus._item ? String(state.focus._item.id) : null;
+    keepScroll = pages[idx].scrollTop;
     clear(pages[idx]);
     pages[idx].scrollTop = 0;
+    pages[idx]._tvLine = null;
     pagesBuilt[idx] = false;
+    rebuilt = true;
   }
   if (pagesBuilt[idx] || !pages[idx] || !pageDefs[idx]) { return; }
   pagesBuilt[idx] = true;
   pageBuiltAt[idx] = catalogStaleAt || Date.now();
   pageDefs[idx](pages[idx]);
+  /* The remote was on this page: keep it on the same title (or on the first
+     element) instead of on a node that no longer exists. */
+  if (rebuilt && hadFocus) {
+    var again = null;
+    if (focusId !== null) {
+      var tiles = pages[idx].querySelectorAll('.focusable');
+      for (var i = 0; i < tiles.length && !again; i++) {
+        if (tiles[i]._item && String(tiles[i]._item.id) === focusId && isVisible(tiles[i])) { again = tiles[i]; }
+      }
+    }
+    if (!again) { pages[idx].scrollTop = keepScroll; }
+    setFocus(again || firstIn(pages[idx]) || tabEls[state.tab]);
+  }
 }
 
 /* Desktop: a new catalog (or a broken cover) refreshes the VOD pages. */
 function markCatalogPagesStale() {
   catalogStaleAt = Math.max(Date.now() + 1, catalogStaleAt + 1);
   var current = TABS[state.tab] ? TABS[state.tab].page : 0;
+  /* TVs: a refresh in the background (every 20 min) rebuilt the section on
+     screen in front of the viewer, a short flash like a reload. After the
+     first minute (when the real catalogue replaces the saved one) it is
+     redrawn the next time the section is opened instead. */
+  var onScreen = state.screen === 'home' && pagesBuilt[current];
+  if (platformIsTv() && onScreen && window.performance && performance.now() > 60000) { return; }
   if (current > 0 && pages[current]) {
     ensurePageBuilt(current);
     if (window.XUPER_DESKTOP && state.screen === 'home') { showHeroForPage(current); }
@@ -97,13 +123,18 @@ function buildTabs() {
       else if (liveRows.length) { setFocus(liveRows[0]); }
       else if (liveFocus) { setFocus(liveFocus); }
     } else if (TABS[idx].page >= 0) {
-      var f = firstIn(pages[TABS[idx].page]);
+      /* Back into the same section (from the menu): where the viewer was,
+         the page as it was; the first element only for a section just
+         opened (selectTab forgets the place when the section changes). */
+      var pg = pages[TABS[idx].page];
+      var last = pg && pg._lastFocus;
+      if (last && last.isConnected && pg.contains(last) && isVisible(last)) { setFocus(last); return; }
+      var f = firstIn(pg);
       if (f) { setFocus(f); }
     }
   }
   for (var i = 0; i < TABS.length; i++) {
-    var item = el('div', 'tab-item focusable' + (TABS[i].tool ? ' is-tool' : ''));
-    if (TABS[i].tool && !(TABS[i - 1] && TABS[i - 1].tool)) { item.classList.add('is-first-tool'); }
+    var item = el('div', 'tab-item focusable');
     item.appendChild(el('div', 'tab-pill'));
     var icon = el('div', 'tab-icon');
     icon.innerHTML = TABS[i].svg || TAB_ICONS[TABS[i].icon] || '';
@@ -120,12 +151,7 @@ function buildTabs() {
           if (dir === 'up') { railMoveTo(idx - 1); return true; }
           if (dir === 'down') { railMoveTo(idx + 1); return true; }
           if (dir === 'left') { return true; }
-          if (dir === 'right') {
-            /* Right enters the section; on a tool (Buscar, Mi lista…) it
-               goes back to the section that is showing instead. */
-            if (TABS[idx].action) { enterTab(state.tab); } else { enterTab(idx); }
-            return true;
-          }
+          if (dir === 'right') { enterTab(idx); return true; }
           return false;
         }
         /* Desktop: the tabs are a horizontal bar at the top (left/right
@@ -186,19 +212,13 @@ function buildTabs() {
   }
 }
 
-/* Rail entries that open a screen instead of a section. */
+/* Rail entries that open a screen instead of a section (HISTORIAL on the
+   old TV layout). */
 function runTabAction(action) {
   if (action === 'history') {
     historyViewTab = 'history';
     openSettings();
     showSettingsPanel(1, true);
-  } else if (action === 'search') {
-    openSearch();
-  } else if (action === 'mylist') {
-    openSettings();
-    showSettingsPanel(1, true);
-  } else if (action === 'account') {
-    openSettings();
   }
 }
 
@@ -291,12 +311,15 @@ function selectTab(index, focusContent) {
   } else {
     stopLivePreview();
   }
+  /* A different section: the place kept in the one left is forgotten (it
+     opens again at its start, like now). */
+  if (def.page !== prevPage && pages[prevPage]) { pages[prevPage]._lastFocus = null; }
   for (var p = 0; p < pages.length; p++) {
     pages[p].classList.remove('is-entering', 'from-left', 'from-right');
     pages[p].classList.toggle('is-current', p === def.page);
     /* Desktop: a section opened from the tab bar starts at its top (once it
        is displayed: a hidden page ignores scrollTop). */
-    if (window.XUPER_DESKTOP && p === def.page && def.page !== prevPage && def.page > 0) { pages[p].scrollTop = 0; }
+    if (window.XUPER_DESKTOP && p === def.page && def.page !== prevPage && def.page > 0) { pages[p].scrollTop = 0; pages[p]._tvLine = null; }
   }
   /* Same slide direction as the ViewPager; the page itself is the only
      visible layer, which keeps its raster sharp on webOS. */

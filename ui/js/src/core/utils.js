@@ -19,6 +19,10 @@ function abs(n, x, y, w, h) {
   return n;
 }
 function closest(node, sel) {
+  /* Native Element.closest (Chromium 41+, so every TV we target): the focus
+     engine calls this thousands of times per key press. */
+  if (node && node.nodeType !== 1) { node = node.parentNode; }
+  if (node && node.nodeType === 1 && node.closest) { return node.closest(sel); }
   while (node && node !== document) {
     if (node.nodeType === 1 && node.matches && node.matches(sel)) { return node; }
     node = node.parentNode;
@@ -33,4 +37,20 @@ function norm(s) {
   }
   return s;
 }
-function each(list, fn) { for (var i = 0; i < list.length; i++) { fn(list[i], i); } }
+
+/* norm() of an item's title/alias, kept on the item. Search and its
+   suggestions read every catalogue title on each letter; NFD over thousands
+   of titles is slow on a Fire TV. Not enumerable, so it never ends up in a
+   saved catalogue. */
+function itemNorm(item, field) {
+  if (!item) { return ''; }
+  var src = item[field] ? String(item[field]) : '';
+  var cache = item.__norm;
+  if (!cache) {
+    cache = {};
+    try { Object.defineProperty(item, '__norm', { value: cache, enumerable: false, writable: true }); }
+    catch (eDefine) { return src ? norm(src) : ''; }
+  }
+  if (cache[field + '$'] !== src) { cache[field + '$'] = src; cache[field] = src ? norm(src) : ''; }
+  return cache[field];
+}

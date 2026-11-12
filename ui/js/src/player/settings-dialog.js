@@ -183,14 +183,24 @@ function renderDialogSubtitle() {
 function formatAudioLang(code) {
   var c = (code || '').toLowerCase().trim().split(/[-_]/)[0];
   if (/^(spa|esp|es|castellano|latino|lat|latam)$/.test(c)) return 'Español';
+  /* OpenSubtitles: 'spn' / 'ea' are its Latin American Spanish. */
+  if (/^(spn|ea|spl)$/.test(c)) return 'Español (Latino)';
   if (/^(eng|ing|en)$/.test(c)) return 'Inglés';
   if (/^(jpn|jap|ja)$/.test(c)) return 'Japonés';
   if (/^(kor|cor|ko)$/.test(c)) return 'Coreano';
   if (/^(por|pt)$/.test(c)) return 'Portugués';
+  if (/^(pob|pb)$/.test(c)) return 'Portugués (Brasil)';
   if (/^(fra|fre|fr|franc)$/.test(c)) return 'Francés';
   if (/^(ita|it)$/.test(c)) return 'Italiano';
   if (/^(deu|ger|de)$/.test(c)) return 'Alemán';
   if (/^(chi|zho|zh)$/.test(c)) return 'Chino';
+  var names = { nld: 'Neerlandés', dut: 'Neerlandés', rus: 'Ruso', ara: 'Árabe', cze: 'Checo', ces: 'Checo',
+    pol: 'Polaco', tur: 'Turco', swe: 'Sueco', nor: 'Noruego', fin: 'Finés', dan: 'Danés', ell: 'Griego',
+    gre: 'Griego', ron: 'Rumano', rum: 'Rumano', hun: 'Húngaro', heb: 'Hebreo', srp: 'Serbio', hrv: 'Croata',
+    bul: 'Búlgaro', ukr: 'Ucraniano', vie: 'Vietnamita', tha: 'Tailandés', ind: 'Indonesio', hin: 'Hindi', cat: 'Catalán',
+    est: 'Estonio', slv: 'Esloveno', slk: 'Eslovaco', alb: 'Albanés', sqi: 'Albanés', per: 'Persa', fas: 'Persa',
+    lit: 'Lituano', lav: 'Letón', mac: 'Macedonio', bos: 'Bosnio', may: 'Malayo', msa: 'Malayo', ice: 'Islandés', isl: 'Islandés' };
+  if (names[c]) return names[c];
   return c ? (c.charAt(0).toUpperCase() + c.slice(1)) : 'Pista';
 }
 

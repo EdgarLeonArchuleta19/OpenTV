@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadModules } = require('./helpers/load-modules.cjs');
 
-const BASE = ['core/utils.js'];
+const BASE = ['core/utils.js', 'core/platform.js'];
 /* Arrays made inside the sandbox come from another realm. */
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const isSeriesItem = (item) => !!item && (item.type === 'teleplay' || item.kind === 'serie');

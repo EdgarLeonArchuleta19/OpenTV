@@ -2,6 +2,7 @@
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 /* ============================================================== SETTINGS */
+var settingsFocusTimer = null;
 function buildSettings() {
   settingsMenu = $('settings-menu');
   settingsRight = $('settings-right');
@@ -16,6 +17,19 @@ function buildSettings() {
     item._activate = (function (idx) {
       return function () { showSettingsPanel(idx, true); };
     })(i);
+    /* TVs: resting on a menu entry shows its panel (no OK needed), like TV
+       apps; holding the arrow does not build every panel on the way. */
+    if (platformIsTv()) {
+      item._onFocus = (function (idx) {
+        return function () {
+          if (settingsFocusTimer) { clearTimeout(settingsFocusTimer); }
+          settingsFocusTimer = setTimeout(function () {
+            settingsFocusTimer = null;
+            if (state.screen === 'settings' && state.focus === settingsItems[idx]) { showSettingsPanel(idx, false); }
+          }, 220);
+        };
+      })(i);
+    }
     item._onMove = function (dir) {
       if (dir === 'right') {
         var f = firstIn(settingsRight.querySelector('.settings-panel.is-active'));
@@ -31,10 +45,8 @@ function buildSettings() {
   settingsPanels = {};
   settingsPanels.profile = buildProfilePanel();
   settingsPanels.history = buildHistoryPanel();
-  settingsPanels.share = buildSharePanel();
   settingsPanels.playback = buildPlaybackPanel();
   settingsPanels.sources = buildSourcesPanel();
-  settingsPanels.netdiag = buildNetdiagPanel();
   settingsPanels.parent = buildParentPanel();
   settingsPanels.feedback = buildFeedbackPanel();
   settingsPanels.about = buildAboutPanel();
@@ -67,8 +79,6 @@ function showSettingsPanel(index, focus) {
     var refreshedSources = buildSourcesPanel();
     settingsRight.replaceChild(refreshedSources, settingsPanels.sources);
     settingsPanels.sources = refreshedSources;
-  } else if (activeId === 'netdiag' && settingsPanels.netdiag && settingsPanels.netdiag._ensureDiag) {
-    settingsPanels.netdiag._ensureDiag();
   }
   for (var i = 0; i < settingsItems.length; i++) {
     settingsItems[i].classList.toggle('is-selected', i === index);
@@ -101,7 +111,7 @@ function buildPlaybackPanel() {
   addOptionRow(p, 198, window.XUPER_DESKTOP ? 'Calidad' : 'Reproductor',
     window.XUPER_DESKTOP ? ['Automática', 'Compatibilidad máxima'] : ['Normal (directo)', 'Modo fluido'],
     'streamMode', state.playback.streamMode === 'smooth' ? 1 : 0);
-  addOptionRow(p, 307, 'Formato de pantalla', ['Pantalla completa', 'Normal', '16:9', '4:3'],
+  addOptionRow(p, 307, 'Formato de pantalla', ['Llenar pantalla', 'Original', '16:9', '4:3'],
     'screen', state.playback.screen);
   addOptionRow(p, 416, 'Audio preferido', ['Español', 'Portugués', 'Inglés'],
     'audio', state.playback.audio);

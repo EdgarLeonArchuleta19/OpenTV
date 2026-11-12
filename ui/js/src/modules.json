@@ -24,6 +24,7 @@
   "home/catalog-pages.js",
   "home/rows.js",
   "home/hero.js",
+  "home/trending.js",
   "screens/detail.js",
   "screens/search.js",
   "screens/search-desktop.js",
@@ -34,7 +35,6 @@
   "screens/history.js",
   "screens/settings-panels.js",
   "screens/settings-desktop.js",
-  "screens/netdiag.js",
   "player/infobar.js",
   "player/media-state.js",
   "player/compat-mode.js",
@@ -48,6 +48,7 @@
   "player/settings-dialog.js",
   "player/build.js",
   "player/playback.js",
+  "player/stremio-sources.js",
   "player/live.js",
   "player/live-controls.js",
   "desktop/titlebar.js",
@@ -62,5 +63,6 @@
   "player/compat-watchdog.js",
   "desktop/gestures.js",
   "desktop/mini-controls.js",
+  "mobile/mobile-app.js",
   "main.js"
 ]

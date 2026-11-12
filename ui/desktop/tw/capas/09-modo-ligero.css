@@ -1,0 +1,18 @@
+/* 09-modo-ligero.css — Modo ligero (core/lite.js).
+   Parte de ui/desktop/tw/input.css (el orden de los archivos importa). */
+
+/* =====================================================================
+   Modo ligero (core/lite.js): sin desenfoques, sin zoom lento del fondo y
+   animaciones de entrada instantáneas. Los indicadores de carga siguen.
+   ===================================================================== */
+.desktop.is-lite *, .desktop.is-lite *::before, .desktop.is-lite *::after {
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  animation-duration: 1ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
+  transition-duration: .08s !important; transition-delay: 0s !important;
+}
+.desktop.is-lite .bento:not(.is-loaded)::before { animation: ot-shimmer 1.4s ease-in-out infinite !important; }
+.desktop.is-lite .live-row.is-current .row-play::before,
+.desktop.is-lite .live-row.is-current .row-play::after { animation: ot-eq .9s ease-in-out infinite !important; }
+.desktop.is-lite .search-spinner { animation: search-spin .8s linear infinite !important; }
+.desktop.is-lite .pc-tool.is-spinning svg { animation: ot-spin .8s linear infinite !important; }
+.desktop.is-lite .home-hero .hh-img.is-shown { animation: none !important; }

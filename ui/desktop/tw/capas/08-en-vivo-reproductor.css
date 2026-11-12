@@ -1,0 +1,533 @@
+/* 08-en-vivo-reproductor.css — TV en vivo: barra bajo la vista previa, lista de canales del reproductor, herramientas, subtítulos y ajustes de reproducción.
+   Parte de ui/desktop/tw/input.css (el orden de los archivos importa). */
+
+/* =====================================================================
+   TV: barra de controles bajo la vista previa (rediseño)
+   ===================================================================== */
+.desktop .live-dock-bar {
+  gap: 4px !important; padding: 8px !important;
+  border-radius: 22px; border: 1px solid rgba(255, 255, 255, .07);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .025));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 12px 30px rgba(0, 0, 0, .35);
+}
+.desktop .live-dock-bar .live-dock-btn {
+  width: 56px !important; height: 56px !important; padding: 0 !important;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  border: 0 !important; border-radius: 15px !important;
+  background: transparent !important; box-shadow: none !important; color: rgba(255, 255, 255, .88);
+  transition: background-color .15s ease, color .15s ease, transform .2s cubic-bezier(.16, 1, .3, 1) !important;
+}
+.desktop .live-dock-bar .live-dock-btn .live-dock-ico { display: inline-flex; align-items: center; justify-content: center; width: auto; height: auto; line-height: 0; }
+.desktop .live-dock-bar .live-dock-btn > svg,
+.desktop .live-dock-bar .live-dock-btn .live-dock-ico svg { width: 26px; height: 26px; display: block; }
+.desktop .live-dock-bar .live-dock-btn:hover { background: rgba(255, 255, 255, .1) !important; color: #fff; }
+.desktop .live-dock-bar .live-dock-btn:active { transform: scale(.95); }
+.desktop .live-dock-bar .live-dock-btn.is-focused { outline: 2px solid #fff; outline-offset: 2px; }
+.desktop .live-dock-bar .live-dock-sep { width: 1px; height: 30px; margin: 0 8px; background: rgba(255, 255, 255, .1); }
+.desktop .live-dock-bar .live-dock-volume { margin-right: auto; padding: 0 10px 0 2px; }
+/* Botones con texto a la derecha */
+.desktop .live-dock-bar .live-dock-btn.is-fav,
+.desktop .live-dock-bar .live-dock-btn.is-guide,
+.desktop .live-dock-bar .live-dock-btn.is-full { width: auto !important; padding: 0 20px 0 16px !important; }
+.desktop .live-dock-bar .live-dock-btn.is-fav span,
+.desktop .live-dock-bar .live-dock-btn.is-guide span,
+.desktop .live-dock-bar .live-dock-btn.is-full span { display: inline !important; font-size: 19px; font-weight: 600; white-space: nowrap; }
+.desktop .live-dock-bar .live-dock-btn.is-fav,
+.desktop .live-dock-bar .live-dock-btn.is-guide { background: rgba(255, 255, 255, .06) !important; }
+.desktop .live-dock-bar .live-dock-btn.is-fav:hover,
+.desktop .live-dock-bar .live-dock-btn.is-guide:hover { background: rgba(255, 255, 255, .14) !important; }
+.desktop .live-dock-bar .live-dock-btn.is-fav.is-selected { color: #ffd34d; background: rgba(255, 211, 77, .12) !important; }
+.desktop .live-dock-bar .live-dock-btn.is-fav.is-selected svg { fill: currentColor; }
+.desktop .live-dock-bar .live-dock-btn.is-full { margin-left: 4px; background: #fff !important; color: #0e0e11 !important; }
+.desktop .live-dock-bar .live-dock-btn.is-full:hover { background: rgba(255, 255, 255, .86) !important; }
+
+/* =====================================================================
+   Reproductor de TV: botones agrupados en una cápsula
+   ===================================================================== */
+.desktop .player-infobar .pi-actions {
+  left: 0 !important; right: 0 !important; width: fit-content !important; margin: 0 auto;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  height: auto !important; padding: 8px 14px; gap: 6px !important;
+  border-radius: 999px; border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(16, 16, 20, .62);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .45);
+}
+.desktop .player-infobar .pi-act {
+  position: relative !important; left: auto !important; top: auto !important;
+  width: 58px !important; height: 58px !important; padding: 0 !important;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  border: 0 !important; border-radius: 50% !important; cursor: pointer;
+  background: transparent !important; box-shadow: none !important; color: rgba(255, 255, 255, .9);
+  transition: background-color .15s ease, transform .2s cubic-bezier(.16, 1, .3, 1) !important;
+}
+.desktop .player-infobar .pi-act svg { width: 28px; height: 28px; }
+.desktop .player-infobar .pi-act:hover { background: rgba(255, 255, 255, .14) !important; transform: scale(1.06); }
+.desktop .player-infobar .pi-act.is-focused { outline: 2px solid #fff; outline-offset: 2px; }
+.desktop .player-infobar .pi-act[aria-disabled="true"] { opacity: .35; }
+.desktop .player-infobar .pi-act.is-selected { color: #ffd34d; }
+
+/* =====================================================================
+   Reproductor de TV: lista de canales a la derecha, con Actualizar y Cerrar
+   ===================================================================== */
+@keyframes ot-slide-in-right { from { transform: translateX(100%); } to { transform: none; } }
+.desktop .player-channels {
+  left: auto !important; right: calc(var(--ox, 0px) * -1) !important;
+  border-right: 0 !important; border-left: 1px solid rgba(255, 255, 255, .1);
+  box-shadow: -30px 0 80px rgba(0, 0, 0, .5);
+}
+.desktop .player-channels.is-active { animation: ot-slide-in-right .35s cubic-bezier(.16, 1, .3, 1) !important; }
+.desktop .pc-header { top: 10px !important; height: 70px !important; }
+.desktop .pc-tools { display: flex; gap: 8px; }
+.desktop .pc-tool {
+  width: 52px; height: 52px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .14); border-radius: 50%; background: rgba(255, 255, 255, .07); color: #fff; cursor: pointer;
+  transition: background-color .15s ease, transform .2s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .pc-tool svg { width: 24px; height: 24px; }
+.desktop .pc-tool:hover { background: rgba(255, 255, 255, .18); transform: scale(1.06); }
+.desktop .pc-tool.is-focused { outline: 2px solid #fff; outline-offset: 2px; }
+.desktop .pc-tool.is-spinning svg { animation: ot-spin .8s linear infinite; }
+@keyframes ot-spin { to { transform: rotate(360deg); } }
+.desktop .pc-categories {
+  top: 86px !important;
+  height: 56px !important;
+  scrollbar-width: none !important;
+}
+.desktop .pc-categories::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+.desktop .pc-div { top: 210px !important; }
+.desktop .pc-list {
+  top: 216px !important;
+  bottom: 12px !important;
+  padding-right: 10px !important;
+  box-sizing: border-box !important;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+}
+/* Letras más pequeñas y filas más compactas en el listado de canales */
+.desktop .live-row {
+  height: 76px !important;
+  margin-bottom: 10px !important;
+  padding-left: 14px !important;
+  padding-right: 12px !important;
+  border-radius: 14px !important;
+}
+.desktop .live-row .row-icon {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 14px !important;
+}
+.desktop .live-row .row-name {
+  margin-left: 14px !important;
+  font-size: 20px !important;
+  line-height: 26px !important;
+  font-weight: 500 !important;
+}
+.desktop .live-row .row-open {
+  width: 42px !important;
+  height: 42px !important;
+  margin-top: -21px !important;
+  right: 10px !important;
+  border-radius: 12px !important;
+}
+.desktop .live-row .row-open svg { width: 20px !important; height: 20px !important; }
+.desktop .pc-row {
+  height: 82px !important;
+}
+.desktop .pc-row .ic {
+  left: 20px !important;
+  top: 16px !important;
+  width: 72px !important;
+  height: 50px !important;
+}
+.desktop .pc-row .num {
+  left: 108px !important;
+  top: 15px !important;
+  height: 30px !important;
+  font-size: 22px !important;
+  line-height: 30px !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, .6) !important;
+}
+.desktop .pc-row .nm {
+  left: 168px !important;
+  top: 15px !important;
+  right: 16px !important;
+  height: 30px !important;
+  font-size: 22px !important;
+  line-height: 30px !important;
+  font-weight: 600 !important;
+}
+.desktop .pc-row .epg {
+  left: 168px !important;
+  top: 47px !important;
+  right: 16px !important;
+  font-size: 16px !important;
+  line-height: 22px !important;
+}
+/* Desplazadores circulares discretos y sobrios (como .d-row-arrow de Inicio y Películas) */
+.desktop .live-arrow-up,
+.desktop .live-arrow-down,
+.desktop .pc-scroll-arrow {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 44px !important;
+  height: 44px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(255, 255, 255, .14) !important;
+  border-radius: 50% !important;
+  background: rgba(22, 22, 26, .78) !important;
+  background-image: none !important;
+  color: rgba(255, 255, 255, .82);
+  -webkit-backdrop-filter: blur(12px);
+          backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .48);
+  cursor: pointer !important;
+  z-index: 6;
+  opacity: .55;
+  transition: opacity .2s ease, transform .25s cubic-bezier(.16, 1, .3, 1), background-color .2s ease, border-color .2s ease;
+}
+.desktop .home-page:hover .live-arrow-up,
+.desktop .home-page:hover .live-arrow-down,
+.desktop .player-channels:hover .pc-scroll-arrow {
+  opacity: .85;
+}
+.desktop .live-arrow-up:hover,
+.desktop .live-arrow-down:hover,
+.desktop .pc-scroll-arrow:hover {
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, .2) !important;
+  border-color: rgba(255, 255, 255, .32) !important;
+  color: #fff;
+  transform: scale(1.08);
+}
+.desktop .live-arrow-up:active,
+.desktop .live-arrow-down:active,
+.desktop .pc-scroll-arrow:active {
+  transform: scale(.94);
+}
+.desktop .live-arrow-up svg,
+.desktop .live-arrow-down svg,
+.desktop .pc-scroll-arrow svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+.desktop .live-arrow-up {
+  position: absolute;
+  right: 216.5px !important;
+  top: 66px !important;
+}
+.desktop .live-arrow-down {
+  position: absolute;
+  right: 216.5px !important;
+  top: 674px !important;
+  bottom: auto !important;
+}
+.desktop .pc-scroll-arrow {
+  position: absolute;
+  left: 50% !important;
+  right: auto !important;
+  margin-left: -22px;
+}
+/* Nothing more to scroll that way (home/live-page.js, bindScrollArrows). */
+.desktop .live-arrow-up.is-off,
+.desktop .live-arrow-down.is-off,
+.desktop .pc-scroll-arrow.is-off { opacity: 0 !important; pointer-events: none; }
+.desktop .pc-scroll-arrow.is-up { top: 222px; }
+.desktop .pc-scroll-arrow.is-down { bottom: 18px; }
+.desktop .channel-search-box {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 14px 0 16px; box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, .13);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.desktop .channel-search-box:focus-within {
+  border-color: rgba(255, 255, 255, .45);
+  background: rgba(255, 255, 255, .1);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .12);
+}
+.desktop .channel-search-box.is-home {
+  position: absolute;
+  right: 48px; top: 0;
+  width: 381px; height: 50px;
+  z-index: 4;
+}
+.desktop #screen-home .live-list {
+  top: 62px !important;
+  height: 658px !important;
+  padding: 12px 10px 12px 0 !important;
+  box-sizing: border-box !important;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+}
+.desktop .channel-search-box.is-player {
+  position: absolute;
+  left: 24px; right: 24px; top: 150px;
+  height: 50px;
+  z-index: 4;
+}
+.desktop .channel-search-box .csb-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; flex-shrink: 0;
+  color: rgba(255, 255, 255, .55);
+}
+.desktop .channel-search-box .csb-icon svg { width: 22px; height: 22px; display: block; }
+.desktop .channel-search-box .csb-input {
+  flex: 1 1 auto; min-width: 0; height: 100%;
+  border: 0; outline: none; background: transparent;
+  color: #fff; font: 500 20px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  cursor: text !important;
+}
+.desktop .channel-search-box .csb-input::placeholder { color: rgba(255, 255, 255, .45); }
+.desktop .channel-search-box .csb-input::-webkit-search-cancel-button { display: none; }
+.desktop .channel-search-box .csb-clear {
+  display: none; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; flex-shrink: 0;
+  border: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, .12); color: rgba(255, 255, 255, .85);
+  cursor: pointer !important;
+  transition: background-color .15s ease, transform .15s ease;
+}
+.desktop .channel-search-box.has-text .csb-clear { display: inline-flex; }
+.desktop .channel-search-box .csb-clear:hover { background: rgba(255, 255, 255, .24); color: #fff; transform: scale(1.06); }
+.desktop .channel-search-box .csb-clear svg { width: 16px; height: 16px; display: block; }
+/* Pausa/Reproducir destacado en el medio de la cápsula */
+.desktop .player-infobar .pi-act.pi-play {
+  width: 68px !important;
+  height: 68px !important;
+  margin: 0 8px !important;
+  background: #fff !important;
+  color: #0e0e11 !important;
+  box-shadow: 0 4px 18px rgba(255, 255, 255, .18), 0 2px 8px rgba(0, 0, 0, .45) !important;
+}
+.desktop .player-infobar .pi-act.pi-play svg {
+  width: 32px !important;
+  height: 32px !important;
+  fill: currentColor;
+}
+.desktop .player-infobar .pi-act.pi-play:hover {
+  background: rgba(255, 255, 255, .88) !important;
+  transform: scale(1.08) !important;
+}
+.desktop .player-channels .pc-menu { display: none !important; }
+.desktop .player-channels .pc-list { bottom: 12px !important; padding: 12px 10px 12px 0 !important; }
+
+/* =====================================================================
+   Reproductor: volumen que sí recibe el ratón y barra de avance más fina
+   ===================================================================== */
+/* The bar ignores the pointer (the video stays clickable) and each control
+   opts back in: the volume never did, so drags fell through to the video. */
+.desktop .vod-volume,
+.desktop .vod-volume * { pointer-events: auto; }
+.desktop .vod-vol-range { height: 40px; cursor: pointer; }
+.desktop .vod-vol-range::-webkit-slider-thumb { width: 24px; height: 24px; margin-top: -9px; }
+
+/* Seek bar: thin track that grows on hover, a round handle that shows on
+   hover and while dragging, and no TV-style glow. */
+.desktop #vod-seekbar {
+  height: 36px !important; margin: 0 22px !important; background: transparent !important;
+  box-shadow: none !important; cursor: pointer !important;
+}
+.desktop #vod-seekbar::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px;
+  border-radius: 999px; background: rgba(255, 255, 255, .22);
+  transition: height .15s ease, margin-top .15s ease;
+}
+.desktop #vod-seekbar .vod-seek-buffered,
+.desktop #vod-seekbar .vod-seek-progress,
+.desktop #vod-seekbar .vod-seek-ghost {
+  top: 50% !important; bottom: auto !important; height: 6px !important; margin-top: -3px;
+  border-radius: 999px; transition: height .15s ease, margin-top .15s ease;
+}
+.desktop #vod-seekbar .vod-seek-buffered { background: rgba(255, 255, 255, .32) !important; }
+.desktop #vod-seekbar .vod-seek-progress { background: #fff !important; }
+.desktop #vod-seekbar .vod-seek-thumb {
+  width: 22px !important; height: 22px !important; margin: -11px 0 0 -11px !important;
+  background: #fff !important; box-shadow: 0 2px 10px rgba(0, 0, 0, .5) !important;
+  transform: scale(0); transition: transform .18s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop #vod-seekbar:hover::before,
+.desktop #vod-seekbar.is-scrubbing::before,
+.desktop #vod-seekbar:hover .vod-seek-buffered,
+.desktop #vod-seekbar:hover .vod-seek-progress,
+.desktop #vod-seekbar:hover .vod-seek-ghost,
+.desktop #vod-seekbar.is-scrubbing .vod-seek-buffered,
+.desktop #vod-seekbar.is-scrubbing .vod-seek-progress { height: 10px !important; margin-top: -5px; }
+.desktop #vod-seekbar:hover .vod-seek-thumb,
+.desktop #vod-seekbar.is-focused .vod-seek-thumb { transform: scale(1); }
+.desktop #vod-seekbar.is-scrubbing .vod-seek-thumb { transform: scale(1.35); }
+.desktop #vod-seekbar.is-scrubbing { cursor: grabbing !important; }
+/* While dragging, the time bubble follows the handle. */
+.desktop #vod-seekbar.is-scrubbing .vod-seek-hover { opacity: 1; transform: translate(-50%, 0); }
+.desktop .player-vod-infobar .vod-time-current,
+.desktop .player-vod-infobar .vod-time-total { font-variant-numeric: tabular-nums; }
+
+/* =====================================================================
+   TV: herramientas del reproductor en la barra de la vista previa
+   ===================================================================== */
+.desktop .live-dock-bar .live-dock-btn.is-tool { width: 50px !important; color: rgba(255, 255, 255, .72); }
+.desktop .live-dock-bar .live-dock-btn.is-tool .live-dock-ico svg { width: 24px; height: 24px; }
+.desktop .live-dock-bar .live-dock-btn.is-tool:hover { color: #fff; }
+.desktop .live-dock-bar .live-dock-btn.is-play { background: rgba(255, 255, 255, .1) !important; border-radius: 50% !important; }
+.desktop .live-dock-bar .live-dock-btn.is-play:hover { background: rgba(255, 255, 255, .2) !important; }
+.desktop .live-main.is-preview-paused video { filter: brightness(.6); transition: filter .2s ease; }
+/* El canal que suena, arriba de una categoría que no lo tiene */
+.desktop .live-row.is-kept { box-shadow: inset 3px 0 0 #e50914; }
+.desktop .live-row.is-kept .row-name::after {
+  content: "En reproducción"; margin-left: 12px; padding: 2px 10px; border-radius: 999px;
+  font-size: 15px; font-weight: 600; background: rgba(229, 9, 20, .18); color: #ff6b72;
+}
+
+/* =====================================================================
+   TV: barra de la vista previa en tres grupos (pausa al centro)
+   ===================================================================== */
+.desktop .live-dock-bar { display: grid !important; grid-template-columns: 1fr auto 1fr; align-items: center; }
+.desktop .live-dock-bar .ldb-group { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.desktop .live-dock-bar .ldb-group.is-center { justify-content: center; gap: 10px; }
+.desktop .live-dock-bar .ldb-group.is-right { justify-content: flex-end; }
+.desktop .live-dock-bar .live-dock-volume { margin-right: 0; }
+.desktop .live-dock-bar .live-dock-btn.is-play { width: 64px !important; height: 64px !important; background: #fff !important; color: #0e0e11 !important; }
+.desktop .live-dock-bar .live-dock-btn.is-play:hover { background: rgba(255, 255, 255, .86) !important; }
+.desktop .live-dock-bar .live-dock-btn.is-play .live-dock-ico svg { width: 28px; height: 28px; }
+/* Marca de pausa en medio del video */
+.desktop .live-paused-mark {
+  position: absolute; left: 50%; top: 50%; z-index: 6; width: 120px; height: 120px; margin: -60px 0 0 -60px;
+  display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer;
+  background: rgba(14, 14, 17, .55); color: #fff; border: 1px solid rgba(255, 255, 255, .25);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  opacity: 0; transform: scale(.8); pointer-events: none;
+  transition: opacity .2s ease, transform .25s cubic-bezier(.16, 1, .3, 1);
+}
+.desktop .live-paused-mark svg { width: 52px; height: 52px; display: block; }
+.desktop .live-main.is-preview-paused .live-paused-mark { opacity: 1; transform: scale(1); pointer-events: auto; }
+.desktop .live-main.is-preview-paused .live-paused-mark:hover { background: rgba(14, 14, 17, .75); }
+
+/* =====================================================================
+   Subtítulos dentro del reproductor pequeño y modo ventana
+   ===================================================================== */
+.desktop #screen-player.is-mini .player-subtitles,
+.desktop #screen-player.is-mini .player-subtitles.shift-up {
+  left: 24px !important;
+  right: 24px !important;
+  bottom: 18px !important;
+  top: auto !important;
+}
+.desktop #screen-player.is-mini .player-stage:hover .player-subtitles {
+  bottom: 58px !important;
+}
+.desktop #screen-player.is-mini .player-subtitles .player-subtitles-text {
+  font-size: 24px !important;
+  padding: 2px 8px;
+  -webkit-text-stroke: 0 !important;
+  color: #fff;
+  text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,.9) !important;
+}
+
+/* =====================================================================
+   Ajustes de reproducción: espaciado amplio en fila de sincronía
+   ===================================================================== */
+.desktop .dps-body {
+  padding: 40px 48px 24px 64px !important;
+}
+.desktop #dps-row-audio {
+  height: 62px !important;
+  margin-bottom: 34px !important;
+}
+.desktop #dps-row-switch {
+  height: 46px !important;
+  margin-bottom: 26px !important;
+}
+.desktop #dps-row-lang,
+.desktop #dps-row-size,
+.desktop #dps-row-style {
+  height: 62px !important;
+  margin-bottom: 32px !important;
+}
+.desktop #dps-row-sync {
+  height: 62px !important;
+  margin-bottom: 12px !important;
+}
+.desktop #dps-sync-options {
+  gap: 18px !important;
+}
+.desktop #dps-sync-options .dps-btn {
+  margin-right: 0 !important;
+  min-width: 210px !important;
+  width: auto !important;
+  padding: 0 32px !important;
+}
+
+/* =====================================================================
+   PC: TV en vivo in the style of the movie player (no card, no band).
+   The full-screen player: a soft fade, the channel as the title on the
+   left (logo, number, name, "● En vivo"), a thin round bar from margin to
+   margin and loose controls with a white play button. The home preview:
+   its controls inside the picture, over the same fade. TVs keep theirs
+   (10-teles.css).
+   ===================================================================== */
+.desktop:not(.is-tv) .player-infobar {
+  height: 340px !important; border-top: 0 !important;
+  background: linear-gradient(to top, rgba(0, 0, 0, .9) 0%, rgba(0, 0, 0, .62) 45%, rgba(0, 0, 0, 0) 100%) !important;
+}
+.desktop:not(.is-tv) .player-infobar .pi-logo {
+  left: 80px !important; top: 96px !important; width: 128px !important; height: 80px !important;
+  border-radius: 12px; background-color: rgba(255, 255, 255, .08) !important;
+}
+.desktop:not(.is-tv) .player-infobar .pi-index {
+  left: 232px !important; top: 98px !important; width: 90px !important; height: 56px !important;
+  text-align: left !important; font-size: 44px !important; line-height: 56px !important; font-weight: 700 !important;
+  color: rgba(255, 255, 255, .55) !important;
+}
+.desktop:not(.is-tv) .player-infobar .pi-namerow { left: 322px !important; top: 98px !important; height: 56px !important; width: 1200px !important; }
+.desktop:not(.is-tv) .player-infobar .pi-namerow .pi-name {
+  top: 0 !important; width: 1200px !important; height: 56px !important;
+  font-size: 44px !important; line-height: 56px !important; font-weight: 700 !important;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, .5);
+}
+.desktop:not(.is-tv) .player-infobar .pi-now {
+  left: 232px !important; top: 156px !important; height: 32px !important;
+  font-size: 24px !important; line-height: 32px !important; font-weight: 600; color: rgba(255, 255, 255, .85) !important;
+}
+.desktop:not(.is-tv) .player-infobar .pi-now::before {
+  content: ''; display: inline-block; width: 11px; height: 11px; margin: 0 10px 2px 0;
+  border-radius: 50%; background: #e50914; vertical-align: middle;
+}
+.desktop:not(.is-tv) .player-infobar .pi-date { right: 80px !important; top: 110px !important; font-size: 26px !important; color: rgba(255, 255, 255, .65) !important; }
+.desktop:not(.is-tv) .player-infobar .pi-range { right: 80px !important; top: 156px !important; }
+/* Live has no position to show: no bar (it used to sit at a fixed 38 %). */
+.desktop:not(.is-tv) .player-infobar .pi-seek { display: none !important; }
+.desktop:not(.is-tv) .player-infobar .pi-actions {
+  top: auto !important; bottom: 34px !important; padding: 0 !important; gap: 10px !important;
+  border: 0 !important; background: none !important; box-shadow: none !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+.desktop:not(.is-tv) .player-infobar .pi-act { width: 60px !important; height: 60px !important; color: #fff; }
+.desktop:not(.is-tv) .player-infobar .pi-act:hover { background: rgba(255, 255, 255, .14) !important; }
+.desktop:not(.is-tv) .player-infobar .pi-act.pi-play {
+  width: 76px !important; height: 76px !important; margin: 0 10px !important;
+  background: #fff !important; color: #0e0e11 !important;
+}
+
+/* The preview on TV en vivo: controls inside the picture. */
+.desktop:not(.is-tv) .live-main { box-shadow: 0 24px 60px rgba(0, 0, 0, .45); }
+.desktop:not(.is-tv) .live-main .live-info {
+  top: 400px !important; height: 320px !important;
+  background: linear-gradient(to top, rgba(0, 0, 0, .88) 0%, rgba(0, 0, 0, .55) 45%, rgba(0, 0, 0, 0) 100%) !important;
+}
+.desktop:not(.is-tv) .live-main .live-info .live-channel {
+  left: 36px !important; right: auto !important; top: 132px !important; max-width: 1100px;
+  text-align: left !important; font-size: 36px !important; font-weight: 700 !important;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, .5);
+}
+.desktop:not(.is-tv) .live-main .live-info .live-fullscreen { display: none !important; }
+.desktop:not(.is-tv) #screen-home .live-dock { top: 628px !important; z-index: 6; }
+.desktop:not(.is-tv) .live-dock-bar {
+  border: 0 !important; background: none !important; box-shadow: none !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  padding-left: 24px !important; padding-right: 24px !important;
+}

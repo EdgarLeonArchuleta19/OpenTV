@@ -3,11 +3,10 @@
 
 /* The history already stores, per title, the episode and the second where
    playback stopped. Here it is used: opening a series selects that episode
-   (or the next one if it was finished), and playing starts at that second.
-   "Desde el inicio" in the detail page skips it once. */
+   (or the next one if it was finished), and playing always starts at that
+   second (there is no "start over" button: the viewer seeks back instead). */
 var RESUME_MIN_S = 10;
 var resumePlan = null;
-var resumeSkipOnce = false;
 var resumeRestarted = false;
 
 /* Accepts the title or its id. Grouped series may have been saved under a
@@ -29,9 +28,14 @@ function historyRecordFor(itemOrId) {
   if (!item) { return null; }
   var seasons = (item._catalogSeasons && item._catalogSeasons.length) ? item._catalogSeasons : (item.seasons || []);
   var title = norm(item.title || item.name || '');
+  /* Matching by title/season only within the same catalog: a Stremio title
+     never takes the position (or the source) of the integrated catalog's
+     title of the same name, and the other way round. */
+  var fromAddon = !!item._stremio || String(item.id).indexOf('stremio:') === 0;
   for (i = 0; i < list.length; i++) {
     var r = list[i];
     if (!r) { continue; }
+    if ((!!r.stremio || String(r.id).indexOf('stremio:') === 0) !== fromAddon) { continue; }
     for (var s = 0; s < seasons.length; s++) {
       var sid = String(seasons[s].id);
       if (sid === String(r.id) || (r.seasonId && sid === String(r.seasonId))) { return r; }
@@ -69,12 +73,6 @@ function preferHistoryEpisode(item) {
   if (r && r.episodeId) { pendingHistoryRecord = r; }
 }
 
-function nextAfterFinished(item, index) {
-  var r = pendingHistoryRecord || historyRecordFor(item);
-  if (r && recordFinished(r) && item.episodes[index + 1]) { return item.episodes[index + 1]; }
-  return item.episodes[index];
-}
-
 /* Called when a title starts playing (detail preview or full screen). */
 var resumePlannedKey = '';
 /* A new request to watch a title (detail page, play buttons, Seguir viendo)
@@ -107,13 +105,6 @@ function resumePending(item) {
 function planResume(item, episode) {
   if (!window.XUPER_DESKTOP || !item) { return; }
   var key = String(item.id) + '|' + (episode ? String(episode.id) : '');
-  if (resumeSkipOnce) {
-    resumeSkipOnce = false;
-    resumeRestarted = true;
-    resumePlannedKey = key;
-    resumePlan = null;
-    return;
-  }
   /* Restarts of the same video (compatibility mode, retries) keep their own
      position if the resume plan was already satisfied. */
   if (key === resumePlannedKey && (!resumePlan || vodPlaybackPosition() >= resumePlan.pos - 5)) {
@@ -151,7 +142,10 @@ function applyResumePlan() {
   if (plan.episodeId && (!ep || String(ep.id) !== plan.episodeId)) { resumePlan = null; return; }
 
   var currentPos = vodPlaybackPosition();
-  if (currentPos >= plan.pos - 5) {
+  /* A relay asked to start at plan.pos may really start a few seconds
+     earlier (at the keyframe before it, see ffmpeg-relay.js): that is the
+     resume point too, not a stream that started at 0. */
+  if (currentPos >= plan.pos - 5 || (relayBaseUrl && relayRequestedStart >= plan.pos - 5)) {
     var wasHeld = plan.held;
     var wasNotified = plan.notified;
     var targetPos = plan.pos;
@@ -162,7 +156,7 @@ function applyResumePlan() {
   }
 
   /* If we are on arelay stream that started at 0 instead of plan.pos, jump via ?start= */
-  if (relayBaseUrl && relayStartOffset < plan.pos - 5 && !relaySeekInFlight) {
+  if (relayBaseUrl && relayRequestedStart < plan.pos - 5 && !relaySeekInFlight) {
     plan.notified = true;
     var relayTarget = Math.floor(plan.pos);
     var rUrl = relayBaseUrl + '?start=' + relayTarget + '&a=' + (vodCurrentAudioTrack || 0);

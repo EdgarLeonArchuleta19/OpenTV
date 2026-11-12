@@ -49,6 +49,7 @@ function boot() {
   startServiceKeepAlive();
   portalServiceCall('prewarm', {}, function () {});
   startWelcome();
+  paintStremioModeMark();
   loadVodCatalog();
   loadLiveChannels();
 
@@ -85,10 +86,35 @@ function boot() {
     },
     key: function (code) { handleKey({ keyCode: code, preventDefault: function () {} }); },
     search: function (q) { openSearch(); setSearchQuery(q); },
-    settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); }
+    settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); },
+    settingsIndexOf: settingsIndexOf,
+    openItem: function (item) { openDetail(item); },
+    leavePlayer: restorePlayerReturn,
+    /* Stremio mode (PC): used by the tests. */
+    stremioOn: stremioModeOn,
+    /* Seguir viendo / Historial: forget a title (tests). */
+    forgetWatched: forgetWatchedTitle,
+    history: function () { return localProfile.history; },
+    stremio: { install: installVodAddon, setMode: applyVodSourceMode, search: searchStremioAddons,
+      savedPick: savedStremioPick, offers: addonOffers }
   };
 
-  if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); installProfiles(); startCatalogAutoRefresh(); }
+  if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); installTrending(); installProfiles(); startCatalogAutoRefresh(); }
+
+  /* Android / Fire TV (Capacitor): the remote's Back reaches the page only
+     through the App plugin. Without this listener Android handled it itself
+     (it closed the app, and the player could not be left with Back). */
+  var capApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if (capApp && capApp.addListener) {
+    capApp.addListener('backButton', function () {
+      /* Phones: the phone layer closes its own screens first. */
+      if (isPhone() && mobileBack()) { return; }
+      handleKey({ keyCode: 27, key: 'GoBack', preventDefault: function () {} });
+    });
+  }
+
+  /* Phones: their own vertical layout over the canvas (mobile/mobile-app.js). */
+  installMobileApp();
 
   applyQuery();
 }

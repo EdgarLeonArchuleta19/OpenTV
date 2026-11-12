@@ -104,10 +104,10 @@ function openHoverCard(poster) {
   var body = el('div', 'hc-body');
   var buttons = el('div', 'hc-buttons');
   buttons.appendChild(hoverButton('is-play', UI_ICONS.play, 'Reproducir', function () { closeHoverCard(); playTitleNow(item); }));
-  var inList = !!state.favs[String(item.id)];
+  var inList = inMyList(item);
   buttons.appendChild(hoverButton('is-list' + (inList ? ' is-on' : ''), inList ? UI_ICONS.check : UI_ICONS.mylist,
     inList ? 'Quitar de Mi lista' : 'Añadir a Mi lista', function (b) {
-      var on = toggleFavorite(item);
+      var on = toggleMyList(item);
       b.classList.toggle('is-on', on);
       b.innerHTML = on ? UI_ICONS.check : UI_ICONS.mylist;
       b.setAttribute('data-tip', on ? 'Quitar de Mi lista' : 'Añadir a Mi lista');

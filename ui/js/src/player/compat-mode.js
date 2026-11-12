@@ -40,7 +40,10 @@ function saveCompatTitle(key, on) {
   try { localStorage.setItem(COMPAT_STORE, JSON.stringify(all)); } catch (eSave) { /* storage full or off */ }
 }
 function clearCompatTitles() {
-  try { localStorage.removeItem(COMPAT_STORE); } catch (eClear) { /* ignore */ }
+  try {
+    localStorage.removeItem(COMPAT_STORE);
+    localStorage.removeItem('opentv_compat_audio_v1');   // compat-watchdog.js COMPAT_AUDIO_STORE
+  } catch (eClear) { /* ignore */ }
 }
 function compatEpisodeKey(item) { return mediaInfoKey(item) || smoothModeKey(item); }
 

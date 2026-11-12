@@ -44,8 +44,8 @@ if (window.XUPER_DESKTOP) {
      carry titles for adults). */
   if (isKidsProfile()) { TABS = TABS.filter(function (t) { return t.page === 4; }); }
   /* TVs (LG, Android TV, Fire TV): the same sections in a menu on the left,
-     like the LG version, with search, Mi lista and the account at its foot
-     (there is no top bar). Line icons in the style of the rest of the app. */
+     like the LG version; search, Mi lista and the account stay at the top
+     right. Line icons in the style of the rest of the app. */
   if (platformIsTv()) {
     var TV_RAIL_ICONS = {
       tv: uiSvg('<rect x="2.5" y="5" width="19" height="13" rx="2"/><path d="M8 21h8"/>'),
@@ -56,20 +56,15 @@ if (window.XUPER_DESKTOP) {
       anime: uiSvg('<path d="M12 3l2.4 5.6 6.1.6-4.6 4 1.4 6-5.3-3.2L6.7 19.2l1.4-6-4.6-4 6.1-.6z"/>')
     };
     TABS.forEach(function (t) { t.svg = TV_RAIL_ICONS[t.icon]; });
-    if (!isKidsProfile()) { TABS.push({ label: 'Buscar', page: -1, svg: UI_ICONS.search, action: 'search', tool: true }); }
-    TABS.push({ label: 'Mi lista', page: -1, svg: UI_ICONS.mylist, action: 'mylist', tool: true });
-    TABS.push({ label: 'Mi cuenta', page: -1, svg: UI_ICONS.user, action: 'account', tool: true });
   }
 }
 
 var SETTINGS_ITEMS = [
   { id: 'profile', label: 'Mi cuenta' },
   { id: 'history', label: 'Mi lista' },
-  { id: 'share', label: 'Compartir APP' },
   { id: 'parent', label: 'Bloqueo' },
   { id: 'playback', label: 'Configuración global' },
   { id: 'sources', label: 'Fuentes' },
-  { id: 'netdiag', label: 'Diagnóstico' },
   { id: 'feedback', label: 'Ayuda y Feedback' },
   { id: 'about', label: 'Sobre nosotros' }
 ];
@@ -77,23 +72,21 @@ var SETTINGS_ITEMS = [
 var SETTINGS_MENU_ICONS = {
   profile: '<svg viewBox="0 0 32 32"><circle cx="16" cy="10" r="5"/><path d="M6 27c.7-6 4.3-9 10-9s9.3 3 10 9"/></svg>',
   history: '<svg viewBox="0 0 32 32"><rect x="4" y="4" width="9" height="9"/><rect x="19" y="4" width="9" height="9"/><rect x="4" y="19" width="9" height="9"/><rect x="19" y="19" width="9" height="9"/></svg>',
-  share: '<svg viewBox="0 0 32 32"><circle cx="8" cy="16" r="3"/><circle cx="24" cy="7" r="3"/><circle cx="24" cy="25" r="3"/><path d="M10.6 14.5l10.8-6M10.6 17.5l10.8 6"/></svg>',
   parent: '<svg viewBox="0 0 32 32"><rect x="7" y="14" width="18" height="14" rx="2"/><path d="M11 14V10a5 5 0 0 1 10 0v4"/><path d="M16 19v4"/></svg>',
   playback: '<svg viewBox="0 0 32 32"><rect x="4" y="6" width="24" height="20" rx="3"/><path d="M13 11l8 5-8 5z"/></svg>',
   sources: '<svg viewBox="0 0 32 32"><path d="M16 4l12 6-12 6L4 10l12-6z"/><path d="M4 16l12 6 12-6"/><path d="M4 22l12 6 12-6"/></svg>',
-  netdiag: '<svg viewBox="0 0 32 32"><path d="M3 13a19 19 0 0 1 26 0"/><path d="M8 18a12 12 0 0 1 16 0"/><path d="M13 23a6 6 0 0 1 6 0"/><circle cx="16" cy="27.5" r="1.2"/></svg>',
   feedback: '<svg viewBox="0 0 32 32"><path d="M6 4h15l5 5v19H6z"/><path d="M20 4v6h6M10 16h12M10 21h8"/></svg>',
   about: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="M16 14v8M16 10h.1"/></svg>'
 };
 
 /* Desktop: short labels that fit the menu and line icons like the rest of the app. */
 if (window.XUPER_DESKTOP) {
-  var DESKTOP_SETTINGS_LABELS = { share: 'Compartir', playback: 'Reproducción', sources: 'Fuentes', feedback: 'Ayuda', about: 'Acerca de' };
+  var DESKTOP_SETTINGS_LABELS = { playback: 'Reproducción', sources: 'Fuentes', feedback: 'Ayuda', about: 'Acerca de' };
   /* The PIN lock was never available on Windows: no menu entry for it. */
   SETTINGS_ITEMS = SETTINGS_ITEMS.filter(function (it) { return it.id !== 'parent'; });
   SETTINGS_ITEMS.forEach(function (it) { if (DESKTOP_SETTINGS_LABELS[it.id]) { it.label = DESKTOP_SETTINGS_LABELS[it.id]; } });
   SETTINGS_MENU_ICONS = {
-    profile: UI_ICONS.user, history: UI_ICONS.mylist, share: UI_ICONS.share, parent: UI_ICONS.lock,
-    playback: UI_ICONS.settings, sources: UI_ICONS.addons, netdiag: UI_ICONS.wifi, feedback: UI_ICONS.help, about: UI_ICONS.info
+    profile: UI_ICONS.user, history: UI_ICONS.mylist, parent: UI_ICONS.lock,
+    playback: UI_ICONS.settings, sources: UI_ICONS.addons, feedback: UI_ICONS.help, about: UI_ICONS.info
   };
 }

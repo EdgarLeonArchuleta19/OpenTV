@@ -9,6 +9,32 @@ var lastPlayingUrl = '';
 var resolveSeq = 0;
 var relayBaseUrl = '';
 var relayStartOffset = 0;
+/* The ?start= asked of the relay. relayStartOffset is where the video really
+   begins: when the relay copies the video it starts at the keyframe before
+   that second (askRelayRealStart). */
+var relayRequestedStart = 0;
+
+function askRelayRealStart(base, asked) {
+  var video = playerVideo;
+  if (!video || !base || !(asked > 0)) { return; }
+  var onMeta = function () {
+    video.removeEventListener('loadedmetadata', onMeta);
+    if (relayBaseUrl !== base || relayRequestedStart !== asked) { return; }
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', base + '?where=' + asked, true);
+      xhr.timeout = 4000;
+      xhr.onload = function () {
+        if (relayBaseUrl !== base || relayRequestedStart !== asked) { return; }
+        var real = NaN;
+        try { real = Number(JSON.parse(xhr.responseText).start); } catch (eJson) { /* ignore */ }
+        if (isFinite(real) && real >= 0 && Math.abs(asked - real) < 30) { relayStartOffset = real; }
+      };
+      xhr.send(null);
+    } catch (eAsk) { /* keep the asked second */ }
+  };
+  video.addEventListener('loadedmetadata', onMeta);
+}
 /* A fragmented MP4 relay is a one-way HTTP stream.  Several older webOS
    players do not resume that socket after a long pause; opening its local
    URL again at the same offset is the reliable native resume operation. */
@@ -77,6 +103,9 @@ function flushSeek() {
     if (totalDur > 0 && target > totalDur - 2) { target = Math.max(0, totalDur - 2); }
     var keepPaused = playerVideo.paused;
     var seekUrl = relayBaseUrl + '?start=' + Math.floor(target) + '&a=' + (vodCurrentAudioTrack || 0);
+    /* Forward: the relay must land past here, even if the keyframe before
+       the target is not (see ffmpeg-relay.js probeKeyframe). */
+    if (target > curSec + 1) { seekUrl += '&from=' + Math.floor(curSec); }
     /* A failed upstream request must not leave controls locked forever. */
     relaySeekWatchdog = setTimeout(releaseRelaySeek, 12000);
     playUrl(seekUrl, { remainPaused: keepPaused });
@@ -187,6 +216,48 @@ function moveVodScrub(direction) {
   updateVodProgress(vodScrubTime, duration);
 }
 
+/* TVs: holding left/right glides through the film like native TV players.
+   The bar moves at once (nothing loads meanwhile) and goes faster the
+   longer the key is held; the video jumps once, when the key is let go. A
+   single press still moves 10 s. */
+var tvSeekHold = { start: 0, last: 0, timer: null, bound: false };
+function tvSeekCommit() {
+  if (tvSeekHold.timer) { clearTimeout(tvSeekHold.timer); tvSeekHold.timer = null; }
+  tvSeekHold.last = 0;
+  leaveVodScrub(true);
+}
+function tvSeekKey(dir) {
+  if (!tvSeekHold.bound) {
+    tvSeekHold.bound = true;
+    document.addEventListener('keyup', function (e) {
+      var k = e.keyCode || e.which;
+      if ((k === 37 || k === 39) && vodScrubbing && tvSeekHold.last) { tvSeekCommit(); }
+    }, true);
+  }
+  var duration = vodPlaybackDuration();
+  var now = Date.now();
+  if (!vodScrubbing) {
+    enterVodScrub();
+    tvSeekHold.start = now;
+    tvSeekHold.last = 0;
+  }
+  if (!vodScrubbing || !duration) { playerSeek(dir * 10); return; }
+  /* A new press after a pause starts slow again. */
+  if (tvSeekHold.last && now - tvSeekHold.last > 450) { tvSeekHold.start = now; tvSeekHold.last = 0; }
+  var delta = 10;
+  if (tvSeekHold.last) {
+    var held = now - tvSeekHold.start;
+    var rate = held < 1200 ? 20 : held < 3000 ? 60 : held < 6000 ? 150 : 300;   /* seconds of film per second held */
+    delta = rate * Math.min(250, now - tvSeekHold.last) / 1000;
+  }
+  tvSeekHold.last = now;
+  vodScrubTime = Math.max(0, Math.min(duration - 1, vodScrubTime + dir * delta));
+  updateVodProgress(vodScrubTime, duration);
+  if (tvSeekHold.timer) { clearTimeout(tvSeekHold.timer); }
+  /* (Also applied if the remote never sends the key up.) */
+  tvSeekHold.timer = setTimeout(tvSeekCommit, 700);
+}
+
 function stopPlayerVideo() {
   if (vodSeekbar && vodSeekbar._cancelDesktopScrub) vodSeekbar._cancelDesktopScrub();
   if (state.playerMode === 'vod' && playerVideo) {
@@ -209,6 +280,7 @@ function stopPlayerVideo() {
   relayPaused = false;
   relayBaseUrl = '';
   relayStartOffset = 0;
+  relayRequestedStart = 0;
   /* Increment generation so any in-flight resolve() callback is ignored */
   resolveSeq++;
   var proxyToAbort = lastProxyOrigin;
@@ -310,9 +382,12 @@ function playUrl(url, playOptions) {
     relayBaseUrl = url.split('?')[0];
     var mStart = /[?&]start=(\d+)/.exec(url);
     relayStartOffset = mStart ? parseInt(mStart[1], 10) : 0;
+    relayRequestedStart = relayStartOffset;
+    askRelayRealStart(relayBaseUrl, relayRequestedStart);
   } else {
     relayBaseUrl = '';
     relayStartOffset = 0;
+    relayRequestedStart = 0;
   }
   setPlayerStatus('Conectando con el vídeo…');
   state.streamError = '';
@@ -361,6 +436,7 @@ function playUrl(url, playOptions) {
        series opened every following episode in Modo Fluido even after the
        viewer picked Normal. */
     if (code === 4 && tryCompatFallback('error')) { return; }
+    if (code && stremioRetryTranscode()) { return; }
     state.streamError = 'No se pudo abrir el stream (código ' + (code || 'error') + ')';
     playerVideo.classList.remove('is-active');
     if (playerFrame) { playerFrame.style.display = 'block'; }
@@ -548,11 +624,14 @@ function playUrl(url, playOptions) {
    We capture the current resolveSeq at call time; if it changes before
    the async response arrives (user navigated away), we discard the result. */
 function resolvePlayerStream(item, done) {
+  /* Stremio mode (PC): the source the viewer chose (player/stremio-sources.js). */
+  if (item && item._stremio) { return resolveStremioPlayback(item, done); }
   var mySeq = resolveSeq;
   function resolveNow() {
     var params = { contentId: item.id };
     params.playbackMode = state.streamMode;
     params.forceRelay = state.streamMode === 'smooth' || state.streamMode === 'relay';
+    if (params.forceRelay && compatVideoCopy(item)) { params.videoCopy = true; }
     params.trackIndex = state.trackIndex || 0;
     if (window.XUPER_DESKTOP) { params.preferHeight = preferredQualityHeight(); }
     /* Prefer the Spanish PID like the real app when mediaInfo already
@@ -598,7 +677,6 @@ function resolvePlayerStream(item, done) {
         return done('');
       }
       lastVodAttempt = { phase: 'enlace de vídeo', status: 'recibido', error: '' };
-      rememberCdnProbe('vod', payload);
       item.streamMime = payload.mime || '';
       item.streamCodec = payload.codec || '';
       item._relayUrl = payload.relayUrl || (/^https?:\/\/127\.0\.0\.1:\d+\/s\//i.test(payload.proxyPath || '') ? payload.proxyPath.split('?')[0] : '');
@@ -659,11 +737,17 @@ function startPlayerVideo(item, episode) {
     state.playerSeasonIndex = state.detailSeason || 0;
   }
   if (item) { state.playerItem = item; }
+  try { document.dispatchEvent(new CustomEvent('xuper:player-item')); } catch (eEv) { /* old webOS */ }
   if (window.XUPER_DESKTOP) { installResume(); planResume(state.playerItem, state.playerEpisode); }
   var it = item || state.playerItem;
   if (it) { restoreSmoothMode(it); }
   stopPlayerVideo();
   if (!it) { return; }
+  /* PC: the title's still until the first frame (not the previous title's). */
+  if (window.XUPER_DESKTOP && !platformIsTv()) {
+    var still = heroArt(it) || it.poster || '';
+    if (still) { playerVideo.poster = sizedImageUrl(still, 1280); } else { playerVideo.removeAttribute('poster'); }
+  }
   vodAudioChosen = false;
   vodCurrentAudioTrack = 0;
   /* resolvePlayerStream returns the same audio/subtitle metadata needed by
@@ -683,7 +767,7 @@ function startPlayerVideo(item, episode) {
       if (started || startSeq !== resolveSeq) { return; }
       started = true;
       var epNum = episode ? (episode.number || episode.seriesNumber || '') : '';
-      setPlayerStatus(epNum ? ('Cargando capítulo ' + epNum + '…') : 'Cargando capítulo…');
+      setPlayerStatus(epNum ? ('Cargando capítulo ' + epNum + '…') : (isSeriesItem(it) ? 'Cargando capítulo…' : 'Cargando película…'));
       resolvePlayerStream(it, function (url) {
         if (url) { playUrl(url); }
         else if (!state.streamError) { setPlayerStatus('Sin fuente de reproducción'); }
@@ -698,17 +782,17 @@ function startPlayerVideo(item, episode) {
   }
   if (it._portal) {
     var epNum = episode ? (episode.number || episode.seriesNumber || '') : '';
-    setPlayerStatus(epNum ? ('Cargando capítulo ' + epNum + '…') : 'Cargando capítulo…');
+    setPlayerStatus(epNum ? ('Cargando capítulo ' + epNum + '…') : (isSeriesItem(it) ? 'Cargando capítulo…' : 'Cargando película…'));
     resolvePlayerStream(it, function (url) {
       if (url) { playUrl(url); }
       else if (!state.streamError) { setPlayerStatus('Sin fuente de reproducción'); }
     });
     return;
   }
-  if (it._stremio && !it.streamUrl && !(episode && episode.streamUrl)) {
-    setPlayerStatus('Buscando stream en addons de Stremio…');
-    resolveStremioStream(it, episode || state.playerEpisode, function (url) {
+  if (it._stremio) {
+    resolvePlayerStream(it, function (url) {
       if (url) { playUrl(url); }
+      else if (!state.streamError) { setPlayerStatus('Sin fuente de reproducción'); }
     });
     return;
   }
@@ -718,6 +802,8 @@ function startPlayerVideo(item, episode) {
 }
 
 function expandToFullscreen(item, episode) {
+  /* Stremio mode: first the viewer picks the source (or the saved one is used). */
+  if (stremioNeedsPick(item, episode)) { return; }
   if (!playerStage) { buildPlayer(); }
   /* The detail screen already owns a mini player.  Moving that exact stream
      to fullscreen must not resolve it again, otherwise direct and relay
@@ -730,6 +816,7 @@ function expandToFullscreen(item, episode) {
   if (item && state.playerItem !== item) { resetMediaSelection(); }
   if (item) { state.playerItem = item; }
   if (episode) { state.playerEpisode = episode; }
+  try { document.dispatchEvent(new CustomEvent('xuper:player-item')); } catch (eEv) { /* old webOS */ }
   if (item) { restoreSmoothMode(item); }
   state.playerReturn = { screen: 'detail', focus: state.focus };
 

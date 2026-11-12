@@ -6,9 +6,21 @@
      1920px design canvas; app.js scales that canvas to the actual display. -->
 <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>OpenTV</title>
+<!-- Start screen from the very first frame (before app.js has loaded, the
+     page underneath is not laid out yet); desktop/splash.js removes it. -->
+<style>
+  html, body { background: #0e0e11; }
+  .boot-splash { position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    background: radial-gradient(60% 60% at 50% 45%, #1b1b21 0%, #0e0e11 70%); color: #fff;
+    font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; }
+  .boot-splash .bs-name { font-size: 30px; font-weight: 700; letter-spacing: -.01em; }
+  .boot-splash .bs-sub { font-size: 14px; color: rgba(255, 255, 255, .5); }
+</style>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<div id="boot-splash" class="boot-splash"><div class="bs-name">OpenTV</div><div class="bs-sub">Preparando tu catálogo…</div></div>
 <div id="app">
 
   <!-- ============================================================
@@ -18,7 +30,7 @@
   <section id="screen-welcome" class="screen is-active">
     <img class="welcome-logo" src="images/logo-mark.svg" alt="">
     <div class="welcome-name">OpenTV</div>
-    <div class="welcome-version">v1.0.0</div>
+    <div class="welcome-version">v1.1.0</div>
     <div class="welcome-loading"><i></i><img id="welcome-loading-img" alt="" src="assets/original/welcome/img_welcome_loading1.png"></div>
   </section>
 
@@ -29,7 +41,7 @@
     <div id="home-pages" class="home-pages"></div>
     <div class="home-sidebar-bg"></div>
     <div id="home-tabs" class="home-tabs"></div>
-    <div class="home-port-credit"><img src="images/logo-mark.svg" alt="">OpenTV</div>
+    <div class="home-port-credit"><img src="images/logo-mark.svg" alt="">OpenTV<span class="mode-pill">Addons</span></div>
     <div id="home-notify" class="home-notify"></div>
   </section>
 
@@ -59,8 +71,8 @@
       <div class="search-grid" id="search-result-grid"></div>
       <div class="search-empty" id="search-empty">
         <div class="search-empty-title">No hay resultados</div>
-        <div class="search-empty-hint h1">1. Intente nuevamente usando el nombre de la película, serie, director o actor para obtener un resultado más preciso.</div>
-        <div class="search-empty-hint h2">2. Para buscar canales en vivo, vaya a canales en vivo en modo de pantalla completa</div>
+        <div class="search-empty-hint h1">Prueba con otro nombre de película, serie, director o actor, o revisa cómo está escrito.</div>
+        <div class="search-empty-hint h2">Para buscar un canal, abre TV en vivo y usa la Guía.</div>
       </div>
     </div>
   </section>
@@ -192,13 +204,6 @@
           </div>
         </div>
 
-        <!-- FEEDBACK -->
-        <div class="psv-row" id="psv-sec-feedback">
-          <div class="psv-title">Ayuda</div>
-          <div class="psv-grid scrollable" id="psv-feedback-row">
-            <button class="psv-btn focusable" id="psv-btn-feedback">Feedback</button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -279,24 +284,14 @@
   <div class="dialog-addons-overlay" id="dialog-addons">
     <div class="dialog-addons-box">
       <div class="da-header">
-        <div class="da-title">Addons y Listas de TV (M3U)</div>
-        <div class="da-subtitle">Extiende el catálogo de canales en vivo con listas IPTV externas (como en Kino APK)</div>
+        <div class="da-title">Buscar listas de TV</div>
+        <input type="text" id="da-search" class="da-input focusable" placeholder="País, idioma o tema (México, noticias, infantil…)" />
       </div>
       <div class="da-body scrollable">
-        <div class="da-section-title">Listas Recomendadas (1-Clic para Instalar)</div>
         <div class="da-presets" id="da-presets-list"></div>
-
-        <div class="da-section-title">Agregar Lista Personalizada (URL M3U / M3U8)</div>
-        <div class="da-custom-row">
-          <input type="text" id="da-custom-url" class="da-input focusable" placeholder="https://ejemplo.com/lista.m3u" />
-          <button class="da-btn focusable" id="da-btn-add-custom">Agregar</button>
-        </div>
-
-        <div class="da-section-title">Addons y Listas Instaladas</div>
-        <div class="da-installed" id="da-installed-list"></div>
       </div>
       <div class="da-footer">
-        <button class="da-exit-btn focusable" id="da-btn-exit">Cerrar / Volver</button>
+        <button class="da-exit-btn focusable" id="da-btn-exit">Cerrar</button>
       </div>
     </div>
   </div>
@@ -321,7 +316,10 @@
 <script src="desktop/hls.min.js"></script>
 <script src="desktop/bridge.js"></script>
 <script src="desktop/player.js"></script>
+<!-- Android: video through the app's native player (does nothing elsewhere) -->
+<script src="js/native-player.js"></script>
 <script src="desktop/input.js"></script>
 <script src="js/app.js"></script>
+<script src="js/boot-guard.js"></script>
 </body>
 </html>

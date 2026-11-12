@@ -47,12 +47,16 @@ function showScreen(name) {
     }
     /* PiP keeps playing while browsing; a TV channel handed to the home
        preview keeps playing there. */
-    if (!keepFloatingVideo() && !(liveHandoff && liveHandoff.type === 'player')) { stopPlayerVideo(); }
+    if (!keepFloatingVideo() && !(liveHandoff && liveHandoff.type === 'player')) {
+      stopPlayerVideo();
+      stremioTorrentRelease();   /* frees the torrent's download (Stremio mode) */
+    }
     /* Really leaving the player: drop the subtitle cues as well. */
     subtitleSeq++;
     activeSubtitleCues = [];
     if (playerSubtitles) { playerSubtitles.innerHTML = ''; }
   }
+  if (name === 'home' && state.focus) { syncHomeRail(state.focus); }
   schedulePosterMemoryPass();
 }
 
@@ -62,6 +66,10 @@ function back() {
   if (now - lastBackTime < 250) { return; }
   lastBackTime = now;
   if (historyDrawerOpen) { closeHistoryDrawer(); return; }
+  if (sourcePickerOpen) { closeSourcePicker(); return; }
+  /* The remote's Back (Fire TV, Android TV) closes the channel guide; it
+     used to move the focus to the menu behind it, leaving the guide open. */
+  if (liveGuideOpen) { closeLiveGuide(); return; }
   /* The audio/subtitle dialog can now open from the details screen too. */
   if (dialogPlaySettingsOpen) {
     closePlaySettingsDialog();
@@ -70,7 +78,8 @@ function back() {
   if (state.screen === 'player') {
     if (vodScrubbing) {
       leaveVodScrub(false);
-      return;
+      /* (TVs: Back during a glide cancels it and still leaves.) */
+      if (!(platformIsTv() && window.XUPER_DESKTOP)) { return; }
     }
     if (state.categoryPickerOpen) {
       lastBackTime = Date.now();
@@ -88,6 +97,10 @@ function back() {
     }
     if (state.channelsOpen) {
       closeChannelPanel();
+    } else if (platformIsTv() && window.XUPER_DESKTOP) {
+      /* TVs: Back leaves the player at once (hiding the controls first made
+         it take several presses, as they come back with any key). */
+      restorePlayerReturn();
     } else if (state.infobar) {
       hideInfobar();
     } else if (state.vodInfobarVisible) {
@@ -128,6 +141,14 @@ function back() {
     return;
   }
   if (state.screen === 'search') {
+    /* TVs: Back from the results goes up to the search field first (a long
+       way with the arrows), then leaves. */
+    if (platformIsTv() && window.XUPER_DESKTOP && searchInput && state.focus && state.focus !== searchInput &&
+        closest(state.focus, '.search-results')) {
+      if (searchResults) { searchResults.scrollTop = 0; searchResults._tvTop = 0; }
+      setFocus(searchInput);
+      return;
+    }
     clearSearchState();
     showScreen('home');
     selectTab(state.tab, false);
@@ -185,6 +206,13 @@ function handleKey(e) {
   /* Back buttons */
   var isBack = (k === 461 || k === 27 || k === 8 || key === 'Back' || key === 'GoBack' || key === 'Escape');
   if (isBack) {
+    if (sourcePickerOpen) {
+      lastBackTime = Date.now();
+      closeSourcePicker();
+      if (e.preventDefault) { e.preventDefault(); }
+      if (e.stopPropagation) { e.stopPropagation(); }
+      return;
+    }
     if (state.categoryPickerOpen) {
       closeCategoryPicker();
       if (e.preventDefault) { e.preventDefault(); }
@@ -372,6 +400,12 @@ function handleKey(e) {
       return;
     }
     if (state.playerMode === 'vod') {
+      /* TVs: left/right glide through the film (hold to go faster). */
+      if (platformIsTv() && (k === 37 || k === 39)) {
+        tvSeekKey(k === 39 ? 1 : -1);
+        if (e.preventDefault) { e.preventDefault(); }
+        return;
+      }
       if (state.focus === vodSeekbar && vodScrubbing) {
         if (k === 37) { moveVodScrub(-1); if (e.preventDefault) { e.preventDefault(); } return; }
         if (k === 39) { moveVodScrub(1); if (e.preventDefault) { e.preventDefault(); } return; }
@@ -385,7 +419,9 @@ function handleKey(e) {
         return;
       }
       if (k === 38) {
-        enterVodScrub();
+        /* TVs: up only shows the controls (left/right already move through
+           the film); on the LG layout it grabbed the bar. */
+        if (platformIsTv()) { showVodInfobar(); } else { enterVodScrub(); }
         if (e.preventDefault) { e.preventDefault(); }
         return;
       }
@@ -428,7 +464,24 @@ function handleKey(e) {
           if (e.preventDefault) { e.preventDefault(); }
           return;
         }
-        if (k === 39) { closeChannelPanel(); if (e.preventDefault) { e.preventDefault(); } return; }
+        /* TVs open the list with → (it sits on the right), so ← closes it. */
+        if (k === (platformIsTv() ? 37 : 39)) { closeChannelPanel(); if (e.preventDefault) { e.preventDefault(); } return; }
+      } else if (platformIsTv() && window.XUPER_DESKTOP) {
+        /* TVs, the remote in the live player (shown on the banner):
+           ↑ next channel · ↓ previous · → channel list · ← last channel. */
+        if (k === 38 || k === 40) {
+          var step = k === 38 ? 1 : -1;
+          var n = CHANNELS.length;
+          if (n) { setChannel((state.channel + step + n) % n, false); }
+          showInfobar();
+        } else if (k === 39) {
+          hideInfobar();
+          openChannelPanel();
+        } else if (k === 37) {
+          recallLastChannel();
+        }
+        if (e.preventDefault) { e.preventDefault(); }
+        return;
       } else {
         if (k === 38) {
           if (state.channel > 0) { setChannel(state.channel - 1, false); }

@@ -17,8 +17,28 @@ function runDesktopSearch(rawQ, localMatches) {
   var query = rawQ.trim();
   rememberRecentSearch(query);
   hideSearchSuggest();
-  var remote = vodApi.mode === 'portal' && getVodSourcesConfig().mode !== 'external' && norm(query).length >= 2;
+  var addonSearch = stremioModeOn() && norm(query).length >= 2;
+  var remote = vodApi.mode === 'portal' && !stremioModeOn() && norm(query).length >= 2;
   state.searchRemote = null;
+  if (addonSearch) {
+    /* Stremio mode: the addons that can search answer instead of the server. */
+    state.searchStatus = 'searching';
+    renderSearchResults(localMatches);
+    state.searchTimer = setTimeout(function () {
+      state.searchTimer = null;
+      searchStremioAddons(query, function (found) {
+        if (seq !== state.searchSeq) { return; }
+        var merged = localMatches.slice(), seen = {};
+        for (var m = 0; m < merged.length; m++) { seen[String(merged[m].id)] = true; }
+        for (var f = 0; f < found.length; f++) {
+          if (!seen[String(found[f].id)]) { seen[String(found[f].id)] = true; merged.push(found[f]); }
+        }
+        state.searchStatus = 'done';
+        renderSearchResults(merged);
+      });
+    }, 350);
+    return;
+  }
   if (!remote) {
     state.searchStatus = 'done';
     renderSearchResults(localMatches);
@@ -145,8 +165,8 @@ function makeDesktopSearchCard(item) {
   if (year) { bits.push(year[0]); }
   bits.push(isSeriesItem(item) ? 'Serie' : 'Película');
   info.appendChild(el('div', 'sr-meta', bits.join(' · ')));
-  if (item.genres && item.genres.length) {
-    info.appendChild(el('div', 'sr-genres', item.genres.slice(0, 3).join(', ')));
+  if (item.genres && item.genres.length && itemGenres(item, 3).length) {
+    info.appendChild(el('div', 'sr-genres', itemGenres(item, 3).join(', ')));
   }
   /* The search answer carries no synopsis; skip the "Sin sinopsis" filler. */
   if (item.synopsis && !/^[\s—–\-]*$/.test(String(item.synopsis)) && !/^sin sinopsis/i.test(String(item.synopsis).trim())) {
@@ -181,6 +201,10 @@ function updateSearchCount() {
   var shown = (state.searchMatches || []).length;
   var remote = state.searchRemote;
   var total = Math.max(shown, remote ? remote.total + (shown - remote.received > 0 ? shown - remote.received : 0) : shown);
+  if (searchCapped() && total > shown && shown >= SEARCH_TV_MAX) {
+    srCount.textContent = 'Los primeros ' + shown + ' de ' + total + ' resultados · escribe más para afinar';
+    return;
+  }
   srCount.textContent = total === 1 ? '1 resultado' : (total + ' resultados');
 }
 
@@ -205,6 +229,7 @@ function maybeLoadMoreSearch() {
   var remote = state.searchRemote;
   if (!remote || remote.done || remote.loading || remote.error || !searchResults) { return; }
   if (remote.seq !== state.searchSeq) { return; }
+  if (searchCapped() && (state.searchMatches || []).length >= SEARCH_TV_MAX) { remote.done = true; updateSearchMore(); return; }
   var gap = searchResults.scrollHeight - searchResults.scrollTop - searchResults.clientHeight;
   if (gap < 700) { loadMoreSearch(); }
 }
@@ -231,6 +256,7 @@ function loadMoreSearch() {
       if (!remote.seen[String(item.id)]) { remote.seen[String(item.id)] = true; fresh.push(item); }
     }
     var offset = state.searchMatches.length;
+    if (searchCapped()) { fresh = fresh.slice(0, Math.max(0, SEARCH_TV_MAX - offset)); }
     state.searchMatches = state.searchMatches.concat(fresh);
     if (fresh.length) { appendSearchCards(fresh, offset); }
     remote.received += items.length;
@@ -255,6 +281,12 @@ function renderDesktopSearchList() {
   srBody.className = 'sr-body is-' + view;
   var views = srToggle.children;
   for (var v = 0; v < views.length; v++) { views[v].classList.toggle('is-selected', views[v]._mode === view); }
+  /* The server's answer re-renders the cards: a remote on one of them keeps
+     its place instead of losing the focus (TV). */
+  var focusedIndex = -1;
+  if (state.focus && state.focus.parentNode === srBody) {
+    focusedIndex = Array.prototype.indexOf.call(srBody.children, state.focus);
+  }
   if (!matches.length) {
     searchEmpty.classList.add('is-active');
     srWrap.hidden = true;
@@ -267,6 +299,14 @@ function renderDesktopSearchList() {
   updateSearchCount();
   updateSearchStateUi();
   updateSearchMore();
+  if (state.screen !== 'search') { return; }
+  if (focusedIndex >= 0) {
+    setFocus(srBody.children[Math.min(focusedIndex, srBody.children.length - 1)]);
+  } else if (typeof tvFocusResults !== 'undefined' && tvFocusResults) {
+    /* TV, after the keyboard's "Buscar": straight to the first result. */
+    tvFocusResults = false;
+    setFocus(srBody.children[0]);
+  }
 }
 
 function updateSearchStateUi() {
@@ -312,11 +352,18 @@ function updateSearchStateUi() {
 
 var SEARCH_PAGE_SIZE = 10;
 
+/* TVs: at most this many results ("spi" matched 445). More cards only cost
+   memory and make the way back up long; the count asks for a longer word. */
+var SEARCH_TV_MAX = 100;
+function searchCapped() { return platformIsTv() && window.XUPER_DESKTOP; }
+
 function renderSearchResults(matches) {
   /* A short query can match hundreds of portal titles.  webOS 4 runs out
      of media/UI memory if every poster is inserted at once, so retain the
      complete result list in JS but render one 2-row page at a time. */
-  state.searchMatches = matches || [];
+  matches = matches || [];
+  if (searchCapped() && matches.length > SEARCH_TV_MAX) { matches = matches.slice(0, SEARCH_TV_MAX); }
+  state.searchMatches = matches;
   state.searchPage = 0;
   renderSearchResultPage(0, -1);
 }

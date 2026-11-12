@@ -1,0 +1,441 @@
+/* 10-teles.css — Teles (LG, Android TV, Fire TV): menú a la izquierda, tarjetas, reproductor, ficha y TV en vivo para control remoto.
+   Parte de ui/desktop/tw/input.css (el orden de los archivos importa). */
+
+/* =====================================================================
+   Teles (LG, Android TV, Fire TV): el diseño de PC con el menú a la
+   izquierda, como la versión de LG. Abrir o cerrar el menú solo cambia
+   opacidades (barato en GPUs modestas): la página no se mueve.
+   Sin "gap" en flex: el navegador de la TV LG (Chromium 53) no lo tiene.
+   ===================================================================== */
+/* Sombra fija detrás de los iconos del menú (la franja de arriba es la de PC). */
+.desktop.is-tv #screen-home::after {
+  content: ""; position: absolute; z-index: 29; pointer-events: none;
+  left: calc(var(--ox, 0px) * -1); top: calc(var(--oy, 0px) * -1);
+  width: 260px; height: calc(1080px + var(--oy, 0px) * 2);
+  background: linear-gradient(to right, rgba(8, 8, 10, .85) 0%, rgba(8, 8, 10, .5) 50%, rgba(8, 8, 10, 0) 100%);
+}
+/* Panel del menú abierto. */
+.desktop.is-tv .home-sidebar-bg {
+  display: block !important; position: absolute; z-index: 30; pointer-events: none;
+  left: calc(var(--ox, 0px) * -1); top: calc(var(--oy, 0px) * -1);
+  width: 660px; height: calc(1080px + var(--oy, 0px) * 2);
+  background: linear-gradient(to right, rgba(8, 8, 10, .97) 0%, rgba(8, 8, 10, .9) 45%, rgba(8, 8, 10, 0) 100%);
+  opacity: 0; transition: opacity .16s ease !important;
+}
+.desktop.is-tv .home-sidebar-bg.tv-open { opacity: 1; }
+/* Composited layers cost a Fire TV Stick on every frame (it draws at
+   1920×1080). The PC hero layer is never used on TVs but stayed as a
+   full-screen layer (will-change), and the rail's shade kept another; being
+   under the rows, they made the browser give every poster row its own big
+   layer ("overlaps other composited content"). */
+.desktop.is-tv .home-hero { display: none !important; }
+.desktop.is-tv .home-tabs {
+  left: 34px !important; top: 0 !important;
+  width: 340px !important; height: 1080px !important;
+  flex-direction: column !important; align-items: stretch; justify-content: center; gap: 0;
+}
+.desktop.is-tv .home-tabs .tab-item {
+  height: 66px !important; padding: 0 22px !important; margin: 3px 0 !important;
+  border-radius: 14px; box-shadow: none !important;
+}
+.desktop.is-tv .home-tabs .tab-item .tab-icon {
+  display: block !important; position: static !important; flex: 0 0 auto;
+  width: 34px !important; height: 34px !important; color: rgba(255, 255, 255, .62) !important;
+}
+.desktop.is-tv .home-tabs .tab-item .tab-icon svg { width: 34px; height: 34px; display: block; }
+.desktop.is-tv .home-tabs .tab-item .tab-title {
+  margin-left: 22px !important; font-size: 28px !important;
+  color: rgba(255, 255, 255, .78) !important;
+  opacity: 0; transition: opacity .16s ease !important;
+}
+.desktop.is-tv .home-tabs.tv-open .tab-item .tab-title { opacity: 1; }
+.desktop.is-tv .home-tabs .tab-item.is-selected .tab-icon,
+.desktop.is-tv .home-tabs .tab-item.is-selected .tab-title { color: #fff !important; }
+/* Sección actual: barra a la izquierda (visible también con el menú cerrado). */
+.desktop.is-tv .home-tabs .tab-item::after {
+  left: 0; right: auto; top: 19px; bottom: 19px; width: 4px; height: auto;
+  transform: none; opacity: 0; transition: none;
+}
+.desktop.is-tv .home-tabs .tab-item.is-selected::after { opacity: 1; }
+/* Foco: píldora blanca con texto oscuro, se lee bien desde el sofá. */
+.desktop.is-tv .home-tabs .tab-item.is-focused { background: #fff; }
+.desktop.is-tv .home-tabs .tab-item.is-focused .tab-icon,
+.desktop.is-tv .home-tabs .tab-item.is-focused .tab-title { color: #0e0e11 !important; font-weight: 700 !important; }
+.desktop.is-tv .home-tabs .tab-item.is-focused::after { opacity: 0; }
+/* Las páginas dejan sitio a los iconos del menú (arriba siguen el logo,
+   Buscar, Mi lista, el perfil y la hora, como en PC). */
+.desktop.is-tv .home-pages { transform: translateX(48px) !important; }
+/* Sin barras de desplazamiento en la tele. */
+.desktop.is-tv .scrollable { scrollbar-width: none; }
+.desktop.is-tv .scrollable::-webkit-scrollbar { display: none; width: 0; height: 0; }
+/* Rendimiento en TV: sin máscara de difuminado en los bordes de cada fila
+   (obliga a pintar la fila en una capa aparte en cada fotograma) ni sombras
+   difuminadas al enfocar. */
+.desktop.is-tv .d-row-strip { -webkit-mask-image: none; mask-image: none; }
+/* Foco como en las apps nativas de Android TV (Xuper Hydra: 1,1× en 200 ms):
+   zoom corto con marco blanco. El póster enfocado (y el que lo acaba de
+   perder, mientras se encoge) tiene su propia capa, así el zoom lo anima el
+   compositor sin redibujar la fila. */
+.desktop.is-tv .poster { transition: transform .12s ease-out !important; }
+.desktop.is-tv .poster:hover { transform: none; }
+.desktop.is-tv .poster.is-focused,
+.desktop.is-tv .poster.was-focused { will-change: transform; }
+.desktop.is-tv .poster.is-focused { box-shadow: none; z-index: 40; transform: scale(1.08) !important; }
+.desktop.is-tv .poster.is-focused::after { box-shadow: inset 0 0 0 4px #fff; }
+.desktop.is-tv .tvf-card.is-focused { transform: scale(1.04) !important; }
+/* TVs: sections appear at once. The page slide and the staggered entry of
+   rows and blocks (03-reproductor-efectos.css) cost a Fire TV Stick about a
+   second on TV en vivo: one animation per channel row, icon and svg, every
+   frame (even at the 1 ms of Modo ligero). */
+.desktop.is-tv .home-page.is-entering,
+.desktop.is-tv #screen-home.is-active .live-row,
+.desktop.is-tv .home-page.is-current > * { animation: none !important; }
+/* Search results: the same focus as the posters (white frame, a bit bigger). */
+.desktop.is-tv .sr-card { transition: transform .18s ease; }
+.desktop.is-tv .sr-card.is-focused { outline: none; z-index: 2; transform: scale(1.06); }
+.desktop.is-tv .sr-card.is-focused .sr-art { box-shadow: 0 0 0 4px #fff; }
+/* Tarjetas grandes de arriba (en lugar de la portada). */
+.desktop.is-tv .tvf-card { border-radius: 14px; overflow: hidden; background: #17171c; }
+.desktop.is-tv .tvf-card .p-img { width: 100%; height: 100%; object-fit: cover; }
+.desktop.is-tv .tvf-shade {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 60%; pointer-events: none;
+  background: linear-gradient(to top, rgba(8, 8, 10, .92) 0%, rgba(8, 8, 10, .55) 55%, rgba(8, 8, 10, 0) 100%);
+}
+.desktop.is-tv .tvf-text { position: absolute; left: 30px; right: 30px; bottom: 24px; pointer-events: none; }
+.desktop.is-tv .tvf-kicker { font-size: 18px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: rgba(255, 255, 255, .7); }
+.desktop.is-tv .tvf-title {
+  margin-top: 6px; font-size: 40px; font-weight: 700; line-height: 1.1; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.desktop.is-tv .tvf-meta { margin-top: 8px; font-size: 22px; color: rgba(255, 255, 255, .8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop.is-tv .hero-btn.is-focused { transform: scale(1.06); box-shadow: 0 0 0 4px #0e0e11, 0 0 0 8px #fff; }
+/* Reproductor en TV: el control no llega a la barra de botones (←/→
+   adelantan o retroceden, ↓ abre los ajustes, Atrás sale). Quedan el
+   título, la barra de progreso, el estado en el centro y una pista. */
+.desktop.is-tv .vod-infobar-tips .vt-left,
+.desktop.is-tv .vod-infobar-tips .vt-right,
+.desktop.is-tv #vod-back { display: none !important; }
+.desktop.is-tv .vod-infobar-tips .vt-center .vod-tip { pointer-events: none; }
+.desktop.is-tv .vod-infobar-tips { position: relative; }
+/* TV en vivo en la tele: el volumen lo lleva el control remoto. */
+.desktop.is-tv .live-dock-volume,
+.desktop.is-tv .live-dock-vol,
+.desktop.is-tv .live-dock-btn.is-mute { display: none !important; }
+/* Márgenes de TV (zona segura): logo e iconos más abajo y separados de los
+   bordes; el contenido empieza con aire debajo de la franja de arriba. */
+.desktop.is-tv .home-port-credit { left: 58px !important; top: 52px !important; }
+.desktop.is-tv .home-notify { right: 120px !important; top: 41px !important; }
+/* El aviso "catálogo actualizado" no aporta nada en la tele. */
+.desktop.is-tv #desktop-status { display: none !important; }
+.desktop.is-tv #screen-home::before { height: calc(var(--oy, 0px) + 168px); }
+.desktop.is-tv .home-pages {
+  top: 152px !important;
+  height: calc(928px + var(--oy, 0px)) !important;
+}
+.desktop.is-tv .home-page { height: calc(928px + var(--oy, 0px)) !important; }
+/* Tarjetas pequeñas de arriba. */
+.desktop.is-tv .tvf-card.is-small .tvf-text { left: 20px; right: 20px; bottom: 16px; }
+.desktop.is-tv .tvf-card.is-small .tvf-kicker { font-size: 14px; }
+.desktop.is-tv .tvf-card.is-small .tvf-title { font-size: 26px; margin-top: 4px; }
+.desktop.is-tv .tvf-card.is-small.is-focused { transform: scale(1.06) !important; }
+/* Chosen, a long name is shown whole (it was cut to one line with "…"):
+   two lines on the big cards, three on the small ones, four over a poster. */
+.desktop.is-tv .tvf-card.is-focused .tvf-title {
+  white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+.desktop.is-tv .tvf-card.is-small.is-focused .tvf-title { -webkit-line-clamp: 3; font-size: 24px; line-height: 1.15; }
+.desktop.is-tv .poster.is-focused .p-hover { -webkit-line-clamp: 4; font-size: 21px; padding-top: 70px; }
+/* Reproductor en TV: todo junto abajo, sobre un degradado alto, con los
+   mismos márgenes que el resto de la app (120 px):
+     título
+     00:51:32 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 01:44:59
+                 ⟲10   ( ▶ )   10⟳          [ ↓ Audio, subtítulos y más ]
+   Los botones no se enfocan (←/→ adelantan, ↓ abre los ajustes, Atrás
+   sale): se ven como el estado, no como una barra de herramientas. */
+.desktop.is-tv .player-vod-infobar {
+  height: 600px;
+  background: linear-gradient(to top, rgba(0, 0, 0, .94) 0%, rgba(0, 0, 0, .78) 34%, rgba(0, 0, 0, .35) 66%, rgba(0, 0, 0, 0) 100%);
+}
+.desktop.is-tv .player-vod-infobar::before { display: none; }
+.desktop.is-tv .player-vod-infobar .vod-infobar-content { left: 120px; right: 120px; bottom: 56px; gap: 30px; }
+.desktop.is-tv .vod-topbar {
+  left: 120px !important; right: 120px; top: 728px !important;
+}
+.desktop.is-tv .vod-topbar::before { display: none; }
+.desktop.is-tv .vod-topbar .vod-infobar-title {
+  font-size: 54px !important; font-weight: 700 !important; line-height: 1.15 !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 1400px;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, .5);
+}
+.desktop.is-tv .player-vod-infobar .vod-seekbar-row { align-items: center; }
+.desktop.is-tv .player-vod-infobar .vod-time-current,
+.desktop.is-tv .player-vod-infobar .vod-time-total {
+  font-size: 30px !important; font-weight: 600; min-width: 132px; font-variant-numeric: tabular-nums;
+}
+.desktop.is-tv .player-vod-infobar .vod-time-current { color: #fff; }
+.desktop.is-tv .player-vod-infobar .vod-time-total { color: rgba(255, 255, 255, .7); text-align: right; }
+/* Barra gruesa, de bordes redondos; al adelantar con el control, más todavía. */
+.desktop.is-tv .vod-seekbar { height: 10px !important; border-radius: 999px; background: rgba(255, 255, 255, .24) !important; }
+.desktop.is-tv .vod-seek-buffered { border-radius: 999px; background: rgba(255, 255, 255, .4) !important; }
+.desktop.is-tv .vod-seek-progress { border-radius: 999px; background: #fff !important; }
+.desktop.is-tv .vod-seekbar.is-scrubbing { height: 16px !important; }
+.desktop.is-tv .vod-seek-thumb { width: 30px !important; height: 30px !important; background: #fff !important; box-shadow: 0 0 0 6px rgba(255, 255, 255, .22) !important; }
+/* Centro: −10 s y +10 s en círculos de cristal, reproducir en blanco. */
+.desktop.is-tv .vod-infobar-tips .vt-center { grid-column: 2; gap: 0; padding: 0; }
+.desktop.is-tv .vt-center .vod-tip.is-icon-btn:not(#vod-toggle) {
+  width: 84px; height: 84px; margin: 0 22px;
+  background: rgba(255, 255, 255, .12) !important; border: 0 !important;
+}
+.desktop.is-tv .vt-center .vod-tip.is-icon-btn:not(#vod-toggle) svg { width: 44px; height: 44px; }
+.desktop.is-tv .vod-infobar-tips #vod-toggle.is-icon-btn {
+  width: 112px; height: 112px; margin: 0 22px;
+  background: #fff !important; color: #0e0e11 !important; border: 0 !important;
+}
+.desktop.is-tv .vod-infobar-tips #vod-toggle svg { width: 50px; height: 50px; }
+/* Derecha: la pista de ajustes como una píldora, alineada con el margen. */
+.desktop.is-tv .vt-tv-hint {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  height: 64px; padding: 0 30px; border-radius: 999px;
+  display: flex; align-items: center;
+  background: rgba(255, 255, 255, .12);
+  font-size: 24px; font-weight: 600; color: #fff; white-space: nowrap;
+}
+/* Sin botón flotante de Volver: el control tiene Atrás. */
+.desktop.is-tv #desktop-back { display: none !important; }
+/* Ficha en TV: la imagen del título de fondo a la derecha, fundida con el
+   negro; a la izquierda el texto y, justo debajo, los botones; abajo
+   "Quizás te guste". Márgenes de 120 px como el resto. */
+.desktop.is-tv #screen-detail { background: #0e0e11; }
+.desktop.is-tv .detail-player {
+  left: auto; right: 0; top: 0; width: 1260px; height: 709px;
+  overflow: hidden; background: #0e0e11; border-radius: 0 !important; box-shadow: none !important; z-index: 0;
+}
+.desktop.is-tv .detail-player::after {
+  content: ""; position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  border: 0 !important; border-radius: 0 !important; pointer-events: none;
+  background:
+    linear-gradient(to right, #0e0e11 0%, rgba(14, 14, 17, .86) 22%, rgba(14, 14, 17, .3) 52%, rgba(14, 14, 17, 0) 78%),
+    linear-gradient(to top, #0e0e11 0%, rgba(14, 14, 17, .65) 24%, rgba(14, 14, 17, 0) 55%);
+}
+.desktop.is-tv .detail-tv-art { width: 100%; height: 100%; object-fit: cover; display: block; }
+.desktop.is-tv .detail-left { left: 120px; width: 880px; z-index: 2; }
+/* El texto termina justo encima de los botones (crece hacia arriba). */
+.desktop.is-tv #screen-detail:not(.is-synopsis-open) .detail-left { top: auto !important; bottom: 624px; }
+.desktop.is-tv .detail-title { font-size: 58px; text-shadow: 0 2px 18px rgba(0, 0, 0, .55); }
+.desktop.is-tv .detail-meta { font-size: 24px; }
+.desktop.is-tv .detail-synopsis .text { font-size: 24px; line-height: 1.45; color: rgba(255, 255, 255, .82); }
+.desktop.is-tv .detail-buttons { left: 120px; right: auto; top: 480px; z-index: 2; gap: 0; }
+.desktop.is-tv .detail-buttons .detail-btn {
+  height: 66px; margin-right: 16px; padding: 0 32px 0 26px;
+  border: 0 !important; border-radius: 999px; outline: none !important;
+  background: rgba(255, 255, 255, .13) !important; color: #fff !important; box-shadow: none !important;
+  transition: transform .12s ease-out !important;
+}
+.desktop.is-tv .detail-buttons .detail-btn span { font-size: 25px; }
+.desktop.is-tv .detail-buttons .detail-btn.is-icon-only { width: 66px; padding: 0; justify-content: center; }
+.desktop.is-tv .detail-buttons .detail-btn.is-icon-only .detail-btn-icon { width: 28px; height: 28px; }
+.desktop.is-tv .detail-buttons .detail-btn.is-selected path { fill: currentColor; }
+.desktop.is-tv .detail-buttons .detail-btn.is-focused {
+  background: #fff !important; color: #0e0e11 !important; transform: scale(1.05);
+}
+.desktop.is-tv .detail-bottom.dd-flow {
+  top: 590px; height: 490px; padding: 12px 120px 64px; z-index: 2;
+  -webkit-mask-image: none; mask-image: none;
+}
+.desktop.is-tv .dd-rel-arrow { display: none !important; }
+/* Guiones del carrusel en las tarjetas grandes. */
+.desktop.is-tv .tvf-dots { position: absolute; right: 28px; bottom: 32px; display: flex; align-items: center; pointer-events: none; }
+.desktop.is-tv .tvf-dots i { display: block; width: 22px; height: 5px; margin-left: 8px; border-radius: 3px; background: rgba(255, 255, 255, .38); }
+.desktop.is-tv .tvf-dots i.is-on { width: 40px; background: #fff; }
+/* TV en vivo en la tele, más sencillo: vista previa, lista de canales y en
+   la barra solo pausa, Favorito, Guía y Pantalla completa. Fuera recargar,
+   calidad, señal, anterior/siguiente (la lista ya cambia de canal), el
+   icono de expandir, las flechas de la lista y el buscador (escribir con el
+   control es incómodo; la Guía tiene búsqueda). */
+.desktop.is-tv .live-dock-btn.is-tool,
+.desktop.is-tv .live-dock-btn.is-zap,
+.desktop.is-tv .live-dock-sep,
+.desktop.is-tv .live-fullscreen,
+.desktop.is-tv .live-arrow-up,
+.desktop.is-tv .live-arrow-down,
+.desktop.is-tv .channel-search-box.is-home { display: none !important; }
+/* TV en vivo en la tele: vista previa 240..1408 y lista 1440..1800 en
+   pantalla (120 px de margen a la derecha, como el resto). Los valores son
+   de la página, que va desplazada 48 px. */
+.desktop.is-tv .live-main { left: 192px; width: 1168px; height: 657px; }
+/* Su marco de foco, del mismo tamaño (si no, tapaba los botones de abajo). */
+.desktop.is-tv .live-focus,
+.desktop.is-tv #screen-home.is-rail-open .live-focus { left: 192px; width: 1168px; height: 657px; }
+/* El vídeo y su marco miden 1280×720 en css/style.css: aquí llenan la caja
+   (en Android la imagen nativa sigue el tamaño del elemento, sin recorte). */
+.desktop.is-tv .live-main .live-preview-video,
+.desktop.is-tv .live-main .live-frame { width: 100% !important; height: 100% !important; }
+.desktop.is-tv .live-info { top: 537px; width: 1168px; }
+/* Android TV / Fire TV: the preview is drawn by the native player behind the
+   page, always a rectangle that CSS cannot round: with rounded corners its
+   square corners showed past the frame. Straight corners there (and on its
+   focus frame); LG keeps them (its video is part of the page). */
+.desktop.is-tv.platform-android .live-main { border-radius: 0 !important; }
+.desktop.is-tv.platform-android .live-focus.is-focused::after { border-radius: 0 !important; }
+.desktop.is-tv .live-info .live-channel {
+  left: 36px; right: auto; top: 62px; max-width: 1000px; text-align: left;
+  font-size: 32px; font-weight: 700;
+}
+.desktop.is-tv #screen-home .live-list {
+  right: 120px !important; width: 408px !important;
+  top: 0 !important; height: 741px !important;
+}
+/* Live player (TVs): a channel banner instead of a control bar. A floating
+   card at the bottom with the channel playing and what each key of the
+   remote does (player/build.js .pi-hints, keys in core/navigation.js); no
+   buttons or progress bar to move through. */
+.desktop.is-tv .player-infobar {
+  left: 120px !important; right: 120px !important; width: auto !important;
+  bottom: 56px !important; height: 236px !important;
+  border: 1px solid rgba(255, 255, 255, .1) !important; border-radius: 28px;
+  background: rgba(14, 14, 17, .86) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+}
+.desktop.is-tv .player-infobar .pi-logo {
+  left: 36px !important; top: 34px !important; width: 168px !important; height: 100px !important;
+  border-radius: 16px; background-color: rgba(255, 255, 255, .06) !important;
+}
+.desktop.is-tv .player-infobar .pi-index {
+  left: 236px !important; top: 34px !important; width: 96px !important; height: 60px !important;
+  text-align: left !important; font-size: 48px !important; line-height: 60px !important; font-weight: 700 !important;
+  color: rgba(255, 255, 255, .55) !important;
+}
+.desktop.is-tv .player-infobar .pi-namerow { left: 332px !important; top: 34px !important; height: 60px !important; width: 1100px !important; }
+.desktop.is-tv .player-infobar .pi-namerow .pi-name {
+  top: 0 !important; width: 1100px !important; height: 60px !important;
+  font-size: 48px !important; line-height: 60px !important; font-weight: 700 !important;
+}
+.desktop.is-tv .player-infobar .pi-now {
+  left: 236px !important; top: 98px !important; height: 34px !important;
+  font-size: 26px !important; line-height: 34px !important; font-weight: 600; color: rgba(255, 255, 255, .85) !important;
+}
+.desktop.is-tv .player-infobar .pi-now::before {
+  content: ''; display: inline-block; width: 12px; height: 12px; margin: 0 10px 2px 0;
+  border-radius: 50%; background: #e50914; vertical-align: middle;
+}
+.desktop.is-tv .player-infobar .pi-date { right: 40px !important; top: 46px !important; font-size: 28px !important; color: rgba(255, 255, 255, .6) !important; }
+.desktop.is-tv .player-infobar .pi-range { right: 40px !important; top: 98px !important; }
+.desktop.is-tv .player-infobar .pi-seek,
+.desktop.is-tv .player-infobar .pi-next,
+.desktop.is-tv .player-infobar .pi-actions { display: none !important; }
+.desktop.is-tv .player-infobar .pi-hints {
+  position: absolute; left: 36px; right: 36px; bottom: 30px; height: 56px;
+  display: flex; align-items: center; gap: 14px;
+}
+.desktop.is-tv .player-infobar .pi-hint {
+  display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 22px 0 10px;
+  border-radius: 999px; background: rgba(255, 255, 255, .1);
+  font-size: 24px; font-weight: 600; color: #fff; white-space: nowrap;
+}
+.desktop.is-tv .player-infobar .pi-key {
+  min-width: 42px; height: 38px; padding: 0 8px; box-sizing: border-box; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; color: #0e0e11; font-size: 20px; font-weight: 800;
+}
+/* The channel list without its search box on TVs (no keyboard to use it):
+   the list starts higher. */
+.desktop.is-tv .channel-search-box.is-player { display: none !important; }
+.desktop.is-tv .player-channels .pc-div { top: 160px !important; }
+.desktop.is-tv .player-channels .pc-list { top: 166px !important; }
+/* Channel guide on TVs: full screen (no floating window over a blurred
+   background, costly on a Fire TV), on the 120 px margins; bigger
+   categories and cards, the whole name on two lines, no mouse-only buttons
+   (star, full screen) and no entry animation. */
+.desktop.is-tv .live-guide {
+  background: #0e0e11; -webkit-backdrop-filter: none; backdrop-filter: none; transition: none;
+}
+.desktop.is-tv .lg-panel {
+  left: 0; top: 0; right: 0; bottom: 0; border: 0; border-radius: 0;
+  background: #0e0e11; box-shadow: none; transform: none !important; transition: none;
+}
+.desktop.is-tv .lg-head { padding: 48px 120px 28px; }
+.desktop.is-tv .lg-title { font-size: 46px; }
+.desktop.is-tv .lg-count { font-size: 24px; }
+.desktop.is-tv .lg-cats { flex-basis: 400px; padding: 24px 24px 48px 104px; scrollbar-width: none; }
+.desktop.is-tv .lg-cat { height: 62px; font-size: 27px; }
+.desktop.is-tv .lg-cat-label { font-size: 20px; }
+.desktop.is-tv .lg-grid {
+  padding: 28px 120px 60px 40px; scrollbar-width: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 140px; gap: 22px;
+}
+.desktop.is-tv .lg-card { animation: none !important; padding: 0 24px; gap: 22px; }
+.desktop.is-tv .lg-card.is-focused { box-shadow: 0 0 0 4px #fff; background: rgba(255, 255, 255, .12); }
+.desktop.is-tv .lg-logo { flex-basis: 144px; height: 96px; }
+.desktop.is-tv .lg-info { padding-right: 0; }
+.desktop.is-tv .lg-name {
+  white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  font-size: 27px; line-height: 33px;
+}
+.desktop.is-tv .lg-live { font-size: 21px; }
+.desktop.is-tv .lg-fav, .desktop.is-tv .lg-open { display: none !important; }
+/* Channel rows: bigger and easier to read from the sofa (fewer at a time). */
+.desktop.is-tv .live-row { height: 98px !important; margin-bottom: 10px !important; padding-left: 12px !important; }
+.desktop.is-tv .live-row .row-icon { width: 84px !important; height: 84px !important; border-radius: 16px !important; }
+.desktop.is-tv .live-row .row-name { margin-left: 18px !important; font-size: 28px !important; line-height: 34px !important; font-weight: 600 !important; }
+/* The channel on air also carries the equalizer: its name wraps to a
+   second line instead of ending in "…" (the row is 98 px tall). */
+.desktop.is-tv .live-row .row-name {
+  white-space: normal !important; overflow: hidden; word-break: break-word;
+  display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+.desktop.is-tv .pc-row { height: 108px !important; }
+.desktop.is-tv .pc-row .ic { left: 22px !important; top: 18px !important; width: 104px !important; height: 72px !important; }
+.desktop.is-tv .pc-row .num { left: 144px !important; top: 20px !important; height: 36px !important; font-size: 28px !important; line-height: 36px !important; }
+.desktop.is-tv .pc-row .nm { left: 214px !important; top: 20px !important; height: 36px !important; font-size: 30px !important; line-height: 36px !important; }
+.desktop.is-tv .pc-row .epg { left: 214px !important; top: 60px !important; font-size: 20px !important; line-height: 26px !important; }
+/* Barra debajo de la vista previa: una fila de botones iguales alineada a
+   la izquierda (sin la caja vacía alrededor): pausa, Favorito, Guía,
+   Pantalla completa. El enfocado se pone blanco. */
+.desktop.is-tv .live-dock { left: 192px; top: 681px; width: 1168px; }
+.desktop.is-tv .live-dock-bar {
+  display: flex !important; justify-content: flex-start;
+  padding: 0 !important; border: 0 !important; border-radius: 0 !important;
+  background: none !important; box-shadow: none !important;
+}
+.desktop.is-tv .live-dock-bar .ldb-group.is-left { display: none !important; }
+.desktop.is-tv .live-dock-bar .ldb-group { gap: 0 !important; justify-content: flex-start !important; }
+.desktop.is-tv .live-dock-bar .live-dock-btn {
+  height: 60px !important; margin: 0 14px 0 0 !important;
+  border-radius: 999px !important; outline: none !important;
+  background: rgba(255, 255, 255, .12) !important; color: #fff !important;
+  transition: transform .12s ease-out !important;
+}
+.desktop.is-tv .live-dock-bar .live-dock-btn.is-play { width: 60px !important; }
+.desktop.is-tv .live-dock-bar .live-dock-btn.is-play .live-dock-ico svg { width: 26px; height: 26px; }
+.desktop.is-tv .live-dock-bar .live-dock-btn.is-fav,
+.desktop.is-tv .live-dock-bar .live-dock-btn.is-guide,
+.desktop.is-tv .live-dock-bar .live-dock-btn.is-full { padding: 0 28px 0 22px !important; }
+.desktop.is-tv .live-dock-bar .live-dock-btn.is-fav span,
+.desktop.is-tv .live-dock-bar .live-dock-btn.is-guide span,
+.desktop.is-tv .live-dock-bar .live-dock-btn.is-full span { font-size: 23px; }
+.desktop.is-tv .live-dock-bar .live-dock-btn.is-fav.is-selected { color: #ffd34d !important; }
+.desktop.is-tv .live-dock-bar .live-dock-btn.is-focused {
+  background: #fff !important; color: #0e0e11 !important; transform: scale(1.06);
+}
+
+/* An empty section's message starts where the content does (it ran under
+   the open menu). */
+.desktop.is-tv .catalog-empty { left: 240px !important; }
+
+/* Posters with their title underneath ("Quizás te guste"): when focused the
+   title showed twice (inside the zoomed poster and below it, half covered
+   by the frame). Only the one below stays, moved clear of the frame. */
+.desktop.is-tv .cell > .poster.is-focused .p-hover { display: none !important; }
+.desktop.is-tv .cell > .poster + .d-name { transition: transform .2s ease, color .2s ease; }
+.desktop.is-tv .cell > .poster.is-focused + .d-name { transform: translateY(14px); color: #fff; }
+/* (Whole, on up to two lines, as the title inside used to be.) */
+.desktop.is-tv .cell > .poster.is-focused + .d-name {
+  white-space: normal; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+
+/* "Leer más" chosen with the remote: a white pill (its outline was drawn
+   outside the clipped text block and only one corner showed). */
+.desktop.is-tv .detail-more.is-focused {
+  outline: 0 !important; background: #fff; color: #000 !important; text-decoration: none;
+  border-radius: 999px; padding: 2px 14px;
+}

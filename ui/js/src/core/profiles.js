@@ -67,10 +67,6 @@ function switchToProfile(id) {
 }
 
 /* ------------------------------------------------------------- tabs */
-function tvTabIndex() {
-  for (var i = 0; i < TABS.length; i++) { if (TABS[i].page === 0) { return i; } }
-  return -1;
-}
 /* Where the app starts and where Esc on the home screen goes: Inicio on
    desktop (Kids for a kids profile), TV on the TV set. */
 function homeTabIndex() {

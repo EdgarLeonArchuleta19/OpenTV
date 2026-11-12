@@ -36,16 +36,16 @@ function desktopSettingsButton(label, icon, run, primary) {
   return b;
 }
 
-function buildDesktopSharePanel() {
-  var page = desktopSettingsPage('sd-share', 'Compartir', 'Lleva OpenTV a otro equipo con Windows.');
-  page.body.appendChild(desktopSettingsCard(UI_ICONS.share, 'Comparte el instalador',
-    'Copia el archivo "OpenTV Setup" (o la versión portable) a otro PC y ábrelo allí. No hace falta internet para instalarlo.'));
-  page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Tu perfil se queda aquí',
-    'Tu lista, el historial y tus preferencias están guardados solo en este equipo. En otro PC la app empieza con un perfil nuevo.'));
-  page.body.appendChild(desktopSettingsCard(UI_ICONS.lock, 'Sin cuentas ni contraseñas',
-    'No hay que registrarse: cada equipo crea su propio perfil local al abrir la app.'));
-  return page.panel;
-}
+/* Ayuda on TVs: the remote instead of keyboard shortcuts. */
+var TV_REMOTE_KEYS = [
+  ['OK', 'Abrir, elegir o pausar'],
+  ['Atrás', 'Volver; en el inicio, al menú de la izquierda'],
+  ['▲ ▼', 'TV en vivo: canal siguiente / anterior'],
+  ['▶', 'TV en vivo: lista de canales'],
+  ['◀', 'TV en vivo: último canal visto'],
+  ['◀ ▶', 'Películas: atrasar / adelantar (mantén para ir más rápido)'],
+  ['▼', 'Películas: audio, subtítulos y más']
+];
 
 var DESKTOP_SHORTCUTS = [
   ['Espacio', 'Reproducir o pausar'],
@@ -68,11 +68,11 @@ var DESKTOP_SHORTCUTS = [
 ];
 
 function buildDesktopFeedbackPanel() {
-  var page = desktopSettingsPage('sd-help', 'Ayuda', 'Si algo no funciona, el diagnóstico te dice dónde está el problema.');
-  var diag = desktopSettingsCard(UI_ICONS.diagnostics, '¿Un vídeo o canal no carga?',
-    'Abre el diagnóstico: comprueba tu conexión, el DNS seguro y los servidores, y puede generar un reporte para enviarlo. Nada se envía de forma automática.');
-  diag.appendChild(desktopSettingsButton('Abrir diagnóstico', UI_ICONS.wifi, openDesktopDiagnostic, true));
-  page.body.appendChild(diag);
+  /* Keyboard shortcuts only where there is a keyboard (the PC app); TVs get
+     what each key of the remote does instead. */
+  var hasKeyboard = platformHas('window');
+  var page = desktopSettingsPage('sd-help', 'Ayuda', hasKeyboard ? 'Qué hacer si algo no funciona y los atajos de teclado.'
+    : 'Qué hacer si algo no funciona y cómo se usa el control remoto.');
   if (window.desktop && window.desktop.openLogs) {
     var logs = desktopSettingsCard(UI_ICONS.info, 'Registro de errores',
       'La app anota en un archivo los errores y cierres inesperados (no se envía nada). Si algo falla, abre la carpeta y adjunta opentv.log al reportarlo.');
@@ -85,12 +85,12 @@ function buildDesktopFeedbackPanel() {
   var keys = el('div', 'sd-card sd-keys');
   var kh = el('div', 'sd-keys-head');
   var ki = el('div', 'sd-card-icon');
-  ki.innerHTML = UI_ICONS.keyboard;
+  ki.innerHTML = hasKeyboard ? UI_ICONS.keyboard : UI_ICONS.channels;
   kh.appendChild(ki);
-  kh.appendChild(el('div', 'sd-card-title', 'Atajos de teclado'));
+  kh.appendChild(el('div', 'sd-card-title', hasKeyboard ? 'Atajos de teclado' : 'Control remoto'));
   keys.appendChild(kh);
   var grid = el('div', 'sd-keys-grid');
-  DESKTOP_SHORTCUTS.forEach(function (k) {
+  (hasKeyboard ? DESKTOP_SHORTCUTS : TV_REMOTE_KEYS).forEach(function (k) {
     var row = el('div', 'sd-key-row');
     row.appendChild(el('kbd', null, k[0]));
     row.appendChild(el('span', null, k[1]));
@@ -101,6 +101,17 @@ function buildDesktopFeedbackPanel() {
   return page.panel;
 }
 
+/* What this device is, for the version line ("Versión 1.1.0 · Windows x64"). */
+function aboutPlatformLabel(arch) {
+  var n = platformName();
+  if (n === 'electron') { return 'Windows ' + (arch || 'x64'); }
+  if (n === 'webos') { return 'TV LG'; }
+  if (n === 'android') { return platformIsTv() ? 'Android TV / Fire TV' : 'Android'; }
+  return '';
+}
+
+/* Acerca de: who made it, the version, updates (PC), how your data is kept
+   and, at the bottom, the credits. */
 function buildDesktopAboutPanel() {
   var page = desktopSettingsPage('sd-about', 'Acerca de', null);
   var hero = el('div', 'sd-about-hero');
@@ -110,20 +121,32 @@ function buildDesktopAboutPanel() {
   hero.appendChild(logo);
   var who = el('div', 'sd-about-who');
   who.appendChild(el('div', 'sd-about-name', 'OpenTV'));
-  var ver = el('div', 'sd-about-ver', 'Versión 1.0.0 · Windows x64');
+  var platform = aboutPlatformLabel();
+  var ver = el('div', 'sd-about-ver', 'Versión 1.1.0' + (platform ? ' · ' + platform : ''));
   who.appendChild(ver);
+  who.appendChild(el('div', 'sd-about-tag', 'Películas, series y TV en vivo en un solo lugar.'));
   hero.appendChild(who);
   page.body.appendChild(hero);
   if (window.desktop && window.desktop.info) {
     window.desktop.info().then(function (info) {
-      if (info && info.version) { ver.textContent = 'Versión ' + info.version + ' · Windows ' + (info.arch || 'x64'); }
+      if (info && info.version) { ver.textContent = 'Versión ' + info.version + ' · ' + aboutPlatformLabel(info.arch); }
     }).catch(function () {});
   }
-  page.body.appendChild(buildUpdateCard());
-  page.body.appendChild(desktopSettingsCard(UI_ICONS.channels, 'Películas, series y TV en vivo en un solo lugar',
-    'Catálogo que se actualiza solo, reproducción automática con modo compatible, ventana flotante y tu lista guardada en este equipo.'));
-  page.body.appendChild(desktopSettingsCard(UI_ICONS.user, 'Desarrollado por TECHPOINT Software™', null));
-  page.body.appendChild(desktopSettingsCard(UI_ICONS.info, 'Componentes de código abierto',
-    'Electron, HLS.js (Apache 2.0) y FFmpeg (GPL v3). Las licencias completas están en la carpeta "licenses" de la instalación.'));
+  if (updatesApi()) { page.body.appendChild(buildUpdateCard()); }
+  page.body.appendChild(desktopSettingsCard(UI_ICONS.lock, 'Sin cuentas ni contraseñas',
+    'Tu lista, el historial y tus preferencias se guardan solo en este equipo; no se envían a ningún servidor.'));
+
+  var credits = el('div', 'sd-credits');
+  credits.appendChild(el('div', 'sd-credits-by', 'Hecho por TECHPOINT Software™'));
+  credits.appendChild(el('div', 'sd-credits-line', '© 2026 TECHPOINT Software™ · Licencia MIT'));
+  /* What this version really uses (the Android one has no Electron,
+     FFmpeg or torrent-stream). */
+  credits.appendChild(el('div', 'sd-credits-line', platformHas('window')
+    ? 'Usa Electron, HLS.js, FFmpeg y torrent-stream (código abierto; licencias en la carpeta «licenses»).'
+    : (platformHas('native-player') ? 'Usa Capacitor y ExoPlayer (código abierto).'
+      : (platformHas('hls-js') ? 'Usa HLS.js (código abierto).' : 'Hecho con software de código abierto.'))));
+  credits.appendChild(el('div', 'sd-credits-line',
+    'Tendencias con datos de TMDB. Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB.'));
+  page.body.appendChild(credits);
   return page.panel;
 }

@@ -64,27 +64,8 @@ function fitDesignViewport() {
   app.style.top = top + 'px';
   app.style.webkitTransform = 'scale(' + scale + ')';
   app.style.transform = 'scale(' + scale + ')';
-  /* Read by the network diagnostics panel: a photo of that screen tells
-     which viewport the TV really gave the app (720p / 2K / 4K sets differ). */
-  window.__xuperViewport = {
-    w: vw, h: vh, scale: scale,
-    panelW: size.panel ? size.panel.w : 0,
-    panelH: size.panel ? size.panel.h : 0
-  };
 }
 
-
-function openDesktopDiagnostic() {
-  if (dialogAddonsOpen) closeAddonsDialog();
-  if (state.episodeBrowserOpen) closeEpisodeBrowser();
-  if (state.categoryPickerOpen) closeCategoryPicker();
-  if (dialogPlaySettingsOpen) closePlaySettingsDialog();
-  if (playSettingViewOpen) closePlaySettingView();
-  openSettings();
-  for (var i = 0; i < SETTINGS_ITEMS.length; i++) {
-    if (SETTINGS_ITEMS[i].id === 'netdiag') { showSettingsPanel(i, true); break; }
-  }
-}
 
 function desktopBack() {
   if (historyDrawerOpen) { closeHistoryDrawer(); return; }

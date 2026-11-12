@@ -104,7 +104,23 @@ function installLiveControls() {
 var liveNowPlaying = null;
 function noteLivePlaying(ch) {
   if (!window.XUPER_DESKTOP) { return; }
+  /* The channel watched before this one, for "Último canal" (TV remote ←). */
+  if (liveNowPlaying && ch && liveChannelKey(liveNowPlaying) !== liveChannelKey(ch)) { liveRecallChannel = liveNowPlaying; }
   liveNowPlaying = ch || null;
+}
+
+var liveRecallChannel = null;
+/* Back to the channel watched before (like a TV remote's "recall" key). */
+function recallLastChannel() {
+  var want = liveRecallChannel;
+  if (!want) { setPlayerStatus('Aún no has visto otro canal'); setTimeout(function () { setPlayerStatus(''); }, 1600); return; }
+  var key = liveChannelKey(want);
+  for (var i = 0; i < CHANNELS.length; i++) {
+    if (liveChannelKey(CHANNELS[i]) === key) { setChannel(i, true); showInfobar(); return; }
+  }
+  /* Not in the current category: play it all the same. */
+  startLiveChannel(want, true);
+  showInfobar();
 }
 
 function livePlayingToKeep() {

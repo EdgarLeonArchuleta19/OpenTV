@@ -14,7 +14,6 @@ var psvSecQuality = null;
 var psvQualityRow = null;
 var psvSecAspect = null;
 var psvSecPlayer = null;
-var psvBtnFeedback = null;
 var psvAspectRow = null;
 
 /* Season/episode browser (in-player). */
@@ -59,7 +58,8 @@ var playerCurrentAspect = 'contain';
 var lastHistorySaveAt = 0;
 
 function globalAspectValue() {
-  return ['cover', 'contain', '16-9', '4-3'][Number(state.playback.screen) || 0] || 'contain';
+  var i = state.playback.screen === undefined ? 1 : Number(state.playback.screen);
+  return ['cover', 'contain', '16-9', '4-3'][i] || 'contain';
 }
 
 function globalSubtitleSize() {
@@ -90,7 +90,7 @@ function languageMatchesPreference(label, code) {
   var value = String(label || code || '').toLowerCase();
   var wanted = code || 'es';
   if (wanted === 'es') {
-    return /^(es|spa|esp|lat|cast)|espa|latino|latin|castell/i.test(value);
+    return /^(es|spa|esp|spn|lat|cast)|espa|latino|latin|castell/i.test(value);
   }
   if (wanted === 'pt') { return /^(pt|por)|portu/.test(value); }
   if (wanted === 'en') { return /^(en|eng|ing)|ingl/.test(value); }
@@ -126,6 +126,7 @@ function rememberWatchProgress(current, duration, force) {
     series: !!isSeriesItem(item),
     portal: !!item._portal,
     stremio: !!item._stremio,
+    stremioBase: item._stremioBase || '',
     seasonId: seasonId,
     seasonIndex: seasonIdx,
     seasonNumber: (curSeasonObj && curSeasonObj.number) || '',
@@ -153,7 +154,9 @@ function rememberWatchProgress(current, duration, force) {
           break;
         }
       }
-      if (matchedSeason || (itemTitleNorm && norm(oldRec.title || '') === itemTitleNorm)) { continue; }
+      /* (Same title in the other catalog — Stremio vs integrated — is another title.) */
+      var sameCatalog = !!oldRec.stremio === !!record.stremio;
+      if (matchedSeason || (sameCatalog && itemTitleNorm && norm(oldRec.title || '') === itemTitleNorm)) { continue; }
     }
     next.push(oldRec);
   }
@@ -203,6 +206,13 @@ function applyPendingHistoryEpisode(item) {
 
 function openHistoryRecord(record) {
   if (!record) { return; }
+  /* Stremio titles (PC manual mode) come back through their addon. */
+  if (record.stremio || String(record.id).indexOf('stremio:') === 0) {
+    var addonItem = vodById(record.id) || stremioItemFromHistory(record);
+    pendingHistoryRecord = record.position ? record : null;
+    openDetail(addonItem);
+    return;
+  }
   for (var i = 0; i < VOD.length; i++) {
     if (String(VOD[i].id) === String(record.id)) {
       pendingHistoryRecord = record;

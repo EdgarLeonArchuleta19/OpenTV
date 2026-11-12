@@ -41,6 +41,9 @@ function ensureMediaInfo(item, done) {
     applySubtitleDefaults(mediaInfoCache[key]);
     return done(mediaInfoCache[key]);
   }
+  /* Stremio titles: the service has no info about them; subtitles come
+     from the addons when the video starts (player/stremio-sources.js). */
+  if (item._stremio) { return done({ audio: '', subtitles: item.subtitles || [], tracks: [] }); }
   if (mediaInfoPending[key]) { mediaInfoPending[key].push(done); return; }
   mediaInfoPending[key] = [done];
 
@@ -97,8 +100,8 @@ function subtitleLanguageList(info) {
   }
   /* The real dialog lists Español before Inglés for this catalog. */
   out.sort(function (a, b) {
-    var pa = /^(es|spa|esp)$/i.test(a.lang || '') ? 0 : 1;
-    var pb = /^(es|spa|esp)$/i.test(b.lang || '') ? 0 : 1;
+    var pa = /^(es|spa|esp|spn)$/i.test(a.lang || '') ? 0 : 1;
+    var pb = /^(es|spa|esp|spn)$/i.test(b.lang || '') ? 0 : 1;
     return pa - pb;
   });
   return out;
@@ -156,13 +159,4 @@ function applySubtitleDefaults(info) {
     vodCurrentSubtitle = list[0];
     loadSubtitleTrack(vodCurrentSubtitle);
   }
-}
-
-function qualityLabel(track) {
-  var q = String((track && track.quality) || '').trim().toUpperCase();
-  var h = track && track.height;
-  if (!q && h) { q = String(h) + 'P'; }
-  if (q === '4K' || q === '2160P' || q === 'UHD') { return '4K'; }
-  if (/^\d+$/.test(q)) { return q + 'P'; }
-  return q || 'AUTO';
 }

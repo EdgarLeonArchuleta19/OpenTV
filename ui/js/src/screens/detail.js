@@ -2,7 +2,19 @@
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 /* ============================================================ VOD DETAIL */
+/* Back from the player: bring the resume button ("Reanudar · 25:10") up to
+   date. Returns true when the buttons had to be rebuilt (never now). */
+function refreshDetailResume(item) {
+  if (!window.XUPER_DESKTOP || !item || !detailButtons) { return false; }
+  var label = resumeLabelFor(item) || 'Reproducir';
+  var span = detailButtons.querySelector('.detail-btn[data-kind="fullscreen"] span');
+  if (span && span.textContent !== label) { span.textContent = label; }
+  return false;
+}
+
 function openDetail(item) {
+  /* (A stale card or an empty catalog: nothing to open.) */
+  if (!item) { return; }
   /* A video floating in the PiP window keeps playing (and keeps its own
      player state) while the viewer browses other titles. */
   var floating = keepFloatingVideo() && state.playerItem !== item;
@@ -63,9 +75,17 @@ function openDetail(item) {
   /* Mostrar reproductor en recuadro mini */
   if (!playerStage) { buildPlayer(); }
   var scrPlayer = $('screen-player');
-  if (scrPlayer) {
+  /* (TVs: no small player on the details screen, only the picture.) */
+  if (scrPlayer && !platformIsTv()) {
     scrPlayer.classList.add('is-mini');
     scrPlayer.classList.add('is-active');
+    /* The title's picture while the preview loads (or when there is none:
+       no trailer, addon titles) instead of an empty black box. */
+    if (playerVideo && (!document.pictureInPictureElement || state.playerItem === item)) {
+      var stillArt = heroArt(item) || item.poster || '';
+      if (stillArt) { playerVideo.poster = sizedImageUrl(stillArt, 1280); }
+      else { playerVideo.removeAttribute('poster'); }
+    }
   }
 
   var f = detailButtons ? detailButtons.querySelector('.focusable') : null;
@@ -130,8 +150,9 @@ var DESKTOP_DETAIL_ICONS = {
   fullscreen: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>',
   language: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 11h3M13 11h4M7 15h6M15 15h2"/></svg>',
   favorite: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.1a4.3 4.3 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20z"/></svg>',
-  restart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.5-5.8L4 8.5"/><path d="M4 3.5v5h5"/></svg>',
-  mode: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></svg>'
+  mylist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6.5 3.5h11v17l-5.5-3.8-5.5 3.8z"/></svg>',
+  mode: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></svg>',
+  source: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h11M4 12h16M4 17h9"/><path d="m17 4 3 3-3 3"/></svg>'
 };
 
 function buildDetail(item) {
@@ -151,7 +172,7 @@ function buildDetail(item) {
   if (item.country || item.releaseDate || item.tagline) {
     /* mTextTimeType: "country | release date | viewpoint" (reference). */
     var bits = [];
-    if (item.country) { bits.push(item.country); }
+    if (item.country) { bits.push(countryName(item.country)); }
     if (item.releaseDate) { bits.push(item.releaseDate); }
     if (item.tagline) { bits.push(item.tagline); }
     metaText = bits.join(' | ');
@@ -183,10 +204,12 @@ function buildDetail(item) {
 
   var genres = el('div', 'detail-genres');
   genres.appendChild(el('span', 'label', 'Género : '));
-  for (var g = 0; g < item.genres.length; g++) {
-    /* Informational metadata must not take D-pad focus on the detail page. */
-    var chip = el('div', 'chip', item.genres[g]);
-    genres.appendChild(chip);
+  /* Informational metadata must not take D-pad focus on the detail page.
+     Names in Spanish, without repeats (Animation and Cartoon are one). */
+  var genreList = itemGenres(item, 6);
+  if (!genreList.length) { genreList = ['Sin clasificar']; }
+  for (var g = 0; g < genreList.length; g++) {
+    genres.appendChild(el('div', 'chip', genreList[g]));
   }
   detailLeft.appendChild(genres);
 
@@ -220,9 +243,23 @@ function buildDetail(item) {
 
   /* player window 765x430 at right 80 / top 50. */
   clear(detailPlayer);
-  detailPlayer.classList.add('focusable');
-  detailPlayer._activate = function () { expandToFullscreen(item, state.detailEpisode); };
-  detailPlayer._onMove = function () { return false; };
+  if (platformIsTv()) {
+    /* TVs: the title's picture instead of a playing preview (a second video
+       next to the buttons came out black on the Fire TV and slowed the whole
+       screen down). Reproducir opens the full-screen player. */
+    detailPlayer.classList.remove('focusable');
+    var tvArt = tvCardArt(item);
+    if (tvArt) {
+      var artImg = el('img', 'detail-tv-art');
+      artImg.decoding = 'async';
+      artImg.src = sizedImageUrl(tvArt, 1280);   /* backdrop behind the text (desktop/tw/input.css) */
+      detailPlayer.appendChild(artImg);
+    }
+  } else {
+    detailPlayer.classList.add('focusable');
+    detailPlayer._activate = function () { expandToFullscreen(item, state.detailEpisode); };
+    detailPlayer._onMove = function () { return false; };
+  }
 
   /* buttons 276x68, gap 30 */
   var btnDefs = [
@@ -235,11 +272,17 @@ function buildDetail(item) {
     btnDefs.push({ icon: 'icon_detail_subscribe.png', label: 'Notificaciones', kind: 'subscribe' });
   }
   if (desk) {
-    btnDefs[0].label = resumeLabelFor(item) || 'Reproducir';
-    btnDefs[1].label = 'Idioma y subtítulos';
-    /* Started before: also offer to play it from the beginning. */
-    if (resumeLabelFor(item) && /^Reanudar/.test(resumeLabelFor(item))) {
-      btnDefs.splice(1, 0, { icon: 'icon_detail_fullscreen.png', label: 'Desde el inicio', kind: 'restart' });
+    /* Reanudar (always where it was left) · Idioma y subtítulos · two
+       icon-only toggles: Favorito and Mi lista. */
+    btnDefs = [
+      { label: resumeLabelFor(item) || 'Reproducir', kind: 'fullscreen' },
+      { label: 'Idioma y subtítulos', kind: 'language' },
+      { label: state.favs[String(item.id)] ? 'Quitar de favoritos' : 'Añadir a favoritos', kind: 'favorite', iconOnly: true },
+      { label: inMyList(item) ? 'Quitar de Mi lista' : 'Añadir a Mi lista', kind: 'mylist', iconOnly: true }
+    ];
+    /* Stremio mode: choose another source (quality, torrent or direct link). */
+    if (item._stremio && !item._plain) {
+      btnDefs.push({ label: 'Cambiar fuente', kind: 'source' });
     }
   }
   for (var b = 0; b < btnDefs.length; b++) {
@@ -257,9 +300,16 @@ function buildDetail(item) {
     }
     btn.appendChild(el('span', null, btnDefs[b].label));
     btn._kind = btnDefs[b].kind;
-    if (btnDefs[b].kind === 'favorite' && state.favs[String(item.id)]) {
+    if (btnDefs[b].iconOnly) {
+      /* Only the icon shows; the label is the tooltip and what a screen reader says. */
+      btn.classList.add('is-icon-only');
+      btn.setAttribute('data-tip', btnDefs[b].label);
+      btn.setAttribute('aria-label', btnDefs[b].label);
+    }
+    if ((btnDefs[b].kind === 'favorite' && state.favs[String(item.id)]) ||
+        (btnDefs[b].kind === 'mylist' && inMyList(item))) {
       btn.classList.add('is-selected');
-      btn.querySelector('span').textContent = 'En favoritos';
+      if (!desk) { btn.querySelector('span').textContent = 'En favoritos'; }
     }
     if (window.XUPER_DESKTOP && btnDefs[b].kind === 'subscribe') {
       btn.setAttribute('aria-disabled', 'true');
@@ -268,22 +318,20 @@ function buildDetail(item) {
     btn._activate = (function (kind, it) {
       return function () {
         if (kind === 'fullscreen') { expandToFullscreen(it, state.detailEpisode); }
-        else if (kind === 'restart') {
-          resumePlan = null;
-          resumeSkipOnce = true;
-          resumeRestarted = true;
-          if (playerVideo) {
-            playerVideo.removeAttribute('src');
-            try { playerVideo.src = ''; } catch (eClr) { /* ignore */ }
-          }
-          expandToFullscreen(it, state.detailEpisode);
-        }
         else if (kind === 'language') { openPlaySettingsDialog(it); }
-        else if (kind === 'favorite') {
-          var enabled = toggleFavorite(it);
+        else if (kind === 'source') { changeStremioSource(it, state.detailEpisode); }
+        else if (kind === 'favorite' || kind === 'mylist') {
+          var enabled = kind === 'favorite' ? toggleFavorite(it) : toggleMyList(it);
           this.classList.toggle('is-selected', enabled);
           var label = this.querySelector('span');
-          if (label) { label.textContent = enabled ? 'En favoritos' : 'Favorito'; }
+          var text = kind === 'favorite'
+            ? (desk ? (enabled ? 'Quitar de favoritos' : 'Añadir a favoritos') : (enabled ? 'En favoritos' : 'Favorito'))
+            : (enabled ? 'Quitar de Mi lista' : 'Añadir a Mi lista');
+          if (label) { label.textContent = text; }
+          if (this.classList.contains('is-icon-only')) {
+            this.setAttribute('data-tip', text);
+            this.setAttribute('aria-label', text);
+          }
         } else if (kind === 'subscribe') {
           var img = this.querySelector('img');
           var on = img.src.indexOf('subscribed') === -1;
@@ -327,6 +375,12 @@ function buildDetail(item) {
   if (!desk) { detailButtons.appendChild(modeBtn); }
 
   renderDetailBottom(item);
+  /* Rebuilt once the full details arrive: the remote must not stay on the
+     buttons that were just replaced (nothing looked focused). */
+  if (state.screen === 'detail' && (!state.focus || !document.documentElement.contains(state.focus))) {
+    var firstBtn = detailButtons.querySelector('.focusable');
+    if (firstBtn) { setFocus(firstBtn, true); }
+  }
 }
 
 /* Episode ranges are chunks of 20 ("1-20", "21-40", ...) as observed. */

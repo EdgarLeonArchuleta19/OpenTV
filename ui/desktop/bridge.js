@@ -28,7 +28,7 @@
   // Default to Directo (normal), preserving a later user choice.
   try {
     if (!localStorage.getItem('xuper_global_playback_v1')) {
-      localStorage.setItem('xuper_global_playback_v1', JSON.stringify({ streamMode: 'normal', screen: 0,
+      localStorage.setItem('xuper_global_playback_v1', JSON.stringify({ streamMode: 'normal', screen: 1,
         audio: 0, subLang: 0, size: 0, style: 0, subtitle: true }));
     }
   } catch (_) { /* storage may be disabled by the host */ }
@@ -57,7 +57,7 @@
         guard = setTimeout(function () {
           playback.hidden = false;
           playback.classList.add('is-error');
-          playback.textContent = 'El servicio no completó la carga del vídeo. Abre Diagnóstico para ver el último intento.';
+          playback.textContent = 'El vídeo no terminó de cargar. Inténtalo otra vez o prueba otra fuente.';
           document.dispatchEvent(new CustomEvent('xuper:playback-timeout'));
         }, 30000);
       }
@@ -68,12 +68,24 @@
         playback.hidden = true;
       }
     }, true);
+    /* "Catálogo actualizado" is news for a few seconds, not a fixture over
+       the posters; problems stay visible. */
+    var seenSync = null, syncShownAt = 0;
     setInterval(function () {
       var app = window.__xuper;
       if (!app) return;
       if (app.state.screen !== 'player' && app.state.screen !== 'detail') playback.hidden = true;
       badge.hidden = app.state.screen !== 'home';
-      if (app.portal && app.portal.error) badge.textContent = 'Catálogo guardado · no se pudo actualizar desde el servicio';
+      var sync = app.portal && app.portal.lastSync;
+      if (sync && sync !== seenSync) { seenSync = sync; syncShownAt = Date.now(); }
+      if (sync && !(app.portal && app.portal.error) && Date.now() - syncShownAt > 5000) badge.hidden = true;
+      /* Stremio mode: the 'Stremio' mark by the logo says it; here only a problem. */
+      if (app.stremioOn && app.stremioOn()) {
+        var failed = app.vod && !app.vod.length && app.api && app.api.error;
+        badge.hidden = badge.hidden || !failed;
+        badge.textContent = failed ? 'Tus addons no respondieron (Ajustes → Fuentes)' : '';
+      }
+      else if (app.portal && app.portal.error) badge.textContent = 'Catálogo guardado · no se pudo actualizar desde el servicio';
       else if (app.portal && app.portal.lastSync) badge.textContent = 'OpenTV · catálogo actualizado';
       else badge.textContent = 'Catálogo guardado · conexión pendiente';
     }, 1200);

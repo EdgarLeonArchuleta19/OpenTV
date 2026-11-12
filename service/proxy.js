@@ -24,7 +24,7 @@ var order = [];
  * media stream, so they get their own token table and route. */
 var subtitleTokens = {};
 var subtitleOrder = [];
-var MAX_SUBTITLES = 12;
+var MAX_SUBTITLES = 40;
 var server = null;
 var port = 0;
 

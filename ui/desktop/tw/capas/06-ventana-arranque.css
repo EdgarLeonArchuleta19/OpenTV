@@ -1,0 +1,204 @@
+/* 06-ventana-arranque.css — Barra de título de Windows, actualizaciones, transiciones, animación de carga, rendimiento y panel de episodios.
+   Parte de ui/desktop/tw/input.css (el orden de los archivos importa). */
+
+/* =====================================================================
+   Barra de título propia (Windows dibuja encima minimizar/maximizar/cerrar)
+   ===================================================================== */
+.app-titlebar {
+  position: fixed; left: 0; top: 0; right: 0; z-index: 100000;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 150px 0 14px; box-sizing: border-box;
+  background: #0e0e11;
+  color: rgba(255, 255, 255, .78);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; font-size: 12.5px;
+  -webkit-user-select: none; user-select: none;
+  -webkit-app-region: drag; app-region: drag;
+}
+.app-titlebar .atb-brand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #fff; letter-spacing: .01em; }
+.app-titlebar .atb-logo { width: 18px; height: 18px; border-radius: 4px; }
+.app-titlebar .atb-section { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, .5); }
+.app-titlebar .atb-section:not(:empty)::before { content: "·"; margin-right: 10px; color: rgba(255, 255, 255, .3); }
+.app-titlebar .atb-pin {
+  margin-left: auto;
+  width: 28px; height: 26px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: rgba(255, 255, 255, .55);
+  cursor: pointer !important;
+  -webkit-app-region: no-drag; app-region: no-drag;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform .18s ease;
+}
+.app-titlebar .atb-pin svg { width: 15px; height: 15px; display: block; transition: transform .2s cubic-bezier(.16, 1, .3, 1); }
+.app-titlebar .atb-pin:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+/* Pantalla completa, justo al lado del ancla. */
+.app-titlebar .atb-full { margin-left: 4px; }
+.app-titlebar .atb-pin.is-pinned {
+  background: rgba(255, 255, 255, .16);
+  border-color: rgba(255, 255, 255, .28);
+  color: #fff;
+}
+.app-titlebar .atb-pin.is-pinned svg { transform: rotate(-28deg); fill: currentColor; }
+body.has-titlebar { background: #0e0e11; }
+body.is-window-fullscreen .app-titlebar { display: none; }
+/* Floating controls in real pixels start below the title bar. */
+body.has-titlebar:not(.is-window-fullscreen) #desktop-back { top: 48px; }
+body.has-titlebar:not(.is-window-fullscreen) #desktop-playback-message { top: 54px; }
+body.has-titlebar:not(.is-window-fullscreen) .history-drawer { top: 36px; }
+
+/* Mi cuenta → Apariencia */
+.desktop .acc-appearance {
+  display: flex; align-items: center; gap: 24px;
+  padding: 22px 26px; border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .04);
+}
+.desktop .acc-appearance .acc-action-text { flex: 1 1 auto; }
+.desktop .acc-seg { display: flex; padding: 5px; gap: 4px; border-radius: 16px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .08); }
+.desktop .acc-seg-btn {
+  padding: 12px 26px; border-radius: 12px; font-size: 22px; font-weight: 600; color: rgba(255, 255, 255, .7); cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+.desktop .acc-seg-btn:hover { color: #fff; background: rgba(255, 255, 255, .08); }
+.desktop .acc-seg-btn.is-selected { background: #fff; color: #0e0e11; }
+.desktop .acc-seg-btn.is-focused { box-shadow: 0 0 0 3px #fff; }
+.desktop .acc-seg-btn.is-danger { color: #ff8a8a; border: 1px solid rgba(255, 138, 138, .3); background: rgba(255, 90, 90, .08); }
+.desktop .acc-seg-btn.is-danger:hover { background: rgba(255, 90, 90, .18); color: #ffb3b3; }
+.desktop.is-catalog-compact .poster .p-hover, .desktop .is-catalog-compact .poster .p-hover { font-size: 19px; padding: 48px 12px 10px; }
+
+/* =====================================================================
+   Actualizaciones
+   ===================================================================== */
+.desktop .sd-update-card { flex-wrap: wrap; }
+.desktop .sd-update-card .sd-btn { margin-left: auto; }
+.desktop .sd-btn.is-disabled { opacity: .45; pointer-events: none; }
+.update-notice {
+  position: fixed; right: 20px; bottom: 20px; z-index: 10500;
+  display: flex; align-items: center; gap: 14px;
+  max-width: min(560px, calc(100vw - 40px)); padding: 14px 14px 14px 18px; box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, .14); border-radius: 16px;
+  background: rgba(24, 24, 29, .96); color: #fff;
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .55);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; font-size: 14px;
+  opacity: 0; transform: translateY(12px); pointer-events: none;
+  transition: opacity .2s ease, transform .3s cubic-bezier(.16, 1, .3, 1);
+}
+.update-notice.is-visible { opacity: 1; transform: none; pointer-events: auto; }
+.update-notice .un-icon { width: 34px; height: 34px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, .1); }
+.update-notice .un-icon svg { width: 18px; height: 18px; }
+.update-notice .un-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.update-notice .un-text span { color: rgba(255, 255, 255, .6); font-size: 13px; }
+.update-notice .un-btn { flex: 0 0 auto; padding: 8px 14px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 10px; background: transparent; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.update-notice .un-btn:hover { background: rgba(255, 255, 255, .1); }
+.update-notice .un-btn.is-primary { background: #fff; color: #0e0e11; border-color: #fff; }
+.update-notice .un-btn.is-primary:hover { background: rgba(255, 255, 255, .88); }
+
+/* =====================================================================
+   Transiciones entre pantallas
+   ===================================================================== */
+@keyframes ot-screen-in { from { opacity: 0; transform: translateY(14px) scale(.992); } to { opacity: 1; transform: none; } }
+@keyframes ot-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.desktop .screen.is-active:not(#screen-player) { animation: ot-screen-in .38s cubic-bezier(.16, 1, .3, 1) backwards; }
+.desktop #screen-player.is-active:not(.is-mini) { animation: ot-fade-in .3s ease backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .desktop .screen.is-active, .desktop #screen-player.is-active { animation: none !important; }
+}
+
+/* =====================================================================
+   Animación de carga: la tele de OpenTV
+   ===================================================================== */
+.desktop .player-status.is-active:before {
+  width: 132px; height: 136px; margin-bottom: 18px;
+  border: 0; border-radius: 0;
+  background: url("../images/loader-tv.svg") center / contain no-repeat;
+  -webkit-animation: none; animation: ot-loader-in .4s ease both;
+}
+@keyframes ot-loader-in { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+.desktop .player-status.is-active { background: rgba(10, 10, 13, .55); }
+.desktop .search-spinner:not(.is-small) {
+  width: 112px; height: 116px; border: 0; border-radius: 0;
+  background: url("../images/loader-tv.svg") center / contain no-repeat;
+  animation: none;
+}
+.desktop .tv-loader { display: block; width: 96px; height: 99px; margin: 0 auto 18px; background: url("../images/loader-tv.svg") center / contain no-repeat; }
+
+/* =====================================================================
+   Rendimiento: no pintar lo que está fuera de la pantalla
+   ===================================================================== */
+.desktop .d-row-strip,
+.desktop .home-page > .poster,
+.desktop .lg-card { content-visibility: auto; }
+.desktop .lg-card { contain-intrinsic-size: auto 116px; }
+
+/* =====================================================================
+   Reproductor: episodios en un panel vertical a la derecha
+   (el vídeo sigue visible a la izquierda)
+   ===================================================================== */
+@keyframes ot-panel-in-right { from { transform: translateX(105%); } to { transform: none; } }
+.desktop .player-episodes {
+  left: auto !important;
+  right: calc(var(--ox, 0px) * -1) !important;
+  top: calc(var(--oy, 0px) * -1) !important;
+  bottom: calc(var(--oy, 0px) * -1) !important;
+  width: 660px !important;
+  height: auto !important;
+  padding: 44px 30px 26px 36px !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(255, 255, 255, .1) !important;
+  border-radius: 0 !important;
+  background: rgba(16, 16, 20, .94) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.2); backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: -30px 0 80px rgba(0, 0, 0, .55) !important;
+  transition: none;
+}
+.desktop .player-episodes.is-active { animation: ot-panel-in-right .38s cubic-bezier(.16, 1, .3, 1); }
+.desktop .player-episodes .pe-head { margin: 0 70px 18px 0; }
+.desktop .player-episodes .pe-title { font-size: 34px; line-height: 1.2; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.desktop .player-episodes .pe-sub { margin-top: 6px; font-size: 19px; color: rgba(255, 255, 255, .55); }
+.desktop .player-episodes .pe-body { flex-direction: column; }
+.desktop .player-episodes .pe-seasons-col {
+  width: auto; min-width: 0; height: auto; min-height: 0; margin: 0 0 18px; padding: 0; border: 0;
+}
+.desktop .player-episodes .pe-seasons-col .pe-col-label { display: none; }
+.desktop .player-episodes .pe-seasons {
+  display: flex; flex-direction: row; gap: 10px; overflow-x: auto; overflow-y: hidden;
+  padding: 4px 2px 10px; scrollbar-width: none;
+}
+.desktop .player-episodes .pe-seasons::-webkit-scrollbar { display: none; }
+.desktop .player-episodes .pe-season {
+  flex: 0 0 auto; height: 46px; padding: 0 20px; margin: 0; font-size: 19px; font-weight: 600;
+  display: flex; align-items: center; border-radius: 23px; cursor: pointer;
+}
+.desktop .player-episodes .pe-col-label { margin: 0 0 12px; font-size: 16px; letter-spacing: .1em; color: rgba(255, 255, 255, .45); }
+.desktop .player-episodes .pe-episodes-col { min-height: 0; }
+.desktop .player-episodes .pe-episodes { padding-right: 8px; }
+.desktop .player-episodes .pe-ep {
+  display: flex; align-items: center; gap: 18px;
+  min-height: 84px; height: auto; padding: 12px 16px; margin: 0 0 8px;
+  border: 1px solid transparent !important; border-radius: 16px;
+  background: rgba(255, 255, 255, .04);
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.desktop .player-episodes .pe-ep:hover { background: rgba(255, 255, 255, .09); }
+.desktop .player-episodes .pe-ep.is-focused { border-color: #fff !important; background: rgba(255, 255, 255, .09); }
+.desktop .player-episodes .pe-ep.is-current { background: rgba(255, 255, 255, .13); border-color: rgba(255, 255, 255, .28) !important; }
+.desktop .player-episodes .pe-num {
+  flex: 0 0 56px; width: 56px; height: 56px; margin: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px; background: rgba(255, 255, 255, .08);
+  font-size: 24px; font-weight: 700; color: #fff;
+}
+.desktop .player-episodes .pe-ep.is-current .pe-num { background: #fff; color: #0e0e11; }
+.desktop .player-episodes .pe-thumb { display: none; }
+.desktop .player-episodes .pe-info { min-width: 0; flex: 1 1 auto; }
+.desktop .player-episodes .pe-name { font-size: 21px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .player-episodes .pe-meta { margin-top: 4px; font-size: 16px; color: rgba(255, 255, 255, .5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .player-episodes .pe-desc { margin-top: 6px; font-size: 16px; line-height: 1.4; color: rgba(255, 255, 255, .6); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.desktop .player-episodes .pe-badge { display: none; }
+.desktop .player-episodes .pe-ep.is-current .pe-badge {
+  display: flex; position: static; flex: 0 0 auto; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px; background: #fff; color: #0e0e11;
+  font-size: 0; font-weight: 700;
+}
+.desktop .player-episodes .pe-ep.is-current .pe-badge::after { content: "Viendo"; font-size: 14px; }
+.desktop .player-episodes .pe-ep.is-current .pe-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #e50914; }
+.desktop .player-episodes .panel-close { top: 36px !important; right: 26px !important; left: auto !important; }

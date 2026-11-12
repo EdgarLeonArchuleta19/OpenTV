@@ -32,7 +32,7 @@ var state = {
   searchFocus: null,
   playback: {
     streamMode: 'normal',
-    screen: 0,
+    screen: 1,   /* Formato de pantalla: Original (0 Llenar, 1 Original, 2 16:9, 3 4:3) */
     audio: 0,
     subLang: 0,
     size: 0,
@@ -81,6 +81,14 @@ function loadLocalProfile() {
     safeLocalWrite(LOCAL_PLAYBACK_KEY, state.playback);
     safeLocalWrite('xuper_direct_default_v1', true);
   }
+  /* The default screen format is now Original (the film as it was made).
+     Profiles still on the old default (Llenar pantalla) move to it once;
+     a later choice in Ajustes is kept. */
+  if (!safeLocalRead('opentv_aspect_original_v1', false)) {
+    if (Number(state.playback.screen) === 0) { state.playback.screen = 1; }
+    safeLocalWrite(LOCAL_PLAYBACK_KEY, state.playback);
+    safeLocalWrite('opentv_aspect_original_v1', true);
+  }
   var savedProfile = safeLocalRead(LOCAL_PROFILE_KEY, null);
   if (savedProfile && savedProfile.id) {
     localProfile = savedProfile;
@@ -92,6 +100,38 @@ function loadLocalProfile() {
   }
   if (!localProfile.favs) { localProfile.favs = {}; }
   state.favs = localProfile.favs;
+  if (!localProfile.mylist) { localProfile.mylist = {}; }
+  state.mylist = localProfile.mylist;
+}
+
+/* Mi lista (para ver después) and Mis favoritos keep a small copy of the
+   title, so they still show when it is not in the loaded catalog (a search
+   result, another catalog mode). Old favourites saved only `true`. */
+function itemSnapshot(item) {
+  return {
+    id: String(item.id),
+    title: item.title || item.name || '',
+    poster: item.poster || item.cover || '',
+    series: !!isSeriesItem(item),
+    stremio: !!item._stremio,
+    stremioBase: item._stremioBase || '',
+    at: Date.now()
+  };
+}
+
+function inMyList(item) {
+  return !!(item && item.id && state.mylist && state.mylist[String(item.id)]);
+}
+
+function toggleMyList(item) {
+  if (!item || !item.id) { return false; }
+  var key = String(item.id);
+  var on = !state.mylist[key];
+  if (on) { state.mylist[key] = itemSnapshot(item); }
+  else { delete state.mylist[key]; }
+  localProfile.mylist = state.mylist;
+  safeLocalWrite(LOCAL_PROFILE_KEY, localProfile);
+  return on;
 }
 
 function saveGlobalPlayback() {
@@ -102,7 +142,8 @@ function toggleFavorite(item) {
   if (!item || !item.id) { return false; }
   var key = String(item.id);
   var on = !state.favs[key];
-  if (on) { state.favs[key] = true; }
+  /* TV channels ('live:…') keep the plain flag the guide expects. */
+  if (on) { state.favs[key] = key.indexOf('live:') === 0 ? true : itemSnapshot(item); }
   else { delete state.favs[key]; }
   localProfile.favs = state.favs;
   safeLocalWrite(LOCAL_PROFILE_KEY, localProfile);

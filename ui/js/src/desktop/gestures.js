@@ -218,6 +218,12 @@ function bindDesktopPlayback() {
     b._activate = defs[i].run;
     groups[defs[i].group].appendChild(b);
   }
+  /* TVs: the remote cannot reach this toolbar (left/right seek, down opens
+     the settings, Back leaves), so only the play state in the middle shows
+     (desktop/tw/input.css, "Teles"), with this hint instead of the buttons. */
+  if (platformIsTv()) {
+    groups.right.parentNode.appendChild(el('div', 'vt-tv-hint', '↓  Audio, subtítulos y más'));
+  }
   function updateButtons() {
     var toggle = $('vod-toggle');
     var showPlay = playerVideo.paused;
@@ -249,6 +255,9 @@ function bindDesktopPlayback() {
   playerVideo.addEventListener('loadedmetadata', updateButtons);
   playerVideo.addEventListener('durationchange', updateButtons);
   document.addEventListener('xuper:duration', updateButtons);
+  /* A new title in the player: right away, not when its video starts (a
+     torrent can take a while), or a movie shows the series buttons. */
+  document.addEventListener('xuper:player-item', updateButtons);
   document.addEventListener('xuper:timeline', function () {
     updateButtons();
     if (state.playerMode === 'vod') updateVodProgress(vodPlaybackPosition(), vodPlaybackDuration());

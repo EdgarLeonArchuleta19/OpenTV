@@ -125,8 +125,6 @@ function closePlayerMenu() {
   if (playerMenu) { playerMenu.classList.remove('is-open'); }
   playerMenuFor = null;
 }
-function closeQualityMenu() { closePlayerMenu(); }
-
 function togglePlayerMenu(btn, title, opts, after) {
   if (playerMenu && playerMenu.classList.contains('is-open') && playerMenuFor === btn) { closePlayerMenu(); return; }
   if (!btn || opts.length < 2) { return; }

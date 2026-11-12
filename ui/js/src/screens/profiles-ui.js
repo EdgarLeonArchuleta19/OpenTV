@@ -55,7 +55,8 @@ function renderProfilePicker() {
 }
 
 function showProfilePicker(editing) {
-  if (!window.XUPER_DESKTOP) { return; }
+  /* (Phones have their own "¿Quién está viendo?", mobile/mobile-app.js.) */
+  if (!window.XUPER_DESKTOP || isPhone()) { return; }
   if (!profilePicker) {
     profilePicker = el('div', 'profile-picker');
     profilePicker.setAttribute('data-no-gesture', '');

@@ -1,0 +1,301 @@
+/* 01-base.css — Base, controles fijos (px reales) y estados comunes de cada pantalla.
+   Parte de ui/desktop/tw/input.css (el orden de los archivos importa). */
+
+/* ------------------------------------------------------------------ base */
+body.desktop {
+  @apply font-ui antialiased;
+  font-feature-settings: "ss01", "tnum" 0;
+}
+.desktop .detail-title,
+.desktop .welcome-name,
+.desktop .pe-title,
+.desktop .search-hot-title,
+.desktop .dd-title,
+.desktop .home-port-credit,
+.desktop .kids-subtitle { @apply font-display; }
+
+/* ===================================================== CONTROLES FIJOS (px reales) */
+.desktop #desktop-back {
+  @apply h-8 gap-1.5 rounded-md border border-white/10 bg-ink-850/75 pl-2.5 pr-3 text-[12.5px] font-semibold text-white
+         shadow-[0_8px_24px_rgba(0,0,0,.45),inset_0_1px_0_rgba(255,255,255,.06)] backdrop-blur-xl backdrop-saturate-150
+         transition duration-200 ease-fluent;
+  top: 12px;
+}
+.desktop #desktop-back { left: 12px; }
+.desktop #desktop-back:hover { @apply border-white/20 bg-ink-600/90; }
+.desktop #desktop-back:active { @apply scale-[.97] bg-ink-700/90; }
+.desktop #desktop-back svg { @apply h-4 w-4; }
+
+.desktop #desktop-playback-message,
+.desktop #desktop-playback-message.is-error {
+  @apply rounded-lg border border-white/10 bg-ink-850/85 px-4 py-2.5 text-[13px] font-medium text-white/90
+         shadow-[0_12px_40px_rgba(0,0,0,.5)] backdrop-blur-2xl;
+  top: 12px;
+}
+.desktop #desktop-playback-message.is-error { @apply border-white/30; }
+
+.desktop #desktop-status {
+  @apply rounded-md border border-white/[.07] bg-ink-850/70 px-2.5 py-1 text-[11px] font-medium text-white/50 backdrop-blur-xl;
+}
+
+/* Aviso "¿Problemas con este vídeo?" */
+.compat-suggest {
+  @apply pointer-events-none fixed left-1/2 top-24 z-[10300] flex max-w-[min(640px,92vw)] -translate-x-1/2 -translate-y-2 items-center gap-3
+         rounded-xl border border-white/10 bg-ink-850/90 py-2.5 pl-3.5 pr-2 text-white opacity-0
+         shadow-[0_20px_60px_rgba(0,0,0,.6),inset_0_1px_0_rgba(255,255,255,.06)] backdrop-blur-2xl backdrop-saturate-150
+         transition duration-300 ease-fluent;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+.compat-suggest.is-visible { @apply pointer-events-auto translate-y-0 opacity-100; }
+.compat-suggest .cs-icon { @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10; }
+.compat-suggest .cs-icon svg { @apply h-[18px] w-[18px]; }
+.compat-suggest .cs-text { @apply flex min-w-0 flex-col leading-tight; }
+.compat-suggest .cs-text b { @apply text-[13px] font-semibold; }
+.compat-suggest .cs-text span { @apply mt-0.5 text-[12px] text-white/60; }
+.compat-suggest .cs-go {
+  @apply ml-2 h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-md border-0 bg-white px-3 text-[12.5px] font-semibold text-black
+         transition hover:bg-white/90 active:scale-[.97];
+}
+.compat-suggest .cs-close {
+  @apply flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-white/60
+         transition hover:bg-white/10 hover:text-white;
+}
+.compat-suggest .cs-close svg { @apply h-4 w-4; }
+.desktop.is-playing-idle .compat-suggest.is-visible { cursor: auto !important; }
+
+/* Historial (panel lateral) */
+.desktop .history-drawer {
+  @apply border-r border-white/[.08] bg-ink-900/90 shadow-[24px_0_80px_rgba(0,0,0,.55)] backdrop-blur-2xl backdrop-saturate-150;
+}
+.desktop .hd-head { @apply border-white/[.07] px-4 pb-3 pt-4; }
+.desktop .hd-tab { @apply rounded-md bg-white/[.05] px-3 py-1.5 text-[13px] text-white/70 transition hover:bg-white/10 hover:text-white; }
+.desktop .hd-tab.is-selected { @apply bg-white text-black; }
+.desktop .hd-close { @apply rounded-md transition hover:bg-white/10; }
+.desktop .hd-item { @apply rounded-lg transition duration-150 hover:bg-white/[.06]; }
+.desktop .hd-poster { @apply rounded-md ring-1 ring-white/10; }
+.desktop .hd-bar i { @apply bg-white; }
+.desktop .hd-link { @apply rounded-md text-white/80 transition hover:bg-white/[.06] hover:text-white; }
+.desktop .hd-link.is-danger { @apply text-white/55 hover:text-white; }
+
+/* ===================================================== LIENZO (px de diseño) */
+
+/* ---------- foco y estado comunes ---------- */
+.desktop .detail-btn,
+.desktop .live-dock-btn,
+.desktop .psv-btn,
+.desktop .psv-ep-btn,
+.desktop .dps-btn,
+.desktop .da-btn,
+.desktop .da-preset-btn,
+.desktop .dps-exit-btn,
+.desktop .da-exit-btn,
+.desktop .account-history-btn,
+.desktop .desktop-more {
+  @apply border border-solid border-white/[.09] bg-white/[.06] text-white
+         shadow-[inset_0_1px_0_rgba(255,255,255,.07),0_2px_6px_rgba(0,0,0,.25)]
+         transition duration-200 ease-fluent;
+  border-radius: 14px;
+}
+.desktop .detail-btn:hover,
+.desktop .live-dock-btn:hover,
+.desktop .psv-btn:hover,
+.desktop .psv-ep-btn:hover,
+.desktop .dps-btn:hover,
+.desktop .da-btn:hover,
+.desktop .da-preset-btn:hover,
+.desktop .account-history-btn:hover,
+.desktop .desktop-more:hover { @apply border-white/[.16] bg-white/[.11]; }
+.desktop .detail-btn:active,
+.desktop .live-dock-btn:active,
+.desktop .psv-btn:active,
+.desktop .psv-ep-btn:active { @apply scale-[.98] bg-white/[.04]; }
+
+/* ---------- Inicio ---------- */
+.desktop .home-port-credit { @apply gap-[14px] text-[32px] font-semibold tracking-[-.02em]; }
+.desktop .notify-item.is-small {
+  @apply border border-solid border-white/[.08] bg-white/[.06] shadow-[inset_0_1px_0_rgba(255,255,255,.06)] transition duration-200 hover:bg-white/[.12];
+}
+.desktop .notify-time { @apply font-display font-semibold tracking-[-.01em]; }
+.desktop .tab-item .tab-pill { border-radius: 18px; @apply shadow-[0_10px_30px_rgba(0,0,0,.5)]; }
+.desktop .tab-item .tab-title { @apply tracking-[.01em]; }
+
+.desktop .poster,
+.desktop .bento { border-radius: 16px; }
+.desktop .poster { @apply ring-1 ring-inset ring-white/[.06]; }
+.desktop .poster .p-img,
+.desktop .bento img { border-radius: inherit; }
+.desktop .poster.is-focused { @apply shadow-[0_24px_60px_rgba(0,0,0,.6)]; }
+.desktop .poster .p-title { @apply font-semibold; }
+.desktop .poster .p-shade { background: linear-gradient(to top, rgba(0,0,0,.85), rgba(0,0,0,0)); }
+.desktop .bento-dot { @apply transition-all duration-300; }
+.desktop .kids-subtitle { @apply font-semibold tracking-[-.01em]; }
+
+.desktop .live-dock-btn { border-radius: 14px; @apply h-[54px] text-[19px]; }
+.desktop .live-dock-btn.is-icon { @apply w-[54px]; }
+.desktop .live-dock-btn.is-focused { @apply bg-white/[.14]; outline: 2px solid #fff; outline-offset: 3px; }
+.desktop .live-chip { @apply border border-solid border-white/[.07] bg-white/[.05] transition duration-200 hover:bg-white/[.12]; }
+.desktop .live-chip.is-selected { @apply border-transparent bg-white text-black; }
+.desktop .live-row .row-name { @apply font-medium; }
+
+/* ---------- Ficha ---------- */
+.desktop .detail-title { @apply font-bold tracking-[-.025em]; }
+.desktop .detail-genres .chip { @apply border border-solid border-white/[.08] bg-white/[.06] text-white/80; }
+.desktop .detail-btn { @apply h-[60px] gap-3 px-6 text-white; }
+.desktop .detail-btn span { @apply text-[21px] font-semibold; }
+.desktop .detail-btn.is-focused { @apply bg-white/[.14]; outline: 2px solid #fff; outline-offset: 3px; }
+.desktop .detail-btn[data-kind="fullscreen"] {
+  @apply border-transparent bg-white pl-6 pr-8 text-black shadow-[0_12px_32px_rgba(255,255,255,.10)];
+}
+.desktop .detail-btn[data-kind="fullscreen"]:hover { @apply bg-white/90; }
+.desktop .detail-btn[data-kind="fullscreen"].is-focused { @apply bg-white; outline-color: #fff; }
+.desktop .detail-btn[data-kind="favorite"].is-selected { @apply border-white/30 bg-white/[.14] text-white; }
+.desktop .detail-player,
+.desktop #screen-player.is-mini .player-stage { border-radius: 20px; }
+.desktop #screen-player.is-mini .player-stage { @apply ring-1 ring-white/[.08] shadow-[0_30px_80px_rgba(0,0,0,.6)]; }
+.desktop .dd-related .cell .poster { border-radius: 14px; }
+.desktop .dd-related .cell .poster:hover { @apply -translate-y-1.5; }
+.desktop .dd-related .d-name { @apply font-medium text-white/70; }
+.desktop .dd-grid .detail-episode { @apply border-white/[.08] bg-white/[.04]; border-radius: 14px; }
+.desktop .dd-grid .detail-episode:hover { @apply bg-white/[.09]; }
+.desktop .dd-ranges .detail-range.is-selected { @apply bg-white text-black; }
+
+/* ---------- Búsqueda ---------- */
+.desktop .search-keyboard { @apply border-r border-solid border-white/[.06] bg-ink-900; }
+.desktop .kb-edit { border-radius: 14px; @apply border-white/[.12] bg-white/[.05] shadow-[inset_0_1px_0_rgba(255,255,255,.05)]; }
+.desktop .kb-edit:focus { @apply border-white bg-white/[.07]; }
+.desktop .kb-key,
+.desktop .kb-action,
+.desktop .kb-feedback { border-radius: 14px; @apply transition duration-150; }
+.desktop .kb-key:active,
+.desktop .kb-action:active { @apply scale-95; }
+.desktop .kb-feedback { @apply border border-solid border-white/[.08] bg-white/[.05]; }
+.desktop .search-hot-refresh { border-radius: 12px; @apply border border-solid border-white/[.09] bg-white/[.06] px-4 transition hover:bg-white/[.12]; }
+.desktop .search-hot-title { @apply font-bold tracking-[-.02em]; }
+
+/* ---------- Ajustes ---------- */
+.desktop .settings-menu { @apply bg-ink-900; }
+.desktop .settings-item { border-radius: 14px; }
+.desktop .settings-item img { @apply opacity-80; }
+.desktop .settings-item.is-focused img,
+.desktop .settings-item.is-selected img { @apply opacity-100; }
+.desktop .sp-title { @apply font-display font-semibold tracking-[-.015em]; }
+.desktop .account-card {
+  @apply border border-solid border-white/[.07] bg-white/[.04] shadow-[inset_0_1px_0_rgba(255,255,255,.05)];
+  border-radius: 18px;
+}
+.desktop .account-card-title { @apply font-semibold text-white; }
+.desktop .account-card-text { @apply text-white/60; }
+.desktop .account-avatar { @apply ring-2 ring-white/20; }
+.desktop .sp-hr { @apply bg-white/[.07]; }
+.desktop .sp-global-note { @apply text-white/50; }
+.desktop .pb-label { @apply font-medium text-white/70; }
+/* PC: "Formato de pantalla" and "Audio preferido" on one line. */
+.desktop:not(.is-tv) .pb-label:not(.fixed) { width: 320px; min-width: 320px; white-space: nowrap; }
+.desktop .pb-opt {
+  @apply border border-solid border-white/[.09] bg-white/[.05] px-9 shadow-[inset_0_1px_0_rgba(255,255,255,.06)] transition duration-200;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 255px;
+  border-radius: 14px;
+  background-image: none;
+  font-size: 26px;
+}
+.desktop .pb-opt:hover { @apply bg-white/[.10]; }
+.desktop .pb-opt.is-checked { @apply border-transparent bg-white pl-[60px] text-black shadow-none; }
+.desktop .pb-opt.is-checked .radio { filter: invert(1); }
+.desktop .pb-opt.is-focused { @apply bg-white/[.16]; }
+.desktop .pb-opt.is-checked.is-focused { @apply bg-white !text-black; box-shadow: 0 0 0 2px #000, 0 0 0 4px #fff !important; }
+
+/* ---------- Reproductor ---------- */
+.desktop .vod-infobar-title { @apply font-display font-semibold tracking-[-.015em]; }
+.desktop .vod-infobar-poster { border-radius: 14px; @apply ring-1 ring-white/10; }
+.desktop .vod-seekbar { @apply transition-[height] duration-150; }
+.desktop .vod-infobar-tips .vod-tip {
+  @apply h-[54px] min-h-0 border border-solid border-white/[.12] bg-white/[.09] px-6 text-[20px] font-semibold
+         shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl;
+  border-radius: 14px;
+}
+.desktop .vod-infobar-tips .vod-tip:hover { @apply border-white/25 bg-white/[.18]; }
+.desktop .vod-infobar-tips #vod-toggle { @apply border-transparent bg-white text-black; }
+.desktop .vod-infobar-tips #vod-toggle:hover { @apply bg-white/90; }
+.desktop .pi-act {
+  @apply border border-solid border-white/[.12] bg-white/[.08] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,.07)] transition duration-200;
+  border-radius: 14px !important;
+}
+.desktop .pi-act:hover { @apply bg-white/[.16]; }
+.desktop .pi-name { @apply font-display; }
+
+/* Hojas sobre el vídeo: acrílico */
+.desktop .psv-scroll,
+.desktop .player-episodes {
+  @apply border-t border-solid border-white/10 bg-ink-900/70 shadow-[0_-30px_80px_rgba(0,0,0,.55)] backdrop-blur-2xl backdrop-saturate-150;
+  border-radius: 28px 28px 0 0;
+}
+.desktop .psv-title { @apply font-semibold tracking-[.12em]; }
+.desktop .psv-btn { @apply h-[56px] px-7 text-[20px]; border-radius: 14px; }
+.desktop .psv-btn.is-selected,
+.desktop #psv-btn-p1.is-selected { @apply border-transparent bg-white text-black; }
+.desktop .psv-btn.is-selected .psv-check { @apply bg-black text-white; }
+.desktop .psv-btn.is-focused { @apply bg-white/[.18]; outline: 2px solid #fff; outline-offset: 3px; }
+.desktop .psv-btn.is-selected.is-focused { @apply bg-white; }
+.desktop .psv-check { @apply rounded-full; }
+.desktop .psv-hint { @apply mt-[10px] text-[17px] leading-snug text-white/55; }
+.desktop .psv-hint b { @apply font-semibold text-white/80; }
+.desktop .psv-ep-btn { border-radius: 14px; }
+.desktop .psv-ep-btn.is-selected,
+.desktop .psv-ep-btn.is-current { @apply border-transparent bg-white text-black; }
+.desktop .panel-close { @apply border border-solid border-white/10 bg-white/[.08] transition hover:bg-white/[.18]; border-radius: 14px; }
+.desktop .pe-season { border-radius: 14px; @apply border-white/[.08] bg-white/[.05]; }
+.desktop .pe-season.is-selected { @apply border-transparent bg-white text-black; }
+.desktop .pe-ep { border-radius: 14px; }
+.desktop .pe-ep.is-current { background: linear-gradient(90deg, rgba(255,255,255,.14), rgba(255,255,255,.03)); }
+.desktop .player-channels { @apply bg-ink-900/80 backdrop-blur-2xl; }
+.desktop .hold-seek { @apply border border-solid border-white/10 bg-ink-900/70 font-display backdrop-blur-2xl; border-radius: 28px; }
+
+/* ---------- Diálogos ---------- */
+.desktop .dialog-playsettings-overlay,
+.desktop .dialog-addons-overlay { @apply backdrop-blur-sm; }
+.desktop .dialog-playsettings-box,
+.desktop .dialog-addons-box {
+  @apply border border-solid border-white/10 bg-ink-850/95 shadow-[0_40px_120px_rgba(0,0,0,.75),inset_0_1px_0_rgba(255,255,255,.06)] animate-fade-up;
+  border-radius: 28px;
+}
+.desktop .dps-header,
+.desktop .da-title { @apply font-display font-semibold tracking-[-.015em]; }
+.desktop .dps-btn.is-selected { @apply border-transparent bg-white text-black; }
+.desktop .da-input { border-radius: 14px; @apply border-white/[.12] bg-white/[.05]; }
+
+/* ---------- Pantalla de bienvenida ---------- */
+.desktop .welcome-name { @apply font-semibold tracking-[-.03em]; }
+.desktop .welcome-version { @apply font-medium tracking-[.3em] text-white/40; }
+
+/* ---------- Ajustes: correcciones de estado ---------- */
+.desktop .pb-opt.is-checked.is-focused { @apply !bg-white; }
+.desktop .pb-opt .radio {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23000'/%3E%3Cpath d='M7 12.5l3.2 3.2L17 9' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  filter: none !important;
+}
+/* Vista previa de estilos de subtítulo: siempre sobre una ficha oscura. */
+.desktop .pb-row .pb-opt span[style] {
+  @apply inline-block rounded-[10px] px-[18px] leading-[50px];
+  background: #161616 !important;
+  width: auto !important;
+}
+/* Interruptor de subtítulos dibujado en CSS (sustituye la imagen azul). */
+.desktop .sp-switch {
+  @apply rounded-full bg-white/20 transition-colors duration-200;
+  background-image: none !important;
+  width: 96px; height: 52px;
+}
+.desktop .sp-switch::after {
+  content: "";
+  @apply absolute left-[6px] top-[6px] h-[40px] w-[40px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,.4)] transition-transform duration-200 ease-fluent;
+}
+.desktop .sp-switch.on { @apply bg-white; }
+.desktop .sp-switch.on::after { @apply translate-x-[44px] bg-black; }
+
+/* Menú del reproductor: seleccionado en blanco aunque haya reglas por id. */
+.desktop #psv-btn-p1.is-selected,
+.desktop #psv-btn-p2.is-selected { @apply border-transparent bg-white text-black; }
+.desktop #psv-btn-p1.is-selected .psv-check,
+.desktop #psv-btn-p2.is-selected .psv-check { @apply bg-black text-white; }

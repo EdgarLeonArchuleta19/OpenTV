@@ -111,8 +111,7 @@ body.desktop {
 /* -------------------------------------------------------------------------
    Botones flotantes (Volver / Historial) y modo cine mientras se reproduce
    ------------------------------------------------------------------------- */
-.desktop #desktop-back,
-.desktop #desktop-history {
+.desktop #desktop-back {
   top: 14px;
   display: inline-flex;
   align-items: center;
@@ -131,18 +130,12 @@ body.desktop {
 }
 .desktop #desktop-back { left: 14px; }
 .desktop #desktop-back svg { width: 16px; height: 16px; display: block; }
-.desktop #desktop-history { left: 112px; }
-.desktop #desktop-back:hover,
-.desktop #desktop-history:hover { background: rgba(40, 40, 40, .92); border-color: rgba(255, 255, 255, .4); }
-.desktop #desktop-back:active,
-.desktop #desktop-history:active { transform: scale(.96); }
-.desktop #desktop-history.is-active { background: #fff; color: #000; border-color: transparent; }
-.desktop #desktop-back:focus-visible,
-.desktop #desktop-history:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.desktop #desktop-back:hover { background: rgba(40, 40, 40, .92); border-color: rgba(255, 255, 255, .4); }
+.desktop #desktop-back:active { transform: scale(.96); }
+.desktop #desktop-back:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 /* En el reproductor solo aparece junto con los controles. */
 .desktop[data-screen="player"] #desktop-back { opacity: 1; }
 .desktop.is-playing-idle #desktop-back,
-.desktop.is-playing-idle #desktop-history,
 .desktop.is-playing-idle #desktop-playback-message { opacity: 0; pointer-events: none; }
 .desktop.is-playing-idle,
 .desktop.is-playing-idle * { cursor: none !important; }
@@ -351,15 +344,11 @@ body.desktop {
 .desktop .kb-key.is-focused,
 .desktop .kb-feedback.is-focused,
 .desktop .pb-opt.is-focused,
-.desktop .sp-clear-row .btn.is-focused,
-.desktop .cr-btn.is-focused,
 .desktop .pl-box.is-focused,
 .desktop .pl-ok.is-focused,
 .desktop .fb-help.is-focused,
 .desktop .account-history-btn.is-focused,
 .desktop .pi-act.is-focused,
-.desktop .psv-group-btn.is-focused,
-.desktop .psv-season-btn.is-focused,
 .desktop .dps-btn.is-focused,
 .desktop .dps-exit-btn.is-focused,
 .desktop .pc-btn-addons.is-focused,
@@ -376,20 +365,16 @@ body.desktop {
   box-shadow: var(--t-ring-inset) !important;
   outline: none;
 }
-.desktop .sp-switch.is-focused,
-.desktop .cr-head .sw.is-focused { box-shadow: var(--t-ring-inset); }
+.desktop .sp-switch.is-focused { box-shadow: var(--t-ring-inset); }
 .desktop .da-input.is-focused { border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .15); }
 /* Seleccionado: blanco. */
 .desktop .pcat-tile.is-selected,
 .desktop .pc-cat-pill.is-selected { background: #fff; color: #000; }
-.desktop .psv-group-btn.is-selected,
-.desktop .psv-season-btn.is-selected { background: rgba(255, 255, 255, .12); border-bottom-color: #fff; }
 .desktop .psv-range-btn.is-selected,
 .desktop .psv-range-btn.is-selected.is-focused { color: #fff; }
 .desktop .pe-ep .pe-badge { background: #fff; color: #000; }
 .desktop .history-tab.is-selected { color: #000; border-bottom-color: transparent; }
 .desktop .history-total span { color: #fff; }
-.desktop .profile-history-row { border-left-color: rgba(255, 255, 255, .6); }
 .desktop .pc-row-addon-promo { background: rgba(255, 255, 255, .06); border-bottom-color: var(--t-line); }
 .desktop .dg-report { border-left-color: rgba(255, 255, 255, .5); }
 
