@@ -1,7 +1,7 @@
 {
   "name": "opentv",
   "productName": "OpenTV",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "OpenTV Desktop — Reproductor de TV en vivo, películas y series para Windows",
   "author": "TECHPOINT Software™",
   "license": "MIT",
@@ -25,17 +25,21 @@
     "test:e2e": "node tests/e2e/run.cjs",
     "snapshot": "node scripts/snapshot-catalog.cjs",
     "release:github": "node scripts/publish-github.cjs",
-    "build:webos": "npm run build && node scripts/build-webos.cjs"
+    "build:webos": "npm run build && node scripts/build-webos.cjs",
+    "build:android": "npm run build && node scripts/build-android.cjs",
+    "build:apk": "npm run build:android && node scripts/build-apk.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.11",
-    "hls.js": "^1.5.20"
+    "hls.js": "^1.5.20",
+    "torrent-stream": "^1.2.1"
   },
   "devDependencies": {
     "acorn": "^8.15.0",
     "electron": "^44.10.2",
     "electron-builder": "^26.0.12",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "terser": "^5.51.2"
   },
   "build": {
     "appId": "com.techpoint.opentv",
@@ -51,6 +55,7 @@
       "ui/**/*",
       "bin/**/*",
       "licenses/**/*",
+      "config/tmdb.json",
       "LICENSE",
       "README.md",
       "package.json",
