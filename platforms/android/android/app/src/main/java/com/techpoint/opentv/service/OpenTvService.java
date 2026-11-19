@@ -9,7 +9,6 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,16 +21,29 @@ import java.util.regex.Pattern;
  * on http://127.0.0.1:8910/<method>?<query>, the same contract the PC bridge
  * (adb reverse) offered, so the page (vodApi.devServiceUrl) is unchanged.
  *
- * Not on Android: netdiag (hidden on TVs) and the FFmpeg relay. resolve and
- * resolveSmooth both answer with the proxied stream; ping reports
- * relayAvailable=false.
+ * Movies and series come from Stremio-compatible addons (the page talks to
+ * them directly); this service only resolves the chosen source, hashes it
+ * for subtitles and proxies subtitle files. Live TV comes from the viewer's
+ * M3U lists.
+ *
+ * Torrents (torrentStart/Stats/Stop) run on libtorrent, see Torrents.java;
+ * ping reports torrents=false on devices that cannot load it.
+ *
+ * Downloads (downloadStart/List/Action/Open) are in Downloads.java, app
+ * updates from GitHub releases (appUpdate) in AppUpdate.java.
+ *
+ * ping also reports what the device can play (media, MediaCaps.java) and the
+ * free space of the cache volume (storage), for choosing sources.
+ *
+ * Not on Android: netdiag (hidden on TVs) and the FFmpeg relay (ExoPlayer
+ * plays MKV/MP4/WebM/TS/HLS itself; ping reports relayAvailable=false).
  */
 public final class OpenTvService {
     private OpenTvService() {}
 
     private static final String TAG = "OpenTV";
     public static final int PORT = 8910;
-    private static final String SERVICE_NAME = "com.webosflux.xuptertv.fidelity.service";
+    private static final String SERVICE_NAME = "com.techpoint.opentv.service";
     private static final String SERVICE_VERSION = "1.0.0";
     private static final long CALL_TIMEOUT_MS = 60000;
 
@@ -45,8 +57,16 @@ public final class OpenTvService {
 
     /* Idempotent; call it off the main thread. */
     public static synchronized void start(Context context) {
-        if (started) return;
+        if (started) {
+            // Opened again in the same process (e.g. after leaving with Back).
+            Downloads.reopen();
+            return;
+        }
+        MediaCaps.setContext(context);
         Tmdb.init(context);
+        Torrents.init(context);
+        AppUpdate.init(context);
+        Downloads.init(context);
         try {
             Proxy.start();
             LocalServer s = new LocalServer("service", OpenTvService::handle);
@@ -57,6 +77,32 @@ public final class OpenTvService {
         } catch (IOException e) {
             // Port taken, e.g. by an "adb reverse tcp:8910" left from PC testing.
             Log.e(TAG, "no se pudo abrir 127.0.0.1:" + PORT + ": " + e.getMessage());
+        }
+        // After the server is up: the codec list takes a moment on a TV stick.
+        MediaCaps.init(context);
+    }
+
+    /* The app is closing: the streamed torrent stops and its cache goes.
+       Downloads that are running or queued go on under
+       DownloadsForegroundService (they share the libtorrent session, so it
+       stays until they end); with none, they stop and go on next time. */
+    public static void shutdown() {
+        if (Downloads.busy()) {
+            Torrents.stop();
+            return;
+        }
+        try { Downloads.close(); } catch (Throwable t) { Log.w(TAG, "descargas: " + t); }
+        Torrents.shutdown();
+    }
+
+    /* Set by MainActivity: told when the viewer starts a new download (to
+       ask for the notification permission the first time). */
+    public static volatile Runnable onDownloadStart;
+
+    static void downloadStarted() {
+        Runnable r = onDownloadStart;
+        if (r != null) {
+            try { r.run(); } catch (Throwable t) { Log.w(TAG, "descargas: " + t); }
         }
     }
 
@@ -76,8 +122,11 @@ public final class OpenTvService {
         long t0 = System.currentTimeMillis();
         JSONObject out;
         Future<JSONObject> f = calls.submit(() -> call(method, params));
+        // torrentStart waits up to a minute for the metadata and then answers
+        // with its own message; the page waits 75 s.
+        long timeout = "torrentStart".equals(method) ? Torrents.READY_TIMEOUT_MS + 10000 : CALL_TIMEOUT_MS;
         try {
-            out = f.get(CALL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            out = f.get(timeout, TimeUnit.MILLISECONDS);
         } catch (java.util.concurrent.TimeoutException e) {
             f.cancel(true);
             out = Js.o("returnValue", false, "errorText", "El servicio no respondió. Revisa la conexión o vuelve a intentarlo.");
@@ -148,35 +197,41 @@ public final class OpenTvService {
         try {
             switch (method) {
                 case "tmdb": return Tmdb.list(Js.text(Js.or(p.opt("list"), "")));
-                case "ping": return Js.o("returnValue", true, "service", SERVICE_NAME, "version", SERVICE_VERSION,
-                    "portalHosts", "magis", "proxyPort", Proxy.port(), "relayAvailable", false, "ffmpegPath", "", "relayPort", 0);
+                case "ping": return ping();
                 case "keepAlive": return Js.o("returnValue", true, "subscribed", false);
                 case "heartbeat": return Js.o("returnValue", true, "alive", true, "proxyPort", Proxy.port(), "timestamp", System.currentTimeMillis());
-                case "home": return ok(Magis.home(Js.text(Js.or(p.opt("root"), "movies"))));
-                case "search": return ok(Magis.search(Js.or(p.opt("value"), ""), p.opt("pageNum"), p.opt("pageSize")));
-                case "detail": return ok(Magis.detail(p.opt("contentId")));
                 case "mediaDuration": return ok(MediaDuration.get(p.opt("durationId")));
-                // No FFmpeg relay on Android: smooth mode gets the proxied stream.
-                case "resolve":
-                case "resolveSmooth": return resolveStream(p);
-                case "mediaInfo": return ok(attachSubtitles(Magis.mediaInfo(p.opt("contentId"), p.opt("seriesContentId"))));
-                case "liveChannels": {
-                    Object[] r = Magis.getLiveChannels(p.opt("columnId"), p.opt("pageNum"), p.opt("pageSize"));
-                    return ok(Js.o("channels", r[0], "pageNum", Math.max(1, Js.intOr(p.opt("pageNum"), 1)), "hasMore", r[1]));
+                case "resolveExternal": return resolveExternal(p);
+                case "videoHash": {
+                    String url = Js.text(Js.or(p.opt("url"), ""));
+                    if (!HTTP_URL.matcher(url).find()) throw new PortalException("Sin enlace");
+                    return ok(VideoHash.hash(url, p.optJSONObject("headers")));
                 }
-                case "liveCategories": return ok(Js.o("categories", Magis.getLiveCategories()));
+                case "proxySubtitles": return proxySubtitles(p);
+                // Torrents: libtorrent + a loopback Range server (Torrents.java).
+                case "torrentStart": return ok(Torrents.start(p));
+                case "torrentStats": return ok(Torrents.stats());
+                case "torrentStop": Torrents.stop(); return ok(null);
+                // Downloads: Downloads.java (same shapes as service/downloads.js).
+                case "downloadStart": return ok(Downloads.start(p));
+                case "downloadList": return ok(Downloads.list());
+                case "downloadAction": return ok(Downloads.action(Js.text(p.opt("id")), Js.text(p.opt("action"))));
+                case "downloadOpen": return ok(Downloads.open(Js.text(p.opt("id"))));
+                case "appUpdate": {
+                    JSONObject r = AppUpdate.call(p);
+                    return r.has("returnValue") ? r : ok(r);
+                }
                 case "fetchM3u": {
                     if (!Js.truthy(p.opt("url"))) throw new PortalException("url requerida");
-                    return ok(Js.o("channels", Magis.fetchM3u(Js.text(p.opt("url")))));
+                    return ok(Js.o("channels", M3u.fetchM3u(Js.text(p.opt("url")))));
                 }
-                case "resolveLive": return resolveLive(p);
+                case "resolveLive": {
+                    if (!Js.truthy(p.opt("streamUrl"))) throw new PortalException("El canal no tiene enlace");
+                    return ok(Js.o("url", p.opt("streamUrl"), "proxyPath", p.opt("streamUrl"), "isHls", true));
+                }
                 case "abortMedia":
                     try { Proxy.killActiveStreams(); } catch (Exception ignored) { /* best effort */ }
                     return Js.o("returnValue", true);
-                case "prewarm": {
-                    Magis.Session s = Magis.ensureSession();
-                    return Js.o("returnValue", true, "sn", s.sn, "userId", s.userId);
-                }
                 default: return Js.o("returnValue", false, "errorText", "Operación no disponible");
             }
         } catch (Exception e) {
@@ -184,60 +239,66 @@ public final class OpenTvService {
         }
     }
 
-    /* Subtitle files live on a CDN without CORS headers: hand the page
-       loopback URLs instead. */
-    private static JSONObject attachSubtitles(JSONObject payload) {
-        JSONArray subs = payload.optJSONArray("subtitles");
-        if (subs == null || subs.length() == 0) return payload;
+    /* storage: the cache volume (torrents); media: MediaCaps (cached). */
+    private static JSONObject ping() {
+        java.io.File cache = Torrents.cacheDir();
+        return Js.o("returnValue", true, "service", SERVICE_NAME, "version", AppUpdate.versionName(),
+            "versionCode", AppUpdate.versionCode(), "serviceVersion", SERVICE_VERSION,
+            "proxyPort", Proxy.port(), "relayAvailable", false, "ffmpegPath", "", "relayPort", 0,
+            "torrents", Torrents.supported(), "downloads", true,
+            "storage", Js.o("free", cache == null ? -1 : Space.free(cache), "total", cache == null ? -1 : Space.total(cache)),
+            "media", MediaCaps.get());
+    }
+
+    private static final Pattern HTTP_URL = Pattern.compile("^https?://", Pattern.CASE_INSENSITIVE);
+    private static final Pattern HLS_NAME = Pattern.compile("\\.m3u8\\b",Pattern.CASE_INSENSITIVE);
+    private static final int MAX_SUBTITLES = 60;
+
+    /* resolveExternal({url, headers, name, notWebReady, duration}): a source
+       chosen in the addon mode. ExoPlayer plays HLS, MP4, MKV, WebM and TS
+       itself (it sniffs the container), so unlike Node there is no FFmpeg
+       relay: the link goes as is, or through the proxy when it needs request
+       headers. Same answer shape as the Node method. */
+    private static JSONObject resolveExternal(JSONObject p) throws Exception {
+        String url = Js.text(Js.or(p.opt("url"), ""));
+        if (!HTTP_URL.matcher(url).find()) throw new PortalException("La fuente no tiene un enlace http(s) válido");
+        JSONObject headers = p.optJSONObject("headers");
+        if (headers == null) headers = new JSONObject();
+        boolean hasHeaders = headers.length() > 0;
+        String name = Js.text(Js.or(p.opt("name"), "")) + " " + url.split("\\?", 2)[0];
+        if (HLS_NAME.matcher(name).find()) {
+            String mime = "application/vnd.apple.mpegurl";
+            if (!hasHeaders) return ok(Js.o("url", url, "proxyPath", url, "isHls", true, "mime", mime));
+            Proxy.start();
+            String token = Proxy.add(url, headers, 0, "", null);
+            return ok(Js.o("url", url, "proxyPath", Proxy.baseUrl() + "/media/" + token + "/stream.m3u8", "isHls", true, "mime", mime));
+        }
+        double duration = MediaDuration.seconds(p.opt("duration"));
+        JSONObject stream = Js.o("url", url, "headers", headers, "duration", Js.jsonNum(duration));
+        JSONObject out = Js.o("url", url, "mime", "video/mp4", "isHls", false, "durationId", MediaDuration.register(stream));
+        if (!hasHeaders) {
+            Js.put(out, "proxyPath", url);
+            return ok(out);
+        }
+        Proxy.start();
+        String token = Proxy.add(url, headers, duration, "", null);
+        Js.put(out, "proxyPath", Proxy.baseUrl() + "/media/" + token + "/stream.mp4");
+        return ok(out);
+    }
+
+    /* proxySubtitles({subtitles:[{lang, url}]}): subtitle files from an addon
+       (no CORS upstream), served through the loopback proxy. */
+    private static JSONObject proxySubtitles(JSONObject p) throws Exception {
+        JSONArray list = p.optJSONArray("subtitles");
         JSONArray out = new JSONArray();
-        for (int i = 0; i < subs.length(); i++) {
-            JSONObject sub = subs.optJSONObject(i);
-            if (sub == null) continue;
-            out.put(Js.o("lang", sub.opt("lang"), "format", sub.opt("format"), "url", Proxy.addSubtitle(sub.optString("url"))));
-        }
-        Js.put(payload, "subtitles", out);
-        return payload;
-    }
-
-    private static String firstIp(String host) {
-        try {
-            List<String> ips = Dnsx.resolve(host).ips;
-            return ips.isEmpty() ? "" : ips.get(0);
-        } catch (IOException e) {
-            return "";
-        }
-    }
-
-    private static JSONObject resolveStream(JSONObject p) throws Exception {
-        JSONObject stream = Magis.resolve(p.opt("contentId"), p.opt("seriesContentId"), p.opt("trackIndex"), p.opt("preferHeight"));
-        if (!Pattern.compile("^https?://", Pattern.CASE_INSENSITIVE).matcher(stream.optString("url")).find()) {
-            throw new PortalException("El portal no devolvió un enlace de vídeo válido");
-        }
-        double duration = MediaDuration.seconds(stream.opt("duration"));
-        if (duration == 0) duration = MediaDuration.seconds(p.opt("duration"));
-        Js.put(stream, "duration", Js.jsonNum(duration));
-        Js.put(stream, "durationId", MediaDuration.register(stream));
-        String resolvedIp = firstIp(Http.Url.parse(stream.optString("url")).hostname);
         Proxy.start();
-        String token = Proxy.add(stream.optString("url"), stream.optJSONObject("headers"), duration, resolvedIp, null);
-        String extension = "video/mp4".equals(stream.optString("mime")) ? "mp4" : "ts";
-        Js.put(stream, "proxyPath", Proxy.baseUrl() + "/media/" + token + "/stream." + extension);
-        Js.put(stream, "isHls", false);
-        attachSubtitles(stream);
-        return ok(stream);
-    }
-
-    private static JSONObject resolveLive(JSONObject p) throws Exception {
-        if (Js.truthy(p.opt("streamUrl"))) {
-            return ok(Js.o("url", p.opt("streamUrl"), "proxyPath", p.opt("streamUrl"), "isHls", true));
+        for (int i = 0; list != null && i < list.length() && out.length() < MAX_SUBTITLES; i++) {
+            JSONObject s = list.optJSONObject(i);
+            if (s == null) continue;
+            String url = Js.text(Js.or(s.opt("url"), ""));
+            if (!HTTP_URL.matcher(url).find()) continue;
+            out.put(Js.o("lang", Js.text(Js.or(s.opt("lang"), "")), "format", "srt", "url", Proxy.addSubtitle(url)));
         }
-        if (!Js.truthy(p.opt("channelCode"))) throw new PortalException("channelCode requerido");
-        JSONObject stream = Magis.resolveLive(p.opt("channelCode"));
-        String resolvedIp = firstIp(Http.Url.parse(stream.optString("url")).hostname);
-        Proxy.start();
-        String token = Proxy.add(stream.optString("url"), stream.optJSONObject("headers"), 0, resolvedIp, stream.optJSONArray("backupUrls"));
-        Js.put(stream, "proxyPath", Proxy.baseUrl() + "/media/" + token + "/stream.m3u8");
-        Js.put(stream, "isHls", true);
-        return ok(stream);
+        return ok(Js.o("subtitles", out));
     }
 }

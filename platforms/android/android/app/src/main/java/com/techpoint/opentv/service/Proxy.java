@@ -22,21 +22,22 @@ import java.util.regex.Pattern;
 /*
  * Loopback media proxy, port of service/proxy.js (same routes, so the page
  * and hls.js work unchanged):
- *   /media/<token>/stream.(mp4|ts|m3u8)   the title, with the portal headers
+ *   /media/<token>/stream.(mp4|ts|m3u8)   the title, with the source's headers
  *   /hls/<token>/<base64url>              children of a rewritten playlist
- *   /sub/<token>.srt                       subtitle files (no CORS on the CDN)
+ *   /sub/<token>.srt                       subtitle files (no CORS upstream)
  *   /media/abort                           drop every upstream stream
  *
- * The CDN only serves a title with Content-Auth / Content-License headers
- * that a <video> element cannot set; this server replays the request with
- * them. Tokens live in memory only.
+ * Some addon sources only serve a video with request headers that a <video>
+ * element cannot set; this server replays the request with them. Tokens live
+ * in memory only.
  */
 final class Proxy {
     private Proxy() {}
 
     private static final String TAG = "OpenTV";
     private static final int MAX_TOKENS = 6;
-    private static final int MAX_SUBTITLES = 12;
+    private static final int MAX_SUBTITLES = 40;
+    private static final String SUBTITLE_UA = "Ranger/4.9.4-17294ac0";
     private static final int HLS_SEGMENT_SECONDS = 10;
 
     static final class Entry {
@@ -181,40 +182,89 @@ final class Proxy {
         ex.send(status, plain(), body.getBytes(Crypto.UTF8));
     }
 
-    private static void sendSubtitle(LocalServer.Exchange ex, Entry entry) throws IOException {
-        String ip = resolveHostIp(entry);
-        Http.Url u = Http.Url.parse(entry.url);
-        boolean secure = "https:".equals(u.protocol);
-        Http.Request r = new Http.Request();
-        r.secure = secure;
-        r.connectHost = ip.isEmpty() ? u.hostname : ip;
-        r.port = u.port.isEmpty() ? (secure ? 443 : 80) : Integer.parseInt(u.port);
-        r.tlsName = u.hostname;
-        r.path = u.path;
-        r.connectTimeout = 20000;
-        r.readTimeout = 20000;
-        r.headers.put("User-Agent", Magis.UA_CDN);
-        r.headers.put("Accept", "*/*");
-        r.headers.put("Host", u.host());
-        byte[] body;
-        int status;
-        try {
-            Http.Response res = Http.execute(r);
+    /* Subtitle bytes -> UTF-8 text: gzip is opened, a BOM dropped, and files
+       saved in Windows-1252 / Latin-1 (most Spanish SRTs) converted, so
+       accents show. Same as subtitleText() in service/proxy.js. */
+    static String subtitleText(byte[] body, String encoding) {
+        boolean gz = (encoding != null && encoding.toLowerCase(Locale.ROOT).contains("gzip"))
+            || (body.length > 1 && (body[0] & 0xff) == 0x1f && (body[1] & 0xff) == 0x8b);
+        if (gz) {
             try {
-                status = res.status;
-                body = res.readAll(32L << 20);
-            } finally {
-                res.close();
+                java.util.zip.GZIPInputStream in = new java.util.zip.GZIPInputStream(new java.io.ByteArrayInputStream(body));
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(body.length * 4);
+                byte[] buf = new byte[16384];
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    out.write(buf, 0, n);
+                    if (out.size() > (32 << 20)) throw new IOException("subtítulo demasiado grande");
+                }
+                body = out.toByteArray();
+            } catch (IOException e) {
+                /* not gzip after all */
             }
-        } catch (IOException e) {
-            text(ex, 502, "subtitle upstream error");
-            return;
         }
+        String text = new String(body, Crypto.UTF8);
+        if (text.indexOf('�') != -1) {
+            try {
+                text = new String(body, java.nio.charset.Charset.forName("windows-1252"));
+            } catch (Exception e) {
+                text = new String(body, java.nio.charset.Charset.forName("ISO-8859-1"));
+            }
+        }
+        return text.startsWith("﻿") ? text.substring(1) : text;
+    }
+
+    private static void sendSubtitle(LocalServer.Exchange ex, Entry entry) throws IOException {
+        Entry current = entry;
+        byte[] body = null;
+        int status = 0;
+        String encoding = null;
+        // OpenSubtitles' links redirect to the real file: follow up to 5.
+        for (int redirects = 0; ; redirects++) {
+            String ip = resolveHostIp(current);
+            Http.Url u = Http.Url.parse(current.url);
+            boolean secure = "https:".equals(u.protocol);
+            Http.Request r = new Http.Request();
+            r.secure = secure;
+            r.connectHost = ip.isEmpty() ? u.hostname : ip;
+            r.port = u.port.isEmpty() ? (secure ? 443 : 80) : Integer.parseInt(u.port);
+            r.tlsName = u.hostname;
+            r.path = u.path;
+            r.connectTimeout = 20000;
+            r.readTimeout = 20000;
+            r.headers.put("User-Agent", SUBTITLE_UA);
+            r.headers.put("Accept", "*/*");
+            r.headers.put("Host", u.host());
+            String next = null;
+            try {
+                Http.Response res = Http.execute(r);
+                try {
+                    status = res.status;
+                    if (status >= 300 && status < 400 && res.header("location") != null && redirects < 5) {
+                        next = Http.Url.resolve(current.url, res.header("location"));
+                        res.abort();
+                    } else {
+                        encoding = res.header("content-encoding");
+                        body = res.readAll(32L << 20);
+                    }
+                } finally {
+                    res.close();
+                }
+            } catch (IOException e) {
+                text(ex, 502, "subtitle upstream error");
+                return;
+            }
+            if (next == null) break;
+            current = new Entry();
+            current.url = next;
+        }
+        boolean ok = status >= 200 && status < 300;
+        if (ok) body = subtitleText(body, encoding).getBytes(Crypto.UTF8);
         Map<String, String> h = new LinkedHashMap<>();
         h.put("Content-Type", "text/plain; charset=utf-8");
         h.put("Access-Control-Allow-Origin", "*");
         h.put("Cache-Control", "private, max-age=300");
-        ex.send(status >= 200 && status < 300 ? 200 : 502, h, body);
+        ex.send(ok ? 200 : 502, h, body);
     }
 
     private static Http.Request mediaRequest(Entry entry, String method, Map<String, String> extra, String resolvedIp) {
@@ -328,7 +378,7 @@ final class Proxy {
 
     /* HLS players resolve a playlist's relative segment, key and nested
        playlist URLs against the loopback manifest URL, and those requests
-       need the portal headers too: rewrite every URI to a local route. */
+       need the source's headers too: rewrite every URI to a local route. */
     private static String hlsChildUrl(String token, String manifestUrl, String reference) {
         if (reference == null || reference.isEmpty() || reference.startsWith("data:")) return reference;
         return baseUrl() + "/hls/" + token + "/" + Crypto.base64Url(Http.Url.resolve(manifestUrl, reference));
@@ -409,6 +459,9 @@ final class Proxy {
             String contentType = "video/mp2t";
             if (rawMime.contains("mp4")) contentType = "video/mp4";
             else if (rawMime.contains("mpegurl") || (entry.url != null && entry.url.contains(".m3u8"))) contentType = "application/vnd.apple.mpegurl";
+            // Addon sources (MKV, WebM…): keep the upstream type; ExoPlayer
+            // sniffs the container anyway.
+            else if (rawMime.startsWith("video/") || rawMime.startsWith("audio/")) contentType = rawMime.split(";", 2)[0].trim();
             boolean isM3u8 = "application/vnd.apple.mpegurl".equals(contentType);
 
             Map<String, String> out = new LinkedHashMap<>();

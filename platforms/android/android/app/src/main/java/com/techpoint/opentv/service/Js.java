@@ -19,7 +19,7 @@ final class Js {
         return v == null || v == JSONObject.NULL;
     }
 
-    /* text() in magis.js: String(value), '' for null/undefined. */
+    /* Like String(value) in the Node service, with an empty string for null/undefined. */
     static String text(Object v) {
         if (isNull(v)) return "";
         if (v instanceof Number) return num((Number) v);

@@ -13,6 +13,10 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- The window behind the page in the app's dark colour: when the
+             video layer of TV en vivo comes or goes, the moment it shows
+             through was the light theme's white (a white flash). -->
+        <item name="android:windowBackground">@color/opentv_background</item>
     </style>
 
 

@@ -25,6 +25,8 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.text.Cue;
+import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
@@ -52,6 +54,15 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  *
  * Every event carries the generation "g" of the load that produced it, so
  * the page drops events of a title or channel it already left.
+ *
+ * Subtitles inside the file (MKV/MP4 text tracks, HLS WebVTT): the event
+ * {t:'text', tracks:[{index, lang, label, mime, forced, selected}]} lists
+ * them (text formats only: SubRip, SSA/ASS, WebVTT, TTML, tx3g; not picture
+ * subtitles such as PGS, DVB or VobSub), selectText({i}) turns one on (-1 =
+ * off) and {t:'cues', text} carries the lines on screen as plain text, so
+ * the page draws them in its own subtitle layer with the viewer's style.
+ * ExoPlayer draws nothing itself (there is no SubtitleView), and the cues
+ * only cross the bridge when they change.
  */
 @CapacitorPlugin(name = "NativePlayer")
 @OptIn(markerClass = UnstableApi.class)
@@ -72,6 +83,10 @@ public class NativePlayerPlugin extends Plugin {
     private boolean seeking = false;
     private boolean live = false;
     private int pendingAudio = -1;
+    private int textIndex = -1;           // chosen text track (index in the 'text' event), -1 off
+    private boolean textPending = false;  // textIndex not applied to the player yet
+    private String lastTextSig = "";
+    private String lastCues = "";
     private int videoW = 0, videoH = 0;
     private float pixelRatio = 1f;
     private int rectX = 0, rectY = 0, rectW = 0, rectH = 0;
@@ -117,7 +132,8 @@ public class NativePlayerPlugin extends Plugin {
             .build();
         player.setAudioAttributes(new AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true);
-        // The page draws the subtitles (SRT overlay): no native text track.
+        // The page draws the subtitles: no text track until it picks one of
+        // the file's (selectText), and then only as cues sent to the page.
         player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
             .setPreferredAudioLanguages("es", "spa")
@@ -286,6 +302,105 @@ public class NativePlayerPlugin extends Plugin {
         emit(o);
     }
 
+    /* The original format of a text track (subtitles parsed while
+       extracting are relabelled as Media3 cues, with the source format in
+       codecs). Null for anything that is not a text subtitle format. */
+    private static String textMime(Format f) {
+        String m = f.sampleMimeType;
+        if (MimeTypes.APPLICATION_MEDIA3_CUES.equals(m)) m = f.codecs;
+        if (m == null) return null;
+        switch (m) {
+            case MimeTypes.APPLICATION_SUBRIP:
+            case MimeTypes.TEXT_SSA:
+            case MimeTypes.TEXT_VTT:
+            case MimeTypes.APPLICATION_MP4VTT:
+            case MimeTypes.APPLICATION_TTML:
+            case MimeTypes.APPLICATION_TX3G:
+                return m;
+            default:
+                return null;
+        }
+    }
+
+    /* Called for every text track of the file, in the order the page
+       numbers them; returning true stops the walk. */
+    private interface TextVisitor {
+        boolean visit(int index, Tracks.Group group, int track, Format f, String mime);
+    }
+
+    private static void eachText(Tracks tracks, TextVisitor v) {
+        int n = 0;
+        for (Tracks.Group g : tracks.getGroups()) {
+            if (g.getType() != C.TRACK_TYPE_TEXT) continue;
+            for (int i = 0; i < g.length; i++) {
+                if (!g.isTrackSupported(i)) continue;
+                Format f = g.getTrackFormat(i);
+                String mime = textMime(f);
+                if (mime == null) continue;
+                if (v.visit(n++, g, i, f, mime)) return;
+            }
+        }
+    }
+
+    private void emitTextTracks(Tracks tracks) {
+        final JSArray list = new JSArray();
+        final StringBuilder sig = new StringBuilder();
+        eachText(tracks, (index, g, i, f, mime) -> {
+            JSObject t = new JSObject();
+            boolean forced = (f.selectionFlags & C.SELECTION_FLAG_FORCED) != 0;
+            boolean selected = g.isTrackSelected(i);
+            t.put("index", index);
+            t.put("lang", f.language == null ? "" : f.language);
+            t.put("label", f.label == null ? "" : f.label);
+            t.put("mime", mime);
+            t.put("forced", forced);
+            t.put("selected", selected);
+            list.put(t);
+            sig.append(index).append('|').append(f.language).append('|').append(f.label).append('|')
+                .append(mime).append('|').append(forced).append('|').append(selected).append(';');
+            return false;
+        });
+        // onTracksChanged also fires for audio and video changes.
+        if (sig.toString().equals(lastTextSig)) return;
+        lastTextSig = sig.toString();
+        JSObject o = new JSObject();
+        o.put("t", "text");
+        o.put("tracks", list);
+        emit(o);
+    }
+
+    /* Turns on the chosen text track (or every text track off). */
+    private void applyText(Tracks tracks) {
+        if (player == null || !textPending) return;
+        TrackSelectionParameters.Builder b = player.getTrackSelectionParameters().buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT);
+        if (textIndex < 0) {
+            b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true);
+            textPending = false;
+        } else {
+            final TrackSelectionOverride[] found = new TrackSelectionOverride[1];
+            eachText(tracks, (index, g, i, f, mime) -> {
+                if (index != textIndex) return false;
+                found[0] = new TrackSelectionOverride(g.getMediaTrackGroup(), i);
+                return true;
+            });
+            // Tracks not known yet: applied when they are (onTracksChanged).
+            if (found[0] == null) return;
+            b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setOverrideForType(found[0]);
+            textPending = false;
+        }
+        player.setTrackSelectionParameters(b.build());
+    }
+
+    private void emitCues(String text) {
+        if (text.equals(lastCues)) return;
+        lastCues = text;
+        JSObject o = new JSObject();
+        o.put("t", "cues");
+        o.put("text", text);
+        emit(o);
+    }
+
     private static int htmlErrorCode(PlaybackException e) {
         int c = e.errorCode;
         // MediaError codes: 2 network, 3 decode, 4 source not supported.
@@ -386,7 +501,23 @@ public class NativePlayerPlugin extends Plugin {
         @Override
         public void onTracksChanged(@NonNull Tracks tracks) {
             applyAudio(tracks);
+            applyText(tracks);
             emitTracks(tracks);
+            emitTextTracks(tracks);
+        }
+
+        @Override
+        public void onCues(@NonNull CueGroup cueGroup) {
+            if (textIndex < 0) { emitCues(""); return; }
+            StringBuilder sb = new StringBuilder();
+            for (Cue c : cueGroup.cues) {
+                if (c.text == null) continue;   // picture cues
+                String line = c.text.toString().trim();
+                if (line.isEmpty()) continue;
+                if (sb.length() > 0) sb.append('\n');
+                sb.append(line);
+            }
+            emitCues(sb.toString());
         }
 
         @Override
@@ -441,6 +572,10 @@ public class NativePlayerPlugin extends Plugin {
             seeking = false;
             live = isLive;
             pendingAudio = -1;
+            textIndex = -1;
+            textPending = false;
+            lastTextSig = "";
+            lastCues = "";
             videoW = videoH = 0;
             pixelRatio = 1f;
             layoutSurface();
@@ -455,6 +590,8 @@ public class NativePlayerPlugin extends Plugin {
             player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
                 .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
                 .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                 .build());
             altUrl = alt == null || alt.isEmpty() ? null : alt;
             unseekable = false;
@@ -567,6 +704,20 @@ public class NativePlayerPlugin extends Plugin {
             if (player == null) return;
             pendingAudio = i;
             applyAudio(player.getCurrentTracks());
+        });
+    }
+
+    /* i: index in the 'text' event's list; -1 turns the subtitles off. */
+    @PluginMethod
+    public void selectText(PluginCall call) {
+        final int i = call.getInt("i", -1);
+        call.resolve();
+        main.post(() -> {
+            if (player == null) return;
+            textIndex = i < 0 ? -1 : i;
+            textPending = true;
+            if (textIndex < 0) emitCues("");
+            applyText(player.getCurrentTracks());
         });
     }
 

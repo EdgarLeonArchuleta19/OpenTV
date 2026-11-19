@@ -85,6 +85,12 @@ final class Tmdb {
 
     /* The service answer for tmdb({list}). */
     static JSONObject list(String name) {
+        if (name.startsWith("search:")) return search(name.substring(7));
+        if (name.startsWith("es:")) return spanishTitle(name.substring(3));
+        if (name.startsWith("es-season:")) {
+            String[] p = name.substring(10).split(":");
+            return p.length == 2 ? spanishSeason(p[0], p[1]) : error("Id no válido", false);
+        }
         String route = null;
         for (String[] l : LISTS) if (l[0].equals(name)) route = l[1];
         if (route == null) return error("Lista no permitida", false);
@@ -104,14 +110,51 @@ final class Tmdb {
             for (int i = 0; i < results.length(); i++) all.put(results.opt(i));
             if (results.length() == 0) break;
         }
+        // Only what is already out: the weekly trends also bring films that
+        // open next month (no date, or a date after today).
+        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT).format(new java.util.Date());
         JSONArray items = new JSONArray();
         for (int i = 0; i < all.length(); i++) {
             JSONObject r = all.optJSONObject(i);
             if (r == null) continue;
             JSONObject s = slim(r, kind);
-            if (!s.optString("title").isEmpty()) items.put(s);
+            String date = s.optString("date");
+            if (!s.optString("title").isEmpty() && !date.isEmpty() && date.compareTo(today) <= 0) items.put(s);
         }
         cache.put(name, new Hit(items));
+        return Js.o("items", items, "returnValue", true);
+    }
+
+    /* The search box: "search:<text>" finds movies and series by their
+       Spanish (or original) title, as search() in tmdb.js. One page. */
+    private static final int SEARCH_CACHE_MAX = 200;
+    private static final Map<String, Hit> searchCache = new ConcurrentHashMap<>();
+
+    private static JSONObject search(String text) {
+        String q = text.replaceAll("\\s+", " ").trim();
+        if (q.length() > 100) q = q.substring(0, 100);
+        if (q.length() < 2) return Js.o("items", new JSONArray(), "returnValue", true);
+        if (!credentials()) return error("Sin clave de TMDB", true);
+        String key = q.toLowerCase(java.util.Locale.ROOT);
+        Hit hit = searchCache.get(key);
+        if (hit != null && System.currentTimeMillis() - hit.at < CACHE_MS) return Js.o("items", hit.items, "returnValue", true);
+        JSONArray results;
+        try {
+            results = fetchPage("/search/multi?include_adult=false&query=" + URLEncoder.encode(q, "UTF-8").replace("+", "%20"), 1);
+        } catch (Exception e) {
+            return error(e.getMessage(), false);
+        }
+        JSONArray items = new JSONArray();
+        for (int i = 0; i < results.length(); i++) {
+            JSONObject r = results.optJSONObject(i);
+            if (r == null) continue;
+            String type = r.optString("media_type");
+            if (!"movie".equals(type) && !"tv".equals(type)) continue;
+            JSONObject s = slim(r, type);
+            if (!s.optString("title").isEmpty()) items.put(s);
+        }
+        if (searchCache.size() >= SEARCH_CACHE_MAX) searchCache.clear();
+        searchCache.put(key, new Hit(items));
         return Js.o("items", items, "returnValue", true);
     }
 
@@ -124,7 +167,7 @@ final class Tmdb {
         Object vote = r.opt("vote_average");
         String date = Js.text(Js.or(r.opt("release_date"), r.opt("first_air_date"), ""));
         String poster = Js.text(r.opt("poster_path")), backdrop = Js.text(r.opt("backdrop_path"));
-        return Js.o("tmdbId", r.opt("id"), "kind", kind,
+        return Js.o("tmdbId", r.opt("id"), "kind", kind, "date", date,
             "title", Js.text(Js.or(r.opt("title"), r.opt("name"), "")),
             "original", Js.text(Js.or(r.opt("original_title"), r.opt("original_name"), "")),
             "year", date.substring(0, Math.min(4, date.length())),
@@ -134,7 +177,83 @@ final class Tmdb {
     }
 
     private static JSONArray fetchPage(String route, int page) throws Exception {
-        String query = "language=es-MX&region=MX&page=" + page + (token.isEmpty() ? "&api_key=" + URLEncoder.encode(apiKey, "UTF-8") : "");
+        // No region for a search: it turns the year into Mexico's release date.
+        String extra = (route.startsWith("/search/") ? "" : "&region=MX") + "&page=" + page;
+        JSONArray results = fetchJson(route, extra).optJSONArray("results");
+        return results == null ? new JSONArray() : results;
+    }
+
+    /* ---- Spanish texts for the addons' titles (catalogue language), as
+       spanishTitle / spanishSeason in tmdb.js:
+       "es:<imdb id>"                 -> { item: { tmdbId, kind, title, overview } }
+       "es-season:<tmdb id>:<season>" -> { episodes: [{ number, title, overview }] } */
+    private static final int ES_CACHE_MAX = 500;
+    private static final Map<String, Object[]> esCache = new ConcurrentHashMap<>();
+
+    private static JSONObject esCached(String key) {
+        Object[] hit = esCache.get(key);
+        if (hit != null && System.currentTimeMillis() - (Long) hit[0] < CACHE_MS * 4) return (JSONObject) hit[1];
+        return null;
+    }
+
+    private static void esPut(String key, JSONObject out) {
+        if (esCache.size() >= ES_CACHE_MAX) esCache.clear();
+        esCache.put(key, new Object[] { System.currentTimeMillis(), out });
+    }
+
+    static JSONObject spanishTitle(String imdb) {
+        if (!imdb.matches("tt\\d{5,10}")) return error("Id no válido", false);
+        if (!credentials()) return error("Sin clave de TMDB", true);
+        JSONObject hit = esCached("t:" + imdb);
+        if (hit != null) return hit;
+        try {
+            JSONObject json = fetchJson("/find/" + imdb + "?external_source=imdb_id", "");
+            JSONArray movies = json.optJSONArray("movie_results"), shows = json.optJSONArray("tv_results");
+            boolean movie = movies != null && movies.length() > 0;
+            JSONObject r = movie ? movies.optJSONObject(0) : (shows != null && shows.length() > 0 ? shows.optJSONObject(0) : null);
+            JSONObject out;
+            if (r == null) {
+                out = Js.o("item", JSONObject.NULL, "returnValue", true);
+            } else {
+                out = Js.o("item", Js.o("tmdbId", r.opt("id"), "kind", movie ? "movie" : "tv",
+                    "title", Js.text(Js.or(r.opt("title"), r.opt("name"), "")),
+                    "overview", Js.text(Js.or(r.opt("overview"), ""))), "returnValue", true);
+            }
+            esPut("t:" + imdb, out);
+            return out;
+        } catch (Exception e) {
+            return error(e.getMessage(), false);
+        }
+    }
+
+    static JSONObject spanishSeason(String tmdbId, String season) {
+        if (!tmdbId.matches("\\d{1,9}") || !season.matches("\\d{1,4}")) return error("Id no válido", false);
+        if (!credentials()) return error("Sin clave de TMDB", true);
+        String key = "s:" + tmdbId + ":" + season;
+        JSONObject hit = esCached(key);
+        if (hit != null) return hit;
+        try {
+            JSONArray list = fetchJson("/tv/" + tmdbId + "/season/" + season, "").optJSONArray("episodes");
+            JSONArray eps = new JSONArray();
+            for (int i = 0; list != null && i < list.length(); i++) {
+                JSONObject e = list.optJSONObject(i);
+                if (e == null) continue;
+                String still = Js.text(e.opt("still_path"));
+                eps.put(Js.o("number", e.opt("episode_number"), "title", Js.text(Js.or(e.opt("name"), "")),
+                    "overview", Js.text(Js.or(e.opt("overview"), "")),
+                    "still", Js.truthy(e.opt("still_path")) ? "https://image.tmdb.org/t/p/w780" + still : ""));
+            }
+            JSONObject out = Js.o("episodes", eps, "returnValue", true);
+            esPut(key, out);
+            return out;
+        } catch (Exception e) {
+            return error(e.getMessage(), false);
+        }
+    }
+
+    /* One TMDB answer in Spanish (Mexico); `extra` is added to the query. */
+    private static JSONObject fetchJson(String route, String extra) throws Exception {
+        String query = "language=es-MX" + extra + (token.isEmpty() ? "&api_key=" + URLEncoder.encode(apiKey, "UTF-8") : "");
         Http.Request r = new Http.Request();
         r.secure = true;
         r.connectHost = "api.themoviedb.org";   // system resolver, as tmdb.js
@@ -163,8 +282,7 @@ final class Tmdb {
                 throw new Exception("Sin conexión con TMDB");
             }
             try {
-                JSONArray results = new JSONObject(new String(body, Crypto.UTF8)).optJSONArray("results");
-                return results == null ? new JSONArray() : results;
+                return new JSONObject(new String(body, Crypto.UTF8));
             } catch (Exception e) {
                 throw new Exception("Respuesta de TMDB no válida");
             }

@@ -7,8 +7,8 @@ android {
         applicationId "com.techpoint.opentv"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.1.0"
+        versionCode 4
+        versionName "1.2.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -59,6 +59,13 @@ dependencies {
     // Native video player (ExoPlayer): HLS and MPEG-TS decoded in hardware.
     implementation "androidx.media3:media3-exoplayer:$media3Version"
     implementation "androidx.media3:media3-exoplayer-hls:$media3Version"
+    // Torrent engine (libtorrent via libtorrent4j, MIT). Native libs for ARM
+    // only: armeabi-v7a (Fire TV Stick) and arm64-v8a (phones, newer TVs).
+    // They target Android 9+; older devices report torrents as unavailable.
+    def libtorrent4jVersion = '2.1.0-39'
+    implementation "org.libtorrent4j:libtorrent4j:$libtorrent4jVersion"
+    implementation "org.libtorrent4j:libtorrent4j-android-arm:$libtorrent4jVersion"
+    implementation "org.libtorrent4j:libtorrent4j-android-arm64:$libtorrent4jVersion"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
