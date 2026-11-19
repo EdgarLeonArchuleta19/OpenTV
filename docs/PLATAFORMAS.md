@@ -37,6 +37,9 @@ tests/               pruebas compartidas
 | Subtítulos del archivo | ✅ relay FFmpeg | ✅ ExoPlayer |
 | Subtítulos de addons e importados | ✅ | ✅ |
 | TV en vivo (listas M3U) | ✅ | ✅ |
+| Guía de horarios (XMLTV de la lista) | ✅ | ✅ |
+| Carrera de fuentes de torrents | ✅ hasta 4 a la vez | ✅ 2 a la vez |
+| Gente real por torrent en "Cambiar fuente" | ✅ | — |
 | Búsqueda en español (TMDB) y tendencias | ✅ | ✅ |
 | Actualizaciones | ✅ automáticas | ✅ desde la app |
 | Ventana flotante, barra de título, ratón | ✅ | — |
@@ -82,6 +85,19 @@ Código en `ui/js/src/services/vod-api.js` y `ui/js/src/player/stremio-sources.j
    WebVTT. En Android todo lo reproduce ExoPlayer.
 6. **Torrents.** Aviso la primera vez; uno a la vez; se sirven en `127.0.0.1`
    con Range y se borran al salir, al cambiar de fuente o al cerrar la app.
+   - **Carrera de fuentes:** con la elegida arrancan hasta 3 alternativas
+     parecidas (mismo idioma, sin CAM, puntaje cercano:
+     `torrentRaceAlternatives()` en `source-rank.js`; 1 en la tele). Un
+     torrent está vivo cuando tiene sus datos y una semilla, o la gente
+     conectada tiene entre todos el vídeo completo. La elegida gana en cuanto
+     está viva y tiene 4 s de ventaja; si no, gana la mejor alternativa viva.
+     Las demás se cierran. Si gana otra, la app la recuerda y lo avisa.
+   - **Trackers:** 13 fijos más la lista pública de
+     [ngosang/trackerslist](https://github.com/ngosang/trackerslist) (se
+     renueva como mucho una vez al día) y DHT; libtorrent anuncia a todos.
+   - **"Cambiar fuente" (PC):** `torrentProbe` abre los 6 mejores torrents
+     8 s sin bajar el vídeo y muestra la gente conectada de verdad.
+   - Mientras carga: "Probando 3 fuentes · 12 conexiones · 100 % disponible".
 7. **Subtítulos.** Primero los del archivo, luego los de los addons (con el
    hash de OpenSubtitles del vídeo para que coincidan), o un archivo propio.
    El proxy sigue redirecciones, descomprime y corrige la codificación.
@@ -100,6 +116,15 @@ Independiente de los addons: solo listas M3U (`service/m3u.js`,
 [iptv-org](https://github.com/iptv-org/iptv) y ofrece más en "Buscar listas";
 el usuario agrega las suyas en **Ajustes → Addons → TV en vivo** (o en el
 celular, **Mi cuenta → Addons y listas**).
+
+**Guía de horarios.** Si la cabecera de la lista nombra una guía XMLTV
+(`#EXTM3U url-tvg="…"`, como las de Pluto TV, Plex y Samsung TV Plus), el
+servicio la baja y la lee por partes (`service/epg.js`, `Epg.java` con el
+lector XML de Android), guarda solo las próximas 12 h y la conserva 6 h. La
+interfaz (`live/epg.js`) pide los canales por `tvg-id` en tandas de 400 y
+muestra qué hay ahora y qué sigue en la guía de canales, en la barra del
+reproductor y debajo del vídeo. Las listas sin guía siguen diciendo
+"En vivo".
 
 ## Celular
 

@@ -111,7 +111,14 @@ Reglas:
   ordenados por `rankSearchResults()`); con clave de TMDB traduce títulos en
   español al original (`tmdb.list('search:<texto>')`, también en `Tmdb.java`).
 - TV en vivo es independiente: solo las listas M3U del usuario
-  (`service/m3u.js`).
+  (`service/m3u.js`). La guía de horarios sale de la XMLTV que nombra la
+  lista (`service/epg.js`, `Epg.java`, `ui/js/src/live/epg.js`).
+- Torrents: carrera de fuentes (la elegida y alternativas parecidas a la vez,
+  `torrentRaceAlternatives()`) en `service/torrents.js` y `Torrents.java`;
+  en la tele 2 a la vez como máximo (Fire TV de 1 GB).
+- Los parámetros del servicio en Android viajan en la dirección: arreglos y
+  objetos van como JSON (`queryString()` en `services/portal.js`); un
+  arreglo muy grande se manda por tandas (límite de línea de 64 KB).
 
 Cómo funciona: [docs/PLATAFORMAS.md](docs/PLATAFORMAS.md#películas-series-y-anime-addons).
 
