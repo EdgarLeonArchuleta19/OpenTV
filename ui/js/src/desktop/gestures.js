@@ -254,11 +254,11 @@ function bindDesktopPlayback() {
   playerVideo.addEventListener('pause', updateButtons);
   playerVideo.addEventListener('loadedmetadata', updateButtons);
   playerVideo.addEventListener('durationchange', updateButtons);
-  document.addEventListener('xuper:duration', updateButtons);
+  document.addEventListener('opentv:duration', updateButtons);
   /* A new title in the player: right away, not when its video starts (a
      torrent can take a while), or a movie shows the series buttons. */
-  document.addEventListener('xuper:player-item', updateButtons);
-  document.addEventListener('xuper:timeline', function () {
+  document.addEventListener('opentv:player-item', updateButtons);
+  document.addEventListener('opentv:timeline', function () {
     updateButtons();
     if (state.playerMode === 'vod') updateVodProgress(vodPlaybackPosition(), vodPlaybackDuration());
   });

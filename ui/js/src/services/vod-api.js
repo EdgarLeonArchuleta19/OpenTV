@@ -2,9 +2,9 @@
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 /* ------------------------------------------------------------- VOD API
-   XMLHttpRequest is used deliberately: it works on Chromium 53, where
-   fetch/async functions are not a safe webOS 4 baseline. */
-var vodApi = window.XUPERTV_API || {};
+   XMLHttpRequest is used deliberately: it works on the oldest TV
+   WebViews, where fetch/async functions are not a safe baseline. */
+var vodApi = window.OPENTV_API || {};
 /* Desktop harness override: ?service=http://127.0.0.1:8910 */
 var devServiceParam = /[?&]service=([^&]+)/.exec(window.location.search || '');
 if (devServiceParam) { vodApi.devServiceUrl = decodeURIComponent(devServiceParam[1]); }
@@ -43,54 +43,6 @@ function apiUrl(kind) {
   var base = String(vodApi.baseUrl || '').replace(/\/$/, '');
   var path = String(vodApi[kind + 'Path'] || '');
   return base && path ? base + (path.charAt(0) === '/' ? path : '/' + path) : '';
-}
-
-function xuperSession() {
-  var session = vodApi.session || {};
-  return {
-    userId: String(session.userId || ''),
-    userToken: String(session.userToken || ''),
-    portalCode: String(session.portalCode || ''),
-    homePageCode: String(session.homePageCode || ''),
-    version: String(session.version || '4.34.4')
-  };
-}
-
-function hasXuperSession() {
-  var session = xuperSession();
-  return !!(session.userId && session.userToken && session.portalCode);
-}
-
-function xuperPayload(kind, value) {
-  var session = xuperSession();
-  if (kind === 'catalog') {
-    return {
-      userId: session.userId,
-      userToken: session.userToken,
-      portalCode: session.portalCode,
-      homePageCode: session.homePageCode,
-      version: session.version
-    };
-  }
-  if (kind === 'search') {
-    return {
-      userToken: session.userToken,
-      userId: session.userId,
-      portalCode: session.portalCode,
-      columnId: '',
-      value: value || '',
-      type: '',
-      pageSize: 20,
-      pageNum: 1,
-      filter: ''
-    };
-  }
-  return {
-    userToken: session.userToken,
-    userId: session.userId,
-    portalCode: session.portalCode,
-    programId: value
-  };
 }
 
 function apiImage(value) {
@@ -149,7 +101,7 @@ function normalizeVod(raw, index) {
     landscape: apiImage(raw.landscapeUrl || raw.landscape_url || raw.landscape || raw.wideImage || raw.bannerImage),
     backdrop: apiImage(raw.backdropUrl || raw.backdrop_url || raw.backdrop || raw.backdrop_path),
     streamUrl: raw.streamUrl || raw.stream_url || '',
-    /* Magis portal records (service / snapshot). */
+    /* Records marked as coming from the old portal (history only). */
     type: type || (isSeries ? 'teleplay' : 'movie'),
     row: apiText(raw.row, ''),
     /* Every home shelf the title is on (the TOP rankings included). */
@@ -173,6 +125,7 @@ function normalizeVod(raw, index) {
 
 function apiRequest(url, done, options) {
   options = options || {};
+  done = trackedCallback(done);   /* the loading bar at the top (core/loader.js) */
   var xhr = new XMLHttpRequest();
   var finished = false;
   var timeout = parseInt(vodApi.timeoutMs, 10) || 10000;
@@ -336,7 +289,7 @@ function vodFor(category, count, fallbackStart) {
 }
 
 function refreshVodViews() {
-  if (homeBuilt && window.XUPER_DESKTOP && pages.length) {
+  if (homeBuilt && window.OPENTV_DESKTOP && pages.length) {
     markCatalogPagesStale();
     if (historyDrawerOpen) { renderHistoryDrawer(); }
     if (searchKeyboard) { buildSearch(); if (state.searchQuery) { runSearch(); } }
@@ -368,7 +321,7 @@ function refreshVodViews() {
         rail.classList.add('is-expanded');
         rail.classList.remove('is-collapsed');
         var railBg = document.querySelector('.home-sidebar-bg');
-        if (railBg && !window.XUPER_DESKTOP) { railBg.classList.add('is-on'); }
+        if (railBg && !window.OPENTV_DESKTOP) { railBg.classList.add('is-on'); }
       }
     }
   }
@@ -376,28 +329,21 @@ function refreshVodViews() {
   if (state.detail) { buildDetail(state.detail); }
 }
 
-function bundledCatalog() {
-  var data = window.XUPERTV_CATALOG;
-  return data ? apiArray(data) : [];
-}
-
-/* ------------------------------------------- Modos del catálogo (solo PC)
-   Películas y series salen del catálogo integrado (magis.js) o, en modo
-   manual, solo de los addons de Stremio que añade el usuario
-   (manifest.json / catalog / meta / stream). La app no trae ningún addon.
-   TV en vivo no depende de esto: tiene sus propias listas M3U.
-   Solo en PC (capacidad 'addons'); en teles y celulares es siempre automático. */
+/* ------------------------------------------- Addons
+   Películas y series salen solo de los addons del usuario (compatibles con
+   Stremio: manifest.json / catalog / meta / stream). Vienen instalados
+   Cinemeta y OpenSubtitles, como en Stremio; los de fuentes los agrega cada
+   usuario. TV en vivo no depende de esto: tiene sus propias listas M3U.
+   (The automatic catalog and its 'auto' mode were removed: `mode` is always
+   'external', kept so saved configs and older checks read the same.) */
 var VOD_SOURCES_STORAGE_KEY = 'opentv_vod_sources_v1';
 
 function getVodSourcesConfig() {
-  var cfg = { mode: 'auto', addons: [] };
+  var cfg = { mode: 'external', addons: [] };
   try {
     var raw = localStorage.getItem(VOD_SOURCES_STORAGE_KEY);
     var parsed = raw ? JSON.parse(raw) : null;
     if (parsed && typeof parsed === 'object') {
-      /* 'portal' (old "Modo servidor") and the old fallback mode are both
-         the automatic mode now. */
-      cfg.mode = parsed.mode === 'external' ? 'external' : 'auto';
       if (Object.prototype.toString.call(parsed.addons) === '[object Array]') {
         for (var i = 0; i < parsed.addons.length; i++) {
           var ad = parsed.addons[i];
@@ -408,15 +354,12 @@ function getVodSourcesConfig() {
       }
     }
   } catch (e) {}
-  if (!platformHas('addons')) { cfg.mode = 'auto'; return cfg; }
   seedDefaultVodAddons(cfg);
-  if (cfg.mode === 'external' && !cfg.addons.length) { cfg.mode = 'auto'; }
   return cfg;
 }
 
-/* PC: the addons Stremio itself comes with, installed once (the viewer can
-   remove them; they are not added again). They are only URLs: nothing is
-   asked of them until the Stremio mode is on.
+/* The addons that come with the app (as Stremio's own); they cannot be
+   removed (seedDefaultVodAddons).
    (Stremio's "Local Files" lives in Stremio's own local server, so it cannot
    be part of OpenTV.) */
 var VOD_DEFAULTS_KEY = 'opentv_vod_defaults_v1';
@@ -425,34 +368,76 @@ var DEFAULT_VOD_ADDONS = [
   { id: 'default_opensubtitles', name: 'OpenSubtitles v3', url: 'https://opensubtitles-v3.strem.io/manifest.json' }
 ];
 
+/* Anime: the community's Kitsu catalog (Japanese anime as it is: airing,
+   popular, best rated, with its own search). A catalog only, no sources;
+   one of the app's own addons, right after Cinemeta. */
+var VOD_ANIME_KEY = 'opentv_vod_anime_v1';
+var DEFAULT_ANIME_ADDON = { id: 'default_kitsu', name: 'Anime Kitsu', url: 'https://anime-kitsu.strem.fun/manifest.json' };
+
+/* The three that come with the app (Cinemeta, Anime Kitsu, OpenSubtitles)
+   cannot be removed: they are always in the list (one missing, also from
+   an install where the viewer had removed it, is put back at the end;
+   Kitsu right after Cinemeta). They give the catalog and subtitles only. */
+function builtinVodAddons() {
+  return DEFAULT_VOD_ADDONS.slice(0, 1).concat([DEFAULT_ANIME_ADDON], DEFAULT_VOD_ADDONS.slice(1));
+}
+
+function isBuiltinVodAddon(ad) {
+  var base = ad && ad.url ? stremioBaseFromUrl(ad.url) : '';
+  if (!base) { return false; }
+  var list = builtinVodAddons();
+  for (var i = 0; i < list.length; i++) { if (stremioBaseFromUrl(list[i].url) === base) { return true; } }
+  return false;
+}
+
+/* Recommended addons ("Recomendados" in Ajustes → Addons): Torrentio and
+   TorrentsDB. None is preinstalled: the viewer adds them from here.
+   TorrentsDB works without debrid. */
+var RECOMMENDED_VOD_ADDONS = [
+  { name: 'Torrentio', url: 'https://torrentio.strem.fun/manifest.json', desc: 'Fuentes para reproducir películas y series, en varios idiomas y calidades' },
+  { name: 'TorrentsDB', url: 'https://torrentsdb.com/manifest.json', desc: 'Fuentes torrent sin debrid, con proveedores y estrenos en varios idiomas' }
+];
+
+function isVodAddonInstalled(url) {
+  var base = stremioBaseFromUrl(url);
+  var addons = getVodSourcesConfig().addons;
+  for (var i = 0; i < addons.length; i++) { if (stremioBaseFromUrl(addons[i].url) === base) { return true; } }
+  return false;
+}
+
 function seedDefaultVodAddons(cfg) {
+  /* (Kept so the stored flags still mean "the defaults were handed out".) */
   try {
-    if (localStorage.getItem(VOD_DEFAULTS_KEY)) { return; }
-    localStorage.setItem(VOD_DEFAULTS_KEY, '1');
-  } catch (e) { return; }
+    if (!localStorage.getItem(VOD_DEFAULTS_KEY)) { localStorage.setItem(VOD_DEFAULTS_KEY, '1'); }
+    if (!localStorage.getItem(VOD_ANIME_KEY)) { localStorage.setItem(VOD_ANIME_KEY, '1'); }
+  } catch (e) { /* ignore */ }
   var have = {};
   for (var i = 0; i < cfg.addons.length; i++) { have[stremioBaseFromUrl(cfg.addons[i].url)] = true; }
-  for (var d = 0; d < DEFAULT_VOD_ADDONS.length; d++) {
-    var def = DEFAULT_VOD_ADDONS[d];
+  var list = builtinVodAddons();
+  var changed = false;
+  for (var d = 0; d < list.length; d++) {
+    var def = list[d];
     if (have[stremioBaseFromUrl(def.url)]) { continue; }
-    cfg.addons.push({ id: def.id, name: def.name, url: def.url, baseUrl: stremioBaseFromUrl(def.url), kind: 'stremio' });
+    var rec = { id: def.id, name: def.name, url: def.url, baseUrl: stremioBaseFromUrl(def.url), kind: 'stremio' };
+    /* Kitsu goes after Cinemeta, so the rows keep Cinemeta first. */
+    var at = cfg.addons.length;
+    if (def === DEFAULT_ANIME_ADDON) {
+      for (var c = 0; c < cfg.addons.length; c++) { if (/v3-cinemeta\.strem\.io/.test(cfg.addons[c].url || '')) { at = c + 1; } }
+    }
+    cfg.addons.splice(at, 0, rec);
+    changed = true;
   }
-  saveVodSourcesConfig(cfg);
+  if (changed) { saveVodSourcesConfig(cfg); }
 }
 
+/* Always on: addons are the only source of movies and series. */
 function stremioModeOn() {
-  return getVodSourcesConfig().mode === 'external';
+  return true;
 }
-
-/* The "Stremio" mark next to the logo and in Mi cuenta (body class). */
-function paintStremioModeMark() {
-  if (document.body) { document.body.classList.toggle('is-stremio-mode', stremioModeOn()); }
-}
-
 function saveVodSourcesConfig(cfg) {
   try {
     localStorage.setItem(VOD_SOURCES_STORAGE_KEY, JSON.stringify({
-      mode: (cfg && cfg.mode) || 'auto',
+      mode: 'external',
       addons: (cfg && cfg.addons) || []
     }));
   } catch (e) {}
@@ -473,6 +458,7 @@ function stremioBaseFromUrl(url) {
 /* Addon requests carry no custom headers: those would force a CORS
    preflight, and Stremio addons only promise plain GET with CORS. */
 function addonRequest(url, done, timeoutMs) {
+  done = trackedCallback(done);   /* the loading bar at the top (core/loader.js) */
   var xhr = new XMLHttpRequest();
   var finished = false;
   function finish(error, payload) {
@@ -528,12 +514,21 @@ function stremioAddonInfo(manifest, url) {
   var list = (manifest && manifest.catalogs) || [];
   for (var i = 0; i < list.length; i++) {
     var cat = list[i];
-    if (!cat || !cat.id || (cat.type !== 'movie' && cat.type !== 'series')) { continue; }
+    /* ("anime": Kitsu's lists, movies and series mixed, for the Anime section.) */
+    if (!cat || !cat.id || (cat.type !== 'movie' && cat.type !== 'series' && cat.type !== 'anime')) { continue; }
     var ex = catalogExtras(cat);
+    /* The genres the catalog can be filtered by (Cinemeta: Animation, Family…):
+       Kids and Anime ask for those lists (fetchAddonCatalogs). */
+    var genres = [];
+    for (var e = 0; e < (cat.extra || []).length; e++) {
+      if (cat.extra[e] && cat.extra[e].name === 'genre' && cat.extra[e].options) { genres = cat.extra[e].options.slice(0, 60); }
+    }
+    if (!genres.length && cat.genres) { genres = cat.genres.slice(0, 60); }
     catalogs.push({ type: cat.type, id: cat.id, name: cat.name || '',
-      home: !ex.required.length, search: ex.names.indexOf('search') !== -1 });
+      home: !ex.required.length, search: ex.names.indexOf('search') !== -1, genres: genres });
   }
   return {
+    manifestV: 3,
     url: url,
     baseUrl: stremioBaseFromUrl(url),
     kind: 'stremio',
@@ -549,6 +544,15 @@ function stremioAddonInfo(manifest, url) {
 }
 
 /* Does this addon answer `resource` for that type and id? */
+/* Something to play with: an addon that gives sources (Cinemeta and
+   OpenSubtitles, the preinstalled ones, give none). Without one, titles
+   show their information only. */
+function hasSourceAddons() {
+  var addons = getVodSourcesConfig().addons;
+  for (var i = 0; i < addons.length; i++) { if (addonSupports(addons[i], 'stream')) { return true; } }
+  return false;
+}
+
 function addonSupports(ad, resource, type, id) {
   var res = ad && ad.resources;
   if (!res || !res.length) { return false; }
@@ -568,18 +572,41 @@ function addonSupports(ad, resource, type, id) {
 
 /* Addon ids in the app are 'stremio:<id>' so they never mix with the
    integrated catalog (history, Mi lista); _stremioId is the addon's own. */
-function stremioMetaToVodRecord(meta, baseUrl, rowName) {
+/* An installed addon has anime lists (Kitsu): then Anime shows only those,
+   and the other catalogs' "Anime" genre stays in Películas / Series. */
+var animeCatalogInstalled = (function () {
+  /* (From the saved list at start; each catalog sync updates it.) */
+  try {
+    var saved = JSON.parse(localStorage.getItem(VOD_SOURCES_STORAGE_KEY) || 'null');
+    return !!(saved && saved.addons && hasAnimeCatalog(saved.addons));
+  } catch (e) { return false; }
+})();
+function hasAnimeCatalog(addons) {
+  for (var i = 0; i < addons.length; i++) {
+    for (var c = 0; c < (addons[i].catalogs || []).length; c++) {
+      if (addons[i].catalogs[c].type === 'anime' && addons[i].catalogs[c].home) { return true; }
+    }
+  }
+  return false;
+}
+
+/* `anime`: the title comes from an anime list (it only goes to Anime). */
+function stremioMetaToVodRecord(meta, baseUrl, rowName, anime) {
   if (!meta || !meta.id) { return null; }
-  var isSeries = meta.type === 'series' || meta.type === 'tv';
+  var isSeries = meta.type === 'series' || meta.type === 'tv' || (meta.type === 'anime' && !/movie/i.test(String(meta.subtype || '')));
   var genres = meta.genres || meta.genre || [];
   if (Object.prototype.toString.call(genres) !== '[object Array]') { genres = [String(genres)]; }
-  var catParts = ['destacado', isSeries ? 'serie' : 'pelicula'];
-  for (var g = 0; g < genres.length; g++) {
+  var catParts = anime ? ['anime'] : ['destacado', isSeries ? 'serie' : 'pelicula'];
+  for (var g = 0; g < genres.length && !anime; g++) {
     var gn = norm(String(genres[g] || ''));
-    if (gn.indexOf('anim') !== -1) { catParts.push('anime'); }
+    /* "Anime" is Japanese animation. "Animation" alone is neither Anime
+       (it was: cartoons ended up there) nor Kids (it also has adult shows):
+       only "Family" goes to Kids, what a kids profile sees. */
+    if (gn === 'anime' && !animeCatalogInstalled) { catParts.push('anime'); }
     if (gn.indexOf('family') !== -1 || gn.indexOf('kids') !== -1 || gn.indexOf('infantil') !== -1) { catParts.push('infantil'); }
   }
   return {
+    _animeCat: !!anime,
     id: 'stremio:' + meta.id,
     title: String(meta.name || meta.title || 'Sin título'),
     category: catParts.join(','),
@@ -614,39 +641,75 @@ function catalogUrl(base, cat, extra) {
 
 /* Row names: "Popular · Películas"; with several addons that would repeat,
    the addon's name is added. */
+var ANIME_ROW_NAMES = {
+  'kitsu-anime-trending': 'Tendencias del anime',
+  'kitsu-anime-airing': 'En emisión',
+  'kitsu-anime-popular': 'Los más populares',
+  'kitsu-anime-rating': 'Mejor valorados'
+};
+
+var stremioRowOrder = {}, stremioRowSeq = 0;
+
 function stremioRowName(ad, cat, taken) {
   var kind = cat.type === 'series' ? 'Series' : 'Películas';
-  var name = cat.name ? (cat.name + ' · ' + kind) : kind;
+  var name = cat.type === 'anime' ? (ANIME_ROW_NAMES[cat.id] || ((cat.name || 'Anime') + ' · Anime'))
+    : (cat.name ? (cat.name + ' · ' + kind) : kind);
   if (taken[name]) { name += ' (' + ad.name + ')'; }
   taken[name] = true;
+  /* The rows follow the addons' order (portalRowsFor), not the order in
+     which titles happen to show up first. */
+  if (!(name in stremioRowOrder)) { stremioRowOrder[name] = stremioRowSeq++; }
   return name;
 }
 
 var STREMIO_HOME_CATALOGS = 12;   /* rows per addon */
 var STREMIO_CATALOG_PAGES = 2;    /* two pages per row (usually 100 titles or more) */
 
-/* Every home catalog of one addon, one row each. */
+/* Kids and Anime: the lists a catalog gives filtered by these genres (the
+   popular lists barely have them). Titles get their section from their own
+   genres (stremioMetaToVodRecord): Family / Animation → Kids, Anime → Anime. */
+var STREMIO_SECTION_GENRES = [['Family', 'Familia'], ['Animation', 'Animación'], ['Anime', 'Anime']];
+
 function fetchAddonCatalogs(ad, taken, done) {
   var cats = [];
   for (var i = 0; i < (ad.catalogs || []).length && cats.length < STREMIO_HOME_CATALOGS; i++) {
-    if (ad.catalogs[i].home) { cats.push(ad.catalogs[i]); }
+    if (ad.catalogs[i].home) { cats.push({ cat: ad.catalogs[i], extra: '' }); }
   }
-  var items = [];
+  /* One genre list per type (movie, series), from the first catalog that
+   offers that genre. */
+  var done2 = {};
+  for (var c = 0; c < (ad.catalogs || []).length; c++) {
+    var cg = ad.catalogs[c];
+    if (!cg.home || !cg.genres || !cg.genres.length || cg.type === 'anime') { continue; }
+    STREMIO_SECTION_GENRES.forEach(function (g) {
+      var key = cg.type + ':' + g[0];
+      if (done2[key] || cg.genres.indexOf(g[0]) === -1) { return; }
+      /* With an anime catalog installed, Anime shows that one instead. */
+      if (g[0] === 'Anime' && animeCatalogInstalled) { return; }
+      done2[key] = true;
+      cats.push({ cat: { type: cg.type, id: cg.id, name: g[1] }, extra: 'genre=' + encodeURIComponent(g[0]), one: true });
+    });
+  }
+  /* Each list keeps its own bucket: the rows come out in the addon's order,
+     not in the order the answers happen to arrive. */
+  var buckets = cats.map(function () { return []; });
   var pending = cats.length;
-  if (!pending) { return done(items); }
-  cats.forEach(function (cat) {
+  if (!pending) { return done([]); }
+  cats.forEach(function (job, jobIndex) {
+    var cat = job.cat;
     var rowName = stremioRowName(ad, cat, taken);
     var got = 0;
     function page(n) {
-      addonRequest(catalogUrl(ad.baseUrl, cat, n ? 'skip=' + got : ''), function (err, payload) {
+      var extra = [job.extra, n ? 'skip=' + got : ''].filter(function (x) { return x; }).join('&');
+      addonRequest(catalogUrl(ad.baseUrl, cat, extra), function (err, payload) {
         var metas = (!err && payload && payload.metas) ? payload.metas : [];
         for (var m = 0; m < metas.length; m++) {
-          var rec = stremioMetaToVodRecord(metas[m], ad.baseUrl, rowName);
-          if (rec) { items.push(rec); }
+          var rec = stremioMetaToVodRecord(metas[m], ad.baseUrl, rowName, cat.type === 'anime');
+          if (rec) { buckets[jobIndex].push(rec); }
         }
         got += metas.length;
-        if (metas.length && n + 1 < STREMIO_CATALOG_PAGES) { return page(n + 1); }
-        if (--pending === 0) { done(items); }
+        if (metas.length && !job.one && n + 1 < STREMIO_CATALOG_PAGES) { return page(n + 1); }
+        if (--pending === 0) { done([].concat.apply([], buckets)); }
       });
     }
     page(0);
@@ -720,7 +783,6 @@ function installVodAddon(addonInput, done) {
       cfg.addons.push(info);
     }
     saveVodSourcesConfig(cfg);
-    if (cfg.mode !== 'external') { return done(null, 0, info); }
     syncExternalVodCatalogs(function (sErr, count) { done(null, count, info); });
   });
 }
@@ -729,7 +791,8 @@ function installVodAddon(addonInput, done) {
 function refreshAddonManifests(cfg, done) {
   var stale = [];
   for (var i = 0; i < cfg.addons.length; i++) {
-    if (!cfg.addons[i].resources && cfg.addons[i].kind !== 'm3u' && cfg.addons[i].kind !== 'json') { stale.push(i); }
+    /* Also read once more when saved by an older build (no genre lists). */
+    if ((!cfg.addons[i].resources || cfg.addons[i].manifestV !== 3) &&cfg.addons[i].kind !== 'm3u' && cfg.addons[i].kind !== 'json') { stale.push(i); }
   }
   if (!stale.length) { return done(); }
   var left = stale.length;
@@ -741,13 +804,16 @@ function refreshAddonManifests(cfg, done) {
   });
 }
 
-/* Manual (Stremio) mode: the whole catalog comes from the user's addons. */
-function syncExternalVodCatalogs(done, forceApply) {
+/* The whole catalog comes from the user's addons. Without any addon the
+   catalog is emptied (the home then says how to add one). */
+function syncExternalVodCatalogs(done) {
   done = done || function () {};
   var cfg = getVodSourcesConfig();
-  if (cfg.mode !== 'external' && !forceApply) { return done(null, 0); }
-  if (!cfg.addons.length) { return done(null, 0); }
+  if (!cfg.addons.length) { animeCatalogInstalled = false; replaceVod([], 'stremio-external', false); return done(null, 0); }
   refreshAddonManifests(cfg, function () {
+    animeCatalogInstalled = hasAnimeCatalog(cfg.addons);
+    stremioRowOrder = {};
+    stremioRowSeq = 0;
     var byId = {}, all = [], taken = {};
     var left = cfg.addons.length;
     function collect(items) {
@@ -780,90 +846,197 @@ function syncExternalVodCatalogs(done, forceApply) {
   });
 }
 
-/* Catalog modes for movies and series (PC only):
-   - 'auto'      the integrated catalog (recommended).
-   - 'external'  only what the user's Stremio addons bring.
-   Switching saves the choice and reloads the catalog at once. */
-var VOD_SOURCE_MODES = [
-  { id: 'auto', title: 'Modo automático', badge: 'Recomendado',
-    desc: 'Películas y series del catálogo integrado de OpenTV. No necesitas configurar nada.' },
-  { id: 'external', title: 'Modo Addons',
-    desc: 'Películas y series solo de los addons que tú agregues abajo (compatibles con Stremio). Al reproducir eliges la fuente: enlace directo o torrent.' }
-];
 
-function applyVodSourceMode(mode, done) {
-  done = done || function () {};
-  var cfg = getVodSourcesConfig();
-  var previous = cfg.mode;
-  if (mode === 'external' && !cfg.addons.length) {
-    return done('Primero agrega al menos un addon abajo.');
-  }
-  if (mode === 'external' && !cfg.addons.some(function (ad) {
-    return ad.kind === 'm3u' || ad.kind === 'json' || (ad.catalogs && ad.catalogs.length) || !ad.resources;
-  })) {
-    /* (Torrentio, for example, only gives sources: it has nothing to browse.) */
-    return done('Ninguno de tus addons tiene Catálogo. Agrega uno con Catálogo para tener películas y series; los que solo dan Fuentes se usan al reproducir.');
-  }
-  cfg.mode = mode === 'external' ? 'external' : 'auto';
-  saveVodSourcesConfig(cfg);
-  if (cfg.mode === 'external') {
-    syncExternalVodCatalogs(function (err, count) {
-      if (!count) {
-        /* No addon answered: keep the previous mode so the app is not left empty. */
-        var back = getVodSourcesConfig();
-        back.mode = previous;
-        saveVodSourcesConfig(back);
-        return done('Tus addons no devolvieron títulos (¿tienen catálogo y están en línea?). Se mantuvo el modo anterior.');
-      }
-      vodApiState.error = null;
-      paintStremioModeMark();
-      if (typeof resetTrendingForMode === 'function') { resetTrendingForMode(); }
-      done(null, count);
-    }, true);
-    return;
-  }
-  /* Automatic: drop the addon titles and load the integrated catalog. */
-  var own = [];
-  for (var i = 0; i < VOD.length; i++) { if (!VOD[i]._stremio) { own.push(VOD[i]); } }
-  if (own.length && own.length !== VOD.length) { replaceVod(own, 'portal-snapshot', false); }
-  vodApiState.error = null;
-  paintStremioModeMark();
-  loadVodCatalog();
-  if (typeof resetTrendingForMode === 'function') { resetTrendingForMode(); }
-  done(null, own.length);
-}
-
-/* Search in the addons that offer it (catalogs with the "search" extra). */
-function searchStremioAddons(query, done) {
+/* Search in the addons that offer it (catalogs with the "search" extra).
+   done(list) once every addon answered; `each(list, pending)`, when given,
+   gets the list so far after every answer, so the fast addons show first. */
+function searchStremioAddons(query, done, each, noAnime) {
   var cfg = getVodSourcesConfig();
   var jobs = [];
   for (var i = 0; i < cfg.addons.length; i++) {
     var ad = cfg.addons[i];
     for (var c = 0; c < (ad.catalogs || []).length; c++) {
-      if (ad.catalogs[c].search) { jobs.push({ ad: ad, cat: ad.catalogs[c] }); }
+      /* (noAnime: TMDB's trends, which never come from an anime list.) */
+      if (ad.catalogs[c].search && !(noAnime && ad.catalogs[c].type === 'anime')) { jobs.push({ ad: ad, cat: ad.catalogs[c] }); }
     }
   }
-  if (!jobs.length) { return done([]); }
+  if (!jobs.length) { if (each) { each([], 0); } return done([]); }
   var results = [], left = jobs.length;
+  function merged() {
+    var out = [];
+    for (var r = 0; r < results.length; r++) { out = out.concat(results[r] || []); }
+    return rankSearchResults(query, out);
+  }
   jobs.forEach(function (job, idx) {
     addonRequest(catalogUrl(job.ad.baseUrl, job.cat, 'search=' + encodeURIComponent(query)), function (err, payload) {
       var metas = (!err && payload && payload.metas) ? payload.metas : [];
       var recs = [];
       for (var m = 0; m < metas.length; m++) {
-        var rec = stremioMetaToVodRecord(metas[m], job.ad.baseUrl, '');
-        if (rec) { recs.push(rec); }
+        var rec = stremioMetaToVodRecord(metas[m], job.ad.baseUrl, '', job.cat.type === 'anime');
+        if (rec) { rec._searchOrder = m; recs.push(rec); }
       }
       results[idx] = recs;
-      if (--left === 0) {
-        var out = [], seen = {};
-        for (var r = 0; r < results.length; r++) {
-          for (var k = 0; k < (results[r] || []).length; k++) {
-            if (!seen[results[r][k].id]) { seen[results[r][k].id] = true; out.push(results[r][k]); }
-          }
-        }
-        done(out);
-      }
+      left--;
+      if (each) { each(merged(), left); }
+      if (left === 0) { done(merged()); }
     }, 12000);
+  });
+}
+
+/* ---- Search order ----
+   The addons answer in their own order (all the movies, then all the
+   series). One list instead, best match first: the same title, then titles
+   that start with the words, then whole words, then the rest; the addon's
+   own order breaks ties. The same title from two addons (Cinemeta's and
+   Kitsu's "Naruto") is shown once, the anime list's one. */
+function searchNorm(text) {
+  return norm(String(text || '')).replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function searchMatchScore(q, item) {
+  var best = 0;
+  var names = [item.title, item.alias, item._esTitle];
+  for (var i = 0; i < names.length; i++) {
+    var t = names[i] ? searchNorm(names[i]) : '';
+    if (!t) { continue; }
+    var s = 0;
+    var tc = t.replace(/ /g, ''), qc = q.replace(/ /g, '');
+    if (t === q) { s = 100; }
+    /* "Intensa-Mente" for "intensamente": the same without spaces. */
+    else if (tc === qc) { s = 95; }
+    else if (qc.length >= 4 && tc.indexOf(qc) === 0) { s = 75; }
+    else if (t.indexOf(q + ' ') === 0 || (t.indexOf(q) === 0 && q.length >= 4)) { s = 80; }
+    else if ((' ' + t + ' ').indexOf(' ' + q + ' ') !== -1) { s = 65; }
+    else if ((' ' + t).indexOf(' ' + q) !== -1) { s = 55; }
+    else if (t.indexOf(q) !== -1) { s = 40; }
+    else {
+      var words = q.split(' '), hits = 0;
+      for (var w = 0; w < words.length; w++) { if (words[w] && (' ' + t).indexOf(' ' + words[w]) !== -1) { hits++; } }
+      s = words.length ? Math.round(30 * hits / words.length) : 0;
+    }
+    if (s > best) { best = s; }
+  }
+  return best;
+}
+
+function rankSearchResults(query, list) {
+  var q = searchNorm(query);
+  var seen = {}, byTitle = {}, rows = [];
+  for (var i = 0; i < list.length; i++) {
+    var it = list[i];
+    if (!it || seen[it.id]) { continue; }
+    seen[it.id] = true;
+    var name = searchNorm(it.title);
+    var key = name + '|' + String(it.year || '').slice(0, 4) + '|' + (isSeriesItem(it) ? 's' : 'm');
+    /* (Also one record twice in an addon: same title, same poster.) */
+    var keyArt = it.poster ? name + '|' + it.poster : '';
+    var prev = byTitle[key] || (keyArt && byTitle[keyArt]);
+    if (prev) {
+      if (it._animeCat && !prev.item._animeCat) { prev.item = it; }
+      continue;
+    }
+    var row = { item: it, at: rows.length };
+    byTitle[key] = row;
+    if (keyArt) { byTitle[keyArt] = row; }
+    rows.push(row);
+  }
+  for (var r = 0; r < rows.length; r++) {
+    var item = rows[r].item;
+    /* No poster: usually an unknown or broken record, after the rest. */
+    rows[r].score = searchMatchScore(q, item) + (item._searchBoost || 0) - Math.min(10, (item._searchOrder || 0) / 3) -
+      (item.poster ? 0 : 25);
+  }
+  rows.sort(function (a, b) { return (b.score - a.score) || (a.at - b.at); });
+  return rows.map(function (x) { return x.item; });
+}
+
+/* Titles in Spanish: Cinemeta only knows the English ones ("El padrino" →
+   nothing). TMDB says the original title, which is then searched in the
+   addons. done(list) with what it found (may be empty); never fails. */
+var SEARCH_TMDB_TITLES = 3;
+var SEARCH_TMDB_BOOST = 12;   /* above an exact title nobody knows */
+
+/* Latin letters only (the addons' titles): not "進撃の巨人". */
+function latinTitle(text) {
+  var s = String(text || '');
+  for (var i = 0; i < s.length; i++) { if (s.charCodeAt(i) > 0x24f) { return false; } }
+  return s.length > 0;
+}
+
+/* A result that is that TMDB title: its original title (or the Spanish
+   one) and the same year, same kind. */
+function tmdbTitleIn(t, list) {
+  var orig = titleKey(t.original), es = titleKey(t.title);
+  for (var i = 0; i < list.length; i++) {
+    var v = list[i];
+    if (!v || !!isSeriesItem(v) !== (t.kind === 'tv')) { continue; }
+    var vt = titleKey(v.title);
+    if (vt !== orig && vt !== es) { continue; }
+    var y = String(v.year || '').match(/\d{4}/);
+    if (t.year && y && Math.abs(parseInt(y[0], 10) - parseInt(t.year, 10)) <= 1) { return v; }
+  }
+  return null;
+}
+
+function searchByTranslatedTitle(query, have, done) {
+  var api = typeof tmdbApi === 'function' ? tmdbApi() : null;
+  if (!api || norm(query).length < 3) { return done([]); }
+  api('search:' + query).then(function (answer) {
+    var hits = (answer && answer.items) || [];
+    var q = searchNorm(query);
+    var picked = [];
+    for (var i = 0; i < hits.length && picked.length < SEARCH_TMDB_TITLES; i++) {
+      var t = hits[i];
+      /* Only the titles that are what was typed, in Spanish. */
+      if (!t.title || searchMatchScore(q, { title: t.title }) < 55) { continue; }
+      picked.push(t);
+    }
+    var out = [], jobs = [];
+    picked.forEach(function (t, n) {
+      var boost = SEARCH_TMDB_BOOST - n * 2;
+      /* Already found (the plain search gave it): it goes up, named in
+         Spanish too. Else its original title is searched. */
+      var known = tmdbTitleIn(t, have);
+      if (known) { known._esTitle = t.title; known._searchBoost = boost; return; }
+      if (!t.original || titleKey(t.original) === titleKey(t.title) || !latinTitle(t.original)) { return; }
+      jobs.push({ t: t, boost: boost });
+    });
+    if (!jobs.length) { return done(out); }
+    var left = jobs.length;
+    jobs.forEach(function (job) {
+      searchStremioAddons(job.t.original, function (found) {
+        var hit = tmdbTitleIn(job.t, found);
+        if (hit) {
+          hit._esTitle = job.t.title;
+          hit._searchBoost = job.boost;
+          out.push(hit);
+        }
+        if (--left === 0) { done(out); }
+      });
+    });
+  }).catch(function () { done([]); });
+}
+
+function searchTitles(query, update) {
+  var addonList = [], extra = [], addonsDone = false, extraDone = false;
+  function emit() {
+    update(rankSearchResults(query, extra.concat(addonList)), addonsDone && extraDone);
+  }
+  searchStremioAddons(query, function (list) {
+    addonList = list;
+    addonsDone = true;
+    /* The translated titles are looked up once the plain search is in,
+       so a title already found is not searched again. */
+    searchByTranslatedTitle(query, addonList, function (found) {
+      extra = found;
+      extraDone = true;
+      emit();
+    });
+    if (!extraDone) { emit(); }
+  }, function (list, pending) {
+    if (!pending) { return; }
+    addonList = list;
+    emit();
   });
 }
 
@@ -909,7 +1082,12 @@ function loadStremioMeta(item, done) {
 }
 
 function applyStremioMeta(item, meta) {
-  if (meta.description) { item.synopsis = meta.description; }
+  if (meta.description) {
+    /* Catalogue in Spanish (home/catalog-lang.js): the addon's English
+       description is kept as the original, the Spanish one stays shown. */
+    if (item._en && item._esShown) { item._en.synopsis = meta.description; }
+    else { item.synopsis = meta.description; }
+  }
   if (meta.runtime) { item.duration = meta.runtime; }
   if (meta.imdbRating) { item.score = String(meta.imdbRating); }
   if (meta.genres && meta.genres.length) { item.genres = meta.genres; }

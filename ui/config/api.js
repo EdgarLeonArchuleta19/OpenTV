@@ -1,48 +1,19 @@
 /*
- * VOD catalog configuration for the webOS port.
+ * App configuration: the local service it talks to.
  *
- * PORTAL MODE (default, real XuperTV catalog)
- * -------------------------------------------
- *   mode: 'portal'
- *   - data/portal.js is the catalog snapshot generated from the Magis portal
- *     with an anonymous device session. It paints the real catalog instantly.
- *   - The bundled service (services/com.webosflux.xuptertv.fidelity.service)
- *     refreshes the same roots at runtime and answers search / detail /
- *     resolve. The portal sends no CORS headers, so the encrypted protocol
- *     has to run in the Node service, never in the page.
- *
- * STATIC MODE (offline)
- * ---------------------
- *   mode: 'static'   -> only data/catalog.js (observed crops + open samples).
- *
- * GENERIC AUTHORIZED BACKEND
- * --------------------------
- *   mode: 'catalog'
- *   baseUrl = 'https://your-backend.example'
- *   catalogPath = '/v1/catalog'          (GET)
- *   detailPath  = '/v1/items/{id}'       (GET)
- *   searchPath  = '/v1/search?q={query}' (GET)
- *   headers = { Authorization: 'Bearer ...' }   <-- keep out of git
- *   imageBaseUrl = 'https://cdn.example/posters/'
- *
- * The response may be an array or an object with `items`, `movies`,
- * `results`, `data`, `programList`, etc. Each item accepts the aliases
- * normalized in js/app.js (title/name/programName, poster/posterUrl/image,
- * streamUrl/stream_url, category/section, genres/genre, ...).
+ * Movies and series come from the viewer's addons (compatible with Stremio;
+ * the page reads them directly). The local service plays files, serves
+ * subtitles, reads M3U lists and, on PC, runs torrents and downloads.
  */
-window.XUPERTV_API = {
+window.OPENTV_API = {
   enabled: true,
-  mode: 'portal',
+  mode: 'addons',
 
-  /* Bundle id of the packaged Node service. */
-  serviceId: 'com.webosflux.xuptertv.fidelity.service',
-
-  /* Refresh the snapshot from the service on boot (false = snapshot only). */
+  /* PC: read the addons' catalogs again every 20 minutes (false = never). */
   refresh: true,
 
-  /* Desktop development: plain HTTP mirror of the service methods, used when
-     webOS.service is not available (tools/dev_service.mjs). Leave empty on the
-     TV. */
+  /* Plain HTTP address of the local service. Empty on PC (Electron uses
+     IPC); scripts/build-android.cjs fills it in for the Android app. */
   devServiceUrl: '',
 
   /* static / catalog modes */
@@ -53,14 +24,5 @@ window.XUPERTV_API = {
   searchPath: '',
   headers: {},
   imageBaseUrl: '',
-  timeoutMs: 20000,
-
-  /* 'xuper' mode (generic session-based endpoint, not the portal service). */
-  session: {
-    userId: '',
-    userToken: '',
-    portalCode: '',
-    homePageCode: '',
-    version: '4.34.4'
-  }
+  timeoutMs: 20000
 };

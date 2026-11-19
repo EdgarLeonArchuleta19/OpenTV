@@ -7,6 +7,8 @@ function buildSettings() {
   settingsMenu = $('settings-menu');
   settingsRight = $('settings-right');
   clear(settingsMenu); clear(settingsRight);
+  /* Only the entries this device has (Descargas…). */
+  SETTINGS_ITEMS = settingsItemsForDevice();
 
   settingsItems = [];
   for (var i = 0; i < SETTINGS_ITEMS.length; i++) {
@@ -45,8 +47,10 @@ function buildSettings() {
   settingsPanels = {};
   settingsPanels.profile = buildProfilePanel();
   settingsPanels.history = buildHistoryPanel();
-  settingsPanels.playback = buildPlaybackPanel();
+  /* Ajustes: Apariencia, Reproducción and Preferencias de addons. */
+  settingsPanels.playback = window.OPENTV_DESKTOP ? buildSettingsHubPanel() : buildPlaybackPanel();
   settingsPanels.sources = buildSourcesPanel();
+  if (platformHas('downloads')) { settingsPanels.downloads = buildDownloadsPanel(); }
   settingsPanels.parent = buildParentPanel();
   settingsPanels.feedback = buildFeedbackPanel();
   settingsPanels.about = buildAboutPanel();
@@ -61,6 +65,19 @@ function openSettings() {
   showScreen('settings');
   showSettingsPanel(0, false);
   setFocus(settingsItems[0]);
+}
+
+/* Opens Ajustes on one panel ('downloads', 'sources'…). */
+function openSettingsAt(id) {
+  /* Phone: its own Addons screen (the canvas is hidden there). */
+  if (typeof isPhone === 'function' && isPhone() && id === 'sources') {
+    mobileOpen('addons');
+    return;
+  }
+  openSettings();
+  for (var i = 0; i < SETTINGS_ITEMS.length; i++) {
+    if (SETTINGS_ITEMS[i].id === id) { showSettingsPanel(i, true); setFocus(settingsItems[i]); return; }
+  }
 }
 
 function showSettingsPanel(index, focus) {
@@ -80,6 +97,8 @@ function showSettingsPanel(index, focus) {
     settingsRight.replaceChild(refreshedSources, settingsPanels.sources);
     settingsPanels.sources = refreshedSources;
   }
+  /* Descargas keeps itself up to date only while it is the panel shown. */
+  if (settingsPanels.downloads) { setDownloadsPanelLive(activeId === 'downloads'); }
   for (var i = 0; i < settingsItems.length; i++) {
     settingsItems[i].classList.toggle('is-selected', i === index);
   }
@@ -108,8 +127,8 @@ function buildPlaybackPanel() {
   p.appendChild(el('div', 'sp-hr'));
 
   p.appendChild(el('div', 'sp-global-note', 'Estas preferencias se aplican automáticamente a todas las películas y series nuevas.'));
-  addOptionRow(p, 198, window.XUPER_DESKTOP ? 'Calidad' : 'Reproductor',
-    window.XUPER_DESKTOP ? ['Automática', 'Compatibilidad máxima'] : ['Normal (directo)', 'Modo fluido'],
+  addOptionRow(p, 198, window.OPENTV_DESKTOP ? 'Calidad' : 'Reproductor',
+    window.OPENTV_DESKTOP ? ['Automática', 'Compatibilidad máxima'] : ['Normal (directo)', 'Modo fluido'],
     'streamMode', state.playback.streamMode === 'smooth' ? 1 : 0);
   addOptionRow(p, 307, 'Formato de pantalla', ['Llenar pantalla', 'Original', '16:9', '4:3'],
     'screen', state.playback.screen);
@@ -210,7 +229,7 @@ function addStyleRow(panel, top) {
 }
 
 function buildProfilePanel() {
-  if (window.XUPER_DESKTOP) { return buildDesktopProfilePanel(); }
+  if (window.OPENTV_DESKTOP) { return buildDesktopProfilePanel(); }
   var p = el('div', 'settings-panel account-panel');
   var avatar = el('div', 'account-avatar');
   avatar.innerHTML = SETTINGS_MENU_ICONS.profile;

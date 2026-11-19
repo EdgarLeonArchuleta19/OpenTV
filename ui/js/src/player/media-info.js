@@ -41,37 +41,13 @@ function ensureMediaInfo(item, done) {
     applySubtitleDefaults(mediaInfoCache[key]);
     return done(mediaInfoCache[key]);
   }
-  /* Stremio titles: the service has no info about them; subtitles come
-     from the addons when the video starts (player/stremio-sources.js). */
-  if (item._stremio) { return done({ audio: '', subtitles: item.subtitles || [], tracks: [] }); }
-  if (mediaInfoPending[key]) { mediaInfoPending[key].push(done); return; }
-  mediaInfoPending[key] = [done];
-
-  var ep = mediaInfoEpisode(item);
-  var params = { contentId: key };
-  var seriesRef = item.seasonId || item.id;
-  if (ep && ep.id && seriesRef && ep.id !== seriesRef) { params.seriesContentId = seriesRef; }
-  portalServiceCall('mediaInfo', params, function (error, payload) {
-    var waiters = mediaInfoPending[key] || [];
-    delete mediaInfoPending[key];
-    var info = (!error && payload && payload.returnValue !== false) ? payload : null;
-    if (info) {
-      mediaInfoCache[key] = info;
-      var infoDuration = durationToSeconds(info.duration);
-      if (infoDuration) {
-        (ep || item).duration = infoDuration;
-        document.dispatchEvent(new CustomEvent('xuper:duration'));
-      }
-      applySubtitleDefaults(info);
-    }
-    for (var i = 0; i < waiters.length; i++) {
-      try { waiters[i](info); } catch (eWaiter) { /* ignore */ }
-    }
-  });
+  /* Addon titles: nothing to ask beforehand; the audio tracks are read from
+     the file and subtitles come from the addons when the video starts
+     (player/stremio-sources.js). */
+  return done({ audio: '', subtitles: item.subtitles || [], tracks: [] });
 }
 
-/* The portal lists audio PIDs in stream order ("por,spa,eng").  The real
-   app preselects Spanish when present, so do the same. */
+/* The index of the preferred language in a list of audio codes. */
 function preferredAudioIndex(rawAudio) {
   var parts = (rawAudio || '').split(/[,\/]/);
   var preferred = preferredLanguageCode();
@@ -83,6 +59,14 @@ function preferredAudioIndex(rawAudio) {
 
 function audioLanguageList(info) {
   var out = [];
+  /* Addon titles: the file's own tracks, read by the service (language,
+     title such as "Latino", channels), already labelled. */
+  if (info && info.audioTracks && info.audioTracks.length) {
+    for (var t = 0; t < info.audioTracks.length; t++) {
+      out.push({ index: info.audioTracks[t].index, code: info.audioTracks[t].code, label: info.audioTracks[t].label });
+    }
+    return out;
+  }
   var parts = ((info && info.audio) || '').split(/[,\/]/);
   for (var i = 0; i < parts.length; i++) {
     var code = parts[i].trim();
@@ -96,15 +80,16 @@ function subtitleLanguageList(info) {
   var out = [];
   var subs = (info && info.subtitles) || [];
   for (var i = 0; i < subs.length; i++) {
-    out.push({ lang: subs[i].lang, url: subs[i].url, format: subs[i].format });
+    /* label: shown as is (the file's own tracks, an imported file). */
+    out.push({ lang: subs[i].lang, url: subs[i].url, format: subs[i].format, label: subs[i].label || '',
+      forced: !!subs[i].forced, cues: subs[i].cues || null });
   }
-  /* The real dialog lists Español before Inglés for this catalog. */
-  out.sort(function (a, b) {
-    var pa = /^(es|spa|esp|spn)$/i.test(a.lang || '') ? 0 : 1;
-    var pb = /^(es|spa|esp|spn)$/i.test(b.lang || '') ? 0 : 1;
-    return pa - pb;
-  });
-  return out;
+  /* The viewer's subtitle language first, keeping the order the list came in
+     (the file's own tracks before or after the addons', per Preferencias). */
+  var wanted = typeof preferredSubtitleCode === 'function' ? preferredSubtitleCode() : 'es';
+  var ranked = out.map(function (s, idx) { return { s: s, idx: idx, p: languageMatchesPreference(s.lang, wanted) ? 0 : 1 }; });
+  ranked.sort(function (a, b) { return a.p - b.p || a.idx - b.idx; });
+  return ranked.map(function (r) { return r.s; });
 }
 
 /* The real app opens with subtitles ON and Spanish selected when the portal

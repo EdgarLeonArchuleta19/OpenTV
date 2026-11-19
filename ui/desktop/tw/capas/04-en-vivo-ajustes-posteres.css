@@ -396,3 +396,108 @@
 .quality-menu .qm-check svg { width: 18px; height: 18px; display: block; }
 .quality-menu .qm-label { flex: 1; }
 .quality-menu .qm-note { font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, .5); }
+
+/* Ayuda y Acerca de sin tarjetas: secciones planas separadas por una línea,
+   el título a la izquierda y la acción debajo del texto. */
+.desktop .sd-plain .sd-body { gap: 0; max-width: 1100px; }
+.desktop .sd-plain .sd-card {
+  display: block; padding: 30px 0; gap: 0;
+  border: 0; border-bottom: 1px solid rgba(255, 255, 255, .08); border-radius: 0;
+  background: none; box-shadow: none; animation: none;
+}
+.desktop .sd-plain .sd-card:hover { background: none; }
+.desktop .sd-plain .sd-card-icon { display: none; }
+.desktop .sd-plain .sd-card-text { padding-top: 0; }
+.desktop .sd-plain .sd-card-title { font-size: 25px; }
+.desktop .sd-plain .sd-card-sub { margin-top: 6px; font-size: 20px; max-width: 900px; }
+.desktop .sd-plain .sd-btn { margin: 18px 0 0; height: 52px; padding: 0 22px; font-size: 19px; border-radius: 14px; }
+.desktop .sd-plain .sd-btn:hover { transform: none; }
+.desktop .sd-plain .sd-keys { display: flex; gap: 20px; border-bottom: 0; }
+.desktop .sd-plain .sd-keys-head .sd-card-icon { display: none; }
+.desktop .sd-plain .sd-about-hero { margin-bottom: 18px; padding-bottom: 34px; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.desktop .sd-plain .sd-credits { margin-top: 0; border-top: 0; }
+
+
+/* Ajustes: subpestañas y filas de opciones (screens/settings-hub.js).
+   Grupos con título pequeño en mayúsculas; cada grupo es un bloque con
+   líneas entre filas: el nombre a la izquierda (con ⓘ) y un selector
+   segmentado a la derecha. */
+.desktop .sd-tabs { display: flex; gap: 6px; margin-bottom: 44px; padding: 6px; width: max-content;
+  border-radius: 16px; background: rgba(255, 255, 255, .06); }
+.desktop .sd-tab { padding: 14px 30px; border-radius: 12px; font-size: 22px; font-weight: 600; cursor: pointer;
+  color: rgba(255, 255, 255, .65); transition: background-color .15s ease, color .15s ease; }
+.desktop .sd-tab:hover { color: #fff; background: rgba(255, 255, 255, .08); }
+.desktop .sd-tab.is-on { background: #fff; color: #0e0e11; }
+.desktop .sd-tab.is-focused { box-shadow: 0 0 0 3px rgba(255, 255, 255, .5); }
+
+.desktop .set-page { display: flex; flex-direction: column; gap: 40px; max-width: 1240px; }
+.desktop .set-group { display: flex; flex-direction: column; border-radius: 20px; overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .035); }
+.desktop .set-group-title { margin: 0; padding: 20px 30px 6px; font-size: 17px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 255, 255, .45); }
+.desktop .set-row { display: flex; align-items: center; justify-content: space-between; gap: 36px;
+  min-height: 92px; padding: 16px 30px; box-sizing: border-box; }
+.desktop .set-row + .set-row { border-top: 1px solid rgba(255, 255, 255, .07); }
+.desktop .set-row-name { flex: 0 0 auto; display: flex; align-items: center; gap: 12px;
+  font-size: 25px; font-weight: 550; color: #fff; }
+.desktop .set-info { display: inline-flex; width: 24px; height: 24px; color: rgba(255, 255, 255, .4); cursor: help;
+  transition: color .15s ease; }
+.desktop .set-info svg { width: 100%; height: 100%; }
+.desktop .set-info:hover { color: #fff; }
+.desktop .set-seg { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; padding: 5px;
+  border-radius: 14px; background: rgba(255, 255, 255, .07); }
+.desktop .set-seg.is-wrap { gap: 8px; padding: 0; background: none; max-width: 74%; }
+.desktop .set-seg-btn { padding: 12px 22px; border-radius: 10px; font-size: 20px; font-weight: 600; white-space: nowrap;
+  color: rgba(255, 255, 255, .7); cursor: pointer; transition: background-color .12s ease, color .12s ease; }
+.desktop .set-seg.is-wrap .set-seg-btn { border-radius: 999px; background: rgba(255, 255, 255, .07); }
+.desktop .set-seg-btn:hover { color: #fff; background: rgba(255, 255, 255, .12); }
+.desktop .set-seg-btn.is-on,
+.desktop .set-seg.is-wrap .set-seg-btn.is-on { background: #fff; color: #0e0e11; }
+.desktop .set-seg-btn.is-focused { box-shadow: 0 0 0 3px rgba(255, 255, 255, .55); }
+.desktop .set-seg-btn.is-struck { text-decoration: line-through; opacity: .5; }
+.desktop .set-reset { display: flex; justify-content: flex-end; }
+.desktop .set-reset .set-seg-btn { background: rgba(255, 255, 255, .07); }
+
+/* The same rows inside "Elegir fuente" (narrower window). */
+.desktop .srcp-body .set-page { gap: 22px; padding: 8px 4px; }
+.desktop .srcp-body .set-group-title { padding: 14px 20px 2px; font-size: 14px; }
+.desktop .srcp-body .set-row { min-height: 66px; padding: 10px 20px; gap: 20px; }
+.desktop .srcp-body .set-row-name { font-size: 19px; }
+.desktop .srcp-body .set-info { width: 20px; height: 20px; }
+.desktop .srcp-body .set-seg-btn { padding: 8px 15px; font-size: 16px; }
+.desktop .srcp-body .set-seg.is-wrap { max-width: 70%; }
+
+/* Capítulos de series de addons con imagen: tarjetas (imagen 16:9, título,
+   duración y dos líneas de resumen) en vez de cuadros con el número. */
+.desktop .dd-grid.has-cards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important; gap: 22px !important; }
+.desktop .dd-grid.has-cards .detail-episode {
+  display: flex; flex-direction: column; align-items: stretch; height: auto; padding: 0; overflow: hidden;
+  border-radius: 16px; text-align: left;
+}
+.desktop .dd-grid.has-cards .ep-thumb {
+  position: relative; aspect-ratio: 16 / 9; background: #1c1c22 center / cover no-repeat;
+}
+.desktop .dd-grid.has-cards .ep-thumb .ep-play {
+  position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px;
+  display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: rgba(0, 0, 0, .55); color: #fff; opacity: 0; transition: opacity .2s ease;
+}
+.desktop .dd-grid.has-cards .ep-thumb .ep-play svg { width: 24px; height: 24px; margin-left: 3px; }
+.desktop .dd-grid.has-cards .detail-episode:hover .ep-play,
+.desktop .dd-grid.has-cards .detail-episode.is-focused .ep-play { opacity: 1; }
+.desktop .dd-grid.has-cards .ep-info { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 16px; position: static; }
+.desktop .dd-grid.has-cards .ep-title { font-size: 19px; font-weight: 650; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desktop .dd-grid.has-cards .ep-meta { font-size: 15px; color: rgba(255, 255, 255, .5); }
+.desktop .dd-grid.has-cards .ep-syn {
+  font-size: 15px; line-height: 1.45; color: rgba(255, 255, 255, .62);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.desktop .dd-grid.has-cards .ep-now { display: none; }
+.desktop .dd-grid.has-cards .detail-episode.is-playing { box-shadow: inset 0 0 0 2px #fff; }
+.desktop .dd-grid.has-cards .detail-episode.is-playing .ep-now { display: inline-block; align-self: flex-start; padding: 2px 10px; border-radius: 999px; background: #fff; color: #0e0e11; font-size: 13px; font-weight: 700; }
+/* (The number squares above use !important: the cards undo it.) */
+.desktop .dd-grid.has-cards .detail-episode { height: auto !important; justify-content: flex-start; }
+.desktop .dd-grid.has-cards .ep-info { display: flex !important; }
+.desktop .dd-grid.has-cards .ep-play { display: flex !important; }
+.desktop .dd-grid.has-cards .detail-episode.is-playing { background: rgba(255, 255, 255, .08) !important; border-color: transparent !important; }
+.desktop .dd-grid.has-cards .detail-episode:hover { background: rgba(255, 255, 255, .09) !important; }

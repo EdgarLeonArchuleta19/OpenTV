@@ -47,10 +47,10 @@ var state = {
 state.tab = homeTabIndex();
 
 /* A profile belongs to this TV only: no registration, credentials or
-   network account is required.  It intentionally stays small because old
-   webOS models have limited persistent storage. */
-var LOCAL_PROFILE_KEY = 'xuper_local_profile_v1';
-var LOCAL_PLAYBACK_KEY = 'xuper_global_playback_v1';
+   network account is required.  It intentionally stays small because TV
+   sticks have limited persistent storage. */
+var LOCAL_PROFILE_KEY = 'opentv_local_profile_v1';
+var LOCAL_PLAYBACK_KEY = 'opentv_global_playback_v1';
 var localProfile = { id: '', createdAt: 0, history: [] };
 
 function safeLocalRead(key, fallback) {
@@ -62,7 +62,7 @@ function safeLocalRead(key, fallback) {
 
 function safeLocalWrite(key, value) {
   try { localStorage.setItem(profileKey(key), JSON.stringify(value)); } catch (eWrite) { /* storage unavailable */ }
-  if (window.XUPER_DESKTOP && typeof scheduleProfilesBackup === 'function') { scheduleProfilesBackup(); }
+  if (window.OPENTV_DESKTOP && typeof scheduleProfilesBackup === 'function') { scheduleProfilesBackup(); }
 }
 
 function loadLocalProfile() {
@@ -76,10 +76,10 @@ function loadLocalProfile() {
   }
   /* Desktop: Directo is the default. Older profiles saved Fluido globally;
      reset that once. Later choices in Ajustes are kept as usual. */
-  if (window.XUPER_DESKTOP && !safeLocalRead('xuper_direct_default_v1', false)) {
+  if (window.OPENTV_DESKTOP && !safeLocalRead('opentv_direct_default_v1', false)) {
     state.playback.streamMode = 'normal';
     safeLocalWrite(LOCAL_PLAYBACK_KEY, state.playback);
-    safeLocalWrite('xuper_direct_default_v1', true);
+    safeLocalWrite('opentv_direct_default_v1', true);
   }
   /* The default screen format is now Original (the film as it was made).
      Profiles still on the old default (Llenar pantalla) move to it once;
@@ -167,7 +167,7 @@ var categoryPicker = null, pcatGrid = null, pcatSub = null;
    category only updates classes instead of rebuilding (and detaching) the
    focused pill. */
 var renderedCategoryKey = '';
-/* Older webOS models cannot keep a full 500–1000-row channel category in
+/* Low-memory TV sticks cannot keep a full 500–1000-row channel category in
    memory.  The side panel therefore owns only this small moving window. */
 var LIVE_PANEL_WINDOW = 48;
 var playerVodInfo, vodInfobarPoster, vodInfobarTitle, vodTimeCurrent, vodTimeTotal, vodSeekbar, vodSeekProgress, vodSeekBuffered, vodSeekThumb, playerOsdIcon;

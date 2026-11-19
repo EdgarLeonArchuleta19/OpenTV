@@ -90,7 +90,7 @@ function renderPlaySettingAudio() {
    row only appears when the current episode offers more than one height.
    The choice is a preferred height (e.g. 720) kept for later titles too;
    "Automática" lets the service pick the most compatible version. */
-var QUALITY_PREF_KEY = 'xuper_quality_pref_v1';
+var QUALITY_PREF_KEY = 'opentv_quality_pref_v1';
 function preferredQualityHeight() {
   return parseInt(safeLocalRead(QUALITY_PREF_KEY, 0), 10) || 0;
 }
@@ -108,7 +108,7 @@ function currentTrackInfo() {
 }
 
 function renderPlaySettingQuality() {
-  if (!window.XUPER_DESKTOP || !psvSecQuality || !psvQualityRow) { return; }
+  if (!window.OPENTV_DESKTOP || !psvSecQuality || !psvQualityRow) { return; }
   var info = currentTrackInfo();
   var heights = [];
   var tracks = (info && info.tracks) || [];
@@ -192,7 +192,7 @@ function renderPlaySettingSelection() {
     (function (ep, idx) {
       var epNo = String(ep.number !== undefined && ep.number !== null ? ep.number : idx + 1);
       /* Desktop keeps the number visible and marks the current one by style. */
-      var label = (idx === currentIndex && !window.XUPER_DESKTOP) ? '▶' : epNo;
+      var label = (idx === currentIndex && !window.OPENTV_DESKTOP) ? '▶' : epNo;
       var btn = el('button', 'psv-ep-btn focusable' + (idx === currentIndex ? ' is-selected is-current' : ''), label);
       btn._activate = function () { chooseEpisode(ep); };
       numberRow.appendChild(btn);

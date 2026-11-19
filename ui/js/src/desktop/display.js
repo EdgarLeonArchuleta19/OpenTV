@@ -3,11 +3,11 @@
 
 /* ---------------------------------------------------------------- display */
 /* The reference UI is authored at 1920×1080. Older sets expose that exact
-   logical viewport, whereas some UHD webOS 22/25 sets expose 3840×2160.
+   logical viewport, whereas some UHD sets expose 3840×2160.
    Without this fit pass only the left half of the fixed canvas is painted
    and the right half of the TV remains black. */
 function viewportSize() {
-  /* Most webOS builds report the CSS viewport here. Some 2K/4K firmware
+  /* Most devices report the CSS viewport here. Some 2K/4K firmware
      reports a legacy 1280×720 inner viewport while compositing to its full
      physical 1920/3840 panel; using that value alone paints the left part
      of the TV and leaves the right side black. */
@@ -37,7 +37,7 @@ function fitDesignViewport() {
   var vw = size.w;
   var vh = size.h;
   /* Desktop: the window's own title bar strip sits above the canvas. */
-  var titleInset = window.XUPER_DESKTOP ? titleBarHeight() : 0;
+  var titleInset = window.OPENTV_DESKTOP ? titleBarHeight() : 0;
   vh = Math.max(1, vh - titleInset);
   var scale = Math.min(vw / 1920, vh / 1080);
   if (!isFinite(scale) || scale <= 0) { scale = 1; }
@@ -45,7 +45,7 @@ function fitDesignViewport() {
   /* Keep a non-16:9 display letterboxed instead of stretching the design. */
   var left = Math.max(0, Math.round((vw - (1920 * scale)) / 2));
   var top = Math.max(0, Math.round((vh - (1080 * scale)) / 2));
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     /* Desktop windows have any shape. Instead of letterboxing the 1920×1080
        design, the canvas grows to fill the whole window and every screen
        keeps its layout centred inside it (see desktop/theme.css). The

@@ -18,25 +18,8 @@ function seasonEpisodes(item, season, done) {
     season._episodes = item.episodes;
     return done(item.episodes);
   }
-  if (season._episodes) { return done(season._episodes); }
-  if (season._loading) {
-    season._wait = season._wait || [];
-    season._wait.push(done);
-    return;
-  }
-  season._loading = true;
-  season._wait = [done];
-  portalServiceCall('detail', { contentId: season.id }, function (error, payload) {
-    season._loading = false;
-    var eps = (!error && payload && payload.returnValue !== false && payload.episodes)
-      ? payload.episodes : [];
-    if (eps.length) { season._episodes = eps; }
-    var waiters = season._wait || [];
-    season._wait = [];
-    for (var i = 0; i < waiters.length; i++) {
-      try { waiters[i](eps); } catch (eWaiter) { /* ignore */ }
-    }
-  });
+  /* Addon series bring every season's episodes with the title. */
+  done(season._episodes || []);
 }
 
 function episodeDisplayTitle(item, ep, index) {
@@ -188,7 +171,7 @@ function renderBrowserEpisodes(item, season) {
     ? item.episodes : (season._episodes || []);
 
   if (!cached.length) {
-    peEpisodes.appendChild(el('div', 'pe-loading', 'Cargando episodios…'));
+    peEpisodes.appendChild(makeLoader('Cargando episodios…', 'is-small pe-loading'));
     seasonEpisodes(item, season, function (eps) {
       if (!state.episodeBrowserOpen) { return; }
       var now = seriesSeasons(item)[state.browserSeason];
@@ -209,7 +192,7 @@ function renderBrowserEpisodes(item, season) {
      season can contain dozens of poster images; decoding all of them while
      video is active can make the system kill the app for memory. */
   /* Desktop has no such memory limit and no artwork here: list them all. */
-  var visibleEpisodes = window.XUPER_DESKTOP ? cached.length : Math.min(cached.length, 24);
+  var visibleEpisodes = window.OPENTV_DESKTOP ? cached.length : Math.min(cached.length, 24);
   for (var i = 0; i < visibleEpisodes; i++) {
     (function (ep, idx) {
       var row = el('div', 'pe-ep focusable');
@@ -229,7 +212,7 @@ function renderBrowserEpisodes(item, season) {
       var dur = episodeDurationLabel(ep);
       if (dur) { bits.push(dur); }
       if (ep.quality) { bits.push(String(ep.quality).split(',')[0].toUpperCase()); }
-      if (window.XUPER_DESKTOP && episodeLangTag(ep)) { bits.push(episodeLangTag(ep)); }
+      if (window.OPENTV_DESKTOP && episodeLangTag(ep)) { bits.push(episodeLangTag(ep)); }
       info.appendChild(el('div', 'pe-meta', bits.join('   ·   ')));
       if (ep.description) {
         info.appendChild(el('div', 'pe-desc', ep.description));
@@ -337,6 +320,15 @@ function chooseEpisode(ep) {
    the infobar and the resolver on the same episode. */
 function playEpisode(item, ep) {
   if (!item || !ep) { return; }
+  /* From the details screen: that episode, full screen (choosing its
+     source first when needed). The switch below only runs inside the
+     player; here it left "Cambiando capítulo…" on screen for good. */
+  if (state.screen !== 'player') {
+    state.detailEpisode = ep;
+    syncDetailEpisodeHighlight(item);
+    expandToFullscreen(item, ep);
+    return;
+  }
   state.playerItem = item;
   state.playerEpisode = ep;
   state.detailEpisode = ep;
@@ -426,9 +418,15 @@ function advanceToNextEpisode() {
 
 function syncDetailEpisodeHighlight(item) {
   if (!detailBottom) { return; }
+  /* TVs: only the episode in the history is marked "Viendo" (the first
+     one of a series never watched was marked too). */
+  var watched = platformIsTv() && item ? historyRecordFor(item) : null;
+  var watchedId = watched && watched.episodeId ? String(watched.episodeId) : '';
   var tiles = detailBottom.querySelectorAll('.detail-episode');
   for (var i = 0; i < tiles.length; i++) {
-    var on = !!(tiles[i]._ep && state.detailEpisode && tiles[i]._ep.id === state.detailEpisode.id);
+    var on = platformIsTv()
+      ? !!(tiles[i]._ep && watchedId && String(tiles[i]._ep.id) === watchedId)
+      : !!(tiles[i]._ep && state.detailEpisode && tiles[i]._ep.id === state.detailEpisode.id);
     tiles[i].classList.toggle('is-playing', on);
   }
 }

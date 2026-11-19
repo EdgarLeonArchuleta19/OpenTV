@@ -11,10 +11,10 @@ function showScreen(name) {
   if (target) { target.classList.add('is-active'); }
   var previousScreen = state.screen;
   state.screen = name;
-  if (window.XUPER_DESKTOP && name !== 'player') { leaveLiveFullscreen(); }
-  if (window.XUPER_DESKTOP) { updateTitleBarSection(); if (name !== 'player' && updateStatus.state === 'ready') { showUpdateNotice(); } }
+  if (window.OPENTV_DESKTOP && name !== 'player') { leaveLiveFullscreen(); }
+  if (window.OPENTV_DESKTOP) { updateTitleBarSection(); if (name !== 'player' && updateStatus.state === 'ready') { showUpdateNotice(); } }
   if (historyDrawerOpen) { closeHistoryDrawer(true); }
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     if (name === 'home') {
       /* Back from the full-screen TV player: keep the same video playing
          in the home preview instead of reloading the channel. */
@@ -67,6 +67,7 @@ function back() {
   lastBackTime = now;
   if (historyDrawerOpen) { closeHistoryDrawer(); return; }
   if (sourcePickerOpen) { closeSourcePicker(); return; }
+  if (typeof liveCatMenuOpen === 'function' && liveCatMenuOpen()) { closeLiveCatMenu(true); return; }
   /* The remote's Back (Fire TV, Android TV) closes the channel guide; it
      used to move the focus to the menu behind it, leaving the guide open. */
   if (liveGuideOpen) { closeLiveGuide(); return; }
@@ -79,7 +80,7 @@ function back() {
     if (vodScrubbing) {
       leaveVodScrub(false);
       /* (TVs: Back during a glide cancels it and still leaves.) */
-      if (!(platformIsTv() && window.XUPER_DESKTOP)) { return; }
+      if (!(platformIsTv() && window.OPENTV_DESKTOP)) { return; }
     }
     if (state.categoryPickerOpen) {
       lastBackTime = Date.now();
@@ -97,7 +98,7 @@ function back() {
     }
     if (state.channelsOpen) {
       closeChannelPanel();
-    } else if (platformIsTv() && window.XUPER_DESKTOP) {
+    } else if (platformIsTv() && window.OPENTV_DESKTOP) {
       /* TVs: Back leaves the player at once (hiding the controls first made
          it take several presses, as they come back with any key). */
       restorePlayerReturn();
@@ -143,10 +144,11 @@ function back() {
   if (state.screen === 'search') {
     /* TVs: Back from the results goes up to the search field first (a long
        way with the arrows), then leaves. */
-    if (platformIsTv() && window.XUPER_DESKTOP && searchInput && state.focus && state.focus !== searchInput &&
-        closest(state.focus, '.search-results')) {
+    if (platformIsTv() && window.OPENTV_DESKTOP && searchInput && state.focus && state.focus !== searchInput &&
+        (closest(state.focus, '.search-results') || closest(state.focus, '.search-hot'))) {
       if (searchResults) { searchResults.scrollTop = 0; searchResults._tvTop = 0; }
-      setFocus(searchInput);
+      /* (Back to the on-screen keyboard, core/tv-keyboard.js.) */
+      setFocus(searchTvKb ? searchTvKb.first : searchInput);
       return;
     }
     clearSearchState();
@@ -163,7 +165,7 @@ function back() {
   }
   if (state.screen === 'home') {
     /* TVs: Back from the content returns to the menu on the left first. */
-    if (platformIsTv() && window.XUPER_DESKTOP && state.focus && !closest(state.focus, '.home-tabs') && tabEls[state.tab]) {
+    if (platformIsTv() && window.OPENTV_DESKTOP && state.focus && !closest(state.focus, '.home-tabs') && tabEls[state.tab]) {
       setFocus(tabEls[state.tab]);
       return;
     }
@@ -174,11 +176,7 @@ function back() {
       if (tabEls[homeTabIndex()]) { setFocus(tabEls[homeTabIndex()]); }
       return;
     }
-    if (window.webOSTV && window.webOSTV.platformBack) {
-      window.webOSTV.platformBack();
-    } else if (window.PalmSystem && window.PalmSystem.platformBack) {
-      window.PalmSystem.platformBack();
-    } else if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
       window.Capacitor.Plugins.App.exitApp();   /* Android / Fire TV */
     }
   }
@@ -191,11 +189,11 @@ function activate() {
 }
 
 function handleKey(e) {
-  if (window.XUPER_DESKTOP && e.target && closest(e.target, '.desktop-native-control') &&
+  if (window.OPENTV_DESKTOP && e.target && closest(e.target, '.desktop-native-control') &&
       (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32)) { return; }
   /* Let real desktop text fields keep their caret, selection, paste and
      Backspace behaviour instead of treating them as TV remote commands. */
-  if (window.XUPER_DESKTOP && e.target &&
+  if (window.OPENTV_DESKTOP && e.target &&
       (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
     return;
   }
@@ -204,8 +202,16 @@ function handleKey(e) {
   var handled = true;
 
   /* Back buttons */
-  var isBack = (k === 461 || k === 27 || k === 8 || key === 'Back' || key === 'GoBack' || key === 'Escape');
+  var isBack = (k === 27 || k === 8 || key === 'Back' || key === 'GoBack' || key === 'Escape');
   if (isBack) {
+    /* "¿Quién está viendo?" / the profile editor (screens/profiles-ui.js),
+       or the on-screen keyboard over the channel guide (core/tv-keyboard.js). */
+    if (profileOverlayBack() || tvKeyboardBack()) {
+      lastBackTime = Date.now();
+      if (e.preventDefault) { e.preventDefault(); }
+      if (e.stopPropagation) { e.stopPropagation(); }
+      return;
+    }
     if (sourcePickerOpen) {
       lastBackTime = Date.now();
       closeSourcePicker();
@@ -233,7 +239,7 @@ function handleKey(e) {
       return;
     }
     if (dialogPlaySettingsOpen) {
-      /* LG sends a keyup after this keydown.  Mark it consumed, otherwise
+      /* A keyup can follow this keydown.  Mark it consumed, otherwise
          that second event sees the dialog closed and exits the detail page. */
       lastBackTime = Date.now();
       closePlaySettingsDialog();
@@ -293,7 +299,7 @@ function handleKey(e) {
     return;
   }
 
-  /* Media Play / Pause / Seek keys on webOS & Android TV remotes */
+  /* Media Play / Pause / Seek keys on Android TV / Fire TV remotes */
   var isPlay = (k === 415 || key === 'MediaPlay' || key === 'Play');
   var isPause = (k === 19 || key === 'MediaPause' || key === 'Pause');
   var isPlayPause = (k === 10252 || key === 'MediaPlayPause');
@@ -301,7 +307,7 @@ function handleKey(e) {
   var isRwd = (k === 412 || key === 'MediaRewind' || key === 'Rewind');
   var isStop = (k === 413 || key === 'MediaStop' || key === 'Stop');
 
-  if (window.XUPER_DESKTOP && !e.ctrlKey && !e.altKey && !e.metaKey && state.screen !== 'search') {
+  if (window.OPENTV_DESKTOP && !e.ctrlKey && !e.altKey && !e.metaKey && state.screen !== 'search') {
     if (k === 70 || key === 'f' || key === 'F') {
       if (window.desktop && window.desktop.fullscreen) { window.desktop.fullscreen(); }
       if (e.preventDefault) { e.preventDefault(); }
@@ -313,7 +319,7 @@ function handleKey(e) {
       if (e.preventDefault) { e.preventDefault(); }
       return;
     }
-    if ((k === 77 || key === 'm' || key === 'M') && playerVideo && window.XUPER_DESKTOP && state.screen === 'player') {
+    if ((k === 77 || key === 'm' || key === 'M') && playerVideo && window.OPENTV_DESKTOP && state.screen === 'player') {
       togglePlayerMute();
       if (e.preventDefault) { e.preventDefault(); }
       return;
@@ -420,13 +426,13 @@ function handleKey(e) {
       }
       if (k === 38) {
         /* TVs: up only shows the controls (left/right already move through
-           the film); on the LG layout it grabbed the bar. */
+           the film). */
         if (platformIsTv()) { showVodInfobar(); } else { enterVodScrub(); }
         if (e.preventDefault) { e.preventDefault(); }
         return;
       }
     } else {
-      /* Some webOS remote events arrive after the panel has painted but
+      /* Some remote events arrive after the panel has painted but
          before its boolean state is restored.  Focus inside the visible
          panel is the authoritative signal, so Up never zaps from channel 1
          to the last channel while the channel list is on screen. */
@@ -466,7 +472,7 @@ function handleKey(e) {
         }
         /* TVs open the list with → (it sits on the right), so ← closes it. */
         if (k === (platformIsTv() ? 37 : 39)) { closeChannelPanel(); if (e.preventDefault) { e.preventDefault(); } return; }
-      } else if (platformIsTv() && window.XUPER_DESKTOP) {
+      } else if (platformIsTv() && window.OPENTV_DESKTOP) {
         /* TVs, the remote in the live player (shown on the banner):
            ↑ next channel · ↓ previous · → channel list · ← last channel. */
         if (k === 38 || k === 40) {

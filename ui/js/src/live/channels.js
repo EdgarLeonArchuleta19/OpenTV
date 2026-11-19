@@ -3,6 +3,19 @@
 
 /* --- Live TV Categories & Addons (M3U / IPTV) --- */
 var PRESET_ADDONS = [
+  /* Free ad-supported (FAST) channels from Pluto TV, Plex, Samsung TV Plus,
+     Tubi and Roku, as M3U lists rebuilt every day by
+     github.com/BuddyChewChew/app-m3u-generator (from i.mjh.nz data).
+     First, so "Buscar" shows them at the top. */
+  { id: 'pluto_mx', name: 'Pluto TV México', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_mx.m3u', desc: '200+ canales gratis: películas, series, anime, deportes e infantil' },
+  { id: 'pluto_ar', name: 'Pluto TV Argentina', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_ar.m3u', desc: '190+ canales gratis de películas y series en español' },
+  { id: 'plex_mx', name: 'Plex México', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plex_mx.m3u', desc: '270+ canales gratis de películas, series y documentales' },
+  { id: 'samsung_es', name: 'Samsung TV Plus España', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/samsungtvplus_es.m3u', desc: '180+ canales gratis: cine, series, documentales y música' },
+  { id: 'pluto_es', name: 'Pluto TV España', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_es.m3u', desc: '150+ canales gratis: cine, series, policiacas e infantil' },
+  { id: 'pluto_us', name: 'Pluto TV Estados Unidos', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_us.m3u', desc: 'Con una sección En Español; el resto en inglés' },
+  { id: 'tubi_us', name: 'Tubi (EE. UU.)', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/tubi_all.m3u', desc: 'Canales en vivo de Tubi, en inglés: reality, comedia y deportes' },
+  { id: 'roku_us', name: 'The Roku Channel (EE. UU.)', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/roku_all.m3u', desc: 'Canales en inglés: series, deportes y noticias' },
+  /* Free-to-air channels from iptv-org. */
   {
     id: 'es_tdt',
     name: 'España - Canales Nacionales y TDT',
@@ -27,7 +40,7 @@ var PRESET_ADDONS = [
     url: 'https://iptv-org.github.io/iptv/categories/movies.m3u',
     desc: 'Cine clásico, cine de acción y canales continuos de series'
   },
-  /* More free lists from iptv-org, found with "Buscar" in Ajustes → Fuentes. */
+  /* More free lists from iptv-org, found with "Buscar" in Ajustes → Addons → TV en vivo. */
   { id: 'mx', name: 'México', url: 'https://iptv-org.github.io/iptv/countries/mx.m3u', desc: 'Canales abiertos y locales de México' },
   { id: 'ar', name: 'Argentina', url: 'https://iptv-org.github.io/iptv/countries/ar.m3u', desc: 'Canales abiertos y locales de Argentina' },
   { id: 'co', name: 'Colombia', url: 'https://iptv-org.github.io/iptv/countries/co.m3u', desc: 'Canales abiertos y locales de Colombia' },
@@ -46,20 +59,20 @@ var PRESET_ADDONS = [
 
 function getSavedAddons() {
   try {
-    var raw = localStorage.getItem('xuper_m3u_addons');
+    var raw = localStorage.getItem('opentv_m3u_addons');
     if (raw) {
       var parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) { return parsed; }
     }
   } catch (e) {}
   /* Default seed: España TDT so user has working external addon out of the box */
-  var initial = [PRESET_ADDONS[0]];
-  try { localStorage.setItem('xuper_m3u_addons', JSON.stringify(initial)); } catch (e2) {}
+  var initial = PRESET_ADDONS.filter(function (p) { return p.id === 'es_tdt'; });
+  try { localStorage.setItem('opentv_m3u_addons', JSON.stringify(initial)); } catch (e2) {}
   return initial;
 }
 
 function saveSavedAddons(list) {
-  try { localStorage.setItem('xuper_m3u_addons', JSON.stringify(list || [])); } catch (e) {}
+  try { localStorage.setItem('opentv_m3u_addons', JSON.stringify(list || [])); } catch (e) {}
 }
 
 var liveCategories = [];
@@ -67,8 +80,6 @@ var currentLiveCategory = null;
 var liveCategoriesLoaded = false;
 var liveChannelsLoaded = false;
 var liveChannelsLoading = false;
-var liveChannelRequestSeq = 0;
-var liveChannelLoadColumnId = null;
 /* Home only keeps one muted live preview alive.  This warms the channel
    without creating a second full player or playing sound in the menu. */
 var livePreviewVideo = null;
@@ -87,10 +98,12 @@ var dialogAddonsOpen = false;
    ------------------------------------------------------------------ */
 var liveHandoff = null;
 var livePreviewHls = null;
-function liveChannelKey(ch) { return ch ? (ch.channelCode || ch.streamUrl || '') : ''; }
+/* M3U channels are known by their link: their channelCode ('m3u_N') is only
+   the position in one list and repeats between lists. */
+function liveChannelKey(ch) { return ch ? (ch.streamUrl || ch.channelCode || '') : ''; }
 
 function borrowPreviewIntoPlayer() {
-  if (!window.XUPER_DESKTOP || !livePreviewVideo || !playerStage || !liveMain || liveHandoff) { return false; }
+  if (!window.OPENTV_DESKTOP || !livePreviewVideo || !playerStage || !liveMain || liveHandoff) { return false; }
   var ch = CHANNELS[state.channel];
   if (!liveMain.classList.contains('is-preview-playing') || !livePreviewChannel ||
       livePreviewChannel !== liveChannelKey(ch) || livePreviewVideo.paused) { return false; }
@@ -115,7 +128,7 @@ function playerIsPlayingLive() {
 }
 
 function borrowPlayerIntoHome() {
-  if (!window.XUPER_DESKTOP || !liveMain || liveHandoff || !playerIsPlayingLive()) { return false; }
+  if (!window.OPENTV_DESKTOP || !liveMain || liveHandoff || !playerIsPlayingLive()) { return false; }
   stopLivePreview();
   liveMain.insertBefore(playerVideo, liveMain.firstChild);
   playerVideo.classList.add('is-handoff-home');
@@ -157,7 +170,7 @@ function stopLivePreview() {
 }
 
 function startLivePreview(ch) {
-  if (!livePreviewVideo || !ch || (!ch.channelCode && !ch.streamUrl)) { return; }
+  if (!livePreviewVideo || !ch || !ch.streamUrl) { return; }
   /* A preview belongs only to the TV tab on the home screen. */
   if (state.screen !== 'home' || !onTvTab()) { return; }
   /* The full-screen player is already showing this channel here. */
@@ -165,7 +178,7 @@ function startLivePreview(ch) {
     if (liveHandoff.key === liveChannelKey(ch)) { return; }
     returnPlayerToStage(false);
   }
-  var key = ch.channelCode || ch.streamUrl;
+  var key = liveChannelKey(ch);
   if (key === livePreviewChannel && liveMain &&
       (liveMain.classList.contains('is-preview-loading') || liveMain.classList.contains('is-preview-playing'))) {
     return;
@@ -176,16 +189,13 @@ function startLivePreview(ch) {
   var mySeq = ++livePreviewSeq;
   liveMain.classList.add('is-preview-loading');
   if (livePreviewStatus) { livePreviewStatus.textContent = 'Cargando ' + (ch.name || 'canal') + '…'; }
-  var params = ch.streamUrl ? { streamUrl: ch.streamUrl } : { channelCode: ch.channelCode };
-  portalServiceCall('resolveLive', params, function (err, payload) {
-    if (mySeq !== livePreviewSeq || state.screen !== 'home' || !onTvTab()) { return; }
-    var url = !err && payload && payload.returnValue !== false && (payload.proxyPath || payload.url);
-    if (!url) {
-      liveMain.classList.remove('is-preview-loading');
-      if (livePreviewStatus) { livePreviewStatus.textContent = ''; }
-      return;
-    }
-    livePreviewVideo.onloadeddata = function () {
+  /* An M3U channel plays its own link (no service round trip). */
+  var url = ch.streamUrl;
+  (function () {
+    /* Playing: the "Cargando…" label goes. Android's native player sends
+       loadeddata only for the first channel on this element, so playing and
+       canplay clear it too (it stayed over the picture). */
+    livePreviewVideo.onloadeddata = livePreviewVideo.onplaying = livePreviewVideo.oncanplay = function () {
       if (mySeq !== livePreviewSeq) { return; }
       liveMain.classList.remove('is-preview-loading');
       liveMain.classList.add('is-preview-playing');
@@ -198,7 +208,7 @@ function startLivePreview(ch) {
     };
     /* Desktop: play HLS with hls.js, like the full-screen player. Chromium's
        own HLS support rejects some channels (ECDF: error 4). */
-    if (window.XUPER_DESKTOP && !platformHas('native-player') && window.Hls && window.Hls.isSupported() && /\.m3u8(?:\?|$)/i.test(url)) {
+    if (window.OPENTV_DESKTOP && !platformHas('native-player') && window.Hls && window.Hls.isSupported() && /\.m3u8(?:\?|$)/i.test(url)) {
       try {
         var hls = new window.Hls({ enableWorker: true, maxBufferLength: 20, backBufferLength: 10 });
         livePreviewHls = hls;
@@ -223,7 +233,7 @@ function startLivePreview(ch) {
       var promise = livePreviewVideo.play();
       if (promise && promise.catch) { promise.catch(function () {}); }
     } catch (ePlay) { liveMain.classList.remove('is-preview-loading'); }
-  });
+  })();
 }
 
 function scheduleLivePreview(ch) {
@@ -234,40 +244,183 @@ function scheduleLivePreview(ch) {
   }, 220);
 }
 
-function loadLiveCategories(done) {
-  if (liveCategoriesLoaded && liveCategories.length) {
-    if (done) { done(null, liveCategories); }
-    return;
+/* ------------------------------------------------------------------
+   Loading. Every saved M3U list is downloaded once (service fetchM3u),
+   merged into liveAllChannels and split into categories by group-title.
+   Choosing a category only filters that list in memory (no network), so
+   the 1 GB Fire TV does no extra work when the viewer changes category.
+   ------------------------------------------------------------------ */
+var LIVE_ALL_CATEGORY = { id: 'm3u:all', name: 'Todos', isAddon: true };
+var liveAllChannels = [];
+/* '' (not loaded yet), 'none' (no lists saved), 'failed' (no list could be
+   read), 'ok' (at least one list answered). */
+var liveListsStatus = '';
+var liveListsLoadedKey = null;
+var liveListsSeq = 0;
+var liveListsWaiting = [];
+currentLiveCategory = LIVE_ALL_CATEGORY;
+
+/* group-title values of the free iptv-org lists come in English. */
+var LIVE_GROUP_NAMES = {
+  animation: 'Animación', auto: 'Motor', business: 'Negocios', classic: 'Clásicos', comedy: 'Comedia',
+  cooking: 'Cocina', culture: 'Cultura', documentary: 'Documentales', education: 'Educación',
+  entertainment: 'Entretenimiento', family: 'Familia', general: 'General', kids: 'Infantil',
+  legislative: 'Legislativo', lifestyle: 'Estilo de vida', movies: 'Cine', music: 'Música', news: 'Noticias',
+  outdoor: 'Aire libre', relax: 'Relax', religious: 'Religión', science: 'Ciencia', series: 'Series',
+  shop: 'Compras', sports: 'Deportes', travel: 'Viajes', weather: 'Clima', public: 'Públicos',
+  undefined: 'Otros', other: 'Otros', others: 'Otros', addon: 'Otros'
+};
+
+function liveListsKey(addons) {
+  var key = '';
+  for (var i = 0; i < addons.length; i++) { key += (addons[i] && addons[i].url) + '\n'; }
+  return key;
+}
+
+function liveChannelGroups(ch) {
+  var parts = String((ch && ch.group) || '').split(';');
+  var out = [];
+  for (var i = 0; i < parts.length; i++) {
+    var g = parts[i].replace(/^\s+|\s+$/g, '');
+    var known = LIVE_GROUP_NAMES[g.toLowerCase()];
+    if (known) { g = known; }
+    if (g && out.indexOf(g) === -1) { out.push(g); }
   }
-  portalServiceCall('liveCategories', {}, function (err, payload) {
-    var cats = [];
-    if (payload && payload.categories && payload.categories.length) {
-      for (var i = 0; i < payload.categories.length; i++) {
-        var c = payload.categories[i];
-        var nm = c.name;
-        if (nm === 'ChannelList' || c.id === 76182) { nm = 'Todos'; }
-        cats.push({ id: c.id, name: nm, code: c.code, isAddon: false });
-      }
-    } else {
-      /* Fallback categories if portal takes time */
-      cats = [
-        { id: 76182, name: 'Todos' },
-        { id: 76206, name: 'Deportes' },
-        { id: 76205, name: 'Cine y Series' },
-        { id: 76188, name: 'Colombia' },
-        { id: 76191, name: 'España' },
-        { id: 76197, name: 'México' }
-      ];
+  if (!out.length) { out.push('Otros'); }
+  return out;
+}
+
+/* Favourites are kept by the channel's link; the old saved list (and its
+   links) still marks the channels saved by earlier versions. */
+function liveFavoriteUrls() {
+  var set = {};
+  var favs = liveSaved().favs;
+  for (var i = 0; i < favs.length; i++) { if (favs[i] && favs[i].streamUrl) { set[favs[i].streamUrl] = true; } }
+  return set;
+}
+
+/* Merges the answers of every list (in the order the lists were added):
+   repeated links and adult groups are left out. */
+function mergeLiveLists(results) {
+  var seen = {};
+  var favUrls = liveFavoriteUrls();
+  var out = [];
+  for (var r = 0; r < results.length; r++) {
+    var list = results[r] || [];
+    for (var c = 0; c < list.length; c++) {
+      var ch = list[c];
+      if (!ch || !ch.streamUrl || seen[ch.streamUrl]) { continue; }
+      var groups = liveChannelGroups(ch);
+      var adult = false;
+      for (var g = 0; g < groups.length; g++) { if (isAdultCategory({ name: groups[g] })) { adult = true; break; } }
+      if (adult) { continue; }
+      seen[ch.streamUrl] = true;
+      ch._groups = groups;
+      ch.index = out.length + 1;
+      if (!ch.now) { ch.now = 'En vivo'; }
+      ch.fav = !!(favUrls[ch.streamUrl] || state.favs[liveFavKey(ch)]);
+      out.push(ch);
     }
-    /* Append Addons Category */
-    cats.push({ id: 'addons', name: '➕ Addons M3U', isAddon: true });
-    liveCategories = hideAdultCategories(cats);
-    liveCategoriesLoaded = true;
-    if (!currentLiveCategory) { currentLiveCategory = liveCategories[0]; }
-    renderPlayerCategories();
-    renderLiveDockCats();
-    if (done) { done(null, liveCategories); }
+  }
+  return out;
+}
+
+function buildLiveCategories(channels) {
+  var byName = {};
+  var cats = [];
+  for (var i = 0; i < channels.length; i++) {
+    var groups = channels[i]._groups || liveChannelGroups(channels[i]);
+    for (var g = 0; g < groups.length; g++) {
+      var cat = byName[groups[g]];
+      if (!cat) {
+        cat = { id: 'm3u:' + groups[g], name: groups[g], isAddon: true, channels: [] };
+        byName[groups[g]] = cat;
+        cats.push(cat);
+      }
+      cat.channels.push(channels[i]);
+    }
+  }
+  cats.sort(function (a, b) {
+    if (a.name === 'Otros') { return 1; }
+    if (b.name === 'Otros') { return -1; }
+    return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0);
   });
+  /* One group holding every channel adds nothing next to Todos. */
+  if (cats.length === 1 && cats[0].channels.length === channels.length) { cats = []; }
+  return [LIVE_ALL_CATEGORY].concat(cats);
+}
+
+function liveCategoryChannels(cat) {
+  if (!cat || cat.id === LIVE_ALL_CATEGORY.id) { return liveAllChannels; }
+  for (var i = 0; i < liveCategories.length; i++) {
+    if (liveCategories[i].id === cat.id) { return liveCategories[i].channels || []; }
+  }
+  return [];
+}
+
+/* The text shown where the channels go when there are none. */
+function liveEmptyMessage() {
+  if (currentLiveCategory && currentLiveCategory.isSaved === 'favs') {
+    return platformIsTv()
+      ? 'Aún no tienes canales favoritos. Usa el botón Favorito debajo de la vista previa de TV en vivo.'
+      : 'Aún no tienes canales favoritos. Usa la estrella para guardar uno.';
+  }
+  if (currentLiveCategory && currentLiveCategory.isSaved === 'recent') { return 'Aquí aparecerán los últimos canales que veas.'; }
+  if (liveChannelsPending()) { return 'Cargando canales…'; }
+  if (liveListsStatus === 'none') {
+    return 'Aún no tienes listas de TV en vivo. Agrega una lista M3U en Ajustes → Addons → TV en vivo.';
+  }
+  if (liveListsStatus === 'failed') {
+    return 'No se pudieron cargar tus listas de TV en vivo. Revisa tu conexión o agrega otra lista M3U en Ajustes → Addons → TV en vivo.';
+  }
+  if (!liveAllChannels.length) {
+    return 'Tus listas no tienen canales. Agrega otra lista M3U en Ajustes → Addons → TV en vivo.';
+  }
+  return 'No hay canales en esta categoría.';
+}
+
+/* True while the channel lists are still being read (and none is in yet). */
+function liveChannelsPending() {
+  return !liveChannelsLoaded || (liveChannelsLoading && !liveAllChannels.length);
+}
+
+/* True when the viewer needs to add (or fix) a list to see any channel. */
+function liveNeedsLists() {
+  return liveChannelsLoaded && !liveChannelsLoading && !liveAllChannels.length;
+}
+
+/* "Agregar lista M3U": opens Ajustes → Addons, where the TV lists are. */
+function makeLiveListsButton() {
+  var b = el('div', 'fx-btn live-add-lists focusable', 'Agregar lista M3U');
+  b.style.display = 'inline-flex';
+  b.style.marginTop = '24px';
+  b._activate = function () {
+    if (state.screen === 'player') { restorePlayerReturn(); }
+    openSettingsAt('sources');
+  };
+  return b;
+}
+
+/* Shows one category of the loaded lists as the channel list. */
+function showLiveCategory(cat, keepIndex) {
+  var keep = livePlayingToKeep();
+  var list = liveCategoryChannels(cat);
+  var previous = state.channel;
+  CHANNELS.splice(0, CHANNELS.length);
+  for (var i = 0; i < list.length; i++) { CHANNELS.push(list[i]); }
+  state.channel = keepIndex && previous > 0 && previous < CHANNELS.length ? previous : 0;
+  var kept = keep && CHANNELS.length ? keepLivePlayingChannel(keep) : false;
+  renderLiveRows(false);
+  renderPlayerChannels();
+  setLiveInfoText(CHANNELS[state.channel] ? CHANNELS[state.channel].name : '');
+  syncLiveFavButton();
+  if (!CHANNELS[state.channel]) { return; }
+  if (state.screen === 'player' && state.playerMode === 'live') {
+    updatePlayer();
+    if (!kept) { startLiveChannel(CHANNELS[state.channel], true); }
+  } else {
+    scheduleLivePreview(CHANNELS[state.channel]);
+  }
 }
 
 function switchLiveCategory(cat, done) {
@@ -276,182 +429,95 @@ function switchLiveCategory(cat, done) {
   currentLiveCategory = cat;
   renderPlayerCategories();
   if (cat.isSaved) { loadSavedChannels(cat.isSaved, done); return; }
-  if (cat.isAddon) {
-    loadAddonChannels(function () {
-      if (done) { done(); }
-    });
-  } else {
-    loadLiveChannels(cat.id, function () {
-      if (done) { done(); }
-    });
+  /* The lists changed in Ajustes meanwhile: read them again first. */
+  if (liveListsLoadedKey !== null && liveListsLoadedKey !== liveListsKey(getSavedAddons())) {
+    reloadLiveLists(done);
+    return;
   }
+  if (!liveChannelsLoaded) { loadLiveChannels(done); return; }
+  showLiveCategory(cat, false);
+  if (done) { done(); }
 }
 
-function loadAddonChannels(done) {
-  /* Cancels a category still loading pages; a later choice cancels this. */
-  var addonSeq = ++liveChannelRequestSeq;
-  liveChannelsLoading = false;
-  liveChannelLoadColumnId = null;
-  var addons = getSavedAddons();
-  if (!addons || !addons.length) {
-    CHANNELS.splice(0, CHANNELS.length);
-    state.channel = 0;
-    liveChannelsLoaded = true;
-    renderLiveRows(false);
-    renderPlayerChannels();
-    if (liveInfoText) { liveInfoText.textContent = 'Sin addons instalados'; }
+/* Loads the viewer's lists once (boot, the TV page, the phone layout). Later
+   calls only redraw, unless the saved lists changed since. */
+function loadLiveChannels(done) {
+  if (typeof done !== 'function') { done = null; }
+  if (liveChannelsLoading) { if (done) { liveListsWaiting.push(done); } return; }
+  if (liveChannelsLoaded && liveListsLoadedKey === liveListsKey(getSavedAddons())) {
     if (done) { done(); }
     return;
   }
-  var addonKeep = livePlayingToKeep();
-  setPlayerStatus('Cargando canales de Addon…');
-  var allChannels = [];
-  var pending = addons.length;
-  for (var a = 0; a < addons.length; a++) {
-    (function (ad) {
-      portalServiceCall('fetchM3u', { url: ad.url }, function (err, payload) {
-        if (payload && payload.channels && payload.channels.length) {
-          for (var c = 0; c < payload.channels.length; c++) {
-            allChannels.push(payload.channels[c]);
-          }
-        }
-        pending--;
-        if (pending <= 0 && addonSeq !== liveChannelRequestSeq) { return; }
-        if (pending <= 0) {
-          setPlayerStatus('');
-          CHANNELS.splice(0, CHANNELS.length);
-          for (var k = 0; k < allChannels.length; k++) {
-            allChannels[k].index = k + 1;
-            CHANNELS.push(allChannels[k]);
-          }
-          state.channel = 0;
-          var keptAddon = keepLivePlayingChannel(addonKeep);
-          renderLiveRows(false);
-          renderPlayerChannels();
-          if (CHANNELS[state.channel] && liveInfoText) {
-            liveInfoText.textContent = CHANNELS[state.channel].name;
-          }
-          if (state.screen === 'player' && state.playerMode === 'live') {
-            updatePlayer();
-            if (!keptAddon) { startLiveChannel(CHANNELS[0], true); }
-          }
-          if (done) { done(); }
-        }
-      });
-    })(addons[a]);
-  }
+  reloadLiveLists(done);
 }
 
-function loadLiveChannels(columnId, done) {
-  var requestedColumnId = columnId || 76182;
-  /* buildLivePage and the initial boot can both ask for Todos.  Keep the
-     existing request instead of clearing the first page while it streams. */
-  if (liveChannelsLoading && liveChannelLoadColumnId === requestedColumnId) { if (done) { done(); } return; }
-  var keepPlaying = livePlayingToKeep();
-  var requestSeq = ++liveChannelRequestSeq;
-  liveChannelLoadColumnId = requestedColumnId;
+/* Reads every saved list again (a list was added or removed, "Actualizar"). */
+function loadAddonChannels(done) { reloadLiveLists(done); }
+
+function reloadLiveLists(done) {
+  if (typeof done === 'function') { liveListsWaiting.push(done); }
+  var addons = getSavedAddons();
+  var seq = ++liveListsSeq;
+  liveListsLoadedKey = liveListsKey(addons);
   liveChannelsLoading = true;
-  liveChannelsLoaded = false;
-  CHANNELS.splice(0, CHANNELS.length);
-  state.channel = 0;
-  renderLiveRows(false);
-  renderPlayerChannels();
-
-  var pageNum = 1;
-  var didReturnFirstPage = false;
-  function fetchNextPage() {
-    portalServiceCall('liveChannels', {
-      columnId: requestedColumnId,
-      pageNum: pageNum,
-      pageSize: 20
-    }, function (err, payload) {
-      /* A category was selected while this page was in flight. */
-      if (requestSeq !== liveChannelRequestSeq) { return; }
-      var pageChannels = payload && payload.channels ? payload.channels : [];
-      if (!err && pageChannels.length) {
-        var known = {};
-        for (var k = 0; k < CHANNELS.length; k++) {
-          if (CHANNELS[k] && CHANNELS[k].channelCode) {
-            known[CHANNELS[k].channelCode] = true;
-          }
-        }
-        for (var c = 0; c < pageChannels.length; c++) {
-          var channel = pageChannels[c];
-          if (channel && (!channel.channelCode || !known[channel.channelCode])) {
-            if (channel.channelCode) { known[channel.channelCode] = true; }
-            channel.fav = !!state.favs['live:' + (channel.channelCode || channel.id || channel.name)];
-            CHANNELS.push(channel);
-          }
-        }
-        liveChannelsLoaded = true;
-        var firstPage = pageNum === 1;
-        if (window.XUPER_DESKTOP && !firstPage) {
-          /* Later pages: redraw the list in batches instead of on every page
-             (it flickered and kept restarting the preview for ~15 s). */
-          if (!(payload && payload.hasMore)) { liveChannelsLoading = false; }
-          scheduleLiveRowsRender(payload && payload.hasMore);
-          if (payload && payload.hasMore) { pageNum++; setTimeout(fetchNextPage, 25); }
-          return;
-        }
-        if (firstPage && keepPlaying) { keepLivePlayingChannel(keepPlaying); }
-        renderLiveRows(false);
-        renderPlayerChannels();
-        if (state.channel < 0 || state.channel >= CHANNELS.length) { state.channel = 0; }
-        if (CHANNELS[state.channel] && liveInfoText) {
-          liveInfoText.textContent = CHANNELS[state.channel].name;
-        }
-        syncLiveFavButton();
-        if (state.screen === 'player' && state.playerMode === 'live') {
-          updatePlayer();
-        } else {
-          scheduleLivePreview(CHANNELS[state.channel]);
-        }
-      }
-
-      if (!didReturnFirstPage) {
-        didReturnFirstPage = true;
-        if (!liveCategoriesLoaded) { loadLiveCategories(); }
-        if (done) { done(err, payload); }
-      }
-
-      if (!err && payload && payload.hasMore && pageChannels.length) {
-        pageNum++;
-        /* Yield to webOS between pages so navigating the first block stays
-           responsive while the rest of the catalogue arrives. */
-        setTimeout(fetchNextPage, 25);
-        return;
-      }
-
-      liveChannelsLoading = false;
-      /* The last page can come back empty: nothing redraws the guide then,
-         and its header said "cargando…" for good. */
-      if (liveGuideOpen && liveGuideCount) {
-        liveGuideCount.textContent = liveGuideCount.textContent.replace(' · cargando…', '');
-      }
-      if (err && !liveChannelsLoaded) {
-        setTimeout(function () {
-          if (requestSeq === liveChannelRequestSeq) { loadLiveChannels(requestedColumnId); }
-        }, 2500);
-      }
-    });
+  if (!addons.length) { finishLiveLists(seq, [], 'none'); return; }
+  if (!CHANNELS.length) { renderLiveRows(false); renderPlayerChannels(); }
+  if (state.screen === 'player' && state.playerMode === 'live' && !CHANNELS.length) { setPlayerStatus('Cargando canales…'); }
+  var results = [];
+  var pending = addons.length;
+  var answered = 0;
+  for (var a = 0; a < addons.length; a++) {
+    (function (idx, ad) {
+      portalServiceCall('fetchM3u', { url: ad.url }, function (err, payload) {
+        if (seq !== liveListsSeq) { return; }
+        var chs = !err && payload && payload.channels ? payload.channels : [];
+        if (chs.length) { answered++; }
+        results[idx] = chs;
+        pending--;
+        if (pending > 0) { return; }
+        /* Merging thousands of channels runs once, after the last answer. */
+        finishLiveLists(seq, mergeLiveLists(results), answered ? 'ok' : 'failed');
+      });
+    })(a, addons[a]);
   }
-  fetchNextPage();
 }
 
-var liveRowsRenderTimer = null;
-var liveRowsRenderedAt = 0;
-function scheduleLiveRowsRender(more) {
-  /* While pages keep arriving, redraw only if the viewer is near the end of
-     the list and needs more rows; otherwise once, when all have arrived. */
-  var nearEnd = liveList && liveList.scrollHeight - liveList.scrollTop - liveList.clientHeight < 400;
-  if (more && !nearEnd) { return; }
-  var wait = more ? Math.max(0, 2500 - (Date.now() - liveRowsRenderedAt)) : 0;
-  if (liveRowsRenderTimer) { if (more) { return; } clearTimeout(liveRowsRenderTimer); }
-  liveRowsRenderTimer = setTimeout(function () {
-    liveRowsRenderTimer = null;
-    renderLiveRows(false);
-    renderPlayerChannels();
-  }, wait);
+/* Tests (window.__opentv.live.use): shows the given channels as if they came
+   from the viewer's lists, without the network. */
+function useLiveChannels(list) {
+  var seq = ++liveListsSeq;
+  liveListsLoadedKey = liveListsKey(getSavedAddons());
+  liveChannelsLoading = true;
+  finishLiveLists(seq, mergeLiveLists([list || []]), list && list.length ? 'ok' : 'none');
+}
+
+function finishLiveLists(seq, channels, status) {
+  if (seq !== liveListsSeq) { return; }
+  var firstLoad = !liveChannelsLoaded;
+  liveAllChannels = channels;
+  liveListsStatus = status;
+  liveCategories = buildLiveCategories(channels);
+  liveCategoriesLoaded = true;
+  liveChannelsLoading = false;
+  liveChannelsLoaded = true;
+  if (state.screen === 'player' && state.playerMode === 'live') { setPlayerStatus(''); }
+  /* Stay on the same category if the new lists still have it. */
+  var cur = currentLiveCategory;
+  if (!cur || !cur.isSaved) {
+    var found = LIVE_ALL_CATEGORY;
+    for (var i = 0; cur && i < liveCategories.length; i++) {
+      if (liveCategories[i].id === cur.id) { found = liveCategories[i]; break; }
+    }
+    currentLiveCategory = found;
+    showLiveCategory(found, firstLoad);
+    if (!CHANNELS.length && state.screen === 'player' && state.playerMode === 'live') { setPlayerStatus(liveEmptyMessage()); }
+  }
+  renderPlayerCategories();
+  renderLiveDockCats();
+  if (liveGuideOpen) { renderLiveGuideCats(); renderLiveGuideGrid(); }
+  var waiting = liveListsWaiting;
+  liveListsWaiting = [];
+  for (var w = 0; w < waiting.length; w++) { waiting[w](); }
 }
 
 function renderLiveRows(favOnly) {
@@ -467,15 +533,25 @@ function renderLiveRows(favOnly) {
 }
 
 function renderLiveRowsNow(favOnly) {
-  liveRowsRenderedAt = Date.now();
-  var keepScroll = window.XUPER_DESKTOP ? liveList.scrollTop : 0;
+  var keepScroll = window.OPENTV_DESKTOP ? liveList.scrollTop : 0;
   clear(liveList);
   if (keepScroll) { setTimeout(function () { liveList.scrollTop = keepScroll; }, 0); }
   liveRows = [];
   if (!CHANNELS.length) {
-    var listStatus = el('div', 'live-list-status',
-      liveChannelsLoaded ? 'No se encontraron canales' : 'Cargando canales…');
+    var saved = currentLiveCategory && currentLiveCategory.isSaved;
+    if (liveChannelsPending() && !saved) {
+      liveList.appendChild(makeLoader('Cargando canales…', 'is-list'));
+      setLiveInfoText('');
+      return;
+    }
+    var listStatus = el('div', 'live-list-status', liveEmptyMessage());
+    /* No lists (or none could be read): a way to add one. */
+    if (liveNeedsLists() && !saved) {
+      listStatus.appendChild(document.createElement('br'));
+      listStatus.appendChild(makeLiveListsButton());
+    }
     liveList.appendChild(listStatus);
+    setLiveInfoText('');
     return;
   }
   /* Desktop: the list can hold 1000+ channels. Drawing them all made every
@@ -484,7 +560,7 @@ function renderLiveRowsNow(favOnly) {
      channel moves further down). */
   liveRowsFavOnly = !!favOnly;
   var hasQuery = !!(liveChannelQuery && norm(liveChannelQuery));
-  var limit = (window.XUPER_DESKTOP && !favOnly && !hasQuery)
+  var limit = (window.OPENTV_DESKTOP && !favOnly && !hasQuery)
     ? Math.min(CHANNELS.length, Math.max(LIVE_ROWS_BATCH, state.channel + (platformIsTv() ? 12 : 25)))
     : CHANNELS.length;
   appendLiveRows(limit);
@@ -492,7 +568,7 @@ function renderLiveRowsNow(favOnly) {
     liveList.appendChild(el('div', 'live-list-status', 'Sin canales para «' + liveChannelQuery.trim() + '»'));
   }
   if (CHANNELS[state.channel] && liveInfoText) {
-    liveInfoText.textContent = CHANNELS[state.channel].name;
+    setLiveInfoText(CHANNELS[state.channel].name);
   }
   if (!hasQuery) { scrollLiveList(); }
   if (liveGuideOpen) { renderLiveGuideGrid(); }
@@ -595,13 +671,40 @@ function createChannelSearchBox(cls, placeholder) {
   wrap.appendChild(ico);
   wrap.appendChild(inp);
   wrap.appendChild(clr);
+  /* TVs, TV en vivo: the box is one focusable control; OK opens the
+     on-screen keyboard (core/tv-keyboard.js) over the channel column, not
+     the system keyboard. The list is filtered with its Buscar key. */
+  if (cls === 'is-home' && platformIsTv()) {
+    inp.readOnly = true;
+    inp.tabIndex = -1;
+    wrap.classList.add('focusable');
+    wrap._activate = function () { openLiveSearchKeyboard(wrap); };
+  }
   return wrap;
+}
+
+function openLiveSearchKeyboard(box) {
+  var side = closest(box, '.live-side');
+  var page = side && side.parentNode;
+  if (!page) { return; }
+  openTvKeyboardPanel(page, {
+    placeholder: 'Nombre del canal',
+    value: liveChannelQuery,
+    cls: 'is-live',
+    cover: side,
+    doneLabel: 'Buscar',
+    onDone: function (v) {
+      setLiveChannelQuery(v, null);
+      if (liveRows && liveRows.length) { setFocus(liveRows[0]); }
+      else { setFocus(box); }
+    }
+  });
 }
 
 /* Renders channel rows up to (not including) index `upTo`. */
 function appendLiveRows(upTo) {
   if (!liveList) { return; }
-  if (window.XUPER_DESKTOP && !liveList._lazyRows) {
+  if (window.OPENTV_DESKTOP && !liveList._lazyRows) {
     liveList._lazyRows = true;
     liveList.addEventListener('scroll', function () {
       if (liveRowsShown < CHANNELS.length && liveList.scrollTop + liveList.clientHeight > liveList.scrollHeight - 700) {
@@ -623,7 +726,7 @@ function appendLiveRows(upTo) {
 }
 
 function ensureLiveRowsUpTo(index) {
-  if (window.XUPER_DESKTOP && liveRowsShown < CHANNELS.length && index >= liveRowsShown - 5) {
+  if (window.OPENTV_DESKTOP && liveRowsShown < CHANNELS.length && index >= liveRowsShown - 5) {
     appendLiveRows(Math.min(CHANNELS.length, index + LIVE_ROWS_BATCH));
   }
 }
@@ -640,14 +743,24 @@ function makeLiveRow(i) {
   }
   var play = el('div', 'row-play');
   var name = el('div', 'row-name', CHANNELS[i].name);
-  row.appendChild(icon);
-  row.appendChild(play);
-  row.appendChild(name);
+  /* PC: number, logo, then the name with its category under it. */
+  if (typeof liveSideLayout === 'function' && liveSideLayout()) {
+    row.appendChild(el('div', 'row-num', String(i + 1)));
+    row.appendChild(icon);
+    var rowText = el('div', 'row-text');
+    rowText.appendChild(name);
+    rowText.appendChild(el('div', 'row-sub', liveChannelGroups(CHANNELS[i]).join(', ')));
+    row.appendChild(rowText);
+  } else {
+    row.appendChild(icon);
+    row.appendChild(play);
+    row.appendChild(name);
+  }
   if (i === state.channel) { row.classList.add('is-current'); }
   if (CHANNELS[i]._keptPlaying) { row.classList.add('is-kept'); row.title = 'En reproducción (de otra categoría)'; }
   row._activate = (function (idx) {
     return function () {
-      if (window.XUPER_DESKTOP) {
+      if (window.OPENTV_DESKTOP) {
         /* Desktop: a click only switches the home preview. Enter on the
            channel already playing (keyboard) opens it big. */
         if (idx === state.channel) { if (focusRingVisible) { openPlayer('live'); } return; }
@@ -657,7 +770,7 @@ function makeLiveRow(i) {
       setChannel(idx, true); openPlayer('live');
     };
   })(i);
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     (function (idx, r) {
       r.addEventListener('dblclick', function () { setChannel(idx, true); openPlayer('live'); });
       var open = el('button', 'row-open');
@@ -676,14 +789,24 @@ function makeLiveRow(i) {
   }
   row._onMove = (function (rowIdx) {
     return function (dir) {
-      if (dir === 'left') {
+      /* Design "3A": the video is on the right of the list; on a TV, left
+         goes to the menu. */
+      var side = typeof liveSideLayout === 'function' && liveSideLayout();
+      if (dir === (side ? 'right' : 'left')) {
         if (liveFocus) { setFocus(liveFocus); }
         else if (tabEls[0]) { setFocus(tabEls[0]); }
         return true;
       }
+      if (side && dir === 'left') {
+        if (platformIsTv() && tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
+        return true;
+      }
       if (dir === 'up') {
+        var catBtn = side && liveDockCats ? liveDockCats.querySelector('.live-cat-btn') : null;
         if (rowIdx > 0 && liveRows[rowIdx - 1]) {
           setFocus(liveRows[rowIdx - 1]);
+        } else if (catBtn) {
+          setFocus(catBtn);
         } else {
           /* From the first channel: up to Buscar, Mi lista and the profile. */
           focusHomeTopIcons();
@@ -738,11 +861,11 @@ function setChannel(index, immediate) {
     liveRows[i].classList.toggle('is-current', liveRows[i]._channel === index);
   }
   if (CHANNELS[index] && liveInfoText) {
-    liveInfoText.textContent = CHANNELS[index].name;
+    setLiveInfoText(CHANNELS[index].name);
   }
   scrollLiveList();
   syncLiveFavButton();
-  if (window.XUPER_DESKTOP && CHANNELS[index]) { rememberLiveChannel(CHANNELS[index]); updateTitleBarSection(); }
+  if (window.OPENTV_DESKTOP && CHANNELS[index]) { rememberLiveChannel(CHANNELS[index]); updateTitleBarSection(); }
   if (state.screen === 'player') {
     updatePlayerChannel();
     if (state.playerMode === 'live') {

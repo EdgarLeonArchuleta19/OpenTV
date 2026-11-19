@@ -49,7 +49,7 @@ function compatEpisodeKey(item) { return mediaInfoKey(item) || smoothModeKey(ite
 
 function restoreSmoothMode(item) {
   var key = smoothModeKey(item);
-  var saved = window.XUPER_DESKTOP ? loadCompatTitles() : {};
+  var saved = window.OPENTV_DESKTOP ? loadCompatTitles() : {};
   if (key && !smoothModeByTitle.hasOwnProperty(key) &&
       (saved.hasOwnProperty(key) || saved.hasOwnProperty(compatEpisodeKey(item)))) {
     state.streamMode = 'smooth';
@@ -64,7 +64,7 @@ function setSmoothMode(item, on) {
   var key = smoothModeKey(item);
   state.streamMode = on ? 'smooth' : 'normal';
   if (key) { smoothModeByTitle[key] = !!on; }
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     saveCompatTitle(key, on);
     if (!on) { saveCompatTitle(compatEpisodeKey(item), false); }
   }

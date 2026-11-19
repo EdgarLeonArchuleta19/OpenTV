@@ -39,7 +39,7 @@ function searchFor(query) {
 
 /* "Búsquedas recientes" chips above the popular titles. */
 function renderRecentSearches() {
-  if (!window.XUPER_DESKTOP || !searchHot) { return; }
+  if (!window.OPENTV_DESKTOP || !searchHot) { return; }
   if (!searchRecentBox || searchRecentBox.parentNode !== searchHot) {
     searchRecentBox = el('div', 'search-recent');
     searchHot.insertBefore(searchRecentBox, searchHot.firstChild);
@@ -52,7 +52,7 @@ function renderRecentSearches() {
   head.appendChild(el('div', 'sr-recent-title', 'Búsquedas recientes'));
   var wipe = el('button', 'sr-recent-clear focusable', 'Borrar todo');
   wipe.type = 'button';
-  wipe._activate = function () { safeLocalWrite(RECENT_SEARCH_KEY, []); renderRecentSearches(); setFocus(searchInput, true); };
+  wipe._activate = function () { safeLocalWrite(RECENT_SEARCH_KEY, []); renderRecentSearches(); setFocus(searchTvKb ? searchTvKb.first : searchInput, true); };
   head.appendChild(wipe);
   searchRecentBox.appendChild(head);
   var chips = el('div', 'sr-recent-chips');
@@ -143,7 +143,7 @@ function suggestRow(cls, iconHtml, title, meta, run) {
 }
 
 function updateSearchSuggest() {
-  if (!window.XUPER_DESKTOP || !searchInput) { return; }
+  if (!window.OPENTV_DESKTOP || !searchInput) { return; }
   /* TV: the system keyboard covers the suggestions; skip the work. */
   if (platformIsTv()) { return; }
   var raw = searchInput.value;

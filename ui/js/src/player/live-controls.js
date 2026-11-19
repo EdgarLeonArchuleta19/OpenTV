@@ -13,7 +13,7 @@ function liveActiveVideo() {
 }
 
 function enterLiveFullscreen() {
-  if (!window.XUPER_DESKTOP || isWindowFullscreen()) { return; }
+  if (!window.OPENTV_DESKTOP || isWindowFullscreen()) { return; }
   liveAutoFullscreen = true;
   setWindowFullscreen(true);
 }
@@ -56,14 +56,17 @@ function syncLiveFullscreenButton() {
   setButtonText(b, full ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa (F)', full ? UI_ICONS.exitFullscreen : UI_ICONS.fullscreen);
 }
 
-/* Reloads the channels of the current category and keeps the channel that
-   is playing selected. */
+/* Reads the viewer's M3U lists again and keeps the channel that is playing
+   selected. */
 function refreshLiveChannels(btn) {
   if (!currentLiveCategory) { return; }
   var keep = liveChannelKey(CHANNELS[state.channel]);
   if (btn) { btn.classList.add('is-spinning'); }
   setPlayerStatus('Actualizando canales…');
-  switchLiveCategory(currentLiveCategory, function () {
+  var reload = currentLiveCategory.isSaved
+    ? function (done) { switchLiveCategory(currentLiveCategory, done); }
+    : reloadLiveLists;
+  reload(function () {
     for (var i = 0; i < CHANNELS.length; i++) {
       if (liveChannelKey(CHANNELS[i]) === keep) { state.channel = i; break; }
     }
@@ -76,7 +79,7 @@ function refreshLiveChannels(btn) {
 
 var liveControlsWatching = false;
 function installLiveControls() {
-  if (!window.XUPER_DESKTOP) { return; }
+  if (!window.OPENTV_DESKTOP) { return; }
   [playerVideo, livePreviewVideo].forEach(function (v) {
     if (!v || v._liveControls) { return; }
     v._liveControls = true;
@@ -103,7 +106,7 @@ function installLiveControls() {
    ------------------------------------------------------------------ */
 var liveNowPlaying = null;
 function noteLivePlaying(ch) {
-  if (!window.XUPER_DESKTOP) { return; }
+  if (!window.OPENTV_DESKTOP) { return; }
   /* The channel watched before this one, for "Último canal" (TV remote ←). */
   if (liveNowPlaying && ch && liveChannelKey(liveNowPlaying) !== liveChannelKey(ch)) { liveRecallChannel = liveNowPlaying; }
   liveNowPlaying = ch || null;
@@ -124,7 +127,7 @@ function recallLastChannel() {
 }
 
 function livePlayingToKeep() {
-  if (!window.XUPER_DESKTOP || !liveNowPlaying) { return null; }
+  if (!window.OPENTV_DESKTOP || !liveNowPlaying) { return null; }
   var key = liveChannelKey(liveNowPlaying);
   if (!key) { return null; }
   if (state.screen === 'player' && state.playerMode === 'live') { return liveNowPlaying; }

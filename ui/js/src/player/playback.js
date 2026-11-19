@@ -116,7 +116,7 @@ function flushSeek() {
   var dur = vodPlaybackDuration();
   if (t < 0) { t = 0; }
   if (dur > 0 && t > dur - 1) { t = dur - 1; }
-  if (window.XUPER_DESKTOP && state.playerMode === 'vod' && state.playerItem && state.playerItem._relayUrl &&
+  if (window.OPENTV_DESKTOP && state.playerMode === 'vod' && state.playerItem && state.playerItem._relayUrl &&
       /\/media\/[^/]+\/stream\.ts$/i.test(lastPlayingUrl || '')) {
     var seekEnd = (playerVideo.seekable && playerVideo.seekable.length) ? playerVideo.seekable.end(playerVideo.seekable.length - 1) : 0;
     if (t > seekEnd + 10) {
@@ -135,7 +135,7 @@ function playerSeek(delta) {
   if (!playerVideo) { return; }
   seekPending += delta;
   if (seekTimer) { clearTimeout(seekTimer); }
-  seekTimer = setTimeout(flushSeek, window.XUPER_DESKTOP ? 150 : 800);
+  seekTimer = setTimeout(flushSeek, window.OPENTV_DESKTOP ? 150 : 800);
   showInfobar();
   /* OSD feedback while seeking */
   showOsdIcon(delta > 0 ? 'forward' : 'backward');
@@ -151,7 +151,7 @@ function vodPlaybackDuration() {
   var target = state.playerEpisode || state.playerItem;
   var verified = durationToSeconds(target && target._sourceDuration);
   var metadata = durationToSeconds(target && target.duration);
-  var timeline = playerVideo && playerVideo._xuperTimeline;
+  var timeline = playerVideo && playerVideo._opentvTimeline;
   var completeHls = timeline && timeline.kind === 'hls' && timeline.complete ? durationToSeconds(timeline.duration) : 0;
   // Native MediaSource.duration may only describe the HLS fragments indexed
   // so far. It is never a title total until the manifest is complete.
@@ -173,13 +173,17 @@ function requestVideoDuration(item, episode, payload) {
     if (target._durationProbe !== payload.durationId) return;
     target._durationPending = false;
     var duration = !error && answer && answer.returnValue !== false ? durationToSeconds(answer.duration) : 0;
+    /* The same probe lists the file's audio tracks (language and title). */
+    if (!error && answer && ((answer.audio && answer.audio.length) || (answer.subtitles && answer.subtitles.length))) {
+      onSourceTracks(item, episode, answer);
+    }
     if (duration) {
       if (answer.verified) target._sourceDuration = duration;
       if (answer.verified || !durationToSeconds(target.duration)) target.duration = duration;
     }
     if ((state.playerEpisode || state.playerItem) === target) {
       updateVodProgress(vodPlaybackPosition(), vodPlaybackDuration());
-      document.dispatchEvent(new CustomEvent('xuper:duration'));
+      document.dispatchEvent(new CustomEvent('opentv:duration'));
     }
   }, 10000);
 }
@@ -323,7 +327,7 @@ function stopPlayerVideo() {
   while (playerVideo.firstChild) {
     playerVideo.removeChild(playerVideo.firstChild);
   }
-  if (window.XUPER_DESKTOP && typeof playerVideo._xuperResetTimeline === 'function') playerVideo._xuperResetTimeline();
+  if (window.OPENTV_DESKTOP && typeof playerVideo._opentvResetTimeline === 'function') playerVideo._opentvResetTimeline();
   /* NOTE: do NOT call playerVideo.load() here.
      A bare load() with no <source> briefly creates a WebMediaPlayerUMS
      pipeline in Starfish (AID=N) that gets destroyed milliseconds later
@@ -333,8 +337,8 @@ function stopPlayerVideo() {
 }
 
 function setPlayerStatus(text) {
-  if (window.XUPER_DESKTOP) {
-    document.dispatchEvent(new CustomEvent('xuper:player-status', { detail: {
+  if (window.OPENTV_DESKTOP) {
+    document.dispatchEvent(new CustomEvent('opentv:player-status', { detail: {
       text: text || '', error: !!state.streamError, mode: state.playerMode,
       loading: /^(Preparando|Cargando|Conectando|Reintentando|Reanudando|Cambiando|Ajustando)/i.test(text || '')
     } }));
@@ -354,7 +358,7 @@ function playUrl(url, playOptions) {
   if (!playerVideo || !url) { return; }
   playOptions = playOptions || {};
   var useNativeHlsFallback = !!playOptions.nativeHls;
-  if (window.XUPER_DESKTOP && state.playerMode === 'vod' && !/[?&]start=\d+/.test(url)) {
+  if (window.OPENTV_DESKTOP && state.playerMode === 'vod' && !/[?&]start=\d+/.test(url)) {
     var planMatches = resumePlan && state.playerItem &&
       (resumePlan.item === state.playerItem || String(resumePlan.itemId) === String(state.playerItem.id)) &&
       (!resumePlan.episodeId || (state.playerEpisode && String(state.playerEpisode.id) === String(resumePlan.episodeId)));
@@ -369,7 +373,7 @@ function playUrl(url, playOptions) {
         playOptions.startPosition = 0;
       } else {
         playOptions.startPosition = targetStart;
-        playerVideo._xuperStartPos = targetStart;
+        playerVideo._opentvStartPos = targetStart;
       }
     }
   }
@@ -411,7 +415,7 @@ function playUrl(url, playOptions) {
        VOD and the FFmpeg Modo Fluido path are intentionally untouched. */
     if (code === 4 && state.playerMode === 'live' && isHls && !useNativeHlsFallback) {
       var failedChannelSeq = liveChannelSeq;
-      setPlayerStatus('Reintentando señal con compatibilidad webOS…');
+      setPlayerStatus('Reintentando la señal…');
       setTimeout(function () {
         if (state.playerMode === 'live' && liveChannelSeq === failedChannelSeq) {
           playUrl(url, { nativeHls: true });
@@ -450,7 +454,7 @@ function playUrl(url, playOptions) {
      A silent frozen picture looked paused and invited a click that
      really paused it. */
   function clearStatusWhenRunning() {
-    if (window.XUPER_DESKTOP && !playerVideo.paused && playerVideo.readyState < 3) {
+    if (window.OPENTV_DESKTOP && !playerVideo.paused && playerVideo.readyState < 3) {
       if (!state.streamError) { setPlayerStatus('Cargando vídeo…'); }
       return;
     }
@@ -485,7 +489,7 @@ function playUrl(url, playOptions) {
       var target = playOptions.startPosition;
       try { playerVideo.currentTime = target; } catch (eStart) { /* not seekable yet */ }
       playOptions.startPosition = 0;
-      if (window.XUPER_DESKTOP && !relayBaseUrl) {
+      if (window.OPENTV_DESKTOP && !relayBaseUrl) {
         stopPendingStart();
         pendingStart = target;
         pendingStartTimer = setInterval(tryPendingStart, 500);
@@ -522,7 +526,7 @@ function playUrl(url, playOptions) {
   };
   playerVideo.onended = function () {
     if (state.playerMode !== 'vod') { return; }
-    if (window.XUPER_DESKTOP) { offerNextEpisode(); } else { advanceToNextEpisode(); }
+    if (window.OPENTV_DESKTOP) { offerNextEpisode(); } else { advanceToNextEpisode(); }
   };
   playerVideo.ontimeupdate = function () {
     if (playerVideo.currentTime > 0) { clearStatusWhenRunning(); }
@@ -619,115 +623,14 @@ function playUrl(url, playOptions) {
   }
 }
 
-/* Portal titles need a license + CDN auth that <video> cannot send: the
-   service resolves them and exposes a loopback proxy URL.
-   We capture the current resolveSeq at call time; if it changes before
-   the async response arrives (user navigated away), we discard the result. */
+/* The playable URL of a title (async: the addon source may need the
+   service first). Callers check resolveSeq to drop a late answer. */
 function resolvePlayerStream(item, done) {
-  /* Stremio mode (PC): the source the viewer chose (player/stremio-sources.js). */
+  /* Addon titles: the source the viewer chose (player/stremio-sources.js). */
   if (item && item._stremio) { return resolveStremioPlayback(item, done); }
-  var mySeq = resolveSeq;
-  function resolveNow() {
-    var params = { contentId: item.id };
-    params.playbackMode = state.streamMode;
-    params.forceRelay = state.streamMode === 'smooth' || state.streamMode === 'relay';
-    if (params.forceRelay && compatVideoCopy(item)) { params.videoCopy = true; }
-    params.trackIndex = state.trackIndex || 0;
-    if (window.XUPER_DESKTOP) { params.preferHeight = preferredQualityHeight(); }
-    /* Prefer the Spanish PID like the real app when mediaInfo already
-       answered; the relay maps it with ffmpeg -map 0:a:<n>. */
-    var ep = state.playerEpisode;
-    var epKey = (ep && ep.id) || (item && item.id) || '';
-    var cachedInfo = mediaInfoCache[epKey] || mediaInfoCache[mediaInfoKey(item)];
-    /* Spanish is the default for every episode.  Index 0 is NOT Spanish:
-       the portal lists the PIDs in stream order ("por,spa,eng"), so sending
-       0 after an episode change made playback start in Portuguese (and the
-       FFmpeg relay map the Portuguese PID). */
-    var audioList = (cachedInfo && cachedInfo.audio) || (ep && ep.streamAudioInfo) || item.streamAudioInfo || '';
-    if (vodAudioChosen) {
-      vodCurrentAudioTrack = Math.max(0, Number(vodCurrentAudioTrack) || 0);
-    } else {
-      vodCurrentAudioTrack = preferredAudioIndex(audioList);
-    }
-    params.audioTrack = vodCurrentAudioTrack || 0;
-    if (isSeriesItem(item)) {
-      var epSeries = state.playerEpisode;
-      var seriesRef = item.seasonId || item.id;
-      if (epSeries && epSeries.id) {
-        params.contentId = epSeries.id;
-        params.seriesContentId = seriesRef;
-      } else {
-        if (!item.episodes || !item.episodes.length) {
-          vodFailure('los capítulos', item._detailError || 'El servidor no devolvió capítulos reproducibles');
-          return done('');
-        }
-        state.playerEpisode = item.episodes[0];
-        params.contentId = item.episodes[0].id;
-        params.seriesContentId = seriesRef;
-      }
-    }
-    params.duration = durationToSeconds((state.playerEpisode || item).duration);
-    var resolveMethod = params.forceRelay ? 'resolveSmooth' : 'resolve';
-    lastVodAttempt = { phase: 'enlace de vídeo', status: 'cargando', error: '' };
-    portalServiceCall(resolveMethod, params, function (error, payload) {
-      /* Stale response: user already navigated to something else */
-      if (mySeq !== resolveSeq) { return; }
-      if (error || !payload || payload.returnValue === false || !(payload.proxyPath || payload.url)) {
-        vodFailure('el enlace de vídeo', error || (payload && payload.errorText) || 'Respuesta vacía del servicio');
-        return done('');
-      }
-      lastVodAttempt = { phase: 'enlace de vídeo', status: 'recibido', error: '' };
-      item.streamMime = payload.mime || '';
-      item.streamCodec = payload.codec || '';
-      item._relayUrl = payload.relayUrl || (/^https?:\/\/127\.0\.0\.1:\d+\/s\//i.test(payload.proxyPath || '') ? payload.proxyPath.split('?')[0] : '');
-      if (state.playerEpisode) { state.playerEpisode._relayUrl = item._relayUrl; }
-      if (durationToSeconds(payload.duration) > 0) {
-        item.duration = durationToSeconds(payload.duration);
-        if (state.playerEpisode) { state.playerEpisode.duration = payload.duration; }
-      } else {
-        item.duration = item.duration || 0;
-      }
-      item.subtitles = payload.subtitles || [];
-      item.streamAudioInfo = payload.audio || item.streamAudioInfo || '';
-      if (state.playerEpisode) { state.playerEpisode.streamAudioInfo = payload.audio || ''; }
-      item.isHls = !!payload.isHls;
-      if (!vodAudioChosen && payload.audio) {
-        vodCurrentAudioTrack = preferredAudioIndex(payload.audio);
-      }
-      /* resolve already completed startPlayVOD.  Reuse its audio/subtitle
-         metadata in the panel instead of requesting the same episode a
-         second time when the viewer changes chapters. */
-      var resolvedInfo = {
-        audio: payload.audio || item.streamAudioInfo,
-        subtitles: item.subtitles,
-        tracks: payload.availableTracks || [],
-        selected: payload.selectedTrack || {},
-        duration: payload.duration || 0
-      };
-      mediaInfoCache[mediaInfoKey(item)] = resolvedInfo;
-      applySubtitleDefaults(resolvedInfo);
-      /* Read-only local diagnostics for the webOS inspector.  Do not place
-         the stream URL, licence or headers here. */
-      try {
-        window.__xuperStreamInfo = {
-          selectedTrack: payload.selectedTrack || {},
-          availableTracks: payload.availableTracks || []
-        };
-      } catch (eDiag) { /* ignore */ }
-      done(payload.proxyPath || payload.url || '');
-      requestVideoDuration(item, state.playerEpisode, payload);
-    });
-  }
-  if (isSeriesItem(item) && !state.playerEpisode && (!item.episodes || !item.episodes.length) && !item._detailsLoaded) {
-    setPlayerStatus('Cargando capítulos…');
-    loadVodDetail(item, function (loaded) {
-      if (mySeq !== resolveSeq) { return; }
-      if (!loaded) { return done(''); }
-      resolveNow();
-    });
-    return;
-  }
-  resolveNow();
+  /* Anything else carries its own link. */
+  var ep = state.playerEpisode;
+  done((ep && ep.streamUrl) || (item && item.streamUrl) || '');
 }
 
 function startPlayerVideo(item, episode) {
@@ -737,58 +640,19 @@ function startPlayerVideo(item, episode) {
     state.playerSeasonIndex = state.detailSeason || 0;
   }
   if (item) { state.playerItem = item; }
-  try { document.dispatchEvent(new CustomEvent('xuper:player-item')); } catch (eEv) { /* old webOS */ }
-  if (window.XUPER_DESKTOP) { installResume(); planResume(state.playerItem, state.playerEpisode); }
+  try { document.dispatchEvent(new CustomEvent('opentv:player-item')); } catch (eEv) { /* old webOS */ }
+  if (window.OPENTV_DESKTOP) { installResume(); planResume(state.playerItem, state.playerEpisode); }
   var it = item || state.playerItem;
   if (it) { restoreSmoothMode(it); }
   stopPlayerVideo();
   if (!it) { return; }
   /* PC: the title's still until the first frame (not the previous title's). */
-  if (window.XUPER_DESKTOP && !platformIsTv()) {
+  if (window.OPENTV_DESKTOP && !platformIsTv()) {
     var still = heroArt(it) || it.poster || '';
     if (still) { playerVideo.poster = sizedImageUrl(still, 1280); } else { playerVideo.removeAttribute('poster'); }
   }
   vodAudioChosen = false;
   vodCurrentAudioTrack = 0;
-  /* resolvePlayerStream returns the same audio/subtitle metadata needed by
-     the dialog.  Do not issue mediaInfo in parallel here: on every episode
-     change that duplicated startPlayVOD and delayed the next chapter.  It is
-     only requested while the audio PID order is still unknown, because the
-     portal lists it in stream order (index 0 is not Spanish) and Modo Fluido
-     maps that index inside FFmpeg. */
-  var currentEp = episode || state.playerEpisode;
-  var epKey = (currentEp && currentEp.id) || (it && it.id) || '';
-  var epInfo = epKey ? mediaInfoCache[epKey] : null;
-  var knownAudio = (epInfo && epInfo.audio) || (currentEp && currentEp.streamAudioInfo) || '';
-  if (it._portal && !vodAudioChosen && !knownAudio) {
-    var started = false;
-    var startSeq = resolveSeq;
-    var proceed = function () {
-      if (started || startSeq !== resolveSeq) { return; }
-      started = true;
-      var epNum = episode ? (episode.number || episode.seriesNumber || '') : '';
-      setPlayerStatus(epNum ? ('Cargando capítulo ' + epNum + '…') : (isSeriesItem(it) ? 'Cargando capítulo…' : 'Cargando película…'));
-      resolvePlayerStream(it, function (url) {
-        if (url) { playUrl(url); }
-        else if (!state.streamError) { setPlayerStatus('Sin fuente de reproducción'); }
-      });
-    };
-    /* Never hold playback on the metadata call: after 2.5 s resolve anyway. */
-    setTimeout(proceed, 2500);
-    ensureMediaInfo(it, function (info) {
-      proceed();
-    });
-    return;
-  }
-  if (it._portal) {
-    var epNum = episode ? (episode.number || episode.seriesNumber || '') : '';
-    setPlayerStatus(epNum ? ('Cargando capítulo ' + epNum + '…') : (isSeriesItem(it) ? 'Cargando capítulo…' : 'Cargando película…'));
-    resolvePlayerStream(it, function (url) {
-      if (url) { playUrl(url); }
-      else if (!state.streamError) { setPlayerStatus('Sin fuente de reproducción'); }
-    });
-    return;
-  }
   if (it._stremio) {
     resolvePlayerStream(it, function (url) {
       if (url) { playUrl(url); }
@@ -816,7 +680,7 @@ function expandToFullscreen(item, episode) {
   if (item && state.playerItem !== item) { resetMediaSelection(); }
   if (item) { state.playerItem = item; }
   if (episode) { state.playerEpisode = episode; }
-  try { document.dispatchEvent(new CustomEvent('xuper:player-item')); } catch (eEv) { /* old webOS */ }
+  try { document.dispatchEvent(new CustomEvent('opentv:player-item')); } catch (eEv) { /* old webOS */ }
   if (item) { restoreSmoothMode(item); }
   state.playerReturn = { screen: 'detail', focus: state.focus };
 
@@ -847,7 +711,7 @@ function openPlayer(mode, item, episode) {
   }
   if (!playerStage) { buildPlayer(); }
   /* Desktop TV: real full screen, like a TV (left again with the player). */
-  if (window.XUPER_DESKTOP && mode === 'live') { installLiveControls(); enterLiveFullscreen(); }
+  if (window.OPENTV_DESKTOP && mode === 'live') { installLiveControls(); enterLiveFullscreen(); }
   /* Desktop: reuse the video that is already playing this channel. */
   var handedOver = false;
   if (mode === 'live' && liveHandoff && liveHandoff.type === 'player') {

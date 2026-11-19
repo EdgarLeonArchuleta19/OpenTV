@@ -9,7 +9,7 @@ var SPLASH_MAX_MS = 8000;
 function showBootSplash() {
   /* index.html already has it from the first frame; built here only if not. */
   var splash = $('boot-splash');
-  if (!window.XUPER_DESKTOP) {
+  if (!window.OPENTV_DESKTOP) {
     if (splash && splash.parentNode) { splash.parentNode.removeChild(splash); }
     return;
   }
@@ -20,6 +20,9 @@ function showBootSplash() {
     splash.id = 'boot-splash';
     splash.appendChild(el('div', 'bs-name', 'OpenTV'));
     splash.appendChild(el('div', 'bs-sub', 'Preparando tu catálogo…'));
+    /* The same breathing dots as the screen loader (core/loader.js). */
+    var dots = makeLoader('', '').firstChild;
+    splash.appendChild(dots);
     document.body.appendChild(splash);
   }
   splash._running = true;

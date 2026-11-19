@@ -286,7 +286,7 @@ function closeHistoryDrawer(navigating) {
 
 /* The "Historial" button and Ctrl+J open the side panel. */
 function openHistoryView() {
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     if (historyDrawerOpen) { closeHistoryDrawer(); } else { openHistoryDrawer(); }
     return;
   }

@@ -1,10 +1,10 @@
 /* live/guide.js — Escritorio: guía de canales (cuadrícula con buscador), favoritos y recientes.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-/* The portal sends no programme schedule (EPG) for its channels, only the
-   channel itself, so the guide lists channels: by country/theme, with a
-   name filter, the favourites and the channels watched last. Favourites and
-   recents are kept with the data needed to play them from any category. */
+/* The M3U lists bring no programme schedule (EPG), only the channels, so the
+   guide lists channels: by the lists' categories (group-title), with a name
+   filter, the favourites and the channels watched last. Favourites and
+   recents are kept with their link, so they play from any category. */
 var LIVE_SAVED_KEY = 'opentv_live_saved_v1';
 var LIVE_RECENT_MAX = 24;
 var LIVE_SAVED_CATS = {
@@ -31,7 +31,7 @@ function sameChannel(a, b) {
 }
 
 function rememberLiveChannel(ch) {
-  if (!window.XUPER_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
+  if (!window.OPENTV_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
   var s = liveSaved();
   s.recent = s.recent.filter(function (x) { return !sameChannel(x, ch); });
   s.recent.unshift(savedChannelCopy(ch));
@@ -40,7 +40,7 @@ function rememberLiveChannel(ch) {
 }
 
 function syncSavedFavorite(ch, on) {
-  if (!window.XUPER_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
+  if (!window.OPENTV_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
   var s = liveSaved();
   s.favs = s.favs.filter(function (x) { return !sameChannel(x, ch); });
   if (on) { s.favs.unshift(savedChannelCopy(ch)); }
@@ -49,7 +49,14 @@ function syncSavedFavorite(ch, on) {
 
 function toggleLiveFavorite(ch) {
   if (!ch) { return false; }
-  ch.fav = toggleFavorite({ id: liveFavKey(ch) });
+  var key = liveFavKey(ch);
+  var on = !(ch.fav || state.favs[key]);
+  if (!!state.favs[key] !== on) { toggleFavorite({ id: key }); }
+  /* Earlier versions saved M3U favourites as 'live:m3u_N' (the position in
+     a list): drop that key when the channel stops being a favourite. */
+  var legacy = ch.channelCode ? 'live:' + ch.channelCode : '';
+  if (!on && legacy && legacy !== key && state.favs[legacy]) { toggleFavorite({ id: legacy }); }
+  ch.fav = on;
   syncSavedFavorite(ch, ch.fav);
   syncLiveFavButton();
   return ch.fav;
@@ -60,29 +67,24 @@ function loadSavedChannels(kind, done) {
   var keepPlaying = livePlayingToKeep();
   var list = liveSaved()[kind] || [];
   CHANNELS.splice(0, CHANNELS.length);
+  var favUrls = liveFavoriteUrls();
   for (var i = 0; i < list.length; i++) {
+    /* Channels saved from the old portal have no link and cannot play. */
+    if (!list[i] || !list[i].streamUrl) { continue; }
     var ch = savedChannelCopy(list[i]);
-    ch.index = i + 1;
+    ch.index = CHANNELS.length + 1;
     ch.now = 'En vivo';
-    ch.fav = !!state.favs[liveFavKey(ch)];
+    ch.fav = !!(favUrls[ch.streamUrl] || state.favs[liveFavKey(ch)]);
     CHANNELS.push(ch);
   }
   state.channel = 0;
-  if (keepPlaying && list.length) { keepLivePlayingChannel(keepPlaying); }
-  liveChannelsLoaded = true;
-  liveChannelsLoading = false;
-  liveChannelRequestSeq++;
+  if (keepPlaying && CHANNELS.length) { keepLivePlayingChannel(keepPlaying); }
   renderLiveRows(false);
   renderPlayerChannels();
   if (CHANNELS[state.channel]) {
-    if (liveInfoText) { liveInfoText.textContent = CHANNELS[state.channel].name; }
+    setLiveInfoText(CHANNELS[state.channel].name);
     if (state.screen === 'player' && state.playerMode === 'live') { updatePlayer(); if (!keepPlaying) { startLiveChannel(CHANNELS[0], true); } }
     else { scheduleLivePreview(CHANNELS[state.channel]); }
-  } else if (liveList) {
-    clear(liveList);
-    liveList.appendChild(el('div', 'live-list-status', kind === 'favs'
-      ? 'Aún no tienes canales favoritos. Usa la estrella para guardar uno.'
-      : 'Aquí aparecerán los últimos canales que veas.'));
   }
   syncLiveFavButton();
   if (done) { done(); }
@@ -128,7 +130,12 @@ function buildLiveGuide() {
   liveGuideSearch.addEventListener('change', function () {
     if (platformIsTv()) { guideSearchToResults(); }
   });
-  liveGuideSearch._activate = function () { liveGuideSearch.focus(); };
+  liveGuideSearch._activate = function () {
+    /* TVs: the on-screen keyboard (core/tv-keyboard.js) over the category
+       column; the channels on the right are filtered while typing. */
+    if (platformIsTv()) { openGuideKeyboard(panel); return; }
+    liveGuideSearch.focus();
+  };
   head.appendChild(liveGuideSearch);
   var close = el('button', 'lg-close focusable');
   close.type = 'button';
@@ -152,8 +159,29 @@ function buildLiveGuide() {
   ($('screen-home') || document.body).appendChild(liveGuide);
 }
 
+/* The guide's on-screen keyboard (TVs). Typing only edits the text; the
+   channels are filtered once, with the Buscar key (a batch of cards per
+   letter kept a Fire TV busy). */
+function openGuideKeyboard(panel) {
+  openTvKeyboardPanel(panel, {
+    title: 'Buscar canal',
+    placeholder: 'Nombre del canal',
+    value: liveGuideSearch.value,
+    cls: 'is-guide',
+    cover: liveGuideCats,
+    hostClass: 'is-typing',
+    doneLabel: 'Buscar',
+    /* (Back closes it without changing the search.) */
+    onDone: function (v) {
+      liveGuideSearch.value = v;
+      renderLiveGuideGrid();
+      guideSearchToResults();
+    }
+  });
+}
+
 function openLiveGuide() {
-  if (!window.XUPER_DESKTOP) { return; }
+  if (!window.OPENTV_DESKTOP) { return; }
   if (!liveGuide || !liveGuide.isConnected) { buildLiveGuide(); }
   liveGuideOpen = true;
   liveGuideReturnFocus = state.focus;
@@ -172,6 +200,7 @@ function openLiveGuide() {
 function closeLiveGuide() {
   if (!liveGuideOpen) { return; }
   liveGuideOpen = false;
+  closeTvKeyboardPanel(true);
   if (liveGuide) { liveGuide.classList.remove('is-open'); }
   document.body.classList.remove('has-live-guide');
   if (liveGuideSearch) { liveGuideSearch.blur(); }
@@ -180,18 +209,14 @@ function closeLiveGuide() {
 }
 
 function guideCategories() {
-  var groups = [{ title: '', items: [] }, { title: 'Países', items: [] }, { title: 'Temas', items: [] }];
+  var groups = [{ title: '', items: [] }, { title: 'Categorías', items: [] }];
+  groups[0].items.push({ cat: LIVE_ALL_CATEGORY, label: 'Todos' });
   for (var i = 0; i < liveCategories.length; i++) {
     var c = liveCategories[i];
-    if (c.name === 'Todos') { groups[0].items.push({ cat: c, label: 'Todos' }); }
-    else if (LIVE_COUNTRIES.indexOf(c.name) !== -1) { groups[1].items.push({ cat: c, label: c.name }); }
-    else { groups[2].items.push({ cat: c, label: c.isAddon ? 'Mis listas M3U' : c.name }); }
+    if (c.id !== LIVE_ALL_CATEGORY.id) { groups[1].items.push({ cat: c, label: c.name }); }
   }
   groups[0].items.push({ cat: LIVE_SAVED_CATS.favs, label: 'Favoritos', icon: UI_ICONS.star });
   groups[0].items.push({ cat: LIVE_SAVED_CATS.recent, label: 'Recientes', icon: UI_ICONS.history });
-  /* TVs: themes (Deportes, Cine y Series…) before the long country list,
-     which pushed them a dozen presses down. */
-  if (platformIsTv()) { return [groups[0], groups[2], groups[1]]; }
   return groups;
 }
 
@@ -228,6 +253,9 @@ function guideSearchToResults() {
   var first = liveGuideGrid.querySelector('.lg-card');
   liveGuideSearch.blur();
   if (first) { setFocusRingVisible(true); setFocus(first); }
+  /* Nothing found: back on the search field (the keyboard's panel that had
+     the focus is gone), to try another name. */
+  else { setFocus(liveGuideSearch); }
 }
 
 function focusGuideCategory(catId) {
@@ -292,18 +320,22 @@ function renderLiveGuideGrid() {
   appendGuideCards(want);
   var shown = guideIndexes.length;
   if (!shown) {
-    var msg = !CHANNELS.length && liveChannelsLoading ? 'Cargando canales…'
-      : q ? 'Ningún canal coincide con «' + liveGuideSearch.value.trim() + '»'
-      : currentLiveCategory && currentLiveCategory.isSaved === 'favs' ? (platformIsTv()
-        ? 'Aún no tienes canales favoritos. Usa el botón Favorito debajo de la vista previa de TV en vivo.'
-        : 'Aún no tienes canales favoritos. Pasa el ratón por un canal y toca la estrella.')
-      : currentLiveCategory && currentLiveCategory.isSaved === 'recent' ? 'Aquí aparecerán los últimos canales que veas.'
-      : 'No hay canales en esta categoría.';
+    var msg = q ? 'Ningún canal coincide con «' + liveGuideSearch.value.trim() + '»'
+      : currentLiveCategory && currentLiveCategory.isSaved === 'favs' && !platformIsTv()
+        ? 'Aún no tienes canales favoritos. Pasa el ratón por un canal y toca la estrella.'
+      : liveEmptyMessage();
     var empty = el('div', 'lg-empty', msg);
     if (!CHANNELS.length && liveChannelsLoading) { empty.insertBefore(el('i', 'tv-loader'), empty.firstChild); }
+    if (!q && liveNeedsLists() && !(currentLiveCategory && currentLiveCategory.isSaved)) {
+      empty.appendChild(document.createElement('br'));
+      var addBtn = makeLiveListsButton();
+      var baseActivate = addBtn._activate;
+      addBtn._activate = function () { closeLiveGuide(); baseActivate(); };
+      empty.appendChild(addBtn);
+    }
     liveGuideGrid.appendChild(empty);
   }
-  var name = currentLiveCategory ? (currentLiveCategory.isAddon ? 'Mis listas M3U' : currentLiveCategory.name) : 'Todos';
+  var name = currentLiveCategory ? currentLiveCategory.name : 'Todos';
   liveGuideCount.textContent = name + ' · ' + (q ? shown + ' de ' + CHANNELS.length : CHANNELS.length) + (CHANNELS.length === 1 && !q ? ' canal' : ' canales') +
     (liveChannelsLoading ? ' · cargando…' : '');
   liveGuideGrid.scrollTop = keep;
@@ -371,7 +403,7 @@ function makeGuideCard(ch, idx) {
 }
 
 function installLiveGuide() {
-  if (!window.XUPER_DESKTOP) { return; }
+  if (!window.OPENTV_DESKTOP) { return; }
   document.addEventListener('keydown', function (event) {
     if (!liveGuideOpen) {
       /* G opens the guide from the TV tab. */
@@ -382,7 +414,7 @@ function installLiveGuide() {
       }
       return;
     }
-    if (event.key === 'Escape' || event.key === 'Backspace' || event.keyCode === 461) {
+    if (event.key === 'Escape' || event.key === 'Backspace') {
       if (document.activeElement === liveGuideSearch && event.key === 'Backspace') { return; }
       event.preventDefault();
       event.stopPropagation();

@@ -9,7 +9,7 @@ var tooltipTarget = null;
 var tooltipTimer = null;
 
 function installTooltips() {
-  if (tooltipEl || !window.XUPER_DESKTOP || !platformHas('mouse')) { return; }
+  if (tooltipEl || !window.OPENTV_DESKTOP || !platformHas('mouse')) { return; }
   tooltipEl = el('div', 'ui-tooltip');
   tooltipEl.setAttribute('role', 'tooltip');
   document.body.appendChild(tooltipEl);
@@ -55,10 +55,18 @@ function showTooltip() {
   var left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2));
   tooltipEl.style.left = Math.round(left) + 'px';
   tooltipEl.style.top = Math.round(Math.max(6, top)) + 'px';
+  /* The element can vanish under the mouse (a panel redrawn, another page
+     opened) without any pointerout: then the tooltip goes too. */
+  if (tooltipWatch) { clearInterval(tooltipWatch); }
+  tooltipWatch = setInterval(function () {
+    if (!tooltipTarget || !tooltipTarget.isConnected || !isVisible(tooltipTarget)) { hideTooltip(); }
+  }, 300);
 }
 
+var tooltipWatch = null;
 function hideTooltip() {
   if (tooltipTimer) { clearTimeout(tooltipTimer); tooltipTimer = null; }
+  if (tooltipWatch) { clearInterval(tooltipWatch); tooltipWatch = null; }
   tooltipTarget = null;
   if (tooltipEl) { tooltipEl.classList.remove('is-visible'); }
 }

@@ -7,6 +7,37 @@ var profilePicker = null;
 var profilePickerOpen = false;
 var profileEditing = false;
 
+/* The profile window on screen (the editor over the picker), or null.
+   While one is open the focus cannot go to anything behind it (core/focus.js
+   setFocus): at start-up the home screen used to take the focus from the
+   picker, and the remote then moved the hidden menu behind it. */
+function profileOverlayRoot() {
+  if (profileEditor && profileEditor.classList.contains('is-open')) { return profileEditor; }
+  if (profilePickerOpen && profilePicker) { return profilePicker; }
+  return null;
+}
+
+/* Back while a profile window is open: the editor closes, "Administrar
+   perfiles" goes back to choosing, and the picker continues with the
+   profile in use. True when it was handled. Called from the keyboard
+   listener (installProfiles) and from handleKey (the TV remote's Back comes
+   through the Capacitor App plugin, not as a key event). */
+function profileOverlayBack() {
+  if (profileEditor && profileEditor.classList.contains('is-open')) {
+    if (profileEditor._close) { profileEditor._close(); }
+    return true;
+  }
+  if (!profilePickerOpen) { return false; }
+  if (profileEditing) {
+    profileEditing = false;
+    profilePicker.classList.remove('is-editing');
+    renderProfilePicker();
+  } else {
+    chooseProfile(activeProfileId);
+  }
+  return true;
+}
+
 function profileTile(p, onClick) {
   var tile = el('div', 'pp-tile focusable');
   var av = el('div', 'pp-avatar');
@@ -56,7 +87,7 @@ function renderProfilePicker() {
 
 function showProfilePicker(editing) {
   /* (Phones have their own "¿Quién está viendo?", mobile/mobile-app.js.) */
-  if (!window.XUPER_DESKTOP || isPhone()) { return; }
+  if (!window.OPENTV_DESKTOP || isPhone()) { return; }
   if (!profilePicker) {
     profilePicker = el('div', 'profile-picker');
     profilePicker.setAttribute('data-no-gesture', '');
@@ -95,7 +126,9 @@ function openProfileEditor(p) {
     document.body.appendChild(profileEditor);
   }
   clear(profileEditor);
-  var card = el('div', 'pe2-card');
+  /* (scrollable: on a TV the card is taller than the screen, and the focus
+     moved by the remote is scrolled into view like in any other list.) */
+  var card = el('div', 'pe2-card scrollable');
   card.appendChild(el('div', 'pe2-title', isNew ? 'Añadir perfil' : 'Editar perfil'));
   var top = el('div', 'pe2-top');
   var preview = el('div', 'pe2-preview');
@@ -107,9 +140,17 @@ function openProfileEditor(p) {
   name.className = 'pe2-name focusable';
   name.placeholder = 'Nombre';
   name.value = draft.name;
+  /* Remote: OK on the field opens the keyboard; up/down leave it. */
+  name._activate = function () { name.focus(); };
   name.addEventListener('keydown', function (event) {
     if (event.key === 'Enter') { event.preventDefault(); save(); }
     if (event.key === 'Escape') { event.preventDefault(); close(); }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      name.blur();
+      setFocus(name, true);
+      moveFocus(event.key === 'ArrowDown' ? 'down' : 'up');
+    }
     event.stopPropagation();
   });
   top.appendChild(name);
@@ -127,15 +168,18 @@ function openProfileEditor(p) {
       var all = grid.querySelectorAll('.pe2-av');
       for (var k = 0; k < all.length; k++) { all[k].classList.toggle('is-selected', all[k] === b); }
     });
+    b._activate = function () { b.click(); };
     grid.appendChild(b);
   });
   card.appendChild(grid);
 
-  var kids = el('label', 'pe2-kids');
+  var kids = el('label', 'pe2-kids focusable');
   var box = document.createElement('input');
   box.type = 'checkbox';
   box.checked = draft.kids;
+  box.tabIndex = -1;
   kids.appendChild(box);
+  kids._activate = function () { box.checked = !box.checked; };
   var kt = el('span');
   kt.appendChild(el('b', null, 'Perfil infantil'));
   kt.appendChild(el('small', null, 'Solo la sección Kids: sin TV en vivo, buscador ni contenido para adultos.'));
@@ -145,16 +189,19 @@ function openProfileEditor(p) {
   var msg = el('div', 'pe2-msg', '');
   card.appendChild(msg);
   var actions = el('div', 'pe2-actions');
-  var ok = el('button', 'pe2-btn is-primary', 'Guardar');
+  /* Buttons reachable with the remote too (focusable + _activate). */
+  var ok = el('button', 'pe2-btn is-primary focusable', 'Guardar');
   ok.type = 'button';
   ok.addEventListener('click', save);
-  var cancel = el('button', 'pe2-btn', 'Cancelar');
+  ok._activate = save;
+  var cancel = el('button', 'pe2-btn focusable', 'Cancelar');
   cancel.type = 'button';
   cancel.addEventListener('click', close);
+  cancel._activate = close;
   actions.appendChild(ok);
   actions.appendChild(cancel);
   if (!isNew && profilesData.list.length > 1) {
-    var del = el('button', 'pe2-btn is-danger', 'Eliminar perfil');
+    var del = el('button', 'pe2-btn is-danger focusable', 'Eliminar perfil');
     del.type = 'button';
     var armed = false;
     del.addEventListener('click', function () {
@@ -162,12 +209,18 @@ function openProfileEditor(p) {
       deleteProfile(p.id);
       close();
     });
+    del._activate = function () { del.click(); };
     actions.appendChild(del);
   }
   card.appendChild(actions);
   profileEditor.appendChild(card);
   profileEditor.classList.add('is-open');
-  setTimeout(function () { name.focus(); }, 50);
+  profileEditor._close = close;
+  var returnFocus = state.focus;
+  /* TVs: the remote's focus starts on the name (OK opens the keyboard);
+     opening the keyboard by itself covered the whole screen. */
+  if (platformIsTv()) { setFocus(name, true); }
+  else { setTimeout(function () { name.focus(); }, 50); }
 
   function save() {
     var n = String(name.value || '').replace(/\s+/g, ' ').trim();
@@ -189,8 +242,12 @@ function openProfileEditor(p) {
     if (!isNew && p.id === activeProfileId) { setTimeout(function () { location.reload(); }, 150); }
   }
   function close() {
+    /* The hidden name field kept the browser's focus and swallowed every
+       key afterwards (the picker could not be moved with the remote). */
+    if (document.activeElement === name) { name.blur(); }
     profileEditor.classList.remove('is-open');
     if (profilePickerOpen) { renderProfilePicker(); }
+    else if (returnFocus && returnFocus.isConnected) { setFocus(returnFocus, true); }
   }
 }
 
@@ -218,7 +275,7 @@ function refreshProfileChrome() {
 /* --------------------------------------------------------------- backup */
 var profilesBackupTimer = null;
 function profilesBackupApi() {
-  return window.XUPER_DESKTOP && window.desktop && window.desktop.backup ? window.desktop.backup : null;
+  return window.OPENTV_DESKTOP && window.desktop && window.desktop.backup ? window.desktop.backup : null;
 }
 function collectProfilesBackup() {
   var data = { kind: 'opentv-profiles', version: 1, savedAt: Date.now(), profiles: profilesData, values: {} };
@@ -262,7 +319,10 @@ function offerProfilesRestore(done) {
     no.type = 'button';
     yes.addEventListener('click', function () {
       try {
-        Object.keys(data.values).forEach(function (k) { localStorage.setItem(k, data.values[k]); });
+        Object.keys(data.values).forEach(function (k) {
+          var key = window.opentvStorageKey ? window.opentvStorageKey(k) : k;
+          localStorage.setItem(key, data.values[k]);
+        });
         localStorage.setItem(PROFILES_KEY, JSON.stringify(data.profiles));
       } catch (eRestore) { /* storage full */ }
       location.reload();
@@ -280,15 +340,19 @@ function offerProfilesRestore(done) {
 /* Start-up: restore offer on a fresh install, then the picker when there
    are several profiles (once per app start). */
 function installProfiles() {
-  if (!window.XUPER_DESKTOP) { return; }
+  if (!window.OPENTV_DESKTOP) { return; }
   refreshProfileChrome();
   document.addEventListener('keydown', function (event) {
-    if (!profilePickerOpen || (profileEditor && profileEditor.classList.contains('is-open'))) { return; }
-    if (event.key === 'Escape') {
+    /* Back on a TV remote arrives as Escape, GoBack or Back (core/navigation.js);
+       Backspace only outside a text field. */
+    var inField = event.target && event.target.tagName === 'INPUT';
+    var isBack = event.key === 'Escape' || event.key === 'GoBack' || event.key === 'Back' ||
+      event.keyCode === 27 || (event.keyCode === 8 && !inField);
+    /* (The editor's name field handles its own Escape.) */
+    if (!isBack || inField) { return; }
+    if (profileOverlayBack()) {
       event.preventDefault();
       event.stopPropagation();
-      if (profileEditing) { profileEditing = false; profilePicker.classList.remove('is-editing'); renderProfilePicker(); }
-      else { chooseProfile(activeProfileId); }
     }
   }, true);
   offerProfilesRestore(function (shown) {

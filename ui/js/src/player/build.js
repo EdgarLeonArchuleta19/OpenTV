@@ -115,7 +115,7 @@ function buildPlayer() {
   playerSubtitles = $('player-subtitles');
   /* Desktop: subtitles go inside the video box, so the small player of the
      detail page shows them in it instead of across the whole window. */
-  if (window.XUPER_DESKTOP && playerSubtitles && playerStage && playerSubtitles.parentNode !== playerStage) {
+  if (window.OPENTV_DESKTOP && playerSubtitles && playerStage && playerSubtitles.parentNode !== playerStage) {
     playerStage.appendChild(playerSubtitles);
   }
 
@@ -224,7 +224,7 @@ function buildPlayer() {
     return false;
   };
   playerStage._activate = function () {
-    if (window.XUPER_DESKTOP && state.screen === 'detail') {
+    if (window.OPENTV_DESKTOP && state.screen === 'detail') {
       expandToFullscreen(state.detail, state.detailEpisode);
       return;
     }
@@ -233,7 +233,7 @@ function buildPlayer() {
       return;
     }
     /* TVs: OK shows the channel banner; with it on screen, pauses/resumes. */
-    if (platformIsTv() && window.XUPER_DESKTOP) {
+    if (platformIsTv() && window.OPENTV_DESKTOP) {
       if (state.infobar) { toggleLivePlayPause(); } else { showInfobar(); }
       return;
     }
@@ -241,7 +241,7 @@ function buildPlayer() {
     else { showInfobar(); }
   };
 
-  if (window.XUPER_DESKTOP) bindDesktopPlayback();
+  if (window.OPENTV_DESKTOP) bindDesktopPlayback();
 
   /* --- infobar (layout_live_infobar, 160dp = 240px) --- */
   playerInfo.appendChild(el('div', 'pi-logo'));
@@ -279,10 +279,12 @@ function buildPlayer() {
   /* Desktop: no PIN lock (it never existed on Windows), so no dead button. */
   /* Formato is not used on Windows either (the picture always fits). */
   /* Play/pause is placed prominently in the exact center of the capsule. */
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     actDefs = [
       { label: 'Canales', right: 0, w: 90 },
       { label: 'Anterior', right: 333, w: 67 },
+      { label: 'Siguiente', right: 0, w: 67 },
+      { label: 'Guía', right: 0, w: 67 },
       { label: 'Favorito', right: 219, w: 67 },
       { label: 'HD', right: 389, w: 67 },
       { label: 'Reproducir', right: 0, w: 67 },
@@ -299,7 +301,7 @@ function buildPlayer() {
     b.style.width = (d.w * 1.5) + 'px';
     b.style.left = (1920 - d.right * 1.5 - d.w * 1.5) + 'px';
     b._kind = d.label;
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       if (d.label === 'HD' || d.label === 'Bloquear') {
         b.setAttribute('aria-disabled', 'true');
         b.title = d.label === 'HD' ? 'La calidad de esta señal es automática' : 'Bloqueo por PIN no disponible';
@@ -309,11 +311,13 @@ function buildPlayer() {
       var piIcons = { 'HD': UI_ICONS.quality, 'Anterior': UI_ICONS.prev, 'Formato': UI_ICONS.aspect,
         'Favorito': UI_ICONS.star, 'Reproductor 1': UI_ICONS.retry, 'Bloquear': UI_ICONS.lock,
         'Feedback': UI_ICONS.diagnostics, 'Canales': UI_ICONS.channels, 'Ventana flotante': UI_ICONS.pip,
-        'Reproducir': UI_ICONS.pause, 'Pantalla completa': UI_ICONS.fullscreen };
+        'Reproducir': UI_ICONS.pause, 'Pantalla completa': UI_ICONS.fullscreen,
+        'Siguiente': LIVE_DOCK_ICONS.next, 'Guía': LIVE_DOCK_ICONS.guide };
       var piTips = { 'HD': 'Calidad automática', 'Anterior': 'Canal anterior', 'Formato': 'Formato de pantalla',
         'Favorito': 'Añadir a favoritos', 'Reproductor 1': 'Reintentar señal', 'Bloquear': 'Bloqueo (no disponible)',
         'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)',
-        'Reproducir': 'Pausa (Espacio)', 'Pantalla completa': 'Pantalla completa (F)' };
+        'Reproducir': 'Pausa (Espacio)', 'Pantalla completa': 'Pantalla completa (F)',
+        'Siguiente': 'Canal siguiente', 'Guía': 'Guía de canales (G)' };
       iconizeButton(b, piIcons[d.label], piTips[d.label]);
       if (d.label === 'HD') { b.classList.add('pi-quality-btn'); }
       if (d.label === 'Reproducir') { b.classList.add('pi-play'); }
@@ -322,21 +326,22 @@ function buildPlayer() {
     b._activate = (function (label) {
       return function () {
         if (label === 'Anterior') { setChannel(state.channel - 1); }
+        else if (label === 'Siguiente') { setChannel(state.channel + 1); }
+        else if (label === 'Guía') { openLiveGuide(); }
         else if (label === 'Formato') {
           var sc = playerInfo.querySelector('.pi-scale');
           sc.textContent = sc.textContent === 'Normal' ? '16:9' : (sc.textContent === '16:9' ? '4:3' : 'Normal');
-          if (window.XUPER_DESKTOP) setPlayerAspect(sc.textContent === 'Normal' ? 'contain' : (sc.textContent === '16:9' ? '16-9' : '4-3'));
+          if (window.OPENTV_DESKTOP) setPlayerAspect(sc.textContent === 'Normal' ? 'contain' : (sc.textContent === '16:9' ? '16-9' : '4-3'));
           layoutInfoTexts();
         } else if (label === 'Favorito') {
           var ch = CHANNELS[state.channel];
           if (ch) {
-            if (window.XUPER_DESKTOP) { toggleLiveFavorite(ch); }
-            else { ch.fav = toggleFavorite({ id: 'live:' + (ch.channelCode || ch.id || ch.name) }); }
+            toggleLiveFavorite(ch);
             this.classList.toggle('is-selected', ch.fav);
             setButtonText(this, ch.fav ? (this._iconized ? 'Quitar de favoritos' : 'En favoritos')
               : (this._iconized ? 'Añadir a favoritos' : 'Favorito'));
           }
-        } else if (label === 'HD' && window.XUPER_DESKTOP) { cycleHlsQuality(this); }
+        } else if (label === 'HD' && window.OPENTV_DESKTOP) { cycleHlsQuality(this); }
         else if (label === 'Canales') { openChannelPanel(); }
         else if (label === 'Reproducir') { toggleLivePlayPause(); }
         else if (label === 'Pantalla completa') { setWindowFullscreen(!isWindowFullscreen()); liveAutoFullscreen = false; }
@@ -347,9 +352,38 @@ function buildPlayer() {
     actions.appendChild(b);
   }
   playerInfo.appendChild(actions);
+  /* PC: laid out like the movie player and the TV en vivo page. On top,
+     the channel and "EN VIVO"; at the bottom the logo, name and category, a
+     red "live" line, and the buttons in three groups: volume | previous,
+     pause, next | favourite, guide, channels, quality, retry, PiP, full
+     screen. */
+  if (window.OPENTV_DESKTOP && !platformIsTv()) {
+    playerInfo.classList.add('pi-v2');
+    var top = el('div', 'pi-top');
+    top.appendChild(el('span', 'pi-top-title'));
+    top.appendChild(el('span', 'pi-live-badge', 'EN VIVO'));
+    playerInfo.appendChild(top);
+    nameRow.appendChild(el('div', 'pi-sub'));
+    var liveLine = el('div', 'pi-liveline');
+    liveLine.appendChild(el('i', 'pi-liveline-bar'));
+    liveLine.appendChild(el('span', 'pi-liveline-text', 'En directo'));
+    playerInfo.appendChild(liveLine);
+    var gLeft = el('div', 'pi-group is-left');
+    var gCenter = el('div', 'pi-group is-center');
+    var gRight = el('div', 'pi-group is-right');
+    buildPlayerVolume(gLeft);
+    var byKind = {};
+    var acts = actions.querySelectorAll('.pi-act');
+    for (var ak = 0; ak < acts.length; ak++) { byKind[acts[ak]._kind] = acts[ak]; }
+    ['Anterior', 'Reproducir', 'Siguiente'].forEach(function (k) { if (byKind[k]) { gCenter.appendChild(byKind[k]); } });
+    ['Favorito', 'Guía', 'Canales', 'HD', 'Reproductor 1', 'Ventana flotante', 'Pantalla completa'].forEach(function (k) { if (byKind[k]) { gRight.appendChild(byKind[k]); } });
+    actions.appendChild(gLeft);
+    actions.appendChild(gCenter);
+    actions.appendChild(gRight);
+  }
   /* TVs: the live player shows a channel banner with what each key of the
      remote does instead of the buttons (navigation.js handles the keys). */
-  if (window.XUPER_DESKTOP && platformIsTv()) {
+  if (window.OPENTV_DESKTOP && platformIsTv()) {
     var hints = el('div', 'pi-hints');
     [['▲', 'Canal siguiente'], ['▼', 'Canal anterior'], ['▶', 'Lista de canales'], ['◀', 'Último canal'], ['OK', 'Pausa']].forEach(function (h) {
       var chip = el('div', 'pi-hint');
@@ -363,7 +397,7 @@ function buildPlayer() {
   /* --- channel panel (frag_live_channel) with category bar and addons --- */
   var pcHeader = el('div', 'pc-header');
   pcHeader.appendChild(el('div', 'pc-title', 'Canales de TV'));
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     /* Desktop: refresh the list and close the panel, like on a TV remote. */
     var tools = el('div', 'pc-tools');
     var refresh = el('button', 'pc-tool focusable');
@@ -386,13 +420,13 @@ function buildPlayer() {
   pcCategories.id = 'pc-categories';
   playerChannels.appendChild(pcCategories);
 
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     playerChannels.appendChild(createChannelSearchBox('is-player', 'Buscar canal por nombre o número…'));
   }
 
   playerChannels.appendChild(el('div', 'pc-div'));
   var list = el('div', 'pc-list scrollable');
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     var pcUp = el('button', 'pc-scroll-arrow is-up focusable');
     pcUp.type = 'button';
     pcUp.title = 'Desplazar canales hacia arriba';
@@ -404,7 +438,7 @@ function buildPlayer() {
     playerChannels.appendChild(pcUp);
   }
   playerChannels.appendChild(list);
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     var pcDown = el('button', 'pc-scroll-arrow is-down focusable');
     pcDown.type = 'button';
     pcDown.title = 'Desplazar canales hacia abajo';
@@ -430,21 +464,16 @@ function renderPlayerCategories() {
   if (!playerChannels) { return; }
   var bar = playerChannels.querySelector('.pc-categories');
   if (!bar) { return; }
-  var cats = liveCategories && liveCategories.length ? liveCategories : [
-    { id: 76182, name: 'Todos' },
-    { id: 76206, name: 'Deportes' },
-    { id: 76205, name: 'Cine y Series' },
-    { id: 76188, name: 'Colombia' },
-    { id: 76191, name: 'España' },
-    { id: 76197, name: 'México' },
-    { id: 'addons', name: '➕ Addons M3U', isAddon: true }
-  ];
+  /* Todos, the categories of the viewer's M3U lists (group-title), then
+     Favoritos and Recientes. */
+  var cats = (liveCategories && liveCategories.length ? liveCategories : [LIVE_ALL_CATEGORY])
+    .concat([LIVE_SAVED_CATS.favs, LIVE_SAVED_CATS.recent]);
 
-  /* The portal returns 38 columns.  Rebuilding all 39 pills on every filter
-     detached the focused node mid-keypress, so the rail looked alive but the
-     d-pad had nowhere to go ("no puedo navegar hacia las categorías").
-     The bar is now rebuilt only when the column list itself changes;
-     selecting a category just swaps the is-selected class. */
+  /* A list can bring dozens of categories. Rebuilding every pill on each
+     filter detached the focused node mid-keypress, so the rail looked alive
+     but the d-pad had nowhere to go ("no puedo navegar hacia las
+     categorías"). The bar is rebuilt only when the category list itself
+     changes; selecting a category just swaps the is-selected class. */
   var key = '';
   for (var kk = 0; kk < cats.length; kk++) { key += cats[kk].id + '|'; }
   var focusedCat = (state.focus && state.focus._cat) ? state.focus._cat : null;
@@ -479,7 +508,7 @@ function renderPlayerCategories() {
             return true;
           }
           if (dir === 'up') {
-            /* All portal columns do not fit in the rail, so Up opens the
+            /* Many categories do not fit in the rail, so Up opens the
                full-screen category grid (the reference app's "all columns"). */
             openCategoryPicker();
             return true;
@@ -528,8 +557,8 @@ function scrollSelectedCategoryPill() {
 }
 
 /* Full-screen column picker.  The reference APK opens a separate "all
-   columns" screen from the live home (mIvAllColumn); 38 portal categories
-   cannot fit in the 453dp in-player rail, so Up on the rail opens this grid. */
+   columns" screen from the live home (mIvAllColumn); a list's categories
+   may not fit in the 453dp in-player rail, so Up on the rail opens this grid. */
 function openCategoryPicker() {
   if (!categoryPicker) {
     categoryPicker = $('player-categories');
@@ -557,7 +586,7 @@ function closeCategoryPicker(keepFocus) {
 
 function renderCategoryPicker() {
   if (!pcatGrid) { return; }
-  var cats = liveCategories && liveCategories.length ? liveCategories : [];
+  var cats = liveCategoriesLoaded ? liveCategories.concat([LIVE_SAVED_CATS.favs, LIVE_SAVED_CATS.recent]) : [];
   clear(pcatGrid);
   if (pcatSub) {
     pcatSub.textContent = cats.length
@@ -606,13 +635,13 @@ function renderPlayerChannels(anchorIndex) {
   clear(list);
   playerChannelRows = {};
 
-  /* If in Addons category, display manage promo header at top */
-  if (currentLiveCategory && currentLiveCategory.isAddon) {
+  /* No lists (or none could be read): a row to add the recommended ones. */
+  if (liveNeedsLists() && !(currentLiveCategory && currentLiveCategory.isSaved)) {
     var promo = el('div', 'pc-row-addon-promo focusable');
     promo.appendChild(el('div', 'promo-icon', '⚙️'));
     var promoInfo = el('div', 'promo-info');
-    promoInfo.appendChild(el('div', 'promo-text', '➕ Administrar Addons y Listas M3U'));
-    promoInfo.appendChild(el('div', 'promo-sub', 'Instala listas recomendadas o agrega tu enlace'));
+    promoInfo.appendChild(el('div', 'promo-text', '➕ Agregar listas M3U'));
+    promoInfo.appendChild(el('div', 'promo-sub', 'Instala listas recomendadas o agrega tu enlace en Ajustes → Addons → TV en vivo'));
     promo.appendChild(promoInfo);
     promo._activate = function () { openAddonsDialog(); };
     promo._onMove = function (dir) {
@@ -632,7 +661,7 @@ function renderPlayerChannels(anchorIndex) {
   }
 
   if (!CHANNELS.length) {
-    var emptyRow = el('div', 'pc-empty-channels', 'No hay canales disponibles en esta categoría');
+    var emptyRow = el('div', 'pc-empty-channels', liveEmptyMessage());
     emptyRow.style.padding = '30px';
     emptyRow.style.color = '#888';
     emptyRow.style.fontSize = '20px';
@@ -640,7 +669,7 @@ function renderPlayerChannels(anchorIndex) {
     return;
   }
 
-  var hasQuery = !!(window.XUPER_DESKTOP && typeof liveChannelQuery === 'string' && norm(liveChannelQuery));
+  var hasQuery = !!(window.OPENTV_DESKTOP && typeof liveChannelQuery === 'string' && norm(liveChannelQuery));
   var indicesToRender = [];
   if (hasQuery) {
     for (var qi = 0; qi < CHANNELS.length; qi++) {

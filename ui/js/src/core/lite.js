@@ -11,7 +11,7 @@ function liteMode() {
   var saved = null;
   try { saved = JSON.parse(localStorage.getItem(LITE_KEY) || 'null'); } catch (eRead) { saved = null; }
   if (saved === true || saved === false) { return saved; }
-  /* TV LG, Android TV and Fire TV start light; the PC starts full. */
+  /* Android TV and Fire TV start light; the PC starts full. */
   return platformIsTv();
 }
 

@@ -82,14 +82,18 @@ function renderDialogAudio() {
   if (!dpsAudioOptions) return;
   clear(dpsAudioOptions);
 
-  var info = mediaInfoCache[mediaInfoKey(playSettingsItem())];
-  if (info && !vodAudioChosen) {
+  var item = playSettingsItem();
+  var info = mediaInfoCache[mediaInfoKey(item)];
+  /* Addon titles: the track playing is the one the relay was asked for,
+     never a guess from the language list. */
+  if (info && !vodAudioChosen && !(item && item._stremio)) {
     vodCurrentAudioTrack = preferredAudioIndex(info.audio);
   }
   var tracks = audioLanguageList(info);
   if (!tracks.length) {
-    /* mediaInfo has not answered yet: keep the current language visible. */
-    tracks = [{ index: vodCurrentAudioTrack || 0, label: 'Español' }];
+    /* Not known yet (the service reads an addon's file once it plays):
+       never claim a language the file may not have. */
+    tracks = [{ index: vodCurrentAudioTrack || 0, label: item && item._stremio ? 'Audio del archivo' : 'Español' }];
   }
   for (var t = 0; t < tracks.length; t++) {
     (function (track) {
@@ -110,10 +114,37 @@ function renderDialogSubtitle() {
   var info = mediaInfoCache[mediaInfoKey(playSettingsItem())];
   var list = subtitleLanguageList(info);
 
+  var subItem = playSettingsItem();
+  var canImport = !!(subItem && subItem._stremio) && typeof importSubtitleFile === 'function';
   if (dpsSubSwitch) {
-    /* Without subtitle files there is nothing to switch on. */
+    /* Without subtitle files there is nothing to switch on (addon titles
+       still show the row: the viewer can import a file). */
     var switchRow = dpsSubSwitch.parentNode;
-    if (switchRow) { switchRow.classList.toggle('is-hidden', !list.length); }
+    if (switchRow) { switchRow.classList.toggle('is-hidden', !list.length && !canImport); }
+    dpsSubSwitch.classList.toggle('is-hidden', !list.length);
+    var importBtn = $('dps-sub-import');
+    if (canImport && switchRow && !importBtn) {
+      importBtn = el('button', 'dps-btn focusable dps-import', 'Importar…');
+      importBtn.id = 'dps-sub-import';
+      importBtn.title = 'Usar un archivo .srt o .vtt de tu equipo';
+      switchRow.appendChild(importBtn);
+    }
+    if (importBtn) {
+      importBtn.classList.toggle('is-hidden', !canImport);
+      importBtn._activate = function () {
+        importSubtitleFile(function (err, sub) {
+          if (err) { setPlayerStatus(err); return; }
+          var info2 = stremioMediaInfo(subItem);
+          info2._importedSubs = [sub].concat((info2._importedSubs || []).filter(function (s) { return s.label !== sub.label; }));
+          composeStremioSubtitles(subItem, info2);
+          vodCurrentSubtitle = sub;
+          vodSubActive = true;
+          vodSubChosen = true;
+          loadSubtitleTrack(sub);
+          renderDialogSubtitle();
+        });
+      };
+    }
     dpsSubSwitch.classList.toggle('is-on', vodSubActive);
     var dotText = dpsSubSwitch.querySelector('.dps-switch-text');
     if (dotText) dotText.textContent = vodSubActive ? 'ON' : 'OFF';
@@ -132,7 +163,7 @@ function renderDialogSubtitle() {
     for (var s = 0; s < list.length; s++) {
       (function (sub) {
         var btn = el('button', 'dps-btn focusable');
-        btn.textContent = formatAudioLang(sub.lang || 'Sub');
+        btn.textContent = sub.label || formatAudioLang(sub.lang || 'Sub');
         if (vodCurrentSubtitle && vodCurrentSubtitle.url === sub.url) {
           btn.classList.add('is-selected');
         }
@@ -181,10 +212,13 @@ function renderDialogSubtitle() {
 }
 
 function formatAudioLang(code) {
-  var c = (code || '').toLowerCase().trim().split(/[-_]/)[0];
-  if (/^(spa|esp|es|castellano|latino|lat|latam)$/.test(c)) return 'Español';
-  /* OpenSubtitles: 'spn' / 'ea' are its Latin American Spanish. */
-  if (/^(spn|ea|spl)$/.test(c)) return 'Español (Latino)';
+  var full = (code || '').toLowerCase().trim();
+  /* Latino and Castellano are different dubs: never show both as "Español".
+     OpenSubtitles: 'spn' / 'ea' are its Latin American Spanish. */
+  if (/^(es[-_](419|mx|la|us|ar|co|cl|pe|ve)|latino|lat|latam|spn|ea|spl)$/.test(full)) return 'Español (Latino)';
+  if (/^(es[-_]es|castellano)$/.test(full)) return 'Español (Castellano)';
+  var c = full.split(/[-_]/)[0];
+  if (/^(spa|esp|es)$/.test(c)) return 'Español';
   if (/^(eng|ing|en)$/.test(c)) return 'Inglés';
   if (/^(jpn|jap|ja)$/.test(c)) return 'Japonés';
   if (/^(kor|cor|ko)$/.test(c)) return 'Coreano';
@@ -228,7 +262,7 @@ function selectNativeAudioTrack(trackIndex) {
 
 function switchAudioTrack(trackIndex) {
   /* On the detail screen the choice is only remembered for the next play. */
-  if ((state.screen !== 'player' && !(window.XUPER_DESKTOP && state.screen === 'detail' && playerVideo && playerVideo.currentSrc)) || !playerVideo) {
+  if ((state.screen !== 'player' && !(window.OPENTV_DESKTOP && state.screen === 'detail' && playerVideo && playerVideo.currentSrc)) || !playerVideo) {
     vodCurrentAudioTrack = trackIndex;
     vodAudioChosen = true;
     return;
@@ -237,7 +271,9 @@ function switchAudioTrack(trackIndex) {
      the audio selector.  Use the native track list when webOS provides it.
      A TV without that API keeps its playing source and clearly tells the
      viewer that a remux is required for per-track selection. */
-  if (state.streamMode !== 'relay' && state.streamMode !== 'smooth') {
+  /* An addon's MKV plays through the relay even in Directo: the relay can
+     pick any track, so use it whenever it is the one playing. */
+  if (state.streamMode !== 'relay' && state.streamMode !== 'smooth' && !relayBaseUrl) {
     if (selectNativeAudioTrack(trackIndex)) {
       vodCurrentAudioTrack = trackIndex;
       vodAudioChosen = true;
@@ -263,7 +299,7 @@ function switchAudioTrack(trackIndex) {
 function restartCurrentPlayback() {
   if (!playerVideo) return;
   var curSec = relayBaseUrl ? (relayStartOffset + (playerVideo.currentTime || 0)) : (playerVideo.currentTime || 0);
-  if (window.XUPER_DESKTOP && resumePlan && state.playerItem &&
+  if (window.OPENTV_DESKTOP && resumePlan && state.playerItem &&
       (resumePlan.item === state.playerItem || String(resumePlan.itemId) === String(state.playerItem.id)) &&
       resumePlan.pos > curSec) {
     curSec = resumePlan.pos;

@@ -65,17 +65,17 @@ function stopVodProgressTicker() {
 function updateVodProgress(current, duration) {
   if (!vodTimeCurrent || !vodTimeTotal || !vodSeekProgress) { return; }
   if (vodScrubbing) { current = vodScrubTime; }
-  var knownDuration = window.XUPER_DESKTOP ? vodPlaybackDuration() : durationToSeconds(duration);
-  if (!knownDuration && !window.XUPER_DESKTOP && state.playerEpisode && state.playerEpisode.duration) {
+  var knownDuration = window.OPENTV_DESKTOP ? vodPlaybackDuration() : durationToSeconds(duration);
+  if (!knownDuration && !window.OPENTV_DESKTOP && state.playerEpisode && state.playerEpisode.duration) {
     knownDuration = durationToSeconds(state.playerEpisode.duration);
   }
-  if (!knownDuration && !window.XUPER_DESKTOP && state.playerItem && state.playerItem.duration) {
+  if (!knownDuration && !window.OPENTV_DESKTOP && state.playerItem && state.playerItem.duration) {
     knownDuration = durationToSeconds(state.playerItem.duration);
   }
-  if (!knownDuration && !window.XUPER_DESKTOP && playerVideo && isFinite(playerVideo.duration) && playerVideo.duration > 0) {
+  if (!knownDuration && !window.OPENTV_DESKTOP && playerVideo && isFinite(playerVideo.duration) && playerVideo.duration > 0) {
     knownDuration = playerVideo.duration;
   }
-  if (!knownDuration && !window.XUPER_DESKTOP && activeSubtitleCues && activeSubtitleCues.length) {
+  if (!knownDuration && !window.OPENTV_DESKTOP && activeSubtitleCues && activeSubtitleCues.length) {
     var lastCue = activeSubtitleCues[activeSubtitleCues.length - 1];
     if (lastCue && lastCue.end > 0) {
       knownDuration = Math.round(lastCue.end + 60);
@@ -92,7 +92,7 @@ function updateVodProgress(current, duration) {
     durationNote.textContent = durationTarget && durationTarget._durationPending ?
       'Obteniendo duración… Puedes usar −10 s y +10 s.' : 'Duración no disponible. Puedes usar −10 s y +10 s.';
   }
-  if (window.XUPER_DESKTOP && !knownDuration) {
+  if (window.OPENTV_DESKTOP && !knownDuration) {
     vodTimeTotal.textContent = '--:--:--';
     vodSeekProgress.style.width = '0%';
     if (vodSeekThumb) vodSeekThumb.style.left = '0%';
@@ -115,7 +115,7 @@ function updateVodProgress(current, duration) {
   vodTimeTotal.textContent = formatTime(knownDuration);
   var pct = Math.min(100, Math.max(0, (current / knownDuration) * 100));
   vodSeekProgress.style.width = pct.toFixed(2) + '%';
-  if (window.XUPER_DESKTOP && vodSeekbar) {
+  if (window.OPENTV_DESKTOP && vodSeekbar) {
     vodSeekbar.setAttribute('aria-valuemax', String(Math.floor(vodPlaybackDuration())));
     vodSeekbar.setAttribute('aria-valuenow', String(Math.floor(current)));
     vodSeekbar.setAttribute('aria-valuetext', formatTime(current) + ' de ' + formatTime(knownDuration));
@@ -138,7 +138,7 @@ function showOsdIcon(type) {
   if (!playerOsdIcon) { playerOsdIcon = $('player-osd-icon'); }
   if (!playerOsdIcon) { return; }
   if (osdHideTimer) { clearTimeout(osdHideTimer); osdHideTimer = null; }
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     var osdIcons = { pause: UI_ICONS.pause, forward: UI_ICONS.forward, backward: UI_ICONS.rewind };
     if (!osdIcons[type]) { playerOsdIcon.classList.remove('is-active'); return; }
     playerOsdIcon.style.backgroundImage = 'none';
@@ -173,7 +173,7 @@ function showOsdIcon(type) {
 }
 
 function togglePlayerPlayPause() {
-  if (window.XUPER_DESKTOP && state.playerMode === 'live' && state.screen === 'player') { toggleLivePlayPause(); return; }
+  if (window.OPENTV_DESKTOP && state.playerMode === 'live' && state.screen === 'player') { toggleLivePlayPause(); return; }
   if (!playerVideo) { return; }
   if (playerVideo.paused) {
     resumePlayerPlayback();
@@ -193,7 +193,7 @@ function scheduleInfoHide() {
   state.infoTimer = setTimeout(function () {
     state.infoTimer = null;
     if (state.screen !== 'player' || state.channelsOpen) { return; }
-    if (window.XUPER_DESKTOP && (vodScrubbing || (playerVodInfo && playerVodInfo.matches(':hover')) || (playerInfo && playerInfo.matches(':hover')))) { scheduleInfoHide(); return; }
+    if (window.OPENTV_DESKTOP && (vodScrubbing || (playerVodInfo && playerVodInfo.matches(':hover')) || (playerInfo && playerInfo.matches(':hover')))) { scheduleInfoHide(); return; }
     hideInfobar();
   }, INFO_HIDE_MS);
 }

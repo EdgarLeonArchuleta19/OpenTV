@@ -1,17 +1,27 @@
 /* live/addons-dialog.js — "Buscar listas de TV": las listas M3U recomendadas
    (PRESET_ADDONS), con un buscador. Se abre con el botón Buscar de Ajustes →
-   Fuentes y desde el panel de canales del reproductor.
+   Addons y desde el panel de canales del reproductor. El mismo diálogo muestra
+   los addons recomendados (botón Recomendados de Películas y series).
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 var addonsDialogReturn = null;
+/* 'm3u': TV lists (PRESET_ADDONS). 'vod': recommended movie and series
+   addons (RECOMMENDED_VOD_ADDONS), from Ajustes → Addons → Recomendados. */
+var addonsDialogMode = 'm3u';
 
-function openAddonsDialog() {
+function openAddonsDialog(mode) {
   var dlg = $('dialog-addons');
   if (!dlg) { return; }
+  addonsDialogMode = mode === 'vod' ? 'vod' : 'm3u';
+  var title = dlg.querySelector('.da-title');
+  if (title) { title.textContent = addonsDialogMode === 'vod' ? 'Addons recomendados' : 'Buscar listas de TV'; }
   dialogAddonsOpen = true;
   addonsDialogReturn = state.focus;
   dlg.classList.add('is-active');
   var search = $('da-search');
+  if (search) {
+    search.placeholder = addonsDialogMode === 'vod' ? 'Buscar (Torrentio, TorrentsDB…)' : 'País, idioma o tema (México, noticias, infantil…)';
+  }
   if (search && !search._bound) {
     search._bound = true;
     search.addEventListener('input', function () { renderAddonsDialog(); });
@@ -37,10 +47,10 @@ function closeAddonsDialog() {
     else { setFocus(playerStage); }
     return;
   }
-  /* From Ajustes → Fuentes: show the lists just added there. */
+  /* From Ajustes → Addons → TV en vivo: show the lists just added there. */
   if (state.screen === 'settings' && typeof settingsIndexOf === 'function') {
     showSettingsPanel(settingsIndexOf('sources'), false);
-    var again = settingsRight && settingsRight.querySelector('.fx-btn.is-search');
+    var again = settingsRight && settingsRight.querySelector(addonsDialogMode === 'vod' ? '.fx-btn.is-recommend' : '.fx-btn.is-search');
     if (again) { setFocus(again); return; }
   }
   if (addonsDialogReturn && isVisible(addonsDialogReturn)) { setFocus(addonsDialogReturn); }
@@ -50,6 +60,7 @@ function renderAddonsDialog() {
   var box = $('da-presets-list');
   if (!box) { return; }
   var q = norm(($('da-search') || {}).value || '');
+  if (addonsDialogMode === 'vod') { renderVodAddonsDialog(box, q); return; }
   var saved = {};
   getSavedAddons().forEach(function (ad) { saved[ad.url] = true; });
   clear(box);
@@ -79,12 +90,51 @@ function renderAddonsDialog() {
         on = true;
         item.classList.add('is-installed');
         tag.textContent = '✔ ' + count + ' canales';
-        if (currentLiveCategory && currentLiveCategory.isAddon) { loadAddonChannels(); }
+        /* TV en vivo shows the new list's channels at once. */
+        loadAddonChannels();
       });
     };
     box.appendChild(item);
   });
   if (!shown) { box.appendChild(el('div', 'da-empty', 'No hay listas con ese nombre.')); }
+  var exitBtn = $('da-btn-exit');
+  if (exitBtn) { exitBtn._activate = function () { closeAddonsDialog(); }; }
+}
+
+/* Recommended movie and series addons: sources, aggregator and a catalog. */
+function renderVodAddonsDialog(box, q) {
+  clear(box);
+  var shown = 0;
+  RECOMMENDED_VOD_ADDONS.forEach(function (rec) {
+    if (q && norm(rec.name + ' ' + rec.desc).indexOf(q) === -1) { return; }
+    shown++;
+    var on = isVodAddonInstalled(rec.url);
+    var item = el('div', 'da-preset-item focusable' + (on ? ' is-installed' : ''));
+    var info = el('div', 'da-preset-info');
+    info.appendChild(el('div', 'da-preset-name', rec.name));
+    info.appendChild(el('div', 'da-preset-desc', rec.desc));
+    item.appendChild(info);
+    var tag = el('span', 'da-preset-tag', on ? '✔ Agregado' : '+ Agregar');
+    item.appendChild(tag);
+    item._activate = function () {
+      if (on || item._busy) { return; }
+      item._busy = true;
+      tag.textContent = 'Agregando…';
+      installVodAddon({ url: rec.url }, function (err) {
+        item._busy = false;
+        if (err) {
+          tag.textContent = 'No cargó';
+          setTimeout(function () { tag.textContent = '+ Agregar'; }, 2500);
+          return;
+        }
+        on = true;
+        item.classList.add('is-installed');
+        tag.textContent = '✔ Agregado';
+      });
+    };
+    box.appendChild(item);
+  });
+  if (!shown) { box.appendChild(el('div', 'da-empty', 'No hay addons con ese nombre.')); }
   var exitBtn = $('da-btn-exit');
   if (exitBtn) { exitBtn._activate = function () { closeAddonsDialog(); }; }
 }

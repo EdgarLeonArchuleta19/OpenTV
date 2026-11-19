@@ -52,7 +52,7 @@ function resetTrendingForMode() {
 /* Electron asks its main process; TVs and Android ask the service (method
    "tmdb"), which keeps the key. Both answer { items } or { error }. */
 function tmdbApi() {
-  if (!window.XUPER_DESKTOP) { return null; }
+  if (!window.OPENTV_DESKTOP) { return null; }
   if (window.desktop && window.desktop.tmdb) { return window.desktop.tmdb; }
   return function (list) {
     return new Promise(function (resolve) {
@@ -67,6 +67,8 @@ function tmdbApi() {
    TMDB for it ('inicio' mixes movies and series), only titles our catalogue
    can play, the lists taking turns. */
 function sectionTrendItems(key) {
+  /* An anime catalog (Kitsu) brings its own trends, first in its rows. */
+  if (key === 'anime' && animeCatalogInstalled) { return []; }
   var want = TREND_SECTIONS[key] || [];
   var lists = [];
   for (var t = 0; t < trendingRows.length; t++) {
@@ -119,18 +121,9 @@ function catalogMatch(t, pool) {
   return best;
 }
 
-function searchPortalFor(t, done) {
-  if (vodApi.mode !== 'portal' || getVodSourcesConfig().mode === 'external') { done(null); return; }
-  portalServiceCall('search', { value: t.title, pageNum: 1, pageSize: 10 }, function (error, payload) {
-    if (error || !payload || !payload.items) { done(null); return; }
-    var found = [];
-    for (var i = 0; i < payload.items.length; i++) {
-      var item = normalizeVod(payload.items[i], i + 1);
-      item._portal = true;
-      found.push(item);
-    }
-    done(catalogMatch(t, found));
-  });
+/* A trend that is not in the loaded rows: searched in the addons. */
+function searchAddonsFor(t, done) {
+  searchStremioAddons(t.title, function (found) { done(found && found.length ? catalogMatch(t, found) : null); }, null, true);
 }
 
 /* Keeps the matched titles for a TMDB list, in TMDB order. */
@@ -143,6 +136,12 @@ function matchTrending(def, tmdbItems, done) {
     if (tmdbItems[idx].backdrop && !hit._trendArt) { hit._trendArt = tmdbItems[idx].backdrop; }
     out[idx] = hit;
   }
+  /* Nothing that is not out yet (the service drops it too; this covers an
+     answer it kept in its cache from before). Local date, as TMDB's. */
+  var now = new Date();
+  var today = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
+  tmdbItems = tmdbItems.filter(function (t) { return !t.date || t.date <= today; });
+  out = new Array(tmdbItems.length);
   for (var i = 0; i < tmdbItems.length; i++) {
     var hit = catalogMatch(tmdbItems[i], VOD);
     if (hit) { keep(i, hit); } else { missing.push(i); }
@@ -158,7 +157,7 @@ function matchTrending(def, tmdbItems, done) {
   }
   if (!pending) { finish(); return; }
   missing.slice(0, searches).forEach(function (idx) {
-    searchPortalFor(tmdbItems[idx], function (hit) {
+    searchAddonsFor(tmdbItems[idx], function (hit) {
       if (hit) { keep(idx, hit); }
       if (--pending === 0) { finish(); }
     });
@@ -167,7 +166,8 @@ function matchTrending(def, tmdbItems, done) {
 
 function trendingRowsFromCache() {
   var saved = safeLocalRead(trendingCacheKey(), null);
-  if (!saved || !saved.rows || Date.now() - (saved.at || 0) > TRENDING_TTL_MS * 4) { return null; }
+  /* (v2: trends without films that are not out yet; older saved ones go.) */
+  if (!saved || !saved.rows || saved.v !== 2 || Date.now() - (saved.at || 0) > TRENDING_TTL_MS * 4) { return null; }
   return saved;
 }
 
@@ -187,6 +187,8 @@ function loadTrending() {
   var results = [];
   var left = TRENDING_LISTS.length;
   TRENDING_LISTS.forEach(function (def, n) {
+    /* (No addon searches for TMDB's anime when Kitsu gives Anime's top.) */
+    if (def.list === 'anime-tv' && animeCatalogInstalled) { setTimeout(function () { step(n, null); }, 0); return; }
     api(def.list).then(function (answer) {
       if (!answer || !answer.items || !answer.items.length) { step(n, null); return; }
       matchTrending(def, answer.items, function (row) { step(n, row); });
@@ -199,7 +201,7 @@ function loadTrending() {
     var rows = results.filter(function (r) { return !!r; });
     if (!rows.length) { return; }
     trendingRows = rows;
-    safeLocalWrite(trendingCacheKey(), { at: Date.now(), rows: rows });
+    safeLocalWrite(trendingCacheKey(), { v: 2, at: Date.now(), rows: rows });
     refreshTrendingPage();
   }
 }

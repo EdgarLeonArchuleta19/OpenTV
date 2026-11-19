@@ -6,7 +6,7 @@
    choices: "Automática" (adapts to the connection) or a fixed height. The
    choice is remembered for later videos and channels. */
 function hlsQualityApi() {
-  return window.XUPER_DESKTOP && window.__opentvHls ? window.__opentvHls : null;
+  return window.OPENTV_DESKTOP && window.__opentvHls ? window.__opentvHls : null;
 }
 
 function hlsQualityLabel(height) {
@@ -209,12 +209,12 @@ function toggleSpeedMenu(btn) {
 }
 
 function installQualityControls() {
-  if (!window.XUPER_DESKTOP) { return; }
+  if (!window.OPENTV_DESKTOP) { return; }
   if (playerVideo) {
     playerVideo.addEventListener('loadedmetadata', applyPlaybackRate);
     playerVideo.addEventListener('playing', applyPlaybackRate);
   }
-  document.addEventListener('xuper:hls-levels', function () {
+  document.addEventListener('opentv:hls-levels', function () {
     updateLiveQualityButton();
     updateQualityButton();
     if (playSettingViewOpen) { renderPlaySettingQuality(); }

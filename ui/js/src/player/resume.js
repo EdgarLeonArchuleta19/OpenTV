@@ -1,13 +1,38 @@
-/* player/resume.js — Escritorio: seguir donde te quedaste (película o episodio) y barra de avance continua.
+/* player/resume.js — Seguir donde te quedaste (película o episodio), ver desde el principio y barra de avance continua.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 /* The history already stores, per title, the episode and the second where
    playback stopped. Here it is used: opening a series selects that episode
-   (or the next one if it was finished), and playing always starts at that
-   second (there is no "start over" button: the viewer seeks back instead). */
+   (or the next one if it was finished), and Reanudar starts at that second.
+   "Ver desde el principio" (detail page) plays it from 0 instead: on a TV,
+   seeking back an hour with the remote is no option. Every platform: on
+   Android the native player gets the second as its start position. */
 var RESUME_MIN_S = 10;
 var resumePlan = null;
 var resumeRestarted = false;
+/* item|episode key that the next planResume must start from 0. */
+var resumeFromStartKey = '';
+
+function resumeKeyFor(item, episode) {
+  return String(item.id) + '|' + (episode ? String(episode.id) : '');
+}
+
+/* Detail page: is there a second to resume at for what Reproducir plays? */
+function canStartOver(item, episode) {
+  if (!item) { return false; }
+  if (isSeriesItem(item)) { return !!episode && resumePositionFor(item, episode) > 0; }
+  return resumePositionFor(item, null) > 0;
+}
+
+/* "Ver desde el principio": the same title or episode, from second 0. The
+   saved position is overwritten as it plays (resumeRestarted). */
+function startOverTitle(item, episode) {
+  resetResumePlan();
+  resumeFromStartKey = resumeKeyFor(item, episode);
+  /* A video left loaded on the detail page would be reused where it was. */
+  if (playerVideo && playerVideo.src && state.playerItem === item) { stopPlayerVideo(); }
+  expandToFullscreen(item, episode);
+}
 
 /* Accepts the title or its id. Grouped series may have been saved under a
    season id, so those and the title are tried too. */
@@ -68,7 +93,7 @@ function resumePositionFor(item, episode) {
 /* Detail page: pick the episode the viewer was on (the next one when it
    was finished). */
 function preferHistoryEpisode(item) {
-  if (!window.XUPER_DESKTOP || !item) { return; }
+  if (!window.OPENTV_DESKTOP || !item) { return; }
   var r = historyRecordFor(item);
   if (r && r.episodeId) { pendingHistoryRecord = r; }
 }
@@ -89,6 +114,7 @@ function resetResumePlan() {
   resumePlannedKey = '';
   resumePlan = null;
   resumeRestarted = false;
+  resumeFromStartKey = '';
 }
 /* While a jump to the saved second is pending, the first seconds of the
    video must not overwrite that saved second. */
@@ -103,8 +129,19 @@ function resumePending(item) {
   return true;
 }
 function planResume(item, episode) {
-  if (!window.XUPER_DESKTOP || !item) { return; }
-  var key = String(item.id) + '|' + (episode ? String(episode.id) : '');
+  if (!window.OPENTV_DESKTOP || !item) { return; }
+  var key = resumeKeyFor(item, episode);
+  if (resumeFromStartKey) {
+    var fromStart = resumeFromStartKey === key;
+    resumeFromStartKey = '';
+    if (fromStart) {
+      if (resumeRetryTimer) { clearTimeout(resumeRetryTimer); resumeRetryTimer = null; }
+      resumePlannedKey = key;
+      resumePlan = null;
+      resumeRestarted = true;
+      return;
+    }
+  }
   /* Restarts of the same video (compatibility mode, retries) keep their own
      position if the resume plan was already satisfied. */
   if (key === resumePlannedKey && (!resumePlan || vodPlaybackPosition() >= resumePlan.pos - 5)) {
@@ -246,7 +283,7 @@ function kickSmoothProgress() {
 }
 
 function installResume() {
-  if (!window.XUPER_DESKTOP || !playerVideo || playerVideo._resumeHooks) { return; }
+  if (!window.OPENTV_DESKTOP || !playerVideo || playerVideo._resumeHooks) { return; }
   playerVideo._resumeHooks = true;
   playerVideo.addEventListener('loadedmetadata', function () { if (resumePlan && !resumeRetryTimer) { applyResumePlan(); } });
   playerVideo.addEventListener('canplay', function () { if (resumePlan && !resumeRetryTimer) { applyResumePlan(); } });

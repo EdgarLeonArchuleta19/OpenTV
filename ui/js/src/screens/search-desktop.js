@@ -17,72 +17,26 @@ function runDesktopSearch(rawQ, localMatches) {
   var query = rawQ.trim();
   rememberRecentSearch(query);
   hideSearchSuggest();
-  var addonSearch = stremioModeOn() && norm(query).length >= 2;
-  var remote = vodApi.mode === 'portal' && !stremioModeOn() && norm(query).length >= 2;
+  var addonSearch = norm(query).length >= 2;
   state.searchRemote = null;
   if (addonSearch) {
-    /* Stremio mode: the addons that can search answer instead of the server. */
+    /* The addons that can search answer (catalogs with the "search" extra). */
     state.searchStatus = 'searching';
     renderSearchResults(localMatches);
     state.searchTimer = setTimeout(function () {
       state.searchTimer = null;
-      searchStremioAddons(query, function (found) {
+      /* Results show as each addon answers, best match first (the loaded
+         titles that match go into the same order). */
+      searchTitles(query, function (found, finished) {
         if (seq !== state.searchSeq) { return; }
-        var merged = localMatches.slice(), seen = {};
-        for (var m = 0; m < merged.length; m++) { seen[String(merged[m].id)] = true; }
-        for (var f = 0; f < found.length; f++) {
-          if (!seen[String(found[f].id)]) { seen[String(found[f].id)] = true; merged.push(found[f]); }
-        }
-        state.searchStatus = 'done';
-        renderSearchResults(merged);
+        state.searchStatus = finished ? 'done' : 'searching';
+        renderSearchResults(rankSearchResults(query, localMatches.concat(found)));
       });
     }, 350);
     return;
   }
-  if (!remote) {
-    state.searchStatus = 'done';
-    renderSearchResults(localMatches);
-    return;
-  }
-  state.searchStatus = 'searching';
-  if (localMatches.length || !(state.searchMatches && state.searchMatches.length)) {
-    renderSearchResults(localMatches);
-  } else {
-    updateSearchStateUi();   /* keep the previous results, mark them as updating */
-  }
-  state.searchTimer = setTimeout(function () {
-    state.searchTimer = null;
-    var settled = false;
-    function finish(status, matches, remoteState) {
-      if (settled || seq !== state.searchSeq) { return; }
-      settled = true;
-      if (searchRequestTimeout) { clearTimeout(searchRequestTimeout); searchRequestTimeout = null; }
-      state.searchStatus = status;
-      state.searchRemote = remoteState || null;
-      renderSearchResults(matches);
-      maybeLoadMoreSearch();
-    }
-    searchRequestTimeout = setTimeout(function () { finish('error', localMatches); }, 15000);
-    portalServiceCall('search', { value: query, pageNum: 1, pageSize: SEARCH_REMOTE_PAGE }, function (error, payload) {
-      if (error || !payload || payload.returnValue === false) { finish('error', localMatches); return; }
-      var merged = localMatches.slice();
-      var seen = {};
-      for (var m = 0; m < merged.length; m++) { seen[String(merged[m].id)] = true; }
-      var items = payload.items || [];
-      for (var p = 0; p < items.length; p++) {
-        if (items[p] && typeof items[p] === 'object') { items[p].portal = true; }
-        var item = normalizeVod(items[p], merged.length + 1);
-        item._portal = true;
-        if (!seen[String(item.id)]) { seen[String(item.id)] = true; merged.push(item); }
-      }
-      var total = parseInt(payload.total, 10) || items.length;
-      finish('done', merged, {
-        query: query, seq: seq, total: total, nextPage: 2, received: items.length,
-        seen: seen, loading: false, error: false,
-        done: items.length < SEARCH_REMOTE_PAGE || items.length >= total
-      });
-    });
-  }, 350);
+  state.searchStatus = 'done';
+  renderSearchResults(localMatches);
 }
 
 function retrySearch() {
@@ -95,7 +49,7 @@ function retrySearch() {
    the viewer scrolls near the end.
    ------------------------------------------------------------------ */
 var SEARCH_REMOTE_PAGE = 50;
-var SEARCH_VIEW_KEY = 'xuper_search_view_v1';
+var SEARCH_VIEW_KEY = 'opentv_search_view_v1';
 var srWrap = null, srCount = null, srBody = null, srMore = null, srToggle = null;
 
 function getSearchView() {
@@ -150,11 +104,11 @@ function makeDesktopSearchCard(item) {
     img.decoding = 'async';
     img.src = item.poster;
     img.onerror = function () {
-      if (window.XUPER_DESKTOP) { markCoverBroken(item); applyGenericCover(art, item); }
+      if (window.OPENTV_DESKTOP) { markCoverBroken(item); applyGenericCover(art, item); }
       else { this.style.visibility = 'hidden'; }
     };
     art.appendChild(img);
-  } else if (window.XUPER_DESKTOP) {
+  } else if (window.OPENTV_DESKTOP) {
     applyGenericCover(art, item);
   }
   card.appendChild(art);
@@ -189,9 +143,7 @@ function appendSearchCards(list, offset) {
   var frag = document.createDocumentFragment();
   for (var i = 0; i < list.length; i++) {
     var raw = list[i];
-    var cardItem = (raw && raw._portal !== undefined) ? raw : normalizeVod(raw, offset + i + 1);
-    if (raw && raw._portal) { cardItem._portal = true; }
-    frag.appendChild(makeDesktopSearchCard(cardItem));
+    frag.appendChild(makeDesktopSearchCard(raw && raw._stremio ? raw : normalizeVod(raw, offset + i + 1)));
   }
   srBody.appendChild(frag);
 }
@@ -199,75 +151,15 @@ function appendSearchCards(list, offset) {
 function updateSearchCount() {
   if (!srCount) { return; }
   var shown = (state.searchMatches || []).length;
-  var remote = state.searchRemote;
-  var total = Math.max(shown, remote ? remote.total + (shown - remote.received > 0 ? shown - remote.received : 0) : shown);
-  if (searchCapped() && total > shown && shown >= SEARCH_TV_MAX) {
-    srCount.textContent = 'Los primeros ' + shown + ' de ' + total + ' resultados · escribe más para afinar';
-    return;
-  }
-  srCount.textContent = total === 1 ? '1 resultado' : (total + ' resultados');
+  srCount.textContent = shown === 1 ? '1 resultado' : (shown + ' resultados');
 }
 
+/* (The addons answer one page: there is nothing more to load.) */
 function updateSearchMore() {
-  if (!srMore) { return; }
-  clear(srMore);
-  var remote = state.searchRemote;
-  if (!remote || remote.done) { srMore.className = 'sr-more'; return; }
-  srMore.className = 'sr-more is-active';
-  if (remote.error) {
-    srMore.appendChild(document.createTextNode('No se pudieron cargar más resultados. '));
-    var retry = el('span', 'search-retry-link focusable', 'Reintentar');
-    retry._activate = function () { remote.error = false; loadMoreSearch(); };
-    srMore.appendChild(retry);
-    return;
-  }
-  srMore.appendChild(el('i', 'search-spinner is-small'));
-  srMore.appendChild(document.createTextNode(remote.loading ? 'Cargando más resultados…' : 'Baja para ver más resultados'));
+  if (srMore) { clear(srMore); srMore.className = 'sr-more'; }
 }
 
-function maybeLoadMoreSearch() {
-  var remote = state.searchRemote;
-  if (!remote || remote.done || remote.loading || remote.error || !searchResults) { return; }
-  if (remote.seq !== state.searchSeq) { return; }
-  if (searchCapped() && (state.searchMatches || []).length >= SEARCH_TV_MAX) { remote.done = true; updateSearchMore(); return; }
-  var gap = searchResults.scrollHeight - searchResults.scrollTop - searchResults.clientHeight;
-  if (gap < 700) { loadMoreSearch(); }
-}
-
-function loadMoreSearch() {
-  var remote = state.searchRemote;
-  if (!remote || remote.done || remote.loading) { return; }
-  remote.loading = true;
-  updateSearchMore();
-  portalServiceCall('search', { value: remote.query, pageNum: remote.nextPage, pageSize: SEARCH_REMOTE_PAGE }, function (error, payload) {
-    if (state.searchRemote !== remote || remote.seq !== state.searchSeq) { return; }
-    remote.loading = false;
-    if (error || !payload || payload.returnValue === false) {
-      remote.error = true;
-      updateSearchMore();
-      return;
-    }
-    var items = payload.items || [];
-    var fresh = [];
-    for (var p = 0; p < items.length; p++) {
-      if (items[p] && typeof items[p] === 'object') { items[p].portal = true; }
-      var item = normalizeVod(items[p], (state.searchMatches || []).length + fresh.length + 1);
-      item._portal = true;
-      if (!remote.seen[String(item.id)]) { remote.seen[String(item.id)] = true; fresh.push(item); }
-    }
-    var offset = state.searchMatches.length;
-    if (searchCapped()) { fresh = fresh.slice(0, Math.max(0, SEARCH_TV_MAX - offset)); }
-    state.searchMatches = state.searchMatches.concat(fresh);
-    if (fresh.length) { appendSearchCards(fresh, offset); }
-    remote.received += items.length;
-    remote.nextPage++;
-    if (payload.total) { remote.total = parseInt(payload.total, 10) || remote.total; }
-    if (items.length < SEARCH_REMOTE_PAGE || remote.received >= remote.total) { remote.done = true; }
-    updateSearchCount();
-    updateSearchMore();
-    setTimeout(maybeLoadMoreSearch, 0);
-  });
-}
+function maybeLoadMoreSearch() {}
 
 function renderDesktopSearchList() {
   ensureDesktopSearchLayout();
@@ -275,18 +167,20 @@ function renderDesktopSearchList() {
   var view = getSearchView();
   searchHot.classList.add('is-hidden');
   searchResults.classList.add('is-active');
+  /* Each addon's answer re-renders the cards: a remote on one of them keeps
+     its place instead of losing the focus (TV). Read before the cards are
+     removed (after, the focused card was already detached and the focus
+     was lost when the second addon answered). */
+  var focusedIndex = -1;
+  if (state.focus && state.focus.parentNode === srBody) {
+    focusedIndex = Array.prototype.indexOf.call(srBody.children, state.focus);
+  }
   clear(searchResultGrid);
   if (searchNav) { searchNav.textContent = ''; }
   clear(srBody);
   srBody.className = 'sr-body is-' + view;
   var views = srToggle.children;
   for (var v = 0; v < views.length; v++) { views[v].classList.toggle('is-selected', views[v]._mode === view); }
-  /* The server's answer re-renders the cards: a remote on one of them keeps
-     its place instead of losing the focus (TV). */
-  var focusedIndex = -1;
-  if (state.focus && state.focus.parentNode === srBody) {
-    focusedIndex = Array.prototype.indexOf.call(srBody.children, state.focus);
-  }
   if (!matches.length) {
     searchEmpty.classList.add('is-active');
     srWrap.hidden = true;
@@ -322,14 +216,14 @@ function updateSearchStateUi() {
     searchStateBox.classList.add('is-active');
     searchStateBox.appendChild(el('div', 'search-spinner'));
     searchStateBox.appendChild(el('div', 'search-state-title', 'Buscando…'));
-    searchStateBox.appendChild(el('div', 'search-state-hint', 'Consultando el catálogo completo'));
+    searchStateBox.appendChild(el('div', 'search-state-hint', 'Buscando en tus addons'));
     return;
   }
   if (!count && status === 'error') {
     searchEmpty.classList.remove('is-active');
     searchStateBox.classList.add('is-active');
     searchStateBox.appendChild(el('div', 'search-state-title', 'No se pudo completar la búsqueda'));
-    searchStateBox.appendChild(el('div', 'search-state-hint', 'El servicio no respondió. Revisa la conexión e inténtalo otra vez.'));
+    searchStateBox.appendChild(el('div', 'search-state-hint', 'Tus addons no respondieron. Revisa la conexión e inténtalo otra vez.'));
     var retry = el('div', 'search-retry focusable', 'Reintentar');
     retry._activate = retrySearch;
     searchStateBox.appendChild(retry);
@@ -338,12 +232,12 @@ function updateSearchStateUi() {
   if (count && status === 'searching') {
     searchInlineState.classList.add('is-active');
     searchInlineState.appendChild(el('i', 'search-spinner is-small'));
-    searchInlineState.appendChild(document.createTextNode('Buscando más en el servidor…'));
+    searchInlineState.appendChild(document.createTextNode('Buscando en tus addons…'));
     return;
   }
   if (count && status === 'error') {
     searchInlineState.classList.add('is-active', 'is-error');
-    searchInlineState.appendChild(document.createTextNode('No se pudo consultar el servidor. '));
+    searchInlineState.appendChild(document.createTextNode('Algún addon no respondió. '));
     var retry2 = el('span', 'search-retry-link focusable', 'Reintentar');
     retry2._activate = retrySearch;
     searchInlineState.appendChild(retry2);
@@ -355,11 +249,11 @@ var SEARCH_PAGE_SIZE = 10;
 /* TVs: at most this many results ("spi" matched 445). More cards only cost
    memory and make the way back up long; the count asks for a longer word. */
 var SEARCH_TV_MAX = 100;
-function searchCapped() { return platformIsTv() && window.XUPER_DESKTOP; }
+function searchCapped() { return platformIsTv() && window.OPENTV_DESKTOP; }
 
 function renderSearchResults(matches) {
-  /* A short query can match hundreds of portal titles.  webOS 4 runs out
-     of media/UI memory if every poster is inserted at once, so retain the
+  /* A short query can match hundreds of portal titles.  A 1 GB TV stick runs
+     out of media/UI memory if every poster is inserted at once, so retain the
      complete result list in JS but render one 2-row page at a time. */
   matches = matches || [];
   if (searchCapped() && matches.length > SEARCH_TV_MAX) { matches = matches.slice(0, SEARCH_TV_MAX); }
@@ -369,7 +263,7 @@ function renderSearchResults(matches) {
 }
 
 function renderSearchResultPage(requestedPage, focusIndex) {
-  if (window.XUPER_DESKTOP) { renderDesktopSearchList(); return; }
+  if (window.OPENTV_DESKTOP) { renderDesktopSearchList(); return; }
   var matches = state.searchMatches || [];
   searchHot.classList.add('is-hidden');
   searchResults.classList.add('is-active');
@@ -390,7 +284,7 @@ function renderSearchResultPage(requestedPage, focusIndex) {
   if (searchNav) {
     searchNav.textContent = 'Resultados ' + (start + 1) + '-' + end + ' de ' + matches.length +
       (pageCount > 1 ? '  ·  Página ' + (page + 1) + '/' + pageCount : '');
-    if (window.XUPER_DESKTOP && pageCount > 1) {
+    if (window.OPENTV_DESKTOP && pageCount > 1) {
       function pageButton(label, next, disabled) {
         var button = el('button', 'desktop-search-page focusable', label);
         button.type = 'button';

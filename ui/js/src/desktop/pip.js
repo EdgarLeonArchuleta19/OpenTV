@@ -32,7 +32,7 @@ function keepFloatingVideo() {
 
 function autoPreviewAllowed(item) {
   /* TVs show the title's picture on the details screen, not a preview. */
-  if (platformIsTv()) { return false; }
+  if (platformIsTv() || detailShowsArt()) { return false; }
   /* Stremio mode: nothing plays until the viewer picks a source (a preview
      could start a torrent just by opening the page). */
   if (item && item._stremio) { return false; }

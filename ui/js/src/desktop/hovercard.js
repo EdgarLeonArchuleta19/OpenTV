@@ -14,12 +14,13 @@ var hoverHideTimer = null;
 function hoverPosterFrom(target) {
   if (!target || !target.closest) { return null; }
   var poster = target.closest('.poster');
-  if (!poster || !poster._item || !poster.closest('#screen-home .home-page.is-current')) { return null; }
+  /* Home rows, and "Recomendaciones" on the details screen. */
+  if (!poster || !poster._item || !(poster.closest('#screen-home .home-page.is-current') || poster.closest('#screen-detail .dd-related'))) { return null; }
   return poster;
 }
 
 function installHoverCards() {
-  if (!window.XUPER_DESKTOP || !platformHas('mouse')) { return; }
+  if (!window.OPENTV_DESKTOP || !platformHas('mouse')) { return; }
   document.addEventListener('mouseover', function (event) {
     if (hoverCard && hoverCard.contains(event.target)) { cancelHoverHide(); return; }
     var poster = hoverPosterFrom(event.target);
@@ -30,7 +31,7 @@ function installHoverCards() {
     if (hoverTimer) { clearTimeout(hoverTimer); }
     hoverTimer = setTimeout(function () {
       hoverTimer = null;
-      if (poster.matches(':hover') && state.screen === 'home') { openHoverCard(poster); }
+      if (poster.matches(':hover') && (state.screen === 'home' || state.screen === 'detail')) { openHoverCard(poster); }
     }, HOVER_DELAY_MS);
   }, true);
   document.addEventListener('mouseout', function (event) {

@@ -10,11 +10,27 @@ function isVisible(node) {
   /* moveFocus reads it right after focusables(): measured only once. */
   node._visRect = r;
   if (r.width < 1 || r.height < 1) { return false; }
+  /* Under the on-screen keyboard's panel (core/tv-keyboard.js). */
+  if (tvKbPanel && closest(node, '.tvk-covered')) { return false; }
   if (historyDrawerOpen) { return !!closest(node, '.history-drawer'); }
+  /* The profile editor opens over the picker (or over Mi cuenta): only its
+     own controls take the focus while it is open. */
+  if (profileEditor && profileEditor.classList.contains('is-open')) { return !!closest(node, '.profile-editor'); }
   if (profilePickerOpen) { return !!closest(node, '.profile-picker'); }
+  /* Closed, they stay in the page (only see-through): their tiles and
+     buttons took the focus from the details screen ("Mi usuario" below
+     "Ir a Addons"). */
+  if (closest(node, '.profile-picker') || closest(node, '.profile-editor')) { return false; }
   if (liveGuideOpen) { return !!closest(node, '.live-guide'); }
+  /* TV en vivo's category list is open over the channel list: the arrows
+     move through the categories, not the channels behind them. */
+  if (liveCatMenuOpen()) { return !!closest(node, '.live-cat-menu'); }
+  /* The season list of a series is open over its episodes: likewise. */
+  if (seasonPopup) { return !!closest(node, '.season-popup'); }
   if (dialogAddonsOpen) { return !!closest(node, '#dialog-addons'); }
-  if (sourcePickerOpen) { return !!closest(node, '#dialog-sources'); }
+  /* Every window of that kind ("Elegir fuente", the guide, the notices)
+     shares .source-picker: only its own buttons can take the focus. */
+  if (sourcePickerOpen) { return !!closest(node, '.source-picker'); }
   if (state.episodeBrowserOpen) {
     return !!closest(node, '#player-episodes');
   }
@@ -106,7 +122,14 @@ function tvReveal(node) {
     var cell = childOf(node, strip);
     var cellLeft = cell ? parseFloat(cell.style.left) : NaN;
     if (!isNaN(cellLeft)) {
-      if (strip._tvMax === undefined) { strip._tvMax = Math.max(0, strip.scrollWidth - strip.clientWidth); }
+      /* Measured once per strip: reading sizes right after the focus class
+         changed forced a full style + layout pass inside every key press
+         (~15 ms on a Fire TV). */
+      if (strip._tvMax === undefined || strip._tvKids !== strip.children.length) {
+        strip._tvKids = strip.children.length;
+        strip._tvClientW = strip.clientWidth;
+        strip._tvMax = Math.max(0, strip.scrollWidth - strip._tvClientW);
+      }
       /* The focus moves along the row; the row only slides when the
          focused poster would leave the screen, and then shows half of the
          next one (so there is clearly more). */
@@ -114,7 +137,7 @@ function tvReveal(node) {
       var cellW = parseFloat(cell.style.width) || cell.offsetWidth;
       var row = strip.parentNode;
       var stripPageLeft = (parseFloat(row && row.style.left) || 0) + (parseFloat(strip.style.left) || 0);
-      var viewW = Math.min(strip.clientWidth, 1920 - 60 - stripPageLeft);
+      var viewW = Math.min(strip._tvClientW, 1920 - 60 - stripPageLeft);
       var wantX = curX;
       if (cellLeft - ROW_PAD < curX) { wantX = cellLeft - ROW_PAD; }
       else if (cellLeft + cellW + cellW * 0.5 > curX + viewW) { wantX = cellLeft + cellW + cellW * 0.5 - viewW; }
@@ -133,9 +156,16 @@ function tvReveal(node) {
     page._tvLine = line;
     var wantY = 0;
     if (lineTop >= 560) {
-      var lineH = line.offsetHeight || 0;
-      wantY = Math.round(lineTop + lineH / 2 - page.clientHeight / 2);
-      wantY = Math.max(0, Math.min(page.scrollHeight - page.clientHeight, wantY));
+      /* Written sizes first; the page box is measured again only when its
+         lines change (a section loading more rows). */
+      var lineH = parseFloat(line.style.height) || line.offsetHeight || 0;
+      if (page._tvKids !== page.children.length || !page._tvClientH) {
+        page._tvKids = page.children.length;
+        page._tvClientH = page.clientHeight;
+        page._tvScrollH = page.scrollHeight;
+      }
+      wantY = Math.round(lineTop + lineH / 2 - page._tvClientH / 2);
+      wantY = Math.max(0, Math.min(page._tvScrollH - page._tvClientH, wantY));
     }
     tvScrollTo(page, null, wantY);
   }
@@ -187,12 +217,15 @@ function tvStructuralMove(node, dir, page) {
   var curTop = cur ? parseFloat(cur.style.top) : NaN;
   if (isNaN(curTop)) { return undefined; }
   var curX = tvPageX(node, page);
-  /* The next line: the nearest written top above / below. */
+  /* The next line: the nearest written top above / below. The hero's
+     buttons (.hero-info) are a line too: up from any poster of the first
+     row, even the far right one, lands on them (the measuring fallback
+     went to the top icons instead, which were closer on screen). */
   var kids = page.children;
   var lineTop = null;
   for (var i = 0; i < kids.length; i++) {
     var k = kids[i];
-    if (k.style.display === 'none' || !(k.classList.contains('d-row') || k.classList.contains('focusable'))) { continue; }
+    if (k.style.display === 'none' || !(k.classList.contains('d-row') || k.classList.contains('focusable') || k.classList.contains('hero-info'))) { continue; }
     var t = parseFloat(k.style.top);
     if (isNaN(t)) { continue; }
     if (dir === 'down' ? (t > curTop && (lineTop === null || t < lineTop)) : (t < curTop && (lineTop === null || t > lineTop))) { lineTop = t; }
@@ -226,21 +259,71 @@ function tvPageX(node, page) {
   return parseFloat(top && top.style.left) || 0;
 }
 
+/* TVs, details screen of a series: the screen stays still and its lower
+   part shows one section at a time. Down from the episodes (or the season
+   button) the episodes give way to Recomendaciones; up from those, the
+   episodes come back. The focus lands on the card most in line with the
+   one it leaves. True when it handled the key. */
+function tvDetailSectionMove(dir) {
+  if (!platformIsTv() || state.screen !== 'detail' || (dir !== 'up' && dir !== 'down')) { return false; }
+  var bottom = state.focus && closest(state.focus, '.detail-bottom');
+  if (!bottom || !bottom.classList.contains('tv-sections')) { return false; }
+  var sections = bottom.querySelectorAll('.dd-section');
+  if (sections.length < 2) { return false; }
+  var epSec = sections[0], relSec = sections[1];
+  var inEp = epSec.contains(state.focus), inRel = relSec.contains(state.focus);
+  var fromRow = closest(state.focus, '.dd-grid, .dd-related');
+  var fr = state.focus.getBoundingClientRect();
+  var fx = fr.left + fr.width / 2;
+  function landIn(sec, remembered) {
+    var row = sec.querySelector('.dd-grid, .dd-related');
+    if (!row) { return false; }
+    if (remembered && remembered.isConnected && row.contains(remembered)) { setFocus(remembered); return true; }
+    var cards = row.querySelectorAll('.focusable');
+    var best = null, bestD = 1e9;
+    for (var i = 0; i < cards.length; i++) {
+      var r = cards[i].getBoundingClientRect();
+      if (r.right < 0 || r.left > window.innerWidth) { continue; }
+      var d = Math.abs(r.left + r.width / 2 - fx);
+      if (d < bestD) { bestD = d; best = cards[i]; }
+    }
+    best = best || cards[0];
+    if (best) { setFocus(best); return true; }
+    return false;
+  }
+  if (dir === 'down' && inEp && fromRow) {
+    bottom._lastEp = state.focus;
+    bottom.classList.remove('show-ep');
+    bottom.classList.add('show-rel');
+    return landIn(relSec, null);
+  }
+  if (dir === 'up' && inRel && fromRow) {
+    bottom.classList.remove('show-rel');
+    bottom.classList.add('show-ep');
+    return landIn(epSec, bottom._lastEp);
+  }
+  return false;
+}
+
 function reveal(node) {
   /* A section still sliding in reads shifted on screen (its first poster
      looked off the right edge, and the row was scrolled to "show" it).
      Measure once it has landed. */
-  if (window.XUPER_DESKTOP && !platformIsTv() && closest(node, '.home-page.is-entering')) {
+  if (window.OPENTV_DESKTOP && !platformIsTv() && closest(node, '.home-page.is-entering')) {
     setTimeout(function () { if (state.focus === node) { reveal(node); } }, 420);
     return;
   }
-  if (platformIsTv() && window.XUPER_DESKTOP && tvReveal(node)) { return; }
+  if (platformIsTv() && window.OPENTV_DESKTOP && tvReveal(node)) { return; }
   var box = closest(node, '.scrollable');
-  var tvCenter = platformIsTv() && window.XUPER_DESKTOP;
+  var tvCenter = platformIsTv() && window.OPENTV_DESKTOP;
   while (box) {
     var er = node.getBoundingClientRect();
     var br = box.getBoundingClientRect();
-    if (tvCenter && box.scrollHeight > box.clientHeight + 1) {
+    if (tvCenter && box.classList.contains('detail-bottom')) {
+      /* TVs, details screen: it never scrolls up or down; its lower part
+         shows one section at a time (tvDetailSectionMove). */
+      if (box.scrollTop) { box.scrollTop = 0; }
+    } else if (tvCenter && box.scrollHeight > box.clientHeight + 1) {
       /* TVs (search, details, Mi lista, the guide, Ajustes…): the focused
          element is centred, and near the top the list stays at its start,
          as it was opened. The target comes from where the element sits in
@@ -296,7 +379,29 @@ function reveal(node) {
 /* The menu on the left follows the focus (also called by showScreen: the
    focus can land on a tab while another screen is still showing, and the
    menu then stayed closed with the focus hidden inside it). */
+/* TVs: the section's name next to the logo at the top ("OpenTV | Películas").
+   While the remote moves through the menu it shows the icon in focus, so
+   the menu itself stays icons only; back in the page it shows the section
+   on screen again. Only the text of one span changes. */
+var tvSectionEl = null;
+function syncTvSectionLabel(node) {
+  if (!platformIsTv() || !window.OPENTV_DESKTOP) { return; }
+  if (!tvSectionEl) {
+    var brand = document.querySelector('#screen-home .home-port-credit');
+    if (!brand) { return; }
+    tvSectionEl = el('span', 'tv-section');
+    brand.appendChild(tvSectionEl);
+  }
+  var tabEl = node && closest(node, '.home-tabs') ? closest(node, '.tab-item') : null;
+  if (!tabEl && tabEls[state.tab]) { tabEl = tabEls[state.tab]; }
+  var titleEl = tabEl ? tabEl.querySelector('.tab-title') : null;
+  var label = titleEl ? titleEl.textContent : '';
+  if (tvSectionEl.textContent !== label) { tvSectionEl.textContent = label; }
+  tvSectionEl.classList.toggle('is-browsing', !!(node && closest(node, '.home-tabs')));
+}
+
 function syncHomeRail(node) {
+  syncTvSectionLabel(node);
   /* The tab rail expands while it holds focus and collapses to icons as soon
      as the content takes focus (observed on the running app). */
   var rail = $('home-tabs');
@@ -304,7 +409,7 @@ function syncHomeRail(node) {
     var inRail = closest(node, '.home-tabs');
     /* Desktop: the rail always shows icon + label; the pages make room for
        it (desktop/theme.css) instead of the rail covering them. */
-    var keepOpen = !!window.XUPER_DESKTOP;
+    var keepOpen = !!window.OPENTV_DESKTOP;
     /* TVs: the menu on the left opens over the page; only opacities change,
        nothing on the page moves ("Teles" in desktop/tw/input.css). */
     /* (On the menu and its backdrop, not on <body>: a class on <body> makes
@@ -326,7 +431,7 @@ function syncHomeRail(node) {
 /* Desktop: the focus ring (white frame + zoom) is shown only while the
    keyboard is being used, like Windows does. With the mouse, the current
    element is still tracked, just not highlighted. The TV always shows it. */
-var focusRingVisible = !window.XUPER_DESKTOP || platformIsTv();
+var focusRingVisible = !window.OPENTV_DESKTOP || platformIsTv();
 
 function setFocusRingVisible(on) {
   on = !!on;
@@ -337,7 +442,7 @@ function setFocusRingVisible(on) {
 }
 
 function installFocusRingMode() {
-  if (!window.XUPER_DESKTOP || platformIsTv()) {
+  if (!window.OPENTV_DESKTOP || platformIsTv()) {
     if (focusRingVisible && document.body) { document.body.classList.add('is-keyboard-nav'); }
     return;
   }
@@ -356,19 +461,24 @@ function installFocusRingMode() {
 
 function setFocus(node, silent) {
   if (!node) { return; }
+  /* "¿Quién está viendo?" or the profile editor on screen: nothing behind
+     it takes the focus (screens/profiles-ui.js). */
+  var overlay = profileOverlayRoot();
+  if (overlay && !overlay.contains(node)) {
+    if (!state.focus || !overlay.contains(state.focus)) {
+      var inside = firstIn(overlay);
+      if (inside && inside !== node) { setFocus(inside, true); }
+    }
+    return;
+  }
   if (state.focus === node) {
     if (!silent) { reveal(node); }
     return;
   }
   if (state.focus) {
     state.focus.classList.remove('is-focused');
-    /* TVs: the poster that loses focus keeps its own layer while it shrinks
-       back, so the zoom out is animated by the compositor too. */
-    if (platformIsTv()) {
-      var prevFocus = state.focus;
-      prevFocus.classList.add('was-focused');
-      setTimeout(function () { prevFocus.classList.remove('was-focused'); }, 260);
-    }
+    /* (TVs: the zoom is instant now, without a layer of its own while it
+       shrinks back; see "Foco" in 10-teles.css.) */
   }
   state.focus = node;
   if (focusRingVisible) { node.classList.add('is-focused'); }
@@ -420,12 +530,23 @@ function moveFocus(dir) {
     if (guideNode) { setFocus(guideNode); return; }
   }
   if (state.focus._onMove && state.focus._onMove(dir)) { return; }
+  if (tvDetailSectionMove(dir)) { return; }
 
   var inPage = state.screen === 'home' && closest(state.focus, '.home-page');
   var inSidebar = state.screen === 'home' && closest(state.focus, '.home-tabs');
+
+  /* TVs: down from the icons at the top (Buscar, Mi lista, perfil) goes to
+     the top of the section on screen (the hero's Reproducir), not to the
+     nearest poster on screen, which could be in any row, even one
+     scrolled out of view (the focus seemed lost). */
+  if (dir === 'down' && platformIsTv() && state.screen === 'home' && closest(state.focus, '.home-notify')) {
+    var curPage = TABS[state.tab] ? pages[TABS[state.tab].page] : null;
+    var top = curPage ? firstIn(curPage) : null;
+    if (top) { setFocus(top); return; }
+  }
   /* (Not on TV en vivo: preview, channel list and controls sit side by side
      there, so moves across them must stay free.) */
-  var tvRowNav = !!inPage && platformIsTv() && !!window.XUPER_DESKTOP && inPage !== pages[0];
+  var tvRowNav = !!inPage && platformIsTv() && !!window.OPENTV_DESKTOP && inPage !== pages[0];
 
   /* TVs: rows move by position (no measuring), like Leanback. */
   if (tvRowNav) {
@@ -470,13 +591,13 @@ function moveFocus(dir) {
     return;
   }
 
-  if (window.XUPER_DESKTOP && !platformIsTv() && dir === 'up' && inPage) {
+  if (window.OPENTV_DESKTOP && !platformIsTv() && dir === 'up' && inPage) {
     if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
     return;
   }
   /* Leftmost limit reached in page content: now focus sidebar tab (the TV
      menu on the left). */
-  if (dir === 'left' && inPage && (!window.XUPER_DESKTOP || platformIsTv())) {
+  if (dir === 'left' && inPage && (!window.OPENTV_DESKTOP || platformIsTv())) {
     if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
   }
 }
@@ -504,19 +625,108 @@ function focusablesNear(page, top, range) {
   return out;
 }
 
+/* Can `c` be a target from the current focus at all (menu / page rules)? */
+function focusCandidateAllowed(c, inPage, inSidebar) {
+  if (c === state.focus) { return false; }
+  /* Don't let sidebar tabs intercept left navigation while inside page content */
+  if (inPage && closest(c, '.home-tabs')) { return false; }
+  /* Desktop: from the page, up goes to the tab bar, not the icons. */
+  if (inPage && window.OPENTV_DESKTOP && !platformIsTv() && closest(c, '.home-notify')) { return false; }
+  /* Don't let page content intercept navigation while inside sidebar tabs */
+  if (inSidebar && !closest(c, '.home-tabs')) { return false; }
+  return true;
+}
+
+/* TVs: the remote moves only to what is really in that direction.
+   Up/down: the nearest line above/below (the elements level with the
+   nearest one), and on it the one most in line horizontally.
+   Left/right: only the same line (elements level with the focus), the
+   nearest one on that side. Never diagonally to another line. */
+var TV_NAV_REGIONS = '.settings-right, .settings-menu, .live-side, .live-bar3a, .search-keyboard, ' +
+  '.search-hot, .search-results, .lg-cats, .lg-grid, .tvk-panel, .detail-bottom, .season-popup, .live-cat-menu';
+/* Blocks that sit side by side with another (menu and panel, keyboard and
+   results…): up/down never leave them diagonally. */
+var TV_NAV_COLUMNS = '.settings-right, .settings-menu, .live-side, .search-keyboard, .search-hot, ' +
+  '.search-results, .lg-cats, .lg-grid, .tvk-panel';
+function pickTvFocusTarget(list, dir, fr, fx, inPage, inSidebar) {
+  var TOL = 3;
+  var cands = [];
+  for (var i = 0; i < list.length; i++) {
+    var c = list[i];
+    if (!focusCandidateAllowed(c, inPage, inSidebar)) { continue; }
+    var r = c._visRect || c.getBoundingClientRect();
+    var ok;
+    if (dir === 'up') { ok = r.bottom <= fr.top + TOL; }
+    else if (dir === 'down') { ok = r.top >= fr.bottom - TOL; }
+    else {
+      ok = r.bottom > fr.top + TOL && r.top < fr.bottom - TOL &&
+        (dir === 'left' ? r.right <= fr.left + TOL : r.left >= fr.right - TOL);
+    }
+    if (ok) { cands.push({ c: c, r: r }); }
+  }
+  if (!cands.length) { return null; }
+  var best = null, bestKey = 1e9, bestTie = 1e9;
+  if (dir === 'left' || dir === 'right') {
+    for (var h = 0; h < cands.length; h++) {
+      var rh = cands[h].r;
+      var gap = dir === 'left' ? fr.left - rh.right : rh.left - fr.right;
+      var tie = Math.abs((rh.top + rh.bottom) / 2 - (fr.top + fr.bottom) / 2);
+      if (gap < bestKey - 0.5 || (Math.abs(gap - bestKey) <= 0.5 && tie < bestTie)) { bestKey = gap; bestTie = tie; best = cands[h].c; }
+    }
+    return best;
+  }
+  /* First the block the focus is in (Ajustes' panel or menu, the channel
+     column, the keyboard, the results, the lower part of a title's page…):
+     in Ajustes, down from a tab went to the menu on the left, a little
+     lower. Only when nothing is there in that direction, the whole screen. */
+  var region = closest(state.focus, TV_NAV_REGIONS);
+  var pool = cands;
+  if (region) {
+    var inside = [];
+    for (var q = 0; q < cands.length; q++) { if (region.contains(cands[q].c)) { inside.push(cands[q]); } }
+    if (inside.length) { pool = inside; }
+    else if (region.matches && region.matches(TV_NAV_COLUMNS)) {
+      /* Leaving a column that has another one beside it: only straight up
+         or down (the end of Ajustes' panel jumped diagonally to the menu on
+         the left). Other blocks (the lower part of a title's page) go on
+         to the nearest line, like the buttons above the seasons. */
+      var column = [];
+      for (var w = 0; w < cands.length; w++) {
+        var rw = cands[w].r;
+        if (rw.right > fr.left + TOL && rw.left < fr.right - TOL) { column.push(cands[w]); }
+      }
+      if (!column.length) { return null; }
+      pool = column;
+    }
+  }
+  /* The nearest line in that direction: the nearest element, and every
+     element level with it. */
+  var near = null, nearGap = 1e9;
+  for (var n = 0; n < pool.length; n++) {
+    var rn = pool[n].r;
+    var g = dir === 'up' ? fr.top - rn.bottom : rn.top - fr.bottom;
+    if (g < nearGap) { nearGap = g; near = rn; }
+  }
+  for (var k = 0; k < pool.length; k++) {
+    var rk = pool[k].r;
+    if (!(rk.bottom > near.top + TOL && rk.top < near.bottom - TOL)) { continue; }
+    /* Most in line: overlapping the focus horizontally first, then the
+       nearest centre. */
+    var overlapX = rk.right > fr.left + TOL && rk.left < fr.right - TOL;
+    var dist = Math.abs((rk.left + rk.right) / 2 - fx) + (overlapX ? 0 : 10000);
+    if (dist < bestKey) { bestKey = dist; best = pool[k].c; }
+  }
+  return best;
+}
+
 /* Spatial navigation: the best candidate of `list` in direction `dir`. */
 function pickFocusTarget(list, dir, fr, fx, fy, inPage, inSidebar, tvRowNav) {
+  if (platformIsTv()) { return pickTvFocusTarget(list, dir, fr, fx, inPage, inSidebar); }
   var best = null;
   var bestScore = 1e9;
   for (var i = 0; i < list.length; i++) {
     var c = list[i];
-    if (c === state.focus) { continue; }
-    /* Don't let sidebar tabs intercept left navigation while inside page content */
-    if (inPage && closest(c, '.home-tabs')) { continue; }
-    /* Desktop: from the page, up goes to the tab bar, not the icons. */
-    if (inPage && window.XUPER_DESKTOP && !platformIsTv() && closest(c, '.home-notify')) { continue; }
-    /* Don't let page content intercept navigation while inside sidebar tabs */
-    if (inSidebar && !closest(c, '.home-tabs')) { continue; }
+    if (!focusCandidateAllowed(c, inPage, inSidebar)) { continue; }
 
     var r = c._visRect || c.getBoundingClientRect();
     var cx = r.left + r.width / 2;

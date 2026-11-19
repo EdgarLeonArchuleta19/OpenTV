@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<!-- webOS 25 can expose a real 3840×2160 viewport.  Do not pin it to the
+<!-- Some TVs expose a real 3840×2160 viewport.  Do not pin it to the
      1920px design canvas; app.js scales that canvas to the actual display. -->
 <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>OpenTV</title>
@@ -20,7 +20,7 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<div id="boot-splash" class="boot-splash"><div class="bs-name">OpenTV</div><div class="bs-sub">Preparando tu catálogo…</div></div>
+<div id="boot-splash" class="boot-splash"><div class="bs-name">OpenTV</div><div class="bs-sub">Preparando tu catálogo…</div><div class="ot-loader-dots"><span></span><span></span><span></span></div></div>
 <div id="app">
 
   <!-- ============================================================
@@ -30,7 +30,7 @@
   <section id="screen-welcome" class="screen is-active">
     <img class="welcome-logo" src="images/logo-mark.svg" alt="">
     <div class="welcome-name">OpenTV</div>
-    <div class="welcome-version">v1.1.0</div>
+    <div class="welcome-version">v1.2.0</div>
     <div class="welcome-loading"><i></i><img id="welcome-loading-img" alt="" src="assets/original/welcome/img_welcome_loading1.png"></div>
   </section>
 
@@ -41,7 +41,7 @@
     <div id="home-pages" class="home-pages"></div>
     <div class="home-sidebar-bg"></div>
     <div id="home-tabs" class="home-tabs"></div>
-    <div class="home-port-credit"><img src="images/logo-mark.svg" alt="">OpenTV<span class="mode-pill">Addons</span></div>
+    <div class="home-port-credit"><img src="images/logo-mark.svg" alt="">OpenTV</div>
     <div id="home-notify" class="home-notify"></div>
   </section>
 
@@ -226,7 +226,7 @@
        the same dialog over the details page, as the real app does. -->
   <div class="dialog-playsettings-overlay" id="dialog-playsettings">
       <div class="dialog-playsettings-box">
-        <div class="dps-header">Ajuste de reproducir</div>
+        <div class="dps-header">Audio y subtítulos</div>
         <div class="dps-body scrollable">
           <!-- Audio Row -->
           <div class="dps-row" id="dps-row-audio">
@@ -298,15 +298,8 @@
 
 </div>
 <!-- Which device this is and what it can do (before everything else) -->
+<script src="js/migrate-storage.js"></script>
 <script src="js/platform.js"></script>
-<!-- webOS TV bridge for Luna service communication -->
-<script src="js/webOSTV.js"></script>
-<!-- Real Magis portal catalog snapshot (anonymous session, generated at
-     build time). Provides an instant first paint with the real catalog. -->
-<script src="data/portal.js"></script>
-<!-- Bundled sample catalog (open movies). Replace it or point
-     config/api.js at an authorized backend to load your own VOD catalog. -->
-<script src="data/catalog.js"></script>
 <!-- Local, authorized VOD endpoint configuration.  Keep this file before app.js. -->
 <script src="config/api.js"></script>
 <link rel="stylesheet" href="desktop/desktop.css">

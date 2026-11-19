@@ -11,36 +11,29 @@ function startLiveChannel(ch, immediate) {
     liveChannelDebounceTimer = null;
   }
   if (!ch) { ch = CHANNELS[state.channel]; }
-  if (!ch) { return; }
-  if (!ch.channelCode && !ch.streamUrl) { return; }
+  if (!ch) {
+    /* No channels (no lists yet, or none could be read): say why. */
+    if (state.screen === 'player' && state.playerMode === 'live') { setPlayerStatus(liveEmptyMessage()); }
+    return;
+  }
+  if (!ch.streamUrl) {
+    state.streamError = 'Señal no disponible';
+    setPlayerStatus(state.streamError);
+    return;
+  }
   noteLivePlaying(ch);
 
   var doStart = function () {
-    var mySeq = ++liveChannelSeq;
-    setPlayerStatus('Cargando señal ' + (ch.name || '') + '…');
-    var resolveParams = ch.streamUrl ? { streamUrl: ch.streamUrl } : { channelCode: ch.channelCode };
-    portalServiceCall('resolveLive', resolveParams, function (err, payload) {
-      if (mySeq !== liveChannelSeq) { return; }
-      /* The viewer left the player while the signal was resolving (TV and
-         desktop): starting it now would play it hidden, with sound. */
-      if (state.screen !== 'player' || state.playerMode !== 'live') { return; }
-      if (err || !payload || payload.returnValue === false) {
-        state.streamError = 'No se pudo conectar con la señal' + (err ? ': ' + err : '');
-        setPlayerStatus(state.streamError);
-        return;
-      }
-      var streamUrl = payload.proxyPath || payload.url;
-      if (!streamUrl) {
-        state.streamError = 'Señal no disponible';
-        setPlayerStatus(state.streamError);
-        return;
-      }
-      setPlayerStatus('');
-      showInfobar();
-      /* (A title's still from the details screen does not belong to a channel.) */
-      if (playerVideo) { playerVideo.removeAttribute('poster'); }
-      playUrl(streamUrl);
-    });
+    ++liveChannelSeq;
+    /* The viewer left the player while the channel was waiting to start (TV
+       and desktop): starting it now would play it hidden, with sound. */
+    if (state.screen !== 'player' || state.playerMode !== 'live') { return; }
+    setPlayerStatus('');
+    showInfobar();
+    /* (A title's still from the details screen does not belong to a channel.) */
+    if (playerVideo) { playerVideo.removeAttribute('poster'); }
+    /* An M3U channel plays its own link (no service round trip). */
+    playUrl(ch.streamUrl);
   };
 
   if (immediate) {
@@ -81,6 +74,10 @@ function updatePlayer() {
     idx.style.display = 'block';
     idx.textContent = pad2(ch.index || (state.channel + 1));
     name.textContent = ch.name || '';
+    var piSub = playerInfo.querySelector('.pi-sub');
+    if (piSub) { piSub.textContent = 'Canal ' + (ch.index || (state.channel + 1)) + '  ·  ' + liveChannelGroups(ch).join(', '); }
+    var piTop = playerInfo.querySelector('.pi-top-title');
+    if (piTop) { piTop.textContent = ch.name || ''; }
     nameRowPosition();
     /* "Hoy" only makes sense next to a programme time. */
     date.textContent = ch.time ? 'Hoy' : '';
@@ -106,7 +103,7 @@ function updatePlayer() {
         var epTitle = state.playerEpisode.title || state.playerEpisode.name;
         var epNum = state.playerEpisode.number || state.playerEpisode.seriesNumber;
         var epLabel = epTitle || (epNum ? ('Capítulo ' + epNum) : '');
-        if (window.XUPER_DESKTOP) {
+        if (window.OPENTV_DESKTOP) {
           /* "Serie  E3 · Nombre", without repeating the series name. */
           var named = epTitle && norm(epTitle).indexOf(norm(item.title)) === -1 && !/^(episodio|capítulo|cap\.?)\s*\d+$/i.test(epTitle) ? ' · ' + epTitle : '';
           vodInfobarTitle.textContent = item.title + (epNum ? '  E' + epNum : '') + named;
@@ -177,8 +174,8 @@ function openChannelPanel() {
   playerChannels.classList.add('is-active');
   renderPlayerCategories();
   renderPlayerChannels(state.channel);
-  /* Bring the active column into view: with 38 portal categories the rail
-     is 5000px wide and the selected pill is usually off-screen. */
+  /* Bring the active category into view: with dozens of categories the
+     rail is very wide and the selected pill is usually off-screen. */
   scrollSelectedCategoryPill();
   var row = playerChannelRows[state.channel];
   if (row) {
@@ -204,9 +201,9 @@ function restorePlayerReturn() {
   if (ret && ret.screen === 'detail') {
     var scrPlayer = $('screen-player');
     var scrDetail = $('screen-detail');
-    if (scrPlayer && platformIsTv()) {
-      /* TVs: back on the details screen the video stops (no small player
-         there, only the title's picture). */
+    if (scrPlayer && detailShowsArt()) {
+      /* PC and TVs: back on the details screen the video stops (no small
+         player there, only the title's picture). */
       stopPlayerVideo();
       scrPlayer.classList.remove('is-mini');
       scrPlayer.classList.remove('is-active');
@@ -244,7 +241,7 @@ function restorePlayerReturn() {
   } else {
     /* Desktop: a TV channel goes on playing in the home preview. */
     var toHome = !(ret && ret.screen === 'search');
-    var handed = window.XUPER_DESKTOP && toHome && borrowPlayerIntoHome();
+    var handed = window.OPENTV_DESKTOP && toHome && borrowPlayerIntoHome();
     if (!handed && !keepFloatingVideo()) {
       /* Also cancel a channel that is still resolving or waiting to start. */
       liveChannelSeq++;

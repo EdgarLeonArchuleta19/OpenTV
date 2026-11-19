@@ -1,9 +1,9 @@
 /* core/config.js — Configuración estática: canales, pestañas del inicio y menú de ajustes.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-/* Live TV is portal-driven.  Do not draw fictitious rows while the local
-   service starts: they looked like real channels until the user left and
-   returned to the TV tab. */
+/* Live TV comes only from the viewer's own M3U lists (live/channels.js).
+   CHANNELS holds the channels of the category on screen. Do not draw
+   fictitious rows while the lists load: they looked like real channels. */
 var CHANNELS = [];
 
 /* Tab order and labels observed on the running app (WSA, 1920x1080).
@@ -35,7 +35,7 @@ var TABS = [
 ];
 /* Desktop: Novelas and Explorar are dropped, and history has its own button
    (and lives in Mi lista), so the rail only lists the main catalogues. */
-if (window.XUPER_DESKTOP) {
+if (window.OPENTV_DESKTOP) {
   TABS = TABS.filter(function (t) { return t.icon !== 'novel' && t.icon !== 'compass' && t.action !== 'history'; });
   /* Top bar labels, like the big streaming apps. */
   var DESKTOP_TAB_LABELS = { 'TV': 'TV en vivo', 'DESTACADOS': 'Inicio', 'PELICULA': 'Películas', 'SERIES': 'Series', 'KIDS': 'Kids', 'ANIME': 'Anime' };
@@ -43,8 +43,8 @@ if (window.XUPER_DESKTOP) {
   /* A kids profile only sees Kids (no TV, no Inicio or Anime, which also
      carry titles for adults). */
   if (isKidsProfile()) { TABS = TABS.filter(function (t) { return t.page === 4; }); }
-  /* TVs (LG, Android TV, Fire TV): the same sections in a menu on the left,
-     like the LG version; search, Mi lista and the account stay at the top
+  /* TVs (Android TV, Fire TV): the same sections in a menu on the left;
+     search, Mi lista and the account stay at the top
      right. Line icons in the style of the rest of the app. */
   if (platformIsTv()) {
     var TV_RAIL_ICONS = {
@@ -63,8 +63,9 @@ var SETTINGS_ITEMS = [
   { id: 'profile', label: 'Mi cuenta' },
   { id: 'history', label: 'Mi lista' },
   { id: 'parent', label: 'Bloqueo' },
-  { id: 'playback', label: 'Configuración global' },
-  { id: 'sources', label: 'Fuentes' },
+  { id: 'playback', label: 'Ajustes' },
+  { id: 'sources', label: 'Addons' },
+  { id: 'downloads', label: 'Descargas' },
   { id: 'feedback', label: 'Ayuda y Feedback' },
   { id: 'about', label: 'Sobre nosotros' }
 ];
@@ -75,18 +76,25 @@ var SETTINGS_MENU_ICONS = {
   parent: '<svg viewBox="0 0 32 32"><rect x="7" y="14" width="18" height="14" rx="2"/><path d="M11 14V10a5 5 0 0 1 10 0v4"/><path d="M16 19v4"/></svg>',
   playback: '<svg viewBox="0 0 32 32"><rect x="4" y="6" width="24" height="20" rx="3"/><path d="M13 11l8 5-8 5z"/></svg>',
   sources: '<svg viewBox="0 0 32 32"><path d="M16 4l12 6-12 6L4 10l12-6z"/><path d="M4 16l12 6 12-6"/><path d="M4 22l12 6 12-6"/></svg>',
+  downloads: '<svg viewBox="0 0 32 32"><path d="M16 5v15"/><path d="M10 14l6 6 6-6"/><path d="M6 26h20"/></svg>',
   feedback: '<svg viewBox="0 0 32 32"><path d="M6 4h15l5 5v19H6z"/><path d="M20 4v6h6M10 16h12M10 21h8"/></svg>',
   about: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="M16 14v8M16 10h.1"/></svg>'
 };
 
 /* Desktop: short labels that fit the menu and line icons like the rest of the app. */
-if (window.XUPER_DESKTOP) {
-  var DESKTOP_SETTINGS_LABELS = { playback: 'Reproducción', sources: 'Fuentes', feedback: 'Ayuda', about: 'Acerca de' };
+if (window.OPENTV_DESKTOP) {
+  var DESKTOP_SETTINGS_LABELS = { playback: 'Ajustes', feedback: 'Ayuda', about: 'Acerca de' };
   /* The PIN lock was never available on Windows: no menu entry for it. */
   SETTINGS_ITEMS = SETTINGS_ITEMS.filter(function (it) { return it.id !== 'parent'; });
   SETTINGS_ITEMS.forEach(function (it) { if (DESKTOP_SETTINGS_LABELS[it.id]) { it.label = DESKTOP_SETTINGS_LABELS[it.id]; } });
   SETTINGS_MENU_ICONS = {
     profile: UI_ICONS.user, history: UI_ICONS.mylist, parent: UI_ICONS.lock,
-    playback: UI_ICONS.settings, sources: UI_ICONS.addons, feedback: UI_ICONS.help, about: UI_ICONS.info
+    playback: UI_ICONS.settings, sources: UI_ICONS.addons, feedback: UI_ICONS.help, about: UI_ICONS.info,
+    downloads: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg>'
   };
+}
+/* Descargas: only where the service can save files. Asked when Ajustes is
+   built (Android confirms it after start-up). */
+function settingsItemsForDevice() {
+  return SETTINGS_ITEMS.filter(function (it) { return it.id !== 'downloads' || platformHas('downloads'); });
 }

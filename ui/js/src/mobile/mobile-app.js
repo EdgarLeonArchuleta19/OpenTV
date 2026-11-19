@@ -41,7 +41,7 @@ function mImg(url, cssWidth) {
   if (!url) { return ''; }
   if (!nativeImageSizer || !/^https?:\/\//i.test(url)) { return url; }
   var px = Math.round(cssWidth * (window.devicePixelRatio || 1));
-  return 'https://opentv-img.local/i?w=' + px + '&u=' + encodeURIComponent(url);
+  return nativeImageSizer + '?w=' + px + '&u=' + encodeURIComponent(url);
 }
 
 function mPicture(url, cssWidth, cls) {
@@ -195,7 +195,8 @@ function renderMobileFeed() {
 
   var all = allVodFor(category) || [];
   if (!all.length) {
-    mob.main.appendChild(el('p', 'm-empty', VOD.length ? 'No hay títulos en esta sección todavía.' : 'Cargando el catálogo…'));
+    mob.main.appendChild(VOD.length ? el('p', 'm-empty', 'No hay títulos en esta sección todavía.')
+      : makeLoader('Cargando el catálogo…', 'is-page'));
     return;
   }
   /* Top of the section: this week's TMDB trends that the catalogue has, then
@@ -347,6 +348,7 @@ function mobileContinueRow(records) {
     a.appendChild(el('span', 'm-continue-sub', continueSubtitle(r)));
     a.addEventListener('click', function (event) {
       event.preventDefault();
+      if (mobileRecordBlocked(r)) { return; }
       mobileWillPlay();
       openHistoryRecord(r);
     });
@@ -437,9 +439,17 @@ function renderMobileDetail(item) {
   var resume = rec && (rec.position || 0) > 5 && !(rec.duration && rec.position / rec.duration > 0.95);
   var play = mButton('m-play', '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6a.8.8 0 0 0 1.2.7l11-6.8a.8.8 0 0 0 0-1.4l-11-6.8a.8.8 0 0 0-1.2.7z"/></svg>' +
     '<span>' + (resume ? 'Reanudar' : 'Reproducir') + '</span>', null, function () {
-    if (resume) { mobileWillPlay(); openHistoryRecord(rec); } else { mobilePlay(item, null); }
+    if (resume) {
+      if (mobileCannotPlay(item, null)) { return; }
+      mobileWillPlay();
+      openHistoryRecord(rec);
+    } else { mobilePlay(item, null); }
   });
   body.appendChild(play);
+  if (resume) {
+    body.appendChild(mButton('m-play is-secondary', mSvg('<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/>', 18) +
+      '<span>Ver desde el principio</span>', null, function () { mobileStartOver(item); }));
+  }
 
   /* Two icon-only toggles: Favorito and Mi lista (always resumes where it was left). */
   var actions = el('div', 'm-actions is-icons');
@@ -471,7 +481,7 @@ function renderMobileDetail(item) {
 
   if (isSeriesItem(item)) { page.appendChild(mobileEpisodes(item)); }
   var related = allVodFor(norm(item.category || '').split(',')[0] || 'destacado').filter(function (v) { return v.id !== item.id; }).slice(0, 18);
-  if (related.length) { page.appendChild(mobilePosterRow('Quizás te guste', related)); }
+  if (related.length) { page.appendChild(mobilePosterRow('Recomendaciones', related)); }
   mob.main.appendChild(page);
 }
 
@@ -563,7 +573,23 @@ function mobileWillPlay() {
   }, 120);
 }
 
+/* Nothing to play with (no addon gives sources, not downloaded): the
+   notice, without turning the phone sideways first. */
+function mobileCannotPlay(item, episode) {
+  if (!item || !item._stremio || item._plain || item._downloadId || hasSourceAddons()) { return false; }
+  if (typeof downloadedFileFor === 'function' && downloadedFileFor(item, episode || null)) { return false; }
+  showNoSourcesNotice();
+  return true;
+}
+
+/* The same for a "Seguir viendo" / history record. */
+function mobileRecordBlocked(r) {
+  if (!r || !/^stremio:/.test(String(r.id)) || hasSourceAddons()) { return false; }
+  return mobileCannotPlay(stremioItemFromHistory(r), null);
+}
+
 function mobilePlay(item, episode) {
+  if (mobileCannotPlay(item, episode)) { return; }
   mobileWillPlay();
   openDetail(item);
   loadVodDetail(item, function (loaded) {
@@ -572,13 +598,26 @@ function mobilePlay(item, episode) {
   });
 }
 
+/* "Ver desde el principio": the movie, or the episode the viewer was on
+   (the detail page selects it from the history), from second 0. */
+function mobileStartOver(item) {
+  if (mobileCannotPlay(item, null)) { return; }
+  mobileWillPlay();
+  openDetail(item);
+  loadVodDetail(item, function (loaded) {
+    if (!loaded || state.detail !== item) { return; }
+    startOverTitle(item, isSeriesItem(item) ? state.detailEpisode : null);
+  });
+}
+
 /* ---------------------------------------------------------- TV en vivo */
 var M_LIVE_BATCH = 80;
 function renderMobileLive() {
   mob.main.appendChild(mobileHeader('TV en vivo'));
   if (!CHANNELS.length) {
-    mob.main.appendChild(el('p', 'm-empty', liveChannelsLoaded ? 'No se encontraron canales.' : 'Cargando canales…'));
-    if (!liveChannelsLoaded && typeof loadLiveChannels === 'function') { loadLiveChannels(); }
+    mob.main.appendChild(liveChannelsPending() ? makeLoader('Cargando canales…', 'is-page')
+      : el('p', 'm-empty', liveEmptyMessage()));
+    if (!liveChannelsLoaded) { loadLiveChannels(); }
     return;
   }
   var cur = CHANNELS[state.channel] || CHANNELS[0];
@@ -641,18 +680,18 @@ function renderMobileSearch() {
     clear(results);
     if (q.length < 2) { return; }
     results.appendChild(el('p', 'm-empty', 'Buscando…'));
-    portalServiceCall('search', { value: q, pageNum: 1, pageSize: 30 }, function (error, payload) {
+    /* The loaded titles first, then what the addons that can search find. */
+    var nq = norm(q);
+    var local = VOD.filter(function (v) { return itemNorm(v, 'title').indexOf(nq) !== -1; });
+    /* As each addon answers, best match first. */
+    searchTitles(q, function (found, finished) {
       if (input.value.trim() !== q) { return; }
+      var items = rankSearchResults(q, local.concat(found));
+      if (!items.length && !finished) { return; }
       clear(results);
-      var items = [];
-      var list = (payload && payload.items) || [];
-      for (var i = 0; i < list.length; i++) {
-        var v = normalizeVod(list[i], i + 1);
-        v._portal = true;
-        items.push(vodById(v.id) || v);
-      }
-      if (error || !items.length) { results.appendChild(el('p', 'm-empty', 'Sin resultados para «' + q + '».')); return; }
+      if (!items.length) { results.appendChild(el('p', 'm-empty', 'Sin resultados para «' + q + '».')); return; }
       results.appendChild(mobileGrid('', items));
+      if (!finished) { results.appendChild(el('p', 'm-empty is-small', 'Buscando en más addons…')); }
     });
   }
   input.addEventListener('input', function () {
@@ -664,8 +703,9 @@ function renderMobileSearch() {
 
 /* ---------------------------------------------------------- account */
 /* Sub-screens of Mi cuenta and where Back goes from each. */
-var M_PARENT = { profiles: 'home', profileEdit: 'profiles', playback: 'home', history: 'home', mylist: 'home', about: 'home' };
+var M_PARENT = { profiles: 'home', profileEdit: 'profiles', playback: 'home', history: 'home', mylist: 'home', about: 'home', addons: 'home' };
 var M_SCREENS = {
+  addons: function () { renderMobileAddons(); },
   picker: function () { renderMobilePicker(); },
   profiles: function () { renderMobileProfiles(); },
   profileEdit: function () { renderMobileProfileEdit(); },
@@ -776,6 +816,8 @@ function renderMobileAccount() {
     if (Object.prototype.hasOwnProperty.call(state.mylist, key)) { titles++; }
   }
   var list = el('section', 'm-list');
+  list.appendChild(mobileListItem('<path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5 12 21l9-4.5"/>', 'Addons y listas',
+    'Catálogo, fuentes, subtítulos y TV en vivo', function () { mobileOpen('addons'); }));
   list.appendChild(mobileListItem('<path d="M6 3.5h12v17l-6-4-6 4z"/>', 'Mi lista', 'Historial, Mi lista y favoritos' + (titles ? ' · ' + titles + (titles === 1 ? ' guardado' : ' guardados') : ''), function () { mobileOpen('mylist'); }));
   list.appendChild(mobileListItem('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>', 'Historial', 'Sigue donde lo dejaste', function () { mobileOpen('history'); }));
   list.appendChild(mobileListItem('<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>', 'Reproducción y subtítulos', 'Formato, idioma y subtítulos', function () { mobileOpen('playback'); }));
@@ -789,6 +831,152 @@ function renderMobileAccount() {
   var more = el('section', 'm-list');
   more.appendChild(mobileListItem('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>', 'Acerca de OpenTV', 'Versión, privacidad y créditos', function () { mobileOpen('about'); }));
   mob.main.appendChild(more);
+}
+
+/* ---------------------------------------------------------- addons */
+/* Phone: the same as Ajustes → Addons on PC: the addons (catalog, sources,
+   subtitles) and the TV en vivo lists (M3U / IPTV), add and remove. */
+function renderMobileAddons() {
+  mob.main.appendChild(mobileSubHeader('Addons y listas'));
+
+  function addForm(placeholder, run) {
+    var form = el('form', 'm-add');
+    var input = document.createElement('input');
+    input.type = 'url';
+    input.className = 'm-search m-add-input';
+    input.placeholder = placeholder;
+    input.autocapitalize = 'off';
+    input.spellcheck = false;
+    var btn = el('button', 'm-add-btn', 'Agregar');
+    btn.type = 'submit';
+    var msg = el('p', 'm-add-msg', '');
+    form.appendChild(input);
+    form.appendChild(btn);
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var url = (input.value || '').trim();
+      if (!/^(https?|stremio):\/\//i.test(url)) { msg.textContent = 'Pega una dirección que empiece con https://'; msg.className = 'm-add-msg is-err'; return; }
+      btn.disabled = true;
+      btn.textContent = 'Agregando…';
+      run(url, function (err, text) {
+        btn.disabled = false;
+        btn.textContent = 'Agregar';
+        msg.textContent = err ? 'No se pudo agregar: ' + err : text;
+        msg.className = 'm-add-msg ' + (err ? 'is-err' : 'is-ok');
+        if (!err) { input.value = ''; setTimeout(function () { renderMobile(true); }, 900); }
+      });
+    });
+    var wrap = el('div', 'm-add-wrap');
+    wrap.appendChild(form);
+    wrap.appendChild(msg);
+    return wrap;
+  }
+
+  function row(title, sub, onRemove) {
+    var r = el('div', 'm-item m-addon');
+    var tx = el('span', 'm-item-text');
+    tx.appendChild(el('span', 'm-item-title', title));
+    if (sub) { tx.appendChild(el('span', 'm-item-sub', sub)); }
+    r.appendChild(tx);
+    /* (No onRemove: one of the app's own addons, which stays.) */
+    if (onRemove) {
+      r.appendChild(mButton('m-round m-remove', mSvg('<path d="M6 6l12 12M18 6 6 18"/>', 18), 'Quitar', onRemove));
+    } else {
+      r.appendChild(el('span', 'm-tag-fixed', 'Incluido'));
+    }
+    return r;
+  }
+
+  /* A recommended addon or list: name, what it gives and Agregar. */
+  function recRow(title, sub, on, run) {
+    var r = el('div', 'm-item m-addon');
+    var tx = el('span', 'm-item-text');
+    tx.appendChild(el('span', 'm-item-title', title));
+    tx.appendChild(el('span', 'm-item-sub', sub));
+    r.appendChild(tx);
+    if (on) { r.appendChild(el('span', 'm-tag-fixed', 'Agregado')); return r; }
+    var btn = el('button', 'm-add-btn m-rec-btn', 'Agregar');
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      btn.disabled = true;
+      btn.textContent = 'Agregando…';
+      run(function (err) {
+        if (err) { btn.disabled = false; btn.textContent = 'No cargó'; return; }
+        renderMobile(true);
+      });
+    });
+    r.appendChild(btn);
+    return r;
+  }
+
+  /* Películas y series */
+  var cfg = getVodSourcesConfig();
+  var vod = el('section', 'm-section');
+  vod.appendChild(el('h2', 'm-h2', 'Películas y series'));
+  var vodList = el('div', 'm-list');
+  cfg.addons.forEach(function (ad, idx) {
+    vodList.appendChild(row(ad.name || 'Addon', addonOffers(ad), isBuiltinVodAddon(ad) ? null : function () {
+      var c = getVodSourcesConfig();
+      c.addons.splice(idx, 1);
+      saveVodSourcesConfig(c);
+      syncExternalVodCatalogs(function () {});
+      renderMobile(true);
+    }));
+  });
+  vod.appendChild(vodList);
+  if (!hasSourceAddons()) { vod.appendChild(el('p', 'm-note', 'Sin addon de fuentes: puedes ver la información, pero no reproducir.')); }
+  vod.appendChild(addForm('https://…/manifest.json', function (url, done) {
+    installVodAddon({ url: url }, function (err, count, info) { done(err, '✔ ' + (info ? info.name : 'Addon') + (count ? ' · ' + count + ' títulos' : '')); });
+  }));
+  vod.appendChild(el('h3', 'm-h3', 'Recomendados'));
+  var vodRec = el('div', 'm-list');
+  RECOMMENDED_VOD_ADDONS.forEach(function (rec) {
+    vodRec.appendChild(recRow(rec.name, rec.desc, isVodAddonInstalled(rec.url), function (done) {
+      installVodAddon({ url: rec.url }, function (err) { done(err); });
+    }));
+  });
+  vod.appendChild(vodRec);
+  mob.main.appendChild(vod);
+
+  /* TV en vivo */
+  var live = el('section', 'm-section');
+  live.appendChild(el('h2', 'm-h2', 'TV en vivo'));
+  var liveList = el('div', 'm-list');
+  getSavedAddons().forEach(function (ad, idx) {
+    liveList.appendChild(row(ad.name || 'Lista M3U', ad.count ? ad.count + ' canales' : 'Lista M3U / IPTV', function () {
+      var current = getSavedAddons();
+      current.splice(idx, 1);
+      saveSavedAddons(current);
+      reloadLiveLists();
+      renderMobile(true);
+    }));
+  });
+  live.appendChild(liveList);
+  if (!getSavedAddons().length) { live.appendChild(el('p', 'm-note', 'Agrega una lista M3U o IPTV para ver canales en vivo.')); }
+  live.appendChild(addForm('https://…/lista.m3u', function (url, done) {
+    installAddon({ id: 'custom_' + Date.now(), name: 'Lista M3U', url: url }, function (err, count) {
+      if (!err) { reloadLiveLists(); }
+      done(err, '✔ ' + count + ' canales');
+    });
+  }));
+  /* Recomendadas: the free-channel lists at the top of PRESET_ADDONS (the
+     ones before the iptv-org block, which starts at España TDT). */
+  live.appendChild(el('h3', 'm-h3', 'Recomendadas'));
+  var liveRec = el('div', 'm-list');
+  var savedUrls = {};
+  getSavedAddons().forEach(function (ad) { savedUrls[ad.url] = true; });
+  for (var p = 0; p < PRESET_ADDONS.length && PRESET_ADDONS[p].id !== 'es_tdt'; p++) {
+    (function (preset) {
+      liveRec.appendChild(recRow(preset.name, preset.desc, !!savedUrls[preset.url], function (done) {
+        installAddon(preset, function (err) {
+          if (!err) { reloadLiveLists(); }
+          done(err);
+        });
+      }));
+    })(PRESET_ADDONS[p]);
+  }
+  live.appendChild(liveRec);
+  mob.main.appendChild(live);
 }
 
 /* ---------------------------------------------------------- profiles */
@@ -960,7 +1148,7 @@ function renderMobileHistory() {
     t.appendChild(el('span', 'm-ep-title', r.title || (item && item.title) || 'Contenido'));
     t.appendChild(el('span', 'm-ep-meta', continueSubtitle(r)));
     a.appendChild(t);
-    a.addEventListener('click', function (event) { event.preventDefault(); mobileWillPlay(); openHistoryRecord(r); });
+    a.addEventListener('click', function (event) { event.preventDefault(); if (mobileRecordBlocked(r)) { return; } mobileWillPlay(); openHistoryRecord(r); });
     sec.appendChild(a);
   });
   mob.main.appendChild(sec);
@@ -984,6 +1172,31 @@ function renderMobileAbout() {
   brand.appendChild(el('span', 'm-about-name', 'OpenTV'));
   brand.appendChild(el('span', 'm-item-sub', 'Versión ' + String(((document.querySelector('.welcome-version') || {}).textContent || '1.1.0')).replace(/^v/, '')));
   box.appendChild(brand);
+  /* Updates: look for a new APK, download it and open the installer. */
+  var upd = el('div', 'm-about-card');
+  upd.appendChild(el('span', 'm-item-title', 'Actualizaciones'));
+  var updText = el('span', 'm-item-sub', 'Busca la última versión de OpenTV.');
+  upd.appendChild(updText);
+  var updBtn = el('button', 'm-add-btn m-update-btn', 'Buscar actualizaciones');
+  updBtn.type = 'button';
+  function paintUpdate(text, button) {
+    updText.textContent = text;
+    updBtn.hidden = !button;
+    if (button) { updBtn.textContent = button; }
+  }
+  updBtn.addEventListener('click', function () {
+    if (updBtn.textContent === 'Instalar') { return installAndroidUpdate(paintUpdate); }
+    if (/Actualizar|Reintentar/.test(updBtn.textContent) && androidUpdate.info && androidUpdate.info.available) { return startAndroidUpdate(paintUpdate); }
+    paintUpdate('Buscando…', '');
+    portalServiceCall('appUpdate', { action: 'check' }, function (err, res) {
+      if (err || !res) { paintUpdate(err || 'No se pudo buscar actualizaciones.', 'Buscar actualizaciones'); return; }
+      androidUpdate.info = res;
+      if (!res.available) { paintUpdate('Tienes la última versión (' + (res.current || '') + ').', 'Buscar actualizaciones'); return; }
+      paintUpdate('Versión ' + res.latest + ' disponible' + (res.size ? ' · ' + formatBytes(res.size) : '') + '.', 'Actualizar');
+    }, 20000);
+  });
+  upd.appendChild(updBtn);
+  box.appendChild(upd);
   [
     ['Sin registro ni contraseña', 'Tu lista, el historial y tus preferencias se guardan solo en este celular; no se envían a ningún servidor.'],
     ['Tendencias', 'Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB.'],

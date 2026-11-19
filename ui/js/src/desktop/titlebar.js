@@ -13,7 +13,7 @@ function titleBarHeight() {
 }
 
 function installTitleBar() {
-  var info = window.XUPER_DESKTOP && window.desktop && window.desktop.titleBar;
+  var info = window.OPENTV_DESKTOP && window.desktop && window.desktop.titleBar;
   if (!info || titleBarEl) { return; }
   titleBarEl = el('div', 'app-titlebar');
   titleBarEl.id = 'app-titlebar';
@@ -26,6 +26,20 @@ function installTitleBar() {
   brand.appendChild(el('span', 'atb-name', 'OpenTV'));
   titleBarEl.appendChild(brand);
   titleBarEl.appendChild(el('div', 'atb-section', ''));
+  /* Downloads in progress: icon + percentage, opens Ajustes → Descargas
+     (player/downloads.js keeps it up to date; hidden when nothing runs). */
+  if (platformHas('downloads')) {
+    var dlBtn = el('button', 'atb-dl');
+    dlBtn.type = 'button';
+    dlBtn.id = 'atb-downloads';
+    dlBtn.hidden = true;
+    dlBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      openSettingsAt('downloads');
+    });
+    titleBarEl.appendChild(dlBtn);
+  }
   if (window.desktop && window.desktop.pin) {
     var pinBtn = el('button', 'atb-pin');
     pinBtn.type = 'button';

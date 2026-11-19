@@ -2,12 +2,9 @@
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 /* ------------------------------------------------------------------
-   Desktop: sound for the home TV preview, a control bar and country /
-   topic chips under the video (the TV app kept this preview muted).
+   Desktop: sound for the home TV preview, a control bar and category
+   chips under the video (the TV app kept this preview muted).
    ------------------------------------------------------------------ */
-var LIVE_COUNTRIES = ['Perú', 'México', 'Colombia', 'Venezuela', 'Ecuador', 'Chile', 'Bolivia',
-  'Uruguay', 'Paraguay', 'Argentina', 'Panamá', 'Puerto Rico', 'España', 'Costa Rica',
-  'Estados Unidos', 'Centroamérica', 'Honduras', 'El Salvador', 'República Dominicana', 'Guatemala', 'Nicaragua'];
 var liveDock = null, liveDockCats = null, liveMuteBtn = null, liveVolLabel = null, liveFavBtn = null;
 var liveAudio = { muted: false, volume: 0.8 };
 
@@ -28,7 +25,7 @@ var liveVolToast = null;
 var liveVolToastTimer = null;
 
 function loadLiveAudio() {
-  var saved = safeLocalRead('xuper_live_audio_v1', null);
+  var saved = safeLocalRead('opentv_live_audio_v1', null);
   if (saved) {
     liveAudio.muted = !!saved.muted;
     if (typeof saved.volume === 'number') { liveAudio.volume = Math.max(0, Math.min(1, saved.volume)); }
@@ -41,7 +38,7 @@ var systemVolumeOn = false;
 var systemVolumeTimer = null;
 var systemVolumePending = null;
 function systemVolumeApi() {
-  return window.XUPER_DESKTOP && window.desktop && window.desktop.systemVolume ? window.desktop.systemVolume : null;
+  return window.OPENTV_DESKTOP && window.desktop && window.desktop.systemVolume ? window.desktop.systemVolume : null;
 }
 function syncFromSystemVolume() {
   var api = systemVolumeApi();
@@ -112,9 +109,9 @@ function applyLiveAudio(save) {
   }
   if (save) {
     if (systemVolumeOn) { pushSystemVolume(); }
-    else { safeLocalWrite('xuper_live_audio_v1', liveAudio); }
+    else { safeLocalWrite('opentv_live_audio_v1', liveAudio); }
   }
-  if (window.XUPER_DESKTOP) { applyPlayerAudio(); }
+  if (window.OPENTV_DESKTOP) { applyPlayerAudio(); }
 }
 function changeLiveVolume(delta) {
   liveAudio.volume = Math.max(0, Math.min(1, Math.round((liveAudio.volume + delta) * 20) / 20));
@@ -126,7 +123,7 @@ function changeLiveVolume(delta) {
 /* Small "volume" pill over the preview while it changes. */
 function showLiveVolumeToast() {
   var host = state.screen === 'player' ? playerStage : liveMain;
-  if (!window.XUPER_DESKTOP || !host) { return; }
+  if (!window.OPENTV_DESKTOP || !host) { return; }
   if (!liveVolToast || liveVolToast.parentNode !== host) {
     if (liveVolToast && liveVolToast.parentNode) { liveVolToast.parentNode.removeChild(liveVolToast); }
     liveVolToast = el('div', 'live-vol-toast');
@@ -141,11 +138,12 @@ function showLiveVolumeToast() {
   liveVolToastTimer = setTimeout(function () { liveVolToast.classList.remove('is-visible'); }, 1100);
 }
 
-function liveFavKey(ch) { return 'live:' + (ch.channelCode || ch.id || ch.name); }
+/* A TV favourite is kept by the channel's link (stable when the lists change). */
+function liveFavKey(ch) { return 'live:' + (ch.streamUrl || ch.channelCode || ch.id || ch.name); }
 function syncLiveFavButton() {
   if (!liveFavBtn) { return; }
   var ch = CHANNELS[state.channel];
-  var on = !!(ch && state.favs[liveFavKey(ch)]);
+  var on = !!(ch && (ch.fav || state.favs[liveFavKey(ch)]));
   liveFavBtn.classList.toggle('is-selected', on);
   liveFavBtn.querySelector('span').textContent = on ? 'En favoritos' : 'Favorito';
   liveFavBtn.setAttribute('data-tip', on ? 'Quitar de favoritos' : 'Guardar canal en favoritos');
@@ -160,7 +158,7 @@ function dockButton(cls, icon, label, title, run) {
   if (title) { b.setAttribute('data-tip', title); b.setAttribute('aria-label', title); }
   b._activate = run;
   /* TVs: up goes back to the preview above; nothing below the bar. */
-  if (platformIsTv() && window.XUPER_DESKTOP) {
+  if (platformIsTv() && window.OPENTV_DESKTOP) {
     b._onMove = function (dir) {
       if (dir === 'up' && liveFocus) { setFocus(liveFocus); return true; }
       if (dir === 'down') { return true; }
@@ -177,7 +175,7 @@ function buildLiveDock(page) {
   /* Desktop: three groups — sound and tools, the channel buttons with
      pause in the middle, and favourites / guide / full screen. */
   var dockLeft = dockBar, dockCenter = dockBar, dockRight = dockBar;
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     dockLeft = el('div', 'ldb-group is-left');
     dockCenter = el('div', 'ldb-group is-center');
     dockRight = el('div', 'ldb-group is-right');
@@ -187,9 +185,9 @@ function buildLiveDock(page) {
   }
   var bar = dockCenter;
   bar.appendChild(dockButton('is-zap', LIVE_DOCK_ICONS.prev, 'Anterior', 'Canal anterior', function () { setChannel(state.channel - 1, true); }));
-  if (window.XUPER_DESKTOP) { bar.appendChild(makeLiveDockPlayButton()); }
+  if (window.OPENTV_DESKTOP) { bar.appendChild(makeLiveDockPlayButton()); }
   bar.appendChild(dockButton('is-zap', LIVE_DOCK_ICONS.next, 'Siguiente', 'Canal siguiente', function () { setChannel(state.channel + 1, true); }));
-  if (!window.XUPER_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); }
+  if (!window.OPENTV_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); }
   bar = dockLeft;
   liveMuteBtn = dockButton('is-icon is-mute', LIVE_DOCK_ICONS.sound, '', 'Silenciar', function () {
     if (liveAudio.volume === 0) { liveAudio.volume = 0.5; liveAudio.muted = false; }
@@ -221,7 +219,7 @@ function buildLiveDock(page) {
   liveVolLabel = el('span', 'live-dock-vol', '80%');
   volWrap.appendChild(liveVolLabel);
   bar.appendChild(volWrap);
-  if (window.XUPER_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); appendLiveDockTools(bar); }
+  if (window.OPENTV_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); appendLiveDockTools(bar); }
   else { bar.appendChild(el('i', 'live-dock-sep')); }
   bar = dockRight;
   liveFavBtn = dockButton('is-fav', LIVE_DOCK_ICONS.star, 'Favorito', 'Guardar canal en favoritos', function () {
@@ -231,7 +229,7 @@ function buildLiveDock(page) {
     if (liveGuideOpen) { renderLiveGuideGrid(); }
   });
   bar.appendChild(liveFavBtn);
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     bar.appendChild(dockButton('is-guide', LIVE_DOCK_ICONS.guide, 'Guía', 'Guía de canales (G)', openLiveGuide));
   }
   bar.appendChild(dockButton('is-full', LIVE_DOCK_ICONS.full, 'Pantalla completa', 'Ver en pantalla completa', function () { openPlayer('live'); }));
@@ -239,7 +237,7 @@ function buildLiveDock(page) {
 
   /* Desktop: the categories live in the Guía (ordered by country and
      topic); the chip row under the preview is only on the TV. */
-  if (!window.XUPER_DESKTOP) {
+  if (!window.OPENTV_DESKTOP) {
     liveDockCats = el('div', 'live-dock-cats scrollable');
     liveDockCats.setAttribute('data-wheel-x', '');
     liveDock.appendChild(liveDockCats);
@@ -261,19 +259,116 @@ function buildLiveDock(page) {
   if (!liveDock._systemSync) { liveDock._systemSync = true; startSystemVolumeSync(); }
 }
 
+/* PC and TV (design "3A"): the categories in one drop-down in the app's
+   style (lists bring 30 or more; chips covered the channels). A button
+   with the current one; it opens a panel with every category, a check on
+   the chosen one, scrolling when long. Mouse, keyboard and remote. */
+var liveCatMenu = null;
+
+function liveCatMenuOpen() { return !!(liveCatMenu && liveCatMenu.parentNode); }
+
+function closeLiveCatMenu(refocus) {
+  if (!liveCatMenuOpen()) { return; }
+  liveCatMenu.parentNode.removeChild(liveCatMenu);
+  liveCatMenu = null;
+  var btn = liveDockCats ? liveDockCats.querySelector('.live-cat-btn') : null;
+  if (btn) {
+    btn.classList.remove('is-open');
+    if (refocus) { setFocus(btn); }
+  }
+}
+
+function liveCatChoices() {
+  var out = [{ cat: LIVE_ALL_CATEGORY, text: 'Todas las categorías' }];
+  var saved = liveSaved();
+  if (saved.favs.length) { out.push({ cat: LIVE_SAVED_CATS.favs, text: 'Favoritos' }); }
+  if (saved.recent.length) { out.push({ cat: LIVE_SAVED_CATS.recent, text: 'Recientes' }); }
+  for (var i = 0; i < liveCategories.length; i++) {
+    if (liveCategories[i].id !== LIVE_ALL_CATEGORY.id) { out.push({ cat: liveCategories[i], text: liveCategories[i].name }); }
+  }
+  return out;
+}
+
+function sameLiveCategory(a, b) { return a === b || !!(a && b && a.id === b.id); }
+
+function openLiveCatMenu(btn) {
+  closeLiveCatMenu(false);
+  liveCatMenu = el('div', 'live-cat-menu scrollable');
+  liveCatMenu.setAttribute('role', 'listbox');
+  var current = null;
+  liveCatChoices().forEach(function (c) {
+    var on = sameLiveCategory(currentLiveCategory, c.cat);
+    var item = el('div', 'live-cat-item focusable' + (on ? ' is-selected' : ''));
+    item.setAttribute('role', 'option');
+    item.appendChild(el('span', 'live-cat-name', c.text));
+    var check = el('i', 'live-cat-check');
+    check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>';
+    item.appendChild(check);
+    item._activate = function () {
+      closeLiveCatMenu(false);
+      if (!on) { switchLiveCategory(c.cat); renderLiveDockCats(); }
+      var again = liveDockCats ? liveDockCats.querySelector('.live-cat-btn') : null;
+      if (again) { setFocus(again); }
+    };
+    /* The list stays the remote's whole world while it is open. */
+    item._onMove = function (dir) { return dir === 'left' || dir === 'right'; };
+    if (on) { current = item; }
+    liveCatMenu.appendChild(item);
+  });
+  btn.classList.add('is-open');
+  /* Last in the column, right under the button: over the channel list. */
+  var column = liveDockCats.parentNode || liveDockCats;
+  liveCatMenu.style.top = (liveDockCats.offsetTop + btn.offsetHeight + 8) + 'px';
+  column.appendChild(liveCatMenu);
+  var first = current || liveCatMenu.firstChild;
+  if (first) {
+    setFocus(first, true);
+    liveCatMenu.scrollTop = Math.max(0, first.offsetTop - 120);
+  }
+}
+
+function renderLiveCatSelect() {
+  closeLiveCatMenu(false);
+  clear(liveDockCats);
+  var label = 'Cargando categorías…';
+  if (liveCategoriesLoaded) {
+    var choices = liveCatChoices();
+    label = choices[0].text;
+    for (var i = 0; i < choices.length; i++) { if (sameLiveCategory(currentLiveCategory, choices[i].cat)) { label = choices[i].text; } }
+  }
+  var btn = el('div', 'live-cat-btn focusable');
+  btn.setAttribute('role', 'button');
+  btn.setAttribute('aria-haspopup', 'listbox');
+  btn.appendChild(el('span', 'live-cat-label', label));
+  var chev = el('i', 'live-cat-chev');
+  chev.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+  btn.appendChild(chev);
+  btn._activate = function () {
+    if (!liveCategoriesLoaded) { return; }
+    if (liveCatMenuOpen()) { closeLiveCatMenu(true); } else { openLiveCatMenu(btn); }
+  };
+  liveDockCats.appendChild(btn);
+}
+
+/* A click anywhere else closes it. */
+document.addEventListener('pointerdown', function (event) {
+  if (!liveCatMenuOpen()) { return; }
+  var t = event.target;
+  if (liveDockCats && t && (liveDockCats.contains(t) || liveCatMenu.contains(t))) { return; }
+  closeLiveCatMenu(false);
+}, true);
+
 function renderLiveDockCats() {
   if (!liveDockCats) { return; }
+  if (typeof liveSideLayout === 'function' && liveSideLayout()) { renderLiveCatSelect(); return; }
   clear(liveDockCats);
-  if (!liveCategories.length) {
-    liveDockCats.appendChild(el('span', 'live-dock-label', 'Cargando países y temas…'));
+  if (!liveCategoriesLoaded) {
+    liveDockCats.appendChild(el('span', 'live-dock-label', 'Cargando categorías…'));
     return;
   }
-  var countries = [], topics = [], all = null;
+  var topics = [];
   for (var i = 0; i < liveCategories.length; i++) {
-    var c = liveCategories[i];
-    if (c.name === 'Todos') { all = c; }
-    else if (LIVE_COUNTRIES.indexOf(c.name) !== -1) { countries.push(c); }
-    else { topics.push(c); }
+    if (liveCategories[i].id !== LIVE_ALL_CATEGORY.id) { topics.push(liveCategories[i]); }
   }
   function chip(cat, text) {
     var selected = currentLiveCategory === cat ||
@@ -285,18 +380,14 @@ function renderLiveDockCats() {
     };
     liveDockCats.appendChild(b);
   }
-  if (all) { chip(all, 'Todos'); }
-  if (window.XUPER_DESKTOP) {
+  chip(LIVE_ALL_CATEGORY, 'Todos');
+  if (window.OPENTV_DESKTOP) {
     var saved = liveSaved();
     if (saved.favs.length) { chip(LIVE_SAVED_CATS.favs, '★ Favoritos'); }
     if (saved.recent.length) { chip(LIVE_SAVED_CATS.recent, 'Recientes'); }
   }
-  if (countries.length) {
-    liveDockCats.appendChild(el('span', 'live-dock-label', 'Países'));
-    for (var k = 0; k < countries.length; k++) { chip(countries[k]); }
-  }
   if (topics.length) {
-    liveDockCats.appendChild(el('span', 'live-dock-label', 'Temas'));
-    for (var t = 0; t < topics.length; t++) { chip(topics[t], topics[t].isAddon ? 'Mis listas M3U' : null); }
+    liveDockCats.appendChild(el('span', 'live-dock-label', 'Categorías'));
+    for (var t = 0; t < topics.length; t++) { chip(topics[t]); }
   }
 }

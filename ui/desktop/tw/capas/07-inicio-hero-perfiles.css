@@ -239,11 +239,13 @@
           mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
 }
 .desktop .hero-info { overflow: visible; }
-.desktop .hero-title { -webkit-line-clamp: 3; padding-bottom: 4px; }
+.desktop .hero-title { -webkit-line-clamp: 5; padding-bottom: 4px; }
 .desktop .hero-title.is-long { font-size: 66px; line-height: 1.06; }
 .desktop .hero-title.is-xlong { font-size: 54px; line-height: 1.1; }
+.desktop .hero-title.is-xxlong { font-size: 46px; line-height: 1.12; }
 .desktop .hero-title.is-long ~ .hero-synopsis,
 .desktop .hero-title.is-xlong ~ .hero-synopsis { -webkit-line-clamp: 2; }
+.desktop .hero-title.is-xxlong ~ .hero-synopsis { -webkit-line-clamp: 1; }
 
 /* Reproductor: controles en el centro, título junto a Volver arriba. */
 .desktop .vod-topbar { gap: 22px; }
@@ -306,7 +308,10 @@
   display: flex; align-items: center; justify-content: center;
   font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #fff;
 }
-body.has-titlebar .profile-picker, body.has-titlebar .profile-restore { top: 36px; }
+/* Under the window's title bar, except in full screen (the bar is hidden
+   there and the top 36 px were left uncovered). */
+body.has-titlebar:not(.is-window-fullscreen) .profile-picker,
+body.has-titlebar:not(.is-window-fullscreen) .profile-restore { top: 36px; }
 .profile-picker { background: radial-gradient(70% 70% at 50% 40%, #1a1a20 0%, #0e0e11 70%); opacity: 0; pointer-events: none; transition: opacity .3s ease; }
 .profile-picker.is-open { opacity: 1; pointer-events: auto; }
 .profile-picker .pp-box { display: flex; flex-direction: column; align-items: center; gap: 40px; padding: 20px; }
@@ -362,7 +367,7 @@ body.has-titlebar .profile-picker, body.has-titlebar .profile-restore { top: 36p
 }
 .pe2-name:focus { border-color: #fff; }
 .pe2-label { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 255, 255, .5); margin-bottom: 10px; }
-.pe2-avatars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 18px; }
+.pe2-avatars { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; margin-bottom: 18px; }
 .pe2-av { padding: 0; border: 0; border-radius: 12px; overflow: hidden; aspect-ratio: 1; background: none; cursor: pointer; opacity: .75; transition: transform .2s cubic-bezier(.16, 1, .3, 1), opacity .15s ease, box-shadow .15s ease; }
 .pe2-av svg { width: 100%; height: 100%; display: block; }
 .pe2-av:hover { opacity: 1; transform: scale(1.05); }

@@ -1,34 +1,19 @@
 (function () {
   'use strict';
-  window.XUPER_DESKTOP = true;
-  // A stable xuper://app origin keeps favourites and progress across launches.
+  window.OPENTV_DESKTOP = true;
+  // A stable opentv://app origin keeps favourites and progress across launches.
   // The preload exposes only registered service calls, not Node or filesystem APIs.
   if (window.desktop) {
-    window.PalmServiceBridge = function () { this.cancelled = false; };
-    window.PalmServiceBridge.prototype.call = function (uri, body) {
-      var self = this;
-      var method = uri.replace(/\/$/, '').split('/').pop();
-      var payload;
-      try { payload = JSON.parse(body || '{}'); } catch (_) { payload = {}; }
-      window.desktop.service(method, payload).then(function (result) {
-        if (!self.cancelled && self.onservicecallback) self.onservicecallback(JSON.stringify(result));
-      }).catch(function () {
-        if (!self.cancelled && self.onservicecallback) self.onservicecallback(JSON.stringify({
-          returnValue: false, errorText: 'No se pudo contactar con el servicio local de Windows'
-        }));
-      });
-    };
-    window.PalmServiceBridge.prototype.cancel = function () { this.cancelled = true; };
     window.desktop.onAction(function (action) {
-      if (!window.__xuper) return;
-      if (action === 'back') window.__xuper.key(27);
-      else window.__xuper.show(action);
+      if (!window.__opentv) return;
+      if (action === 'back') window.__opentv.key(27);
+      else window.__opentv.show(action);
     });
   }
   // Default to Directo (normal), preserving a later user choice.
   try {
-    if (!localStorage.getItem('xuper_global_playback_v1')) {
-      localStorage.setItem('xuper_global_playback_v1', JSON.stringify({ streamMode: 'normal', screen: 1,
+    if (!localStorage.getItem('opentv_global_playback_v1')) {
+      localStorage.setItem('opentv_global_playback_v1', JSON.stringify({ streamMode: 'normal', screen: 1,
         audio: 0, subLang: 0, size: 0, style: 0, subtitle: true }));
     }
   } catch (_) { /* storage may be disabled by the host */ }
@@ -45,9 +30,9 @@
     playback.hidden = true;
     document.body.appendChild(playback);
     var guard = null;
-    document.addEventListener('xuper:player-status', function (event) {
+    document.addEventListener('opentv:player-status', function (event) {
       var info = event.detail || {};
-      var app = window.__xuper;
+      var app = window.__opentv;
       var visible = info.mode === 'vod' && info.text && (!app || app.state.screen === 'detail' || app.state.screen === 'player');
       playback.hidden = !visible;
       playback.textContent = visible ? info.text : '';
@@ -58,7 +43,7 @@
           playback.hidden = false;
           playback.classList.add('is-error');
           playback.textContent = 'El vídeo no terminó de cargar. Inténtalo otra vez o prueba otra fuente.';
-          document.dispatchEvent(new CustomEvent('xuper:playback-timeout'));
+          document.dispatchEvent(new CustomEvent('opentv:playback-timeout'));
         }, 30000);
       }
     });
@@ -68,26 +53,14 @@
         playback.hidden = true;
       }
     }, true);
-    /* "Catálogo actualizado" is news for a few seconds, not a fixture over
-       the posters; problems stay visible. */
-    var seenSync = null, syncShownAt = 0;
+    /* Only a problem is shown, on the home: the addons gave no titles. */
     setInterval(function () {
-      var app = window.__xuper;
+      var app = window.__opentv;
       if (!app) return;
       if (app.state.screen !== 'player' && app.state.screen !== 'detail') playback.hidden = true;
-      badge.hidden = app.state.screen !== 'home';
-      var sync = app.portal && app.portal.lastSync;
-      if (sync && sync !== seenSync) { seenSync = sync; syncShownAt = Date.now(); }
-      if (sync && !(app.portal && app.portal.error) && Date.now() - syncShownAt > 5000) badge.hidden = true;
-      /* Stremio mode: the 'Stremio' mark by the logo says it; here only a problem. */
-      if (app.stremioOn && app.stremioOn()) {
-        var failed = app.vod && !app.vod.length && app.api && app.api.error;
-        badge.hidden = badge.hidden || !failed;
-        badge.textContent = failed ? 'Tus addons no respondieron (Ajustes → Fuentes)' : '';
-      }
-      else if (app.portal && app.portal.error) badge.textContent = 'Catálogo guardado · no se pudo actualizar desde el servicio';
-      else if (app.portal && app.portal.lastSync) badge.textContent = 'OpenTV · catálogo actualizado';
-      else badge.textContent = 'Catálogo guardado · conexión pendiente';
+      var failed = app.state.screen === 'home' && app.vod && !app.vod.length && app.api && !app.api.loading && app.api.error;
+      badge.hidden = !failed;
+      badge.textContent = failed ? app.api.error + ' · Ajustes → Addons' : '';
     }, 1200);
   });
 })();

@@ -13,11 +13,17 @@ var posterMemoryTimer = null;
    native TV apps. The WebView then never decodes a full-size cover for a
    small tile (the main cause of stutter on the Fire TV). `w` is the width in
    page pixels. */
-var nativeImageSizer = /OpenTVImg\/\d/.test(navigator.userAgent || '');
+/* PC (Electron) does the same in its main process (platforms/electron/
+   sized-images.cjs, opentv-img://): episode pictures came from 825 px to
+   4K and the big ones, shrunk by the page, looked rough next to the rest. */
+var nativeImageSizer = /OpenTVImg\/\d/.test(navigator.userAgent || '') ? 'https://opentv-img.local/i'
+  : (window.desktop && typeof window.desktop.imageSizer === 'string' ? window.desktop.imageSizer : '');
 function sizedImageUrl(url, w) {
   if (!nativeImageSizer || !url || !w || !/^https?:\/\//i.test(url)) { return url; }
   var px = Math.round(w * (window.innerWidth || 1920) / 1920 * (window.devicePixelRatio || 1));
-  return 'https://opentv-img.local/i?w=' + px + '&u=' + encodeURIComponent(url);
+  /* (A few sizes only, so a resized window does not fill the cache.) */
+  px = Math.min(3840, Math.ceil(px / 40) * 40);
+  return nativeImageSizer + '?w=' + px + '&u=' + encodeURIComponent(url);
 }
 function tileImageUrl(img) {
   var src = img.getAttribute('data-poster-src');
@@ -29,7 +35,7 @@ function schedulePosterMemoryPass() {
   /* Desktop: throttle instead of debounce, so posters keep appearing while
      a list is still gliding under the mouse wheel. */
   if (posterMemoryTimer) {
-    if (window.XUPER_DESKTOP) { return; }
+    if (window.OPENTV_DESKTOP) { return; }
     clearTimeout(posterMemoryTimer);
   }
   posterMemoryTimer = setTimeout(function () {
@@ -58,37 +64,27 @@ function posterBelongsToVisiblePage(img) {
 function refreshPosterMemory() {
   /* Desktop never unloads a poster, so only the ones still waiting need a
      look (a long session has hundreds already on screen). */
-  var sel = window.XUPER_DESKTOP ? 'img[data-poster-src]:not([src])' : 'img[data-poster-src]';
+  var sel = window.OPENTV_DESKTOP ? 'img[data-poster-src]:not([src])' : 'img[data-poster-src]';
   /* TVs: only the posters of the page on screen, and rows far from the
      scroll position are skipped by their written position (measuring
      hundreds of catalogue posters after every key press cost ~18 ms). */
   var tvPage = null;
-  if (platformIsTv() && window.XUPER_DESKTOP && state.screen === 'home') {
+  if (platformIsTv() && window.OPENTV_DESKTOP && state.screen === 'home') {
     tvPage = document.querySelector('.home-page.is-current');
   }
-  var imgs;
   if (tvPage) {
-    /* Only the rows (and catalogue lines) near the scroll position. */
-    imgs = [];
-    var top0 = tvPage.scrollTop;
-    var lines = tvPage.children;
-    for (var l = 0; l < lines.length; l++) {
-      var lineTop = parseFloat(lines[l].style.top);
-      if (!isNaN(lineTop) && (lineTop < top0 - 900 || lineTop > top0 + 1800)) { continue; }
-      var found = lines[l].querySelectorAll(sel);
-      for (var k = 0; k < found.length; k++) { imgs.push(found[k]); }
-    }
-  } else {
-    imgs = document.querySelectorAll(sel);
+    refreshTvPagePosters(tvPage, sel);
+    return;
   }
+  var imgs = document.querySelectorAll(sel);
   var viewW = window.innerWidth || 1920;
   var viewH = window.innerHeight || 1080;
   for (var i = 0; i < imgs.length; i++) {
     var img = imgs[i];
     var tile = closest(img, '.poster, .bento, .continue-card');
     var r = tile && tile.getBoundingClientRect ? tile.getBoundingClientRect() : null;
-    var marginY = window.XUPER_DESKTOP ? viewH : 420;
-    var marginX = window.XUPER_DESKTOP ? viewW / 2 : 320;
+    var marginY = window.OPENTV_DESKTOP ? viewH : 420;
+    var marginX = window.OPENTV_DESKTOP ? viewW / 2 : 320;
     var near = posterBelongsToVisiblePage(img) && r &&
       r.bottom > -marginY && r.top < viewH + marginY && r.right > -marginX && r.left < viewW + marginX;
     if (near) {
@@ -96,13 +92,58 @@ function refreshPosterMemory() {
         img.style.display = '';
         img.src = tileImageUrl(img);
       }
-    } else if (img.getAttribute('src') && !window.XUPER_DESKTOP) {
+    } else if (img.getAttribute('src') && !window.OPENTV_DESKTOP) {
       /* (TV only: a PC has memory to spare, and reloading on the way back
          left posters blank while they downloaded again.) */
       /* Removing the source gives Starfish a chance to release the decoded
          texture instead of keeping whole catalog pages resident in RAM. */
       img.removeAttribute('src');
       try { img.src = ''; } catch (eRelease) { /* ignore */ }
+    }
+  }
+}
+
+/* TVs, home page on screen: which posters get their image comes from the
+   positions written on the rows and cells (top/left, the row's slide in
+   strip._tvX) and one read of the page's scroll. Measuring every tile with
+   getBoundingClientRect cost ~40 ms after each key press on a Fire TV.
+   Same margins as the measured version (half a screen sideways, a whole
+   screen up/down), so posters are usually ready before the focus gets
+   there. Loaded posters are kept, as before. All in canvas pixels. */
+var TV_POSTER_LOAD_X = 960, TV_POSTER_LOAD_Y = 1080;
+function refreshTvPagePosters(page, sel) {
+  var top0 = page.scrollTop;
+  var viewH = page._tvClientH || page.clientHeight || 1080;
+  var lines = page.children;
+  for (var l = 0; l < lines.length; l++) {
+    var line = lines[l];
+    var lineTop = parseFloat(line.style.top);
+    var lineH = parseFloat(line.style.height) || 0;
+    if (isNaN(lineTop)) { continue; }
+    /* Distance from the line to the visible band (0 when on screen). */
+    var gapY = lineTop + lineH < top0 ? top0 - (lineTop + lineH)
+      : (lineTop > top0 + viewH ? lineTop - (top0 + viewH) : 0);
+    if (gapY > TV_POSTER_LOAD_Y) { continue; }
+    var strip = line.querySelector('.d-row-strip');
+    var stripX = strip ? (strip._tvX || 0) : 0;
+    var stripW = strip ? (strip._tvClientW || parseFloat(strip.style.width) || 1920) : 1920;
+    var imgs = line.querySelectorAll(sel);
+    for (var i = 0; i < imgs.length; i++) {
+      var img = imgs[i];
+      var gapX = 0;
+      if (strip) {
+        var cell = childOf(img, strip);
+        var cellLeft = cell ? parseFloat(cell.style.left) : NaN;
+        var cellW = cell ? (parseFloat(cell.style.width) || 0) : 0;
+        if (!isNaN(cellLeft)) {
+          var x = cellLeft - stripX;
+          gapX = x + cellW < 0 ? -(x + cellW) : (x > stripW ? x - stripW : 0);
+        }
+      }
+      if (gapX <= TV_POSTER_LOAD_X && !img.getAttribute('src')) {
+        img.style.display = '';
+        img.src = tileImageUrl(img);
+      }
     }
   }
 }
@@ -128,7 +169,7 @@ function loadBrokenCovers() {
   return brokenCovers;
 }
 function markCoverBroken(item) {
-  if (!window.XUPER_DESKTOP || !item || item.id === undefined) { return; }
+  if (!window.OPENTV_DESKTOP || !item || item.id === undefined) { return; }
   var all = loadBrokenCovers();
   if (all[item.id]) { return; }
   all[item.id] = Date.now();
@@ -141,14 +182,14 @@ function hasUsableCover(item) {
 }
 /* Home lists on desktop skip titles without a working cover. */
 function withCovers(list) {
-  if (!window.XUPER_DESKTOP || !list) { return list; }
+  if (!window.OPENTV_DESKTOP || !list) { return list; }
   var out = [];
   for (var i = 0; i < list.length; i++) { if (hasUsableCover(list[i])) { out.push(list[i]); } }
   return out.length ? out : list;
 }
 /* OpenTV generic cover: dark card, logo and the title. */
 function applyGenericCover(tile, item) {
-  if (!window.XUPER_DESKTOP || !tile || tile._generic) { return; }
+  if (!window.OPENTV_DESKTOP || !tile || tile._generic) { return; }
   tile._generic = true;
   var imgs = tile.querySelectorAll('img');
   for (var i = 0; i < imgs.length; i++) { imgs[i].style.display = 'none'; }
@@ -171,18 +212,20 @@ function posterImageLoaded() {
 function posterImageError() {
   var img = this;
   var tries = img._posterRetries || 0;
-  if (window.XUPER_DESKTOP && tries < 2) {
+  if (window.OPENTV_DESKTOP && tries < 2) {
     img._posterRetries = tries + 1;
     setTimeout(function () {
       var src = img.getAttribute('data-poster-src');
       if (!src || !img.isConnected) { return; }
       img.removeAttribute('src');
-      img.src = tileImageUrl(img);
+      /* First retry with the picture itself: a failure of the resizer must
+         not mark a good cover as broken. */
+      img.src = tries === 0 && nativeImageSizer ? src : tileImageUrl(img);
     }, 1500 * (tries + 1));
     return;
   }
   var tile = img.parentNode;
-  if (window.XUPER_DESKTOP && tile && tile.classList) {
+  if (window.OPENTV_DESKTOP && tile && tile.classList) {
     markCoverBroken(tile._item);
     applyGenericCover(tile, tile._item);
     return;
@@ -212,8 +255,8 @@ function makePoster(item, x, y, w, h, opts) {
     p.appendChild(el('div', 'p-title', item.title));
   }
   p._item = item;
-  if (window.XUPER_DESKTOP && !item.poster) { applyGenericCover(p, item); }
-  if (window.XUPER_DESKTOP && item.title) { p.appendChild(el('div', 'p-hover', item.title)); }
+  if (window.OPENTV_DESKTOP && !item.poster) { applyGenericCover(p, item); }
+  if (window.OPENTV_DESKTOP && item.title) { p.appendChild(el('div', 'p-hover', item.title)); }
   p._activate = function () { openDetail(item); };
   schedulePosterMemoryPass();
   return p;

@@ -100,9 +100,9 @@ function languageMatchesPreference(label, code) {
 function rememberWatchProgress(current, duration, force) {
   var item = state.playerItem;
   if (!item || !item.id || current < 3) { return; }
-  if (window.XUPER_DESKTOP && resumePending(item)) { return; }
+  if (window.OPENTV_DESKTOP && resumePending(item)) { return; }
   var episode = state.playerEpisode;
-  if (window.XUPER_DESKTOP && !resumeRestarted) {
+  if (window.OPENTV_DESKTOP && !resumeRestarted) {
     var existing = historyRecordFor(item);
     if (existing && (existing.position || 0) >= RESUME_MIN_S && current < RESUME_MIN_S) {
       var sameTarget = !isSeriesItem(item) ||
@@ -167,12 +167,13 @@ function rememberWatchProgress(current, duration, force) {
     var mainPlayBtn = detailButtons.querySelector('.detail-btn[data-kind="fullscreen"] span');
     var nextLabel = resumeLabelFor(item);
     if (mainPlayBtn && nextLabel) { mainPlayBtn.textContent = nextLabel; }
+    syncStartOverButton(item);
   }
 }
 
 var pendingHistoryRecord = null;
 function applyPendingHistoryEpisode(item) {
-  var record = pendingHistoryRecord || (window.XUPER_DESKTOP ? historyRecordFor(item) : null);
+  var record = pendingHistoryRecord || (window.OPENTV_DESKTOP ? historyRecordFor(item) : null);
   if (!record || !item || !record.episodeId || !item.episodes || !item.episodes.length) { return; }
   var matchedRecord = historyRecordFor(item);
   if (String(record.id) !== String(item.id) && matchedRecord !== record) { return; }
@@ -193,7 +194,7 @@ function applyPendingHistoryEpisode(item) {
       String(ep.number || ep.seriesNumber || (i + 1)) === String(record.episodeNumber);
     if (idMatch || numMatch) {
       /* Desktop: a finished episode moves on to the next one. */
-      var pickIndex = (window.XUPER_DESKTOP && recordFinished(record) && item.episodes[i + 1]) ? (i + 1) : i;
+      var pickIndex = (window.OPENTV_DESKTOP && recordFinished(record) && item.episodes[i + 1]) ? (i + 1) : i;
       var pick = item.episodes[pickIndex];
       state.detailEpisode = pick;
       state.playerEpisode = pick;
@@ -249,6 +250,10 @@ function openHistoryRecord(record) {
   openDetail(recovered);
 }
 var activeSubtitleCues = [];
+/* Android: a text track inside the file shown by ExoPlayer (-1 = none) and
+   the line it is showing now (player/stremio-sources.js). */
+var nativeSubIndex = -1;
+var nativeCueText = '';
 /* mediaInfo payloads keyed by episode/movie content id. */
 var mediaInfoCache = {};
 var mediaInfoPending = {};
@@ -256,10 +261,13 @@ var dialogReturnFocus = null;
 
 function parseTimestamp(s) {
   if (!s) return 0;
-  var p = s.replace(',', '.').split(':');
+  /* "00:01:02,500" (SRT), "00:01:02.500" or "01:02.500" (WebVTT), and
+     "00:01:02.500 position:10%" (VTT cue settings after the time). */
+  var p = String(s).trim().split(/\s+/)[0].replace(',', '.').split(':');
   if (p.length === 3) {
     return (parseFloat(p[0]) * 3600) + (parseFloat(p[1]) * 60) + parseFloat(p[2]);
   }
+  if (p.length === 2) { return (parseFloat(p[0]) * 60) + parseFloat(p[1]); }
   return 0;
 }
 
@@ -273,7 +281,8 @@ function escapeSubtitleText(text) {
 function parseSRT(data) {
   var cues = [];
   if (!data) return cues;
-  var blocks = data.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n\n');
+  /* Blank lines with spaces also separate cues (common in downloaded SRTs). */
+  var blocks = data.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split(/\n[ \t]*\n/);
   for (var i = 0; i < blocks.length; i++) {
     var lines = blocks[i].trim().split('\n');
     if (lines.length >= 2) {
@@ -321,25 +330,59 @@ function syncNativeSubtitleTrack() {
   } catch (eTrack) { /* ignore */ }
 }
 
-function loadSubtitleTrack(sub) {
-  subtitleSeq++;
+function loadSubtitleTrack(sub, attempt) {
+  /* The same track of the file already on: nothing to restart. */
+  if (sub && embeddedSubtitleOn(sub)) { return; }
+  /* Android: a text track of the file, shown through ExoPlayer. */
+  var nat = sub && /^native:(\d+)$/.exec(sub.url || '');
+  if (nat) {
+    stopEmbeddedSubtitle();
+    activeSubtitleCues = [];
+    nativeSubIndex = Number(nat[1]);
+    nativeCueText = '';
+    if (window.__opentvNative && window.__opentvNative.selectText) { window.__opentvNative.selectText(nativeSubIndex); }
+    return;
+  }
+  if (nativeSubIndex >= 0) {
+    nativeSubIndex = -1;
+    nativeCueText = '';
+    if (window.__opentvNative && window.__opentvNative.selectText) { window.__opentvNative.selectText(-1); }
+  }
+  if (!attempt) { subtitleSeq++; }
   var mySeq = subtitleSeq;
+  /* A subtitle track inside the file (player/stremio-sources.js). */
+  if (sub && /^embedded:/.test(sub.url || '')) { startEmbeddedSubtitle(sub, mySeq); return; }
+  stopEmbeddedSubtitle();
+  /* A file the viewer imported: already in memory. */
+  if (sub && sub.cues) {
+    activeSubtitleCues = sub.cues;
+    syncNativeSubtitleTrack();
+    return;
+  }
   if (!sub || !sub.url) {
     activeSubtitleCues = [];
     if (playerSubtitles) playerSubtitles.innerHTML = '';
     syncNativeSubtitleTrack();
     return;
   }
+  /* A subtitle server that fails once (timeout, busy) is asked twice more. */
+  function retry() {
+    if (mySeq !== subtitleSeq || (attempt || 0) >= 2) { return; }
+    setTimeout(function () { if (mySeq === subtitleSeq) { loadSubtitleTrack(sub, (attempt || 0) + 1); } }, 1500);
+  }
   try {
     var xhr = new XMLHttpRequest();
     xhr.open('GET', sub.url, true);
+    xhr.timeout = 25000;
     xhr.onload = function () {
       if (mySeq !== subtitleSeq) { return; }
-      if (xhr.status >= 200 && xhr.status < 300) {
-        activeSubtitleCues = parseSRT(xhr.responseText);
-        syncNativeSubtitleTrack();
-      }
+      var cues = (xhr.status >= 200 && xhr.status < 300) ? parseSRT(xhr.responseText) : [];
+      if (!cues.length) { return retry(); }
+      activeSubtitleCues = cues;
+      syncNativeSubtitleTrack();
     };
+    xhr.onerror = retry;
+    xhr.ontimeout = retry;
     xhr.send();
   } catch (eSub) { /* ignore */ }
 }
@@ -358,6 +401,13 @@ function updateSubtitleDisplay(currentSec) {
     var inPip = typeof document.pictureInPictureElement !== 'undefined' && document.pictureInPictureElement === playerVideo;
     var targetMode = (!vodSubActive || !activeSubtitleCues || !activeSubtitleCues.length) ? 'disabled' : (inPip ? 'showing' : 'hidden');
     if (nativeSubTrack.mode !== targetMode) { nativeSubTrack.mode = targetMode; }
+  }
+  /* Android: the line ExoPlayer is showing from the file's own track. */
+  if (nativeSubIndex >= 0) {
+    var line = vodSubActive && nativeCueText ? '<span class="player-subtitles-text">' +
+      escapeSubtitleText(nativeCueText).replace(/\n/g, '<br>') + '</span>' : '';
+    if (playerSubtitles.innerHTML !== line) { playerSubtitles.innerHTML = line; }
+    return;
   }
   if (!vodSubActive || !activeSubtitleCues || !activeSubtitleCues.length) {
     if (playerSubtitles.innerHTML !== '') playerSubtitles.innerHTML = '';

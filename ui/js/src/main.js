@@ -1,22 +1,46 @@
-/* main.js — Arranque: eventos globales, API de depuración window.__xuper y enlaces profundos.
+/* main.js — Arranque: eventos globales, API de depuración window.__opentv y enlaces profundos.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 /* ------------------------------------------------------------------ boot */
 function boot() {
-  if (window.XUPER_DESKTOP) { installTitleBar(); showBootSplash(); }
+  if (window.OPENTV_DESKTOP) { installTitleBar(); showBootSplash(); }
   fitDesignViewport();
   window.addEventListener('resize', fitDesignViewport, false);
   window.addEventListener('orientationchange', fitDesignViewport, false);
   document.addEventListener('visibilitychange', fitDesignViewport, false);
-  /* Some webOS builds only report the final window size after the splash
-     animation, and 720p / 2K sets take longer than 1080p ones. */
+  /* Some TVs only report the final window size after the splash animation. */
   setTimeout(fitDesignViewport, 250);
   setTimeout(fitDesignViewport, 1200);
   setTimeout(fitDesignViewport, 3000);
   document.addEventListener('keydown', handleKey, false);
+  /* PC: the downloads list, so "Reproducir" finds a downloaded title at once. */
+  if (platformHas('downloads')) { refreshDownloads(); }
+  /* Android: what this device can do, from the service: torrents (Android
+     9+ on ARM), downloads, its decoders and screen, and free space. */
+  if (platformName() === 'android' && window.OPENTV_PLATFORM && window.OPENTV_PLATFORM.enable) {
+    portalServiceCall('ping', {}, function (err, info) {
+      if (err || !info) { return; }
+      if (info.torrents === true) { window.OPENTV_PLATFORM.enable('torrents'); }
+      if (info.downloads === true) { window.OPENTV_PLATFORM.enable('downloads'); refreshDownloads(); }
+      setDeviceProfile(info.media, info.storage);
+    });
+    /* A new APK on GitHub: a short notice (Acerca de has the button too). */
+    setTimeout(checkAndroidUpdateOnStart, 8000);
+    /* The "Descargando" notification was tapped: show the downloads. On a
+       cold start the app may say so before this listener exists, so the
+       flag it leaves is checked too. */
+    var openDownloadsFromNotice = function () {
+      window.__opentvOpenDownloads = false;
+      if (isPhone()) { return; }
+      finishWelcome();
+      openSettingsAt('downloads');
+    };
+    window.addEventListener('opentv:open-downloads', openDownloadsFromNotice);
+    if (window.__opentvOpenDownloads) { setTimeout(openDownloadsFromNotice, 1500); }
+  }
   document.addEventListener('keyup', function (e) {
     var code = e.keyCode || e.which;
-    if (code === 461 || e.key === 'Back' || e.key === 'GoBack') {
+    if (e.key === 'Back' || e.key === 'GoBack') {
       handleKey(e);
     }
   }, false);
@@ -30,7 +54,7 @@ function boot() {
     setFocus(f, true);
     if (f._activate) { f._activate(); }
   });
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     document.addEventListener('scroll', schedulePosterMemoryPass, { capture: true, passive: true });
     /* A page slides in when its tab opens: posters that were still off
        screen at that moment are loaded once the slide ends. */
@@ -39,29 +63,27 @@ function boot() {
     }, true);
     window.addEventListener('resize', schedulePosterMemoryPass);
   }
-  if (window.XUPER_DESKTOP) document.addEventListener('focusin', function (e) {
+  if (window.OPENTV_DESKTOP) document.addEventListener('focusin', function (e) {
     var f = closest(e.target, '.focusable');
     if (f && isVisible(f)) setFocus(f, true);
   });
   forgetPrivateContent();
   applyLiteMode();
   buildSearch();
-  startServiceKeepAlive();
-  portalServiceCall('prewarm', {}, function () {});
   startWelcome();
-  paintStremioModeMark();
+  /* Movies and series: the viewer's addons. */
   loadVodCatalog();
+  /* TV en vivo: the viewer's own M3U lists. */
   loadLiveChannels();
 
-  window.__xuper = {
-    version: '4.34.4',
+  window.__opentv = {
     state: state,
     vod: VOD,
     channels: CHANNELS,
+    /* TV en vivo (tests): reload the M3U lists or show a given channel list. */
+    live: { reload: reloadLiveLists, use: useLiveChannels, categories: function () { return liveCategories; } },
     api: vodApiState,
-    portal: portalState,
     service: portalServiceCall,
-    refreshPortal: refreshPortalCatalog,
     reloadVod: loadVodCatalog,
     skipWelcome: finishWelcome,
     show: function (name) {
@@ -89,17 +111,28 @@ function boot() {
     settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); },
     settingsIndexOf: settingsIndexOf,
     openItem: function (item) { openDetail(item); },
+    /* The catalogue as it is now (`vod` above is the one at start). */
+    currentVod: function () { return VOD; },
+    avatarSvg: function (i) { return avatarSvg(i); },
     leavePlayer: restorePlayerReturn,
-    /* Stremio mode (PC): used by the tests. */
-    stremioOn: stremioModeOn,
     /* Seguir viendo / Historial: forget a title (tests). */
     forgetWatched: forgetWatchedTitle,
     history: function () { return localProfile.history; },
-    stremio: { install: installVodAddon, setMode: applyVodSourceMode, search: searchStremioAddons,
-      savedPick: savedStremioPick, offers: addonOffers }
+    /* Reanudar / Ver desde el principio (tests): the plan playing would make. */
+    resumePlanFor: function (item, episode, fromStart) {
+      resetResumePlan();
+      if (fromStart) { resumeFromStartKey = resumeKeyFor(item, episode || null); }
+      planResume(item, episode || null);
+      var out = { pos: resumePlan ? resumePlan.pos : 0, restarted: resumeRestarted };
+      resetResumePlan();
+      return out;
+    },
+    /* Addons (tests): install one, search, the saved source, what it offers. */
+    stremio: { install: installVodAddon, sync: syncExternalVodCatalogs, search: searchStremioAddons,
+      savedPick: savedStremioPick, offers: addonOffers, hasSources: hasSourceAddons }
   };
 
-  if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); installTrending(); installProfiles(); startCatalogAutoRefresh(); }
+  if (window.OPENTV_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); installTrending(); installProfiles(); startCatalogAutoRefresh(); }
 
   /* Android / Fire TV (Capacitor): the remote's Back reaches the page only
      through the App plugin. Without this listener Android handled it itself
@@ -143,7 +176,7 @@ function applyQuery() {
   finishWelcome();
   if (map.tab !== undefined) {
     selectTab(parseInt(map.tab, 10) || 0, true);
-  } else if (!window.XUPER_DESKTOP) {
+  } else if (!window.OPENTV_DESKTOP) {
     selectTab(0, false);
     setFocus(liveFocus);
   }
@@ -176,7 +209,7 @@ function purgeMemoryCache() {
 window.addEventListener('beforeunload', purgeMemoryCache);
 window.addEventListener('unload', purgeMemoryCache);
 document.addEventListener('visibilitychange', function () {
-  if (document.hidden && !window.XUPER_DESKTOP) {
+  if (document.hidden && !window.OPENTV_DESKTOP) {
     purgeMemoryCache();
   }
 });

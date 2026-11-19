@@ -3,11 +3,11 @@
 
 /* One layout for every desktop settings page: a header (title + short
    description) and a column of cards. */
-function desktopSettingsPage(cls, title, subtitle) {
+function desktopSettingsPage(cls, title) {
+  /* Only the title: what each option does is in its ⓘ, not under the title. */
   var p = el('div', 'settings-panel sd-page ' + (cls || ''));
   var head = el('div', 'sd-head');
   head.appendChild(el('div', 'sd-title', title));
-  if (subtitle) { head.appendChild(el('div', 'sd-sub', subtitle)); }
   p.appendChild(head);
   var body = el('div', 'sd-body');
   p.appendChild(body);
@@ -71,8 +71,12 @@ function buildDesktopFeedbackPanel() {
   /* Keyboard shortcuts only where there is a keyboard (the PC app); TVs get
      what each key of the remote does instead. */
   var hasKeyboard = platformHas('window');
-  var page = desktopSettingsPage('sd-help', 'Ayuda', hasKeyboard ? 'Qué hacer si algo no funciona y los atajos de teclado.'
+  var page = desktopSettingsPage('sd-help sd-plain', 'Ayuda', hasKeyboard ? 'Qué hacer si algo no funciona y los atajos de teclado.'
     : 'Qué hacer si algo no funciona y cómo se usa el control remoto.');
+  /* The first-launch guide, any time. */
+  var guide = desktopSettingsCard(UI_ICONS.info, 'Guía de inicio', 'Cómo agregar addons para reproducir, listas de TV en vivo y elegir la mejor fuente.');
+  guide.appendChild(desktopSettingsButton('Ver la guía', UI_ICONS.info, openGuide));
+  page.body.appendChild(guide);
   if (window.desktop && window.desktop.openLogs) {
     var logs = desktopSettingsCard(UI_ICONS.info, 'Registro de errores',
       'La app anota en un archivo los errores y cierres inesperados (no se envía nada). Si algo falla, abre la carpeta y adjunta opentv.log al reportarlo.');
@@ -105,7 +109,6 @@ function buildDesktopFeedbackPanel() {
 function aboutPlatformLabel(arch) {
   var n = platformName();
   if (n === 'electron') { return 'Windows ' + (arch || 'x64'); }
-  if (n === 'webos') { return 'TV LG'; }
   if (n === 'android') { return platformIsTv() ? 'Android TV / Fire TV' : 'Android'; }
   return '';
 }
@@ -113,7 +116,7 @@ function aboutPlatformLabel(arch) {
 /* Acerca de: who made it, the version, updates (PC), how your data is kept
    and, at the bottom, the credits. */
 function buildDesktopAboutPanel() {
-  var page = desktopSettingsPage('sd-about', 'Acerca de', null);
+  var page = desktopSettingsPage('sd-about sd-plain', 'Acerca de', null);
   var hero = el('div', 'sd-about-hero');
   var logo = el('img', 'sd-about-logo');
   logo.src = 'images/logo.svg';
@@ -133,12 +136,13 @@ function buildDesktopAboutPanel() {
     }).catch(function () {});
   }
   if (updatesApi()) { page.body.appendChild(buildUpdateCard()); }
+  else if (androidUpdatesOn()) { page.body.appendChild(buildAndroidUpdateCard()); }
   page.body.appendChild(desktopSettingsCard(UI_ICONS.lock, 'Sin cuentas ni contraseñas',
     'Tu lista, el historial y tus preferencias se guardan solo en este equipo; no se envían a ningún servidor.'));
 
   var credits = el('div', 'sd-credits');
   credits.appendChild(el('div', 'sd-credits-by', 'Hecho por TECHPOINT Software™'));
-  credits.appendChild(el('div', 'sd-credits-line', '© 2026 TECHPOINT Software™ · Licencia MIT'));
+  credits.appendChild(el('div', 'sd-credits-line', '© 2026 TECHPOINT Software™ · Todos los derechos reservados'));
   /* What this version really uses (the Android one has no Electron,
      FFmpeg or torrent-stream). */
   credits.appendChild(el('div', 'sd-credits-line', platformHas('window')

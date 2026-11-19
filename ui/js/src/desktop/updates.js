@@ -10,7 +10,7 @@ var updateNotice = null;
 var updateNoticeDismissed = '';
 
 function updatesApi() {
-  return window.XUPER_DESKTOP && window.desktop && window.desktop.updates ? window.desktop.updates : null;
+  return window.OPENTV_DESKTOP && window.desktop && window.desktop.updates ? window.desktop.updates : null;
 }
 
 function updateStatusText(s) {

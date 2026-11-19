@@ -14,7 +14,7 @@ function miniTime(sec) {
 }
 
 function installMiniControls() {
-  if (!window.XUPER_DESKTOP || !playerStage || !playerVideo || miniControls) { return; }
+  if (!window.OPENTV_DESKTOP || !playerStage || !playerVideo || miniControls) { return; }
   miniControls = el('div', 'mini-controls');
   miniControls.setAttribute('data-no-gesture', '');
 

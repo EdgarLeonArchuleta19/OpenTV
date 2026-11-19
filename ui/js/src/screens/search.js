@@ -1,15 +1,11 @@
-/* screens/search.js — Búsqueda: campo, teclado de TV, populares y búsqueda local + portal.
+/* screens/search.js — Búsqueda: campo, teclado de TV, populares y búsqueda en los addons.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 /* ================================================================ SEARCH */
+/* "Populares": the first titles of the addons' catalogs (their first rows
+   are their popular lists). */
 function hotSearches() {
-  var all = bundledCatalog();
-  var out = [];
-  for (var i = 0; i < all.length; i++) {
-    var cat = String((all[i] && all[i].category) || '').toLowerCase();
-    if (cat.indexOf('busqueda') !== -1) { out.push(normalizeVod(all[i], i + 1)); }
-  }
-  return out;
+  return VOD.slice(0, 12);
 }
 
 function buildSearch() {
@@ -20,12 +16,17 @@ function buildSearch() {
   searchHotGrid = $('search-hot-grid');
   searchResultGrid = $('search-result-grid');
   searchNav = $('search-nav');
+  /* Rebuilt when the catalogue reloads: the key in focus is focused again. */
+  var tvKeyIndex = -1;
+  if (searchTvKb && state.focus && searchKeyboard.contains(state.focus)) {
+    tvKeyIndex = Array.prototype.indexOf.call(searchKeyboard.querySelectorAll('.tvk-key'), state.focus);
+  }
   clear(searchKeyboard); clear(searchHotGrid); clear(searchResultGrid);
   /* Result rows can extend beyond the first screen.  Mark their viewport as
      scrollable so reveal() follows D-pad focus down through every result. */
   if (searchResults) { searchResults.classList.add('scrollable'); }
-  if (window.XUPER_DESKTOP && searchHot) { searchHot.classList.add('scrollable'); }
-  if (window.XUPER_DESKTOP && searchResults && !searchStateBox) {
+  if (window.OPENTV_DESKTOP && searchHot) { searchHot.classList.add('scrollable'); }
+  if (window.OPENTV_DESKTOP && searchResults && !searchStateBox) {
     /* Centered state (Buscando… / error) and a small line under the counter. */
     searchStateBox = el('div', 'search-state');
     searchResults.appendChild(searchStateBox);
@@ -34,8 +35,8 @@ function buildSearch() {
   }
 
   /* --- keyboard panel (layout_search_keybord_full_uni) --- */
-  searchInput = el(window.XUPER_DESKTOP ? 'input' : 'div', 'kb-edit focusable');
-  if (window.XUPER_DESKTOP) {
+  searchInput = el(window.OPENTV_DESKTOP ? 'input' : 'div', 'kb-edit focusable');
+  if (window.OPENTV_DESKTOP) {
     searchInput.type = 'search';
     searchInput.id = 'desktop-search-input';
     searchInput.placeholder = 'Buscar películas o series';
@@ -111,7 +112,7 @@ function buildSearch() {
     var act = el('div', 'kb-action focusable ' + actionDefs[a].cls);
     act.style.width = actionDefs[a].w + 'px';
     if (actionDefs[a].cls === 'go') {
-      if (window.XUPER_DESKTOP) {
+      if (window.OPENTV_DESKTOP) {
         act.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Buscar</span>';
       } else {
         act.textContent = 'Busca';
@@ -126,7 +127,7 @@ function buildSearch() {
         else if (kind === 'clear') { setSearchQuery(''); }
         else if (kind === 'del') { setSearchQuery(state.searchQuery.slice(0, -1)); }
         else {
-          if (window.XUPER_DESKTOP && searchInput) { state.searchQuery = searchInput.value; }
+          if (window.OPENTV_DESKTOP && searchInput) { state.searchQuery = searchInput.value; }
           runSearch();
         }
       };
@@ -134,6 +135,27 @@ function buildSearch() {
     actions.appendChild(act);
   }
   searchKeyboard.appendChild(actions);
+
+  /* TVs: the on-screen keyboard on the left (core/tv-keyboard.js) instead
+     of the text field, which opened the system keyboard over everything.
+     The results on the right follow what is typed. */
+  if (tvSearchKeyboardOn()) {
+    searchKeyboard.classList.add('has-tvk');
+    searchKeyboard.appendChild(el('div', 'tvk-title', 'Buscar'));
+    searchTvKb = makeTvKeyboard({
+      placeholder: 'Película, serie o actor',
+      value: state.searchQuery,
+      cls: 'is-search',
+      onChange: onTvSearchTyped,
+      doneLabel: 'Buscar',
+      onDone: function () { if (String(state.searchQuery || '').trim()) { submitTvSearch(); } }
+    });
+    searchKeyboard.appendChild(searchTvKb.el);
+    if (tvKeyIndex >= 0) {
+      var again = searchTvKb.el.querySelectorAll('.tvk-key')[tvKeyIndex];
+      if (again) { setFocus(again, true); }
+    }
+  }
 
   searchKeys = [];
   var rows = [
@@ -168,6 +190,19 @@ function buildSearch() {
   updateSearchInput();
 }
 
+/* ------------------------------------------------- TV on-screen keyboard */
+var searchTvKb = null;
+
+function tvSearchKeyboardOn() { return platformIsTv() && !!window.OPENTV_DESKTOP; }
+
+/* Typing only edits the text: the addons are asked once, with the Buscar
+   key (searching on every letter kept a Fire TV busy). Emptying it goes
+   back to the popular titles. */
+function onTvSearchTyped(text) {
+  state.searchQuery = text;
+  if (!text.trim()) { clearSearchState(); renderPopularSearch(); }
+}
+
 /* TV, the system keyboard's action key: search, close the keyboard and move
    to the first result as soon as there is one (renderDesktopSearchList). */
 var tvSearchedQuery = '';
@@ -192,8 +227,9 @@ function openSearch() {
   if (!searchKeyboard) { buildSearch(); }
   showScreen('search');
   if (!state.searchQuery) { renderPopularSearch(); }
+  if (searchTvKb) { setFocus(searchTvKb.first); return; }
   setFocus(searchInput);
-  if (window.XUPER_DESKTOP) searchInput.focus();
+  if (window.OPENTV_DESKTOP) searchInput.focus();
 }
 
 function popularSearchItems() {
@@ -217,7 +253,8 @@ function renderPopularSearch() {
 
 function updateSearchInput() {
   if (!searchInput) { return; }
-  if (window.XUPER_DESKTOP && searchInput.tagName === 'INPUT') {
+  if (searchTvKb && searchTvKb.get() !== (state.searchQuery || '')) { searchTvKb.set(state.searchQuery || ''); }
+  if (window.OPENTV_DESKTOP && searchInput.tagName === 'INPUT') {
     if (searchInput.value !== state.searchQuery) searchInput.value = state.searchQuery;
     return;
   }
@@ -270,33 +307,17 @@ function runSearch() {
       localMatches.push(VOD[i]);
     }
   }
-  if (window.XUPER_DESKTOP) { runDesktopSearch(rawQ, localMatches); return; }
+  if (window.OPENTV_DESKTOP) { runDesktopSearch(rawQ, localMatches); return; }
   renderSearchResults(localMatches);
 
-  /* Debounced remote portal search (350ms) */
+  /* Debounced search in the addons that can search (350 ms). */
   if (state.searchTimer) { clearTimeout(state.searchTimer); }
-  if (vodApi.mode === 'portal' && getVodSourcesConfig().mode !== 'external' && q.length >= 2) {
+  if (q.length >= 2) {
     var seq = ++state.searchSeq;
     state.searchTimer = setTimeout(function () {
-      portalServiceCall('search', { value: rawQ.trim() }, function (error, payload) {
-        if (seq !== state.searchSeq) { return; }
-        if (error || !payload || payload.returnValue === false || !payload.items || !payload.items.length) {
-          /* Keep existing local matches, never clear on empty remote response */
-          return;
-        }
-        var merged = localMatches.slice();
-        var seen = {};
-        for (var m = 0; m < merged.length; m++) { seen[String(merged[m].id)] = true; }
-        for (var p = 0; p < payload.items.length; p++) {
-          if (payload.items[p] && typeof payload.items[p] === 'object') { payload.items[p].portal = true; }
-          var item = normalizeVod(payload.items[p], merged.length + 1);
-          item._portal = true;
-          if (!seen[String(item.id)]) {
-            seen[String(item.id)] = true;
-            merged.push(item);
-          }
-        }
-        renderSearchResults(merged);
+      searchTitles(rawQ.trim(), function (found) {
+        if (seq !== state.searchSeq || !found.length) { return; }
+        renderSearchResults(rankSearchResults(rawQ.trim(), localMatches.concat(found)));
       });
     }, 350);
   }

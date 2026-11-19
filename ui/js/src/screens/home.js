@@ -54,7 +54,7 @@ function markCatalogPagesStale() {
   if (platformIsTv() && onScreen && window.performance && performance.now() > 60000) { return; }
   if (current > 0 && pages[current]) {
     ensurePageBuilt(current);
-    if (window.XUPER_DESKTOP && state.screen === 'home') { showHeroForPage(current); }
+    if (window.OPENTV_DESKTOP && state.screen === 'home') { showHeroForPage(current); }
   }
 }
 
@@ -69,7 +69,7 @@ function buildHome() {
   /* Create placeholder wrappers for each tab, but build DOM only on demand */
   for (var i = 0; i < pageDefs.length; i++) {
     var page = el('div', 'home-page scrollable');
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       /* Top bar: solid once the page scrolls (pages without a hero too). */
       page.addEventListener('scroll', function () {
         if (this.classList.contains('is-current')) { document.body.classList.toggle('is-home-scrolled', this.scrollTop > 140); }
@@ -93,7 +93,7 @@ function buildTabs() {
   host.classList.add('scrollable');
   host.classList.add('is-expanded');
   tabEls = [];
-  /* TVs: a vertical menu on the left (like the LG version). Moving through it
+  /* TVs: a vertical menu on the left. Moving through it
      only previews the section once the remote rests on it, so holding the
      arrow does not build every page on the way. */
   var railTv = platformIsTv();
@@ -156,7 +156,7 @@ function buildTabs() {
         }
         /* Desktop: the tabs are a horizontal bar at the top (left/right
            change tab, down goes into the page). */
-        if (window.XUPER_DESKTOP) {
+        if (window.OPENTV_DESKTOP) {
           if (dir === 'up') { return true; }
           if (dir === 'down') { dir = 'right'; }
           else if (dir === 'left') {
@@ -232,7 +232,7 @@ function buildNotify() {
     { cls: 'filter', icon: 'assets/original/search/icon_category_filter_n.png', small: true },
     { cls: 'personal', icon: 'assets/original/home/icon_notify_personal.png', small: true }
   ];
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     defs = [
       { cls: 'search' + (isKidsProfile() ? ' is-hidden-kids' : ''), svg: UI_ICONS.search, tip: 'Buscar (Ctrl+F)', small: true, run: function () { openSearch(); } },
       { cls: 'mylist', svg: UI_ICONS.mylist, tip: 'Mi lista', small: true,
@@ -275,8 +275,19 @@ function buildNotify() {
   time.id = 'notify-time';
   notifyEl.appendChild(time);
   updateClock();
-  setInterval(updateClock, 30000);
-  if (window.XUPER_DESKTOP) { refreshProfileChrome(); }
+  scheduleClockTick();
+  /* Back from another app or from standby: the right time at once. */
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { updateClock(); } });
+  if (window.OPENTV_DESKTOP) { refreshProfileChrome(); }
+}
+
+/* The clock changes right when the device's minute does (it ran on a
+   30-second timer from the app's start, up to half a minute behind the
+   Fire TV's own clock). */
+function scheduleClockTick() {
+  var now = new Date();
+  var wait = (60 - now.getSeconds()) * 1000 - now.getMilliseconds() + 50;
+  setTimeout(function () { updateClock(); scheduleClockTick(); }, wait);
 }
 
 function updateClock() {
@@ -298,13 +309,14 @@ function selectTab(index, focusContent) {
   if (!def || def.action) { return; }
   var prevPage = TABS[state.tab] ? TABS[state.tab].page : def.page;
   state.tab = index;
-  if (window.XUPER_DESKTOP) { updateTitleBarSection(); }
+  if (window.OPENTV_DESKTOP) { updateTitleBarSection(); }
   for (var i = 0; i < tabEls.length; i++) {
     tabEls[i].classList.toggle('is-selected', i === index);
   }
+  syncTvSectionLabel(state.focus);
   if (def.page >= 0) {
     ensurePageBuilt(def.page);
-    if (window.XUPER_DESKTOP) { showHeroForPage(def.page); }
+    if (window.OPENTV_DESKTOP) { showHeroForPage(def.page); }
   }
   if (def.page === 0) {
     scheduleLivePreview(CHANNELS[state.channel]);
@@ -319,10 +331,10 @@ function selectTab(index, focusContent) {
     pages[p].classList.toggle('is-current', p === def.page);
     /* Desktop: a section opened from the tab bar starts at its top (once it
        is displayed: a hidden page ignores scrollTop). */
-    if (window.XUPER_DESKTOP && p === def.page && def.page !== prevPage && def.page > 0) { pages[p].scrollTop = 0; pages[p]._tvLine = null; }
+    if (window.OPENTV_DESKTOP && p === def.page && def.page !== prevPage && def.page > 0) { pages[p].scrollTop = 0; pages[p]._tvLine = null; }
   }
   /* Same slide direction as the ViewPager; the page itself is the only
-     visible layer, which keeps its raster sharp on webOS. */
+     visible layer, which keeps its raster sharp on TVs. */
   if (def.page !== prevPage && pages[def.page]) {
     var pg = pages[def.page];
     pg.classList.add('is-entering', def.page > prevPage ? 'from-right' : 'from-left');
@@ -330,7 +342,7 @@ function selectTab(index, focusContent) {
       pg.classList.remove('is-entering', 'from-left', 'from-right');
       /* Posters that were off screen during the slide load now. */
       schedulePosterMemoryPass();
-    }, window.XUPER_DESKTOP ? 400 : 320);
+    }, window.OPENTV_DESKTOP ? 400 : 320);
   }
   if (focusContent) {
     if (def.page === 0) {

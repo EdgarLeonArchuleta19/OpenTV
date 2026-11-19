@@ -24,7 +24,7 @@ function loadModules(files, globals) {
   const storage = fakeStorage();
   const classList = { add() {}, remove() {}, toggle() {}, contains() { return false; } };
   const context = Object.assign({
-    window: { XUPER_DESKTOP: true },
+    window: { OPENTV_DESKTOP: true },
     document: { body: { classList }, createElement: () => ({ classList, style: {}, setAttribute() {}, appendChild() {} }) },
     localStorage: storage,
     console,

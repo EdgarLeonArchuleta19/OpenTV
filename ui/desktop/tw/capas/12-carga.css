@@ -1,0 +1,80 @@
+/* 12-carga.css — Indicadores de carga (core/loader.js): la barra fina de arriba y los tres puntos de una pantalla que espera datos.
+   Parte de ui/desktop/tw/input.css (el orden de los archivos importa). Sirve
+   para PC, teles y celular (los ajustes del celular están en mobile.css). */
+
+/* =====================================================================
+   Barra de arriba: aparece mientras hay pedidos a los addons. Va fuera del
+   lienzo (en <body>), así que usa px reales. Solo se anima un transform y
+   solo mientras está encendida: apagada no cuesta nada.
+   ===================================================================== */
+.net-bar {
+  position: fixed; left: 0; right: 0; top: 0; height: 3px; z-index: 2147483000;
+  overflow: hidden; pointer-events: none;
+  background: rgba(255, 255, 255, .08);
+  opacity: 0; transition: opacity .25s ease;
+}
+.net-bar.is-on { opacity: 1; }
+.net-bar-run {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 30vw;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, .9) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-30vw);
+}
+.net-bar.is-on .net-bar-run { animation: ot-net-run 1.15s cubic-bezier(.45, 0, .25, 1) infinite; }
+@keyframes ot-net-run {
+  from { transform: translateX(-30vw); }
+  to { transform: translateX(100vw); }
+}
+
+/* =====================================================================
+   Una pantalla (o una parte) que espera sus datos: tres puntos que se
+   encienden por turnos y una línea de texto. Aparece con un fundido tras
+   un instante, así lo que llega enseguida no lo hace parpadear. Medidas
+   del lienzo de 1920×1080.
+   ===================================================================== */
+.ot-loader {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 22px; box-sizing: border-box; pointer-events: none;
+  color: rgba(255, 255, 255, .6); text-align: center;
+  animation: ot-loader-in .3s ease .25s both;
+}
+.ot-loader-dots { display: flex; align-items: center; gap: 14px; }
+.ot-loader-dots span {
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  opacity: .25; transform: scale(.7);
+  animation: ot-loader-dot 1.2s ease-in-out infinite;
+}
+.ot-loader-dots span:nth-child(2) { animation-delay: .16s; }
+.ot-loader-dots span:nth-child(3) { animation-delay: .32s; }
+.ot-loader-text { font-size: 26px; font-weight: 500; letter-spacing: .01em; }
+@keyframes ot-loader-dot {
+  0%, 80%, 100% { opacity: .25; transform: scale(.7); }
+  40% { opacity: 1; transform: scale(1); }
+}
+@keyframes ot-loader-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* Modo ligero (09-modo-ligero.css) deja las animaciones en 1 ms; los
+   indicadores de carga siguen, como los demás. */
+.desktop.is-lite .net-bar.is-on .net-bar-run { animation: ot-net-run 1.15s cubic-bezier(.45, 0, .25, 1) infinite !important; }
+.desktop.is-lite .ot-loader-dots span { animation: ot-loader-dot 1.2s ease-in-out infinite !important; }
+.desktop.is-lite .ot-loader-dots span:nth-child(2) { animation-delay: .16s !important; }
+.desktop.is-lite .ot-loader-dots span:nth-child(3) { animation-delay: .32s !important; }
+.desktop.is-lite .ot-loader { animation: ot-loader-in .3s ease .25s both !important; }
+
+/* Pantalla de arranque (index.html, desktop/splash.js): los mismos puntos,
+   más chicos (va fuera del lienzo, en px reales). */
+.boot-splash .ot-loader-dots { margin-top: 12px; gap: 7px; }
+.boot-splash .ot-loader-dots span { width: 7px; height: 7px; }
+
+/* Una sección entera (Inicio, Películas…): en el centro de la página. */
+.ot-loader.is-page { gap: 26px; }
+/* En la lista de canales de TV en vivo. */
+.ot-loader.is-list { padding: 64px 0; gap: 18px; }
+.ot-loader.is-list .ot-loader-dots span { width: 12px; height: 12px; }
+.ot-loader.is-list .ot-loader-text { font-size: 21px; }
+/* Dentro de una lista (episodios). */
+.ot-loader.is-small { padding: 28px 0; gap: 16px; }
+.ot-loader.is-small .ot-loader-dots { gap: 10px; }
+.ot-loader.is-small .ot-loader-dots span { width: 11px; height: 11px; }
+.ot-loader.is-small .ot-loader-text { font-size: 20px; }

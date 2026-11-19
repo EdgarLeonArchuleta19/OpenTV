@@ -107,13 +107,27 @@ function setHeroArt(art) {
   var shown = a.classList.contains('is-shown') ? a : (b.classList.contains('is-shown') ? b : null);
   if (shown && shown.getAttribute('src') === art) { return; }
   var next = shown === a ? b : a;
-  next.onload = function () {
-    next.classList.add('is-shown');
+  /* A big picture that takes a while (or never comes): the previous one
+     fades out instead of staying under another title (Anime showed Inicio's
+     picture under its own first title). */
+  if (heroArtTimer) { clearTimeout(heroArtTimer); heroArtTimer = null; }
+  function dropShown() {
     if (shown && shown !== next) { shown.classList.remove('is-shown'); }
+  }
+  next.onload = function () {
+    if (heroArtTimer) { clearTimeout(heroArtTimer); heroArtTimer = null; }
+    next.classList.add('is-shown');
+    dropShown();
   };
-  next.onerror = function () { next.classList.remove('is-shown'); };
+  next.onerror = function () {
+    if (heroArtTimer) { clearTimeout(heroArtTimer); heroArtTimer = null; }
+    next.classList.remove('is-shown');
+    dropShown();
+  };
   next.src = art;
+  if (!next.complete) { heroArtTimer = setTimeout(function () { heroArtTimer = null; dropShown(); }, 250); }
 }
+var heroArtTimer = null;
 
 /* Builds the hero block at the top of `page`. Returns the y where the rest
    of the page starts, or 0 when the section has no artwork to show. */
@@ -137,6 +151,13 @@ function buildHero(page, source) {
   page.appendChild(dots);
   heroPages[idx] = { items: items, index: 0, info: info, dots: dots, page: page };
   renderHeroInfo(heroPages[idx]);
+  /* Spanish texts (home/catalog-lang.js) as they arrive. */
+  items.forEach(function (it) {
+    localizeItem(it, function (changed) {
+      var h = heroPages[idx];
+      if (changed && h && h.items[h.index] === it && h.info.isConnected) { renderHeroInfo(h); }
+    });
+  });
   if (!page._heroScroll) {
     page._heroScroll = true;
     page.addEventListener('scroll', function () {
@@ -158,7 +179,7 @@ function renderHeroInfo(h) {
     info.appendChild(el('div', 'hero-kicker', isSeriesItem(item) ? 'Serie' : 'Película'));
     /* Long titles get a smaller size instead of being cut. */
     var len = String(item.title || '').length;
-    info.appendChild(el('div', 'hero-title' + (len > 52 ? ' is-xlong' : len > 30 ? ' is-long' : ''), item.title));
+    info.appendChild(el('div', 'hero-title' + (len > 80 ? ' is-xxlong' : len > 52 ? ' is-xlong' : len > 30 ? ' is-long' : ''), item.title));
     info.appendChild(el('div', 'hero-meta', itemMetaLine(item)));
     var genres = itemGenres(item, 3);
     if (genres.length) { info.appendChild(el('div', 'hero-genres', genres.join('  •  '))); }
@@ -209,7 +230,7 @@ function rotateHero() {
 
 /* Called when the home page changes (or the home screen shows again). */
 function showHeroForPage(idx) {
-  if (!window.XUPER_DESKTOP) { return; }
+  if (!window.OPENTV_DESKTOP) { return; }
   var h = heroPages[idx];
   var layer = ensureHeroLayer();
   heroShownPage = h && h.info.isConnected ? idx : -1;

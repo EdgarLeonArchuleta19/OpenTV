@@ -15,7 +15,7 @@ var CONTINUE_W, CONTINUE_H, CONTINUE_STEP, CONTINUE_ROW_HEIGHT;
    posters, so more titles fit in each row and grid line. */
 var CATALOG_DENSITY_KEY = 'opentv_catalog_density_v1';
 function catalogCompact() {
-  return !!window.XUPER_DESKTOP && safeLocalRead(CATALOG_DENSITY_KEY, 'normal') === 'compact';
+  return !!window.OPENTV_DESKTOP && safeLocalRead(CATALOG_DENSITY_KEY, 'normal') === 'compact';
 }
 function applyCatalogDensity() {
   var compact = catalogCompact();
@@ -27,13 +27,14 @@ function applyCatalogDensity() {
   CONTINUE_H = compact ? 189 : 225;
   CONTINUE_STEP = CONTINUE_W + 24;
   CONTINUE_ROW_HEIGHT = ROW_TITLE_H + CONTINUE_H + 64 + ROW_PAD * 2 + 20;
-  /* TVs: a fixed size with exactly six posters (four "Seguir viendo" cards)
-     on screen and a margin on the right; fewer images to load and draw. */
+  /* TVs: a fixed size, a bit bigger than on a PC so posters read well from
+     the sofa (five and a half on screen, four "Seguir viendo" cards) and a
+     margin on the right; fewer images to load and draw. */
   if (platformIsTv()) {
     ROW_W = 1560;   /* 240..1800 on screen: 120 px of margin on the right */
-    ROW_POSTER_W = 240;
-    ROW_POSTER_H = 346;
-    ROW_STEP = 264;
+    ROW_POSTER_W = 262;
+    ROW_POSTER_H = 378;
+    ROW_STEP = 288;
     ROW_HEIGHT = ROW_TITLE_H + ROW_POSTER_H + ROW_PAD * 2 + 26;
     CONTINUE_W = 372;
     CONTINUE_H = 209;
@@ -135,6 +136,16 @@ function portalRowsFor(category, minItems) {
       groups[shelves[s]].push(item);
     }
   }
+  /* Addon rows keep the addon's order (stremioRowOrder); others stay where
+     they first appeared. */
+  var known = typeof stremioRowOrder === 'object' ? stremioRowOrder : {};
+  var firstAt = {};
+  for (var f = 0; f < order.length; f++) { firstAt[order[f]] = f; }
+  order.sort(function (a, b) {
+    var ka = a in known ? known[a] : 100000 + firstAt[a];
+    var kb = b in known ? known[b] : 100000 + firstAt[b];
+    return ka - kb;
+  });
   var out = [];
   for (var r = 0; r < order.length; r++) {
     if (groups[order[r]].length >= (minItems || 4)) {
@@ -161,122 +172,176 @@ function appendPosterRowSized(page, y, titleText, items, w, h, extraClass) {
   return y + height;
 }
 
-/* ------------------------------------------------------ TV: cards on top */
-/* TVs have no big hero (its full-screen image, slow zoom and cross-fades
-   cost too much on a Fire TV): two large cards that stay in place while
-   what they show changes every few seconds, and four small cards under
-   them. On Inicio they show this week's trends (TMDB), on the other
-   sections the portal's titles. */
-var TVF_GAP = 24;
-var TVF_BIG_H = 372, TVF_SMALL_H = 216;
-var TVF_ROTATE_MS = 8000;
-var tvFeatureCards = [];
-var tvFeatureTimer = null;
+/* ------------------------------------------------------- TV: light hero */
+/* TVs: the desktop hero's look (big picture fading into the page, title,
+   details, synopsis, Reproducir / Más información / Mi lista) built so a
+   Fire TV can carry it. What made the desktop hero (home/hero.js) heavy is
+   left out:
+   - the picture is an element inside the page, not a full-screen layer
+     behind the rows (that layer gave every row its own layer too)
+   - one picture at the size it is shown (the app's image sizer), no slow
+     zoom, no cross-fade: the next picture is decoded first and swapped in
+     one go; no blurred buttons
+   - it turns by itself only while the remote has been still for a while,
+     the section is on screen and scrolled to the top, and never while the
+     focus is on its buttons (the viewer may be reading it).
+   The buttons sit in a .hero-info block, which TV navigation already moves
+   through like a row (core/focus.js): left from Reproducir goes to the menu,
+   down to the first row. */
+var TVH_ART_H = 660;             /* page height of the picture */
+var TVH_ART_W = 1500;            /* its width, from the right edge */
+var TVH_ROWS_Y = 650;            /* where the rows start (over the fade) */
+var TVH_MAX = 8;
+var TVH_ROTATE_MS = 9000;
+var TVH_IDLE_MS = 6000;          /* remote untouched this long before turning */
+var tvHeroes = [];
+var tvHeroTimer = null;
+var tvHeroKeyAt = 0;
+var tvHeroKeysWatched = false;
 
-function tvCardArt(item) { return item._trendArt || heroArt(item) || item.poster || ''; }
+function tvHeroArt(item) { return item._trendArt || heroArt(item) || ''; }
+/* A title's wide picture, or its poster when it has none (details screen). */
+function tvCardArt(item) { return tvHeroArt(item) || item.poster || ''; }
 
-/* Shows `item` in a card (image, kind, title, details). */
-function setFeatureCard(card, item) {
-  card._item = item;
-  var img = card._img;
-  var src = tvCardArt(item);
-  img.setAttribute('data-poster-src', src);
-  if (img.getAttribute('src')) { img.src = tileImageUrl(img); }
-  card._kicker.textContent = isSeriesItem(item) ? 'Serie' : 'Película';
-  card._title.textContent = item.title || '';
-  if (card._meta) { card._meta.textContent = itemMetaLine(item) || ''; }
+function tvHeroImageUrl(item) { return sizedImageUrl(tvHeroArt(item), TVH_ART_W); }
+
+/* Writes the texts, the Mi lista state and the dashes for the title shown. */
+function renderTvHeroText(hero) {
+  var item = hero._items[hero._index];
+  hero._item = item;
+  hero._kicker.textContent = isSeriesItem(item) ? 'Serie' : 'Película';
+  var len = String(item.title || '').length;
+  hero._title.className = 'hero-title' + (len > 52 ? ' is-xlong' : len > 30 ? ' is-long' : '');
+  hero._title.textContent = item.title || '';
+  hero._meta.textContent = itemMetaLine(item) || '';
+  var syn = String(item.synopsis || '');
+  hero._syn.textContent = syn && !/^sin sinopsis/i.test(syn) ? syn : itemGenres(item, 3).join('  •  ');
+  var on = inMyList(item);
+  hero._fav.classList.toggle('is-on', on);
+  hero._fav.innerHTML = on ? UI_ICONS.check : UI_ICONS.mylist;
+  var dots = hero._dots.children;
+  for (var d = 0; d < dots.length; d++) { dots[d].className = 'hero-dot' + (d === hero._index ? ' is-active' : ''); }
 }
 
-function makeFeatureCard(item, x, y, w, h, small) {
-  var c = el('div', 'poster focusable gold tvf-card' + (small ? ' is-small' : ''));
-  abs(c, x, y, w, h);
-  var img = el('img', 'p-img');
+/* Shows title number `index`: the picture is loaded and decoded before
+   the swap (a Fire TV showed an empty frame otherwise), then text and
+   picture change together. The next one is fetched in the background so
+   the following turn is ready. */
+function showTvHero(hero, index) {
+  var n = hero._items.length;
+  index = (index % n + n) % n;
+  var item = hero._items[index];
+  var url = tvHeroImageUrl(item);
+  var seq = ++hero._seq;
+  var pre = new Image();
+  var apply = function () {
+    if (seq !== hero._seq || !hero._info.isConnected) { return; }
+    hero._index = index;
+    hero._img.src = url;
+    renderTvHeroText(hero);
+    var after = hero._items[(index + 1) % n];
+    if (after !== item) { (new Image()).src = tvHeroImageUrl(after); }
+  };
+  pre.onload = function () { if (pre.decode) { pre.decode().then(apply, apply); } else { apply(); } };
+  pre.onerror = apply;
+  pre.src = url;
+}
+
+function makeTvHeroButton(cls, html, label) {
+  var b = el('div', 'hero-btn focusable' + (cls ? ' ' + cls : ''));
+  b.innerHTML = html + (label ? '<span>' + label + '</span>' : '');
+  return b;
+}
+
+/* Lays the hero at the top of the page. Returns the y where the rows
+   start, or 0 when the section has no titles with wide art. */
+function appendTvHero(page, all) {
+  var items = [];
+  for (var i = 0; i < all.length && items.length < TVH_MAX; i++) {
+    if (tvHeroArt(all[i]) && hasUsableCover(all[i])) { items.push(all[i]); }
+  }
+  if (!items.length) { return 0; }
+  var hero = { _items: items, _index: 0, _seq: 0, _page: page };
+
+  /* The picture, on the right, fading into the page on the left and at
+     the bottom (one shade element). Not focusable: navigation skips it. */
+  var art = el('div', 'tvh-art');
+  art.style.top = '0px';
+  var img = el('img', 'tvh-img');
+  img.alt = '';
   img.decoding = 'async';
-  img.onerror = posterImageError;
-  img.onload = posterImageLoaded;
-  c.appendChild(img);
-  c.appendChild(el('div', 'tvf-shade'));
-  var text = el('div', 'tvf-text');
-  c._kicker = el('div', 'tvf-kicker');
-  c._title = el('div', 'tvf-title');
-  text.appendChild(c._kicker);
-  text.appendChild(c._title);
-  if (!small) { c._meta = el('div', 'tvf-meta'); text.appendChild(c._meta); }
-  c.appendChild(text);
-  c._img = img;
-  setFeatureCard(c, item);
-  c._activate = function () { openDetail(c._item); };
-  schedulePosterMemoryPass();
-  return c;
+  art.appendChild(img);
+  art.appendChild(el('div', 'tvh-shade'));
+  page.appendChild(art);
+  hero._img = img;
+
+  /* Text and buttons, as on desktop. */
+  var info = el('div', 'hero-info tvh-info');
+  abs(info, ROW_X, 40, 1060, 560);
+  hero._kicker = el('div', 'hero-kicker');
+  hero._title = el('div', 'hero-title');
+  hero._meta = el('div', 'hero-meta');
+  hero._syn = el('div', 'hero-synopsis');
+  info.appendChild(hero._kicker);
+  info.appendChild(hero._title);
+  info.appendChild(hero._meta);
+  info.appendChild(hero._syn);
+  var row = el('div', 'hero-buttons');
+  var play = makeTvHeroButton('is-primary', UI_ICONS.play, 'Reproducir');
+  play._activate = function () { playTitleNow(hero._item); };
+  var more = makeTvHeroButton('', UI_ICONS.info, 'Más información');
+  more._activate = function () { openDetail(hero._item); };
+  var fav = makeTvHeroButton('is-round', UI_ICONS.mylist, '');
+  fav._activate = function () {
+    var on = toggleMyList(hero._item);
+    fav.classList.toggle('is-on', on);
+    fav.innerHTML = on ? UI_ICONS.check : UI_ICONS.mylist;
+  };
+  hero._fav = fav;
+  row.appendChild(play);
+  row.appendChild(more);
+  row.appendChild(fav);
+  info.appendChild(row);
+  page.appendChild(info);
+  hero._info = info;
+
+  /* Dashes: which title is showing. */
+  hero._dots = el('div', 'hero-dots tvh-dots');
+  abs(hero._dots, ROW_X + ROW_W - 360, 600, 360, 20);
+  for (var d = 0; d < items.length && items.length > 1; d++) { hero._dots.appendChild(el('i', 'hero-dot')); }
+  page.appendChild(hero._dots);
+
+  /* First title: picture and text at once, no waiting for a decode. */
+  img.src = tvHeroImageUrl(items[0]);
+  renderTvHeroText(hero);
+  /* Spanish texts (home/catalog-lang.js) as they arrive. */
+  items.forEach(function (it) {
+    localizeItem(it, function (changed) {
+      if (changed && hero._item === it && hero._info.isConnected) { renderTvHeroText(hero); }
+    });
+  });
+  if (items.length > 1) { (new Image()).src = tvHeroImageUrl(items[1]); }
+
+  tvHeroes.push(hero);
+  if (!tvHeroKeysWatched) {
+    tvHeroKeysWatched = true;
+    document.addEventListener('keydown', function () { tvHeroKeyAt = Date.now(); }, true);
+  }
+  if (!tvHeroTimer) { tvHeroTimer = setInterval(rotateTvHeroes, TVH_ROTATE_MS); }
+  return TVH_ROWS_Y;
 }
 
-/* Lays the block on the page from y = 20. Returns the y below it, or 0 when
-   the section has no titles with wide art. */
-function appendTvFeature(page, all, opts) {
-  var pool = [];
-  for (var i = 0; i < all.length && pool.length < 12; i++) {
-    if (tvCardArt(all[i]) && (heroArt(all[i]) || all[i]._trendArt) && hasUsableCover(all[i])) { pool.push(all[i]); }
-  }
-  if (pool.length < 2) { return 0; }
-  /* The list comes best first (the trends, then the portal's titles): the
-     big cards open with #1 and #2, the small ones show #3 to #6, and the big
-     ones then take turns with #7 onwards. */
-  var small = pool.slice(2, 6);
-  var big = pool.slice(0, 2).concat(pool.slice(6));
-  var bigW = Math.floor((ROW_W - TVF_GAP) / 2);
-  var smallW = Math.floor((ROW_W - TVF_GAP * 3) / 4);
-  var y = 20;
-  for (var b = 0; b < 2; b++) {
-    var card = makeFeatureCard(big[b % big.length], ROW_X + b * (bigW + TVF_GAP), y, bigW, TVF_BIG_H, false);
-    card._turns = big.filter(function (v, n) { return n % 2 === b; });
-    card._turn = 0;
-    card._page = page;
-    /* Dashes that tell which of the card's titles is showing. */
-    if (card._turns.length > 1) {
-      card._dots = el('div', 'tvf-dots');
-      for (var d = 0; d < card._turns.length; d++) { card._dots.appendChild(el('i', d === 0 ? 'is-on' : '')); }
-      card.appendChild(card._dots);
-    }
-    page.appendChild(card);
-    if (card._turns.length > 1) { tvFeatureCards.push(card); }
-  }
-  y += TVF_BIG_H + 28;
-  for (var s = 0; s < small.length; s++) {
-    page.appendChild(makeFeatureCard(small[s], ROW_X + s * (smallW + TVF_GAP), y, smallW, TVF_SMALL_H, true));
-  }
-  if (small.length) { y += TVF_SMALL_H + 36; }
-  if (!tvFeatureTimer && tvFeatureCards.length) { tvFeatureTimer = setInterval(rotateTvFeatures, TVF_ROTATE_MS); }
-  return y;
-}
-
-/* Every few seconds each big card shows its next title: the new image is
-   loaded first and then swapped in one go (no cross-fade to draw), only on
-   the section on screen and never under the remote. */
-function rotateTvFeatures() {
-  tvFeatureCards = tvFeatureCards.filter(function (c) { return document.documentElement.contains(c); });
+function rotateTvHeroes() {
+  tvHeroes = tvHeroes.filter(function (h) { return h._info.isConnected; });
   if (state.screen !== 'home' || document.hidden) { return; }
-  tvFeatureCards.forEach(function (card) {
-    if (!card._page.classList.contains('is-current') || card._page.scrollTop > 200 || state.focus === card) { return; }
-    var next = card._turns[(card._turn + 1) % card._turns.length];
-    var pre = new Image();
-    var apply = function () {
-      if (state.focus === card) { return; }
-      card._turn = (card._turn + 1) % card._turns.length;
-      setFeatureCard(card, next);
-      card._img.src = pre.src;
-      if (card._dots) {
-        for (var d = 0; d < card._dots.children.length; d++) { card._dots.children[d].className = d === card._turn ? 'is-on' : ''; }
-      }
-    };
-    /* Swap only once the new picture is decoded: on a Fire TV the card
-       showed one empty frame otherwise (a flash every 8 s). */
-    pre.onload = function () {
-      if (pre.decode) { pre.decode().then(apply, apply); } else { apply(); }
-    };
-    pre.src = sizedImageUrl(tvCardArt(next), parseFloat(card.style.width));
+  if (Date.now() - tvHeroKeyAt < TVH_IDLE_MS) { return; }
+  tvHeroes.forEach(function (hero) {
+    if (hero._items.length < 2) { return; }
+    if (state.focus && hero._info.contains(state.focus)) { return; }
+    if (!hero._page.classList.contains('is-current') || hero._page.scrollTop > 200) { return; }
+    showTvHero(hero, hero._index + 1);
   });
 }
-
 
 /* ------------------------------------------------------------ Seguir viendo */
 /* Titles started and not finished, newest first. `filter` is 'movie',
@@ -418,7 +483,7 @@ function fillContinueRow(host, records) {
    appear or disappear, the page layout changes, so that page is rebuilt the
    next time it is shown. */
 function refreshContinueRows() {
-  if (!window.XUPER_DESKTOP || !pages) { return; }
+  if (!window.OPENTV_DESKTOP || !pages) { return; }
   var alive = [];
   for (var h = 0; h < continueRowHosts.length; h++) {
     if (continueRowHosts[h].parentNode) { alive.push(continueRowHosts[h]); }

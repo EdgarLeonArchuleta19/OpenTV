@@ -11,13 +11,13 @@
   var ready = null;
   function timeline(video, kind, complete, duration) {
     duration = Number(duration);
-    video._xuperTimeline = {
+    video._opentvTimeline = {
       kind: kind, complete: !!complete,
       duration: complete && isFinite(duration) && duration > 0 ? duration : 0
     };
     // A generated TS playlist grows while its index is built. Its current
     // end is a transport boundary, not the full movie/episode duration.
-    document.dispatchEvent(new CustomEvent('xuper:timeline', { detail: video._xuperTimeline }));
+    document.dispatchEvent(new CustomEvent('opentv:timeline', { detail: video._opentvTimeline }));
   }
   function reset() {
     if (currentHls) currentHls.destroy();
@@ -27,9 +27,9 @@
     levelsChanged();
   }
   // Quality levels of the current HLS stream, for the player menus (app.js).
-  var QUALITY_PREF_KEY = 'xuper_quality_pref_v1';
+  var QUALITY_PREF_KEY = 'opentv_quality_pref_v1';
   function levelsChanged() {
-    document.dispatchEvent(new CustomEvent('xuper:hls-levels'));
+    document.dispatchEvent(new CustomEvent('opentv:hls-levels'));
   }
   function preferredHeight() {
     try { return parseInt(JSON.parse(localStorage.getItem(QUALITY_PREF_KEY) || '0'), 10) || 0; } catch (_) { return 0; }
@@ -72,7 +72,7 @@
   HTMLMediaElement.prototype.load = function () {
     if (this.id !== 'player-video') return nativeLoad.call(this);
     var media = this;
-    this._xuperResetTimeline = function () {
+    this._opentvResetTimeline = function () {
       reset();
       timeline(media, 'none', false, 0);
     };
@@ -98,8 +98,8 @@
     var video = this;
     timeline(video, 'hls', false, 0);
     attachedUrl = hlsUrl;
-    var startPos = (video._xuperStartPos && video._xuperStartPos > 0) ? video._xuperStartPos : -1;
-    video._xuperStartPos = 0;
+    var startPos = (video._opentvStartPos && video._opentvStartPos > 0) ? video._opentvStartPos : -1;
+    video._opentvStartPos = 0;
     currentHls = new Hls({ enableWorker: true, maxBufferLength: 25,
       maxMaxBufferLength: 60, backBufferLength: 30,
       startPosition: startPos,
@@ -117,7 +117,7 @@
     instance.on(Hls.Events.LEVEL_SWITCHED, function () { if (currentHls === instance) levelsChanged(); });
     // A stream with picture but no audio track: app.js offers compatibility mode.
     instance.on(Hls.Events.BUFFER_CODECS, function (_, data) {
-      if (currentHls === instance && data && data.video && !data.audio && !data.audiovideo) video._xuperNoAudio = true;
+      if (currentHls === instance && data && data.video && !data.audio && !data.audiovideo) video._opentvNoAudio = true;
     });
     instance.on(Hls.Events.LEVEL_LOADED, function (_, data) {
       if (currentHls !== instance || !data || !data.details) return;
@@ -145,7 +145,7 @@
         var status = document.getElementById('player-status');
         if (status) { status.textContent = 'No se pudo reproducir este vídeo. Revisa la conexión o prueba el modo compatible en Ajustes.'; status.classList.add('is-active'); }
         // app.js retries once in compatibility mode (FFmpeg) when it can.
-        document.dispatchEvent(new CustomEvent('xuper:hls-fatal', { detail: { type: data.type, details: data.details } }));
+        document.dispatchEvent(new CustomEvent('opentv:hls-fatal', { detail: { type: data.type, details: data.details } }));
       });
       instance.on(Hls.Events.MEDIA_ATTACHED, function () { instance.loadSource(hlsUrl); });
       instance.attachMedia(video);

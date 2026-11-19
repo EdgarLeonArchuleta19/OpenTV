@@ -7,7 +7,7 @@ function startWelcome() {
   var frame = 1;
   welcomeTimer = setInterval(function () {
     frame++;
-    if (frame > (window.XUPER_DESKTOP ? 9 : 16)) { finishWelcome(); return; }
+    if (frame > (window.OPENTV_DESKTOP ? 9 : 16)) { finishWelcome(); return; }
     img.src = 'assets/original/welcome/img_welcome_loading' + frame + '.png';
   }, 250);
 }
@@ -28,7 +28,9 @@ function finishWelcome() {
      focus; the rail collapses on the first focus change. */
   var rail = $('home-tabs');
   if (rail) { rail.classList.add('is-expanded'); rail.classList.remove('is-collapsed'); }
-  if (!window.XUPER_DESKTOP) {
+  /* First launch: the short guide (later, Ajustes → Ayuda). */
+  maybeShowFirstRunGuide();
+  if (!window.OPENTV_DESKTOP) {
     var railBg = document.querySelector('.home-sidebar-bg');
     if (railBg) { railBg.classList.add('is-on'); }
     var homeScreen = $('screen-home');

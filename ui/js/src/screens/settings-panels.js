@@ -5,12 +5,12 @@ function buildParentPanel() {
   /* (Desktop has no PIN lock and no menu entry for this panel.) */
   var p = el('div', 'settings-panel');
   p.appendChild(el('div', 'pl-title', 'Configuraciones del Control Parental'));
-  p.appendChild(el('div', 'pl-tip', window.XUPER_DESKTOP ? 'Control parental no disponible en esta versión. No se aplica ningún bloqueo por PIN.' : 'Ingrese la contraseña de cuatro dígitos e ingrese viendo el programa de bloqueo.'));
+  p.appendChild(el('div', 'pl-tip', window.OPENTV_DESKTOP ? 'Control parental no disponible en esta versión. No se aplica ningún bloqueo por PIN.' : 'Ingrese la contraseña de cuatro dígitos e ingrese viendo el programa de bloqueo.'));
   p.appendChild(el('div', 'pl-label', 'Contraseña inicial:'));
   var boxes = el('div', 'pl-boxes');
   for (var i = 0; i < 4; i++) {
     var b = el('div', 'pl-box focusable');
-    if (window.XUPER_DESKTOP) b.setAttribute('aria-disabled', 'true');
+    if (window.OPENTV_DESKTOP) b.setAttribute('aria-disabled', 'true');
     b._activate = function () { /* numeric capture not reconstructed */ };
     boxes.appendChild(b);
     if (i < 3) { boxes.appendChild(el('div', 'pl-sep')); }
@@ -18,14 +18,14 @@ function buildParentPanel() {
   p.appendChild(boxes);
   p.appendChild(el('div', 'pl-note', ''));
   var ok = el('div', 'pl-ok focusable', 'OK');
-  if (window.XUPER_DESKTOP) ok.setAttribute('aria-disabled', 'true');
+  if (window.OPENTV_DESKTOP) ok.setAttribute('aria-disabled', 'true');
   ok._activate = function () { /* password validation not reconstructed */ };
   p.appendChild(ok);
   return p;
 }
 
 function buildFeedbackPanel() {
-  if (window.XUPER_DESKTOP) { return buildDesktopFeedbackPanel(); }
+  if (window.OPENTV_DESKTOP) { return buildDesktopFeedbackPanel(); }
   var p = el('div', 'settings-panel');
   p.appendChild(el('div', 'fb-title', 'Ayuda y Feedback'));
   p.appendChild(el('div', 'fb-hr'));
@@ -38,7 +38,7 @@ function buildFeedbackPanel() {
 }
 
 function buildAboutPanel() {
-  if (window.XUPER_DESKTOP) { return buildDesktopAboutPanel(); }
+  if (window.OPENTV_DESKTOP) { return buildDesktopAboutPanel(); }
   var p = el('div', 'settings-panel');
   p.appendChild(el('div', 'sp-title plain', 'Sobre nosotros'));
   p.appendChild(abs(el('div', 'sp-hr soft'), 0, 165, 1498, 1));

@@ -11,9 +11,20 @@
    element sits on the page; the page areas in front of it become
    transparent (attribute data-np-hole) while it shows.
 
+   Subtitles inside the file (MKV/MP4 text tracks): ExoPlayer lists them and
+   sends the lines on screen as plain text; the page draws them in its own
+   subtitle layer. API, on window.__opentvNative (player element only):
+     textTracks()        -> [{ index, lang, label, mime, forced, selected }]
+     selectText(index)   turns that track on; -1 turns them off
+     onTextTracks(cb)    cb(tracks) when the list or the selection changes
+                         ([] when the title changes); returns an unsubscribe
+     onCues(cb)          cb(text) with the current lines joined by "\n"
+                         ('' when none); returns an unsubscribe
+   The document also gets 'opentv:text-tracks' when the list changes.
+
    Only on Android with the plugin (capability 'native-player' in
-   js/platform.js). Elsewhere this file does nothing. ES5 only (webOS loads
-   it too). */
+   js/platform.js). Elsewhere this file does nothing. ES5 only, like the
+   rest of the interface. */
 (function () {
   'use strict';
   var P = window.OPENTV_PLATFORM;
@@ -22,7 +33,7 @@
       typeof cap.addListener !== 'function') { return; }
 
   var PLUGIN = 'NativePlayer';
-  var QUALITY_PREF_KEY = 'xuper_quality_pref_v1';
+  var QUALITY_PREF_KEY = 'opentv_quality_pref_v1';
   var proto = HTMLMediaElement.prototype;
   var vproto = HTMLVideoElement.prototype;
   var nodeProto = Node.prototype;
@@ -59,7 +70,8 @@
       el._np = { src: '', sourceUrl: '', sourceType: '', url: '', gen: 0, paused: true, time: 0,
         dur: NaN, buf: 0, dyn: false, live: false, hls: false, ready: 0, ended: false, seeking: false,
         seekSeq: 0, seekQueued: false, playing: false, vw: 0, vh: 0, volume: 1, muted: false, rate: 1,
-        error: null, waiters: [], tracks: { audio: [], video: [] }, autoLoad: false, qualityAuto: true };
+        error: null, waiters: [], tracks: { audio: [], video: [] }, autoLoad: false, qualityAuto: true,
+        text: [], cues: '' };
     }
     return el._np;
   }
@@ -93,6 +105,34 @@
     s.vh = 0;
     s.tracks = { audio: [], video: [] };
     s.waiters = [];
+    var hadText = s.text && s.text.length;
+    var hadCues = !!s.cues;
+    s.text = [];
+    s.cues = '';
+    if (hadCues) { notify(cueListeners, ''); }
+    if (hadText) { notify(textListeners, []); docEvent('opentv:text-tracks'); }
+  }
+
+  /* --------------------------------------------- subtitles in the file */
+  var textListeners = [];
+  var cueListeners = [];
+  function notify(list, value) {
+    var copy = list.slice();
+    for (var i = 0; i < copy.length; i++) {
+      try { copy[i](value); } catch (e) { /* a listener failed: the others still run */ }
+    }
+  }
+  function listen(list, cb) {
+    if (typeof cb !== 'function') { return function () {}; }
+    list.push(cb);
+    return function () {
+      var i = list.indexOf(cb);
+      if (i !== -1) { list.splice(i, 1); }
+    };
+  }
+  function playerText() {
+    var v = document.getElementById('player-video');
+    return v && v === owner ? st(v) : null;
   }
 
   /* Stops the native player when el owns it; el forgets its source. */
@@ -105,7 +145,7 @@
     }
     resetState(s);
     if (had) {
-      if (el.id === 'player-video') { docEvent('xuper:hls-levels'); }
+      if (el.id === 'player-video') { docEvent('opentv:hls-levels'); }
       fire(el, 'emptied');
     }
     /* Not at once: a stop is usually followed, in the same task, by the
@@ -116,11 +156,11 @@
   function setTimeline(el, s, complete, duration) {
     if (el.id !== 'player-video') { return; }
     var kind = s.hls ? 'hls' : 'native';
-    var old = el._xuperTimeline;
+    var old = el._opentvTimeline;
     var dur = complete && duration > 0 ? duration : 0;
     if (old && old.kind === kind && old.complete === complete && old.duration === dur) { return; }
-    el._xuperTimeline = { kind: kind, complete: complete, duration: dur };
-    try { document.dispatchEvent(new CustomEvent('xuper:timeline', { detail: el._xuperTimeline })); } catch (e) { /* ignore */ }
+    el._opentvTimeline = { kind: kind, complete: complete, duration: dur };
+    try { document.dispatchEvent(new CustomEvent('opentv:timeline', { detail: el._opentvTimeline })); } catch (e) { /* ignore */ }
   }
 
   function doLoad(el, url) {
@@ -137,8 +177,8 @@
       if (had) { fire(other, 'emptied'); }
     }
     owner = el;
-    var start = el._xuperStartPos > 0 ? el._xuperStartPos : 0;
-    el._xuperStartPos = 0;
+    var start = el._opentvStartPos > 0 ? el._opentvStartPos : 0;
+    el._opentvStartPos = 0;
     resetState(s);
     s.url = url;
     s.gen = ++genCounter;
@@ -219,6 +259,17 @@
       case 'frame':
         break;
       case 'tracks': onTracks(el, s, d); break;
+      case 'text':
+        if (el.id !== 'player-video') { break; }
+        s.text = d.tracks || [];
+        notify(textListeners, s.text.slice());
+        docEvent('opentv:text-tracks');
+        break;
+      case 'cues':
+        if (el.id !== 'player-video') { break; }
+        s.cues = d.text || '';
+        notify(cueListeners, s.cues);
+        break;
       case 'ext':
         /* Paused or resumed by Android (app in the background, audio focus). */
         if (d.pwr && s.paused) { s.paused = false; fire(el, 'play'); }
@@ -288,12 +339,12 @@
   function onTracks(el, s, d) {
     s.tracks = { audio: d.audio || [], video: d.video || [] };
     var hasVideo = s.tracks.video.length > 0;
-    el._xuperNoAudio = hasVideo && !s.tracks.audio.length;
+    el._opentvNoAudio = hasVideo && !s.tracks.audio.length;
     if (el.id === 'player-video') {
       var levels = qualityLevels(s);
       var pref = preferredHeight();
       if (pref && levels.length > 1 && s.qualityAuto) { chooseQuality(s, pref); }
-      docEvent('xuper:hls-levels');
+      docEvent('opentv:hls-levels');
     }
   }
 
@@ -347,7 +398,7 @@
       var s = playerState();
       if (!s) { return; }
       chooseQuality(s, height || 0);
-      docEvent('xuper:hls-levels');
+      docEvent('opentv:hls-levels');
     }
   };
 
@@ -458,10 +509,14 @@
 
   function ensurePoll() {
     if (pollTimer) { return; }
+    /* (400 ms: each check measures the element, which on a Fire TV forces a
+       layout if it lands in the middle of a key press; screen changes
+       follow the element frame by frame on their own, see follow.) */
     pollTimer = setInterval(function () {
+      if (document.hidden) { return; }
       updateLayout();
       if (!owner && lastRect === 'hidden') { clearInterval(pollTimer); pollTimer = null; }
-    }, 250);
+    }, 400);
   }
   window.addEventListener('resize', updateLayout);
   /* Inspector aid: where the native picture is and what was made see-through. */
@@ -470,7 +525,20 @@
       return { owner: owner ? (owner.id || owner.className) : '', rect: lastRect,
         holes: holes.map(function (n) { return n.id || String(n.className).split(' ')[0] || n.tagName; }) };
     },
-    relayout: function () { lastRect = ''; updateLayout(); }
+    relayout: function () { lastRect = ''; updateLayout(); },
+    textTracks: function () {
+      var s = playerText();
+      return s ? s.text.slice() : [];
+    },
+    selectText: function (index) {
+      var s = playerText();
+      if (!s) { return; }
+      var i = typeof index === 'number' && index >= 0 ? index : -1;
+      for (var k = 0; k < s.text.length; k++) { s.text[k].selected = s.text[k].index === i; }
+      call('selectText', { i: i });
+    },
+    onTextTracks: function (cb) { return listen(textListeners, cb); },
+    onCues: function (cb) { return listen(cueListeners, cb); }
   };
 
   var style = document.createElement('style');

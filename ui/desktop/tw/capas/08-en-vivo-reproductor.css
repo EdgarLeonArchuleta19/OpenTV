@@ -262,8 +262,9 @@
   height: 658px !important;
   padding: 12px 10px 12px 0 !important;
   box-sizing: border-box !important;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+  /* (No fade mask at the top and bottom: the first and last channels and
+     their focus looked washed out at the edges, and on a Fire TV the mask
+     drew the whole list on its own layer.) */
 }
 .desktop .channel-search-box.is-player {
   position: absolute;

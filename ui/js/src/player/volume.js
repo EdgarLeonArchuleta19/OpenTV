@@ -5,9 +5,11 @@
    When Windows volume control is available it moves the real system volume,
    exactly like the TV slider; otherwise it is the video's own volume. */
 var playerVolRange = null, playerMuteBtn = null, playerVolLabel = null;
+/* (Movies and TV en vivo each have one: all of them show the same level.) */
+var playerVolSets = [];
 
 function applyPlayerAudio() {
-  if (!window.XUPER_DESKTOP || !playerVideo || state.screen !== 'player') { return; }
+  if (!window.OPENTV_DESKTOP || !playerVideo || state.screen !== 'player') { return; }
   if (systemVolumeOn) {
     playerVideo.volume = 1;
     playerVideo.muted = false;
@@ -19,17 +21,19 @@ function applyPlayerAudio() {
 }
 
 function syncPlayerVolumeUi() {
-  if (!playerVolRange) { return; }
   var off = liveAudio.muted || liveAudio.volume === 0;
   var pct = off ? 0 : Math.round(liveAudio.volume * 100);
-  if (String(playerVolRange.value) !== String(pct)) { playerVolRange.value = pct; }
-  playerVolRange.style.setProperty('--vol', pct + '%');
-  if (playerVolLabel) { playerVolLabel.textContent = off ? 'Sin sonido' : pct + '%'; }
-  if (playerMuteBtn) {
-    playerMuteBtn.innerHTML = off ? LIVE_DOCK_ICONS.mute : (liveAudio.volume < 0.5 ? LIVE_DOCK_ICONS.soundLow : LIVE_DOCK_ICONS.sound);
-    playerMuteBtn.setAttribute('data-tip', off ? 'Activar sonido (M)' : 'Silenciar (M)');
-    playerMuteBtn.setAttribute('aria-label', off ? 'Activar sonido' : 'Silenciar');
-    playerMuteBtn.classList.toggle('is-off', off);
+  for (var i = 0; i < playerVolSets.length; i++) {
+    var set = playerVolSets[i];
+    if (String(set.range.value) !== String(pct)) { set.range.value = pct; }
+    set.range.style.setProperty('--vol', pct + '%');
+    if (set.label) { set.label.textContent = off ? 'Sin sonido' : pct + '%'; }
+    if (set.mute) {
+      set.mute.innerHTML = off ? LIVE_DOCK_ICONS.mute : (liveAudio.volume < 0.5 ? LIVE_DOCK_ICONS.soundLow : LIVE_DOCK_ICONS.sound);
+      set.mute.setAttribute('data-tip', off ? 'Activar sonido (M)' : 'Silenciar (M)');
+      set.mute.setAttribute('aria-label', off ? 'Activar sonido' : 'Silenciar');
+      set.mute.classList.toggle('is-off', off);
+    }
   }
 }
 
@@ -71,12 +75,13 @@ function buildPlayerVolume(group) {
   wrap.appendChild(playerVolLabel);
   wrap.setAttribute('data-tip', systemVolumeApi() ? 'Volumen de Windows · rueda del ratón' : 'Volumen · rueda del ratón');
   group.appendChild(wrap);
+  playerVolSets.push({ range: playerVolRange, mute: playerMuteBtn, label: playerVolLabel });
   syncPlayerVolumeUi();
 }
 
 /* Wheel over the picture changes the volume (Ctrl + wheel is left alone). */
 function installPlayerWheelVolume() {
-  if (!window.XUPER_DESKTOP || !playerStage || playerStage._wheelVolume) { return; }
+  if (!window.OPENTV_DESKTOP || !playerStage || playerStage._wheelVolume) { return; }
   playerStage._wheelVolume = true;
   $('screen-player').addEventListener('wheel', function (event) {
     if (event.ctrlKey || state.screen !== 'player') { return; }
@@ -89,7 +94,7 @@ function installPlayerWheelVolume() {
 
 /* Hovering the seek bar shows the time under the pointer. */
 function installSeekHoverPreview() {
-  if (!window.XUPER_DESKTOP || !vodSeekbar || vodSeekbar._hoverPreview) { return; }
+  if (!window.OPENTV_DESKTOP || !vodSeekbar || vodSeekbar._hoverPreview) { return; }
   vodSeekbar._hoverPreview = true;
   var bubble = el('div', 'vod-seek-hover');
   var ghost = el('div', 'vod-seek-ghost');
@@ -121,7 +126,7 @@ function installSeekHoverPreview() {
 function installPlayerVolume() {
   /* TVs: the remote changes the TV's own volume; the slider, the wheel and
      the seek preview on hover are mouse controls. */
-  if (!window.XUPER_DESKTOP || platformIsTv()) { return; }
+  if (!window.OPENTV_DESKTOP || platformIsTv()) { return; }
   var left = document.querySelector('.vod-infobar-tips .vt-left');
   if (left && !left.querySelector('.vod-volume')) { buildPlayerVolume(left); }
   playerVideo.addEventListener('playing', applyPlayerAudio);

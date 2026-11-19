@@ -60,14 +60,14 @@ function tryCompatFallback(reason) {
   var item = state.playerItem;
   var key = compatEpisodeKey(item);
   if (autoSmoothFallbackKey === key) {
-    if (window.XUPER_DESKTOP) { showCompatSuggestion(item); }
+    if (window.OPENTV_DESKTOP) { showCompatSuggestion(item); }
     return false;
   }
   autoSmoothFallbackKey = key;
   compatAuto = { item: item, key: key, reason: reason };
   if (compatWatch) { compatWatch.item = null; }
   state.streamMode = 'smooth';
-  setPlayerStatus(window.XUPER_DESKTOP ? 'Ajustando la reproducción…' : 'Reintentando película en modo compatible…');
+  setPlayerStatus(window.OPENTV_DESKTOP ? 'Ajustando la reproducción…' : 'Reintentando película en modo compatible…');
   setTimeout(function () {
     if (state.playerMode === 'vod' && state.playerItem === item && state.streamMode === 'smooth') {
       restartCurrentPlayback();
@@ -77,11 +77,11 @@ function tryCompatFallback(reason) {
 }
 
 function compatWatchBegin() {
-  if (!window.XUPER_DESKTOP || !playerVideo) { return; }
+  if (!window.OPENTV_DESKTOP || !playerVideo) { return; }
   hideCompatSuggestion();
   compatWatch = { item: state.playerItem, began: Date.now(), played: false, stalls: [],
                   waitingSince: 0, playSecs: 0, audioChecked: false };
-  if (playerVideo) { playerVideo._xuperNoAudio = false; }
+  if (playerVideo) { playerVideo._opentvNoAudio = false; }
   if (compatTimer) { return; }
   playerVideo.addEventListener('waiting', function () {
     if (compatWatch && compatWatch.played && !compatWatch.waitingSince) { compatWatch.waitingSince = Date.now(); }
@@ -103,7 +103,7 @@ function compatWatchBegin() {
     /* A wait caused by the viewer seeking is not a freeze. */
     if (compatWatch) { compatWatch.waitingSince = 0; }
   });
-  document.addEventListener('xuper:hls-fatal', function () { tryCompatFallback('hls'); });
+  document.addEventListener('opentv:hls-fatal', function () { tryCompatFallback('hls'); });
   compatTimer = setInterval(compatWatchTick, 1000);
 }
 
@@ -140,7 +140,7 @@ function compatWatchTick() {
       var videoBytes = playerVideo.webkitVideoDecodedByteCount;
       /* A few seconds of picture are enough: supported audio is decoded
          alongside the first frames, so zero bytes here means Dolby. */
-      var silent = playerVideo._xuperNoAudio === true ||
+      var silent = playerVideo._opentvNoAudio === true ||
         (typeof audioBytes === 'number' && audioBytes === 0 && videoBytes > 300000);
       if (silent) { tryCompatFallback('audio'); }
     }
@@ -148,7 +148,7 @@ function compatWatchTick() {
 }
 
 function showCompatSuggestion(item) {
-  if (!window.XUPER_DESKTOP || (state.screen !== 'player' && state.screen !== 'detail')) { return; }
+  if (!window.OPENTV_DESKTOP || (state.screen !== 'player' && state.screen !== 'detail')) { return; }
   if (!compatSuggest) {
     compatSuggest = el('div', 'compat-suggest');
     compatSuggest.setAttribute('role', 'status');

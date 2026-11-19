@@ -110,8 +110,46 @@ test('channel guide keeps favourites and recents with what is needed to play the
 
 test('adult categories never appear', () => {
   const ctx = loadModules(BASE.concat('live/adult-filter.js'));
-  const cats = [{ id: 76182, name: 'Todos' }, { id: 76206, name: 'Deportes' }, { id: 76208, name: '18+' }, { id: 1, name: 'Adultos +18' }];
-  assert.deepEqual(plain(ctx.hideAdultCategories(cats).map((c) => c.name)), ['Todos', 'Deportes']);
-  assert.equal(ctx.isAdultCategory({ id: 5, name: 'Infantil' }), false);
-  assert.equal(ctx.isAdultCategory({ id: 76208, name: 'Algo' }), true);
+  assert.equal(ctx.isAdultCategory({ name: '18+' }), true);
+  assert.equal(ctx.isAdultCategory({ name: 'Adultos +18' }), true);
+  assert.equal(ctx.isAdultCategory({ name: 'XXX' }), true);
+  assert.equal(ctx.isAdultCategory({ name: 'Infantil' }), false);
+});
+
+function liveListsContext() {
+  return loadModules(BASE.concat('live/channels.js', 'live/guide.js', 'live/adult-filter.js'), {
+    liveFavKey: (ch) => 'live:' + (ch.streamUrl || ch.channelCode || ch.id || ch.name)
+  });
+}
+
+test('M3U lists merge into one channel list without repeats or adult groups', () => {
+  const ctx = liveListsContext();
+  const listA = [
+    { name: 'Uno', group: 'News', streamUrl: 'http://a/1.m3u8', channelCode: 'm3u_1' },
+    { name: 'Dos', group: 'Sports;News', streamUrl: 'http://a/2.m3u8', channelCode: 'm3u_2' },
+    { name: 'Adulto', group: 'XXX', streamUrl: 'http://a/3.m3u8', channelCode: 'm3u_3' }
+  ];
+  const listB = [
+    { name: 'Uno otra vez', group: 'News', streamUrl: 'http://a/1.m3u8', channelCode: 'm3u_1' },
+    { name: 'Tres', group: 'Addon', streamUrl: 'http://b/3.m3u8', channelCode: 'm3u_2' }
+  ];
+  const all = ctx.mergeLiveLists([listA, null, listB]);
+  assert.deepEqual(plain(all.map((c) => c.name)), ['Uno', 'Dos', 'Tres']);
+  assert.deepEqual(plain(all.map((c) => c.index)), [1, 2, 3]);
+  const cats = ctx.buildLiveCategories(all);
+  assert.deepEqual(plain(cats.map((c) => c.name)), ['Todos', 'Deportes', 'Noticias', 'Otros']);
+  assert.deepEqual(plain(cats[2].channels.map((c) => c.name)), ['Uno', 'Dos']);
+});
+
+test('live favourites are kept by link, also the ones saved by older versions', () => {
+  const ctx = liveListsContext();
+  ctx.syncSavedFavorite({ name: 'Viejo', channelCode: 'm3u_7', streamUrl: 'http://a/viejo.m3u8' }, true);
+  ctx.state.favs['live:http://b/nuevo.m3u8'] = true;
+  const all = ctx.mergeLiveLists([[
+    { name: 'Viejo', group: 'News', streamUrl: 'http://a/viejo.m3u8', channelCode: 'm3u_1' },
+    { name: 'Nuevo', group: 'News', streamUrl: 'http://b/nuevo.m3u8', channelCode: 'm3u_2' },
+    { name: 'Otro', group: 'News', streamUrl: 'http://b/otro.m3u8', channelCode: 'm3u_7' }
+  ]]);
+  assert.deepEqual(plain(all.map((c) => c.fav)), [true, true, false]);
+  assert.equal(ctx.liveChannelKey(all[0]), 'http://a/viejo.m3u8');
 });

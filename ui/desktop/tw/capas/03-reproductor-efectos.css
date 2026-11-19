@@ -241,3 +241,12 @@ body.desktop { --t-bg: #0e0e11; --bg: #0e0e11; background: #0e0e11; }
 .desktop .settings-menu,
 .desktop #screen-search .search-keyboard { background-color: #141418; }
 .desktop .history-drawer { background: rgba(20, 20, 24, .92); }
+
+/* "Audio y subtítulos": buttons as wide as their text (an addon file's
+   track names are long: "Español (Latino) · 5.1"), and "Importar…" the
+   same height as the switch next to it. */
+.desktop .dps-btn { width: auto; min-width: 150px; height: 58px; padding: 0 28px; font-size: 22px; }
+.desktop .dps-btn.is-selected { padding-right: 52px; }
+.desktop .dps-import { margin-left: 20px; min-width: 0; height: 50px; padding: 0 22px; font-size: 19px; }
+.desktop .dps-import.is-hidden { display: none; }
+.desktop .dps-switch.is-hidden { display: none; }

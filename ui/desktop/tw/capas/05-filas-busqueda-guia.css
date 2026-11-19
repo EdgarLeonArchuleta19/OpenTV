@@ -292,3 +292,8 @@
    synopsis gives up height. */
 .desktop #screen-detail .detail-left > * { flex-shrink: 0; }
 .desktop #screen-detail:not(.is-synopsis-open) .detail-left { overflow: hidden; }
+/* Titles of 3, 4 or 5 lines show whole (the base sheet capped them at two
+   lines of 62 px); long ones start smaller, fitDetailLeft() goes on. */
+.desktop #screen-detail .detail-title { max-height: none; -webkit-line-clamp: 5; line-height: 1.15; padding-bottom: 2px; }
+.desktop #screen-detail .detail-title.is-long { font-size: 44px; }
+.desktop #screen-detail .detail-title.is-xlong { font-size: 38px; }

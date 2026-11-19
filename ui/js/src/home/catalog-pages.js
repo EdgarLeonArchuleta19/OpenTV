@@ -19,7 +19,7 @@ function makeBento(item, x, y, w, h, opts) {
   opts = opts || {};
   var t = el('div', 'bento focusable');
   /* Desktop: a little air between the large tiles. */
-  var gap = window.XUPER_DESKTOP ? BENTO_GAP : 0;
+  var gap = window.OPENTV_DESKTOP ? BENTO_GAP : 0;
   abs(t, x + gap, y + gap, w - gap * 2, h - gap * 2);
   var art = item ? (item.landscape || item.poster) : '';
   if (art) {
@@ -35,7 +35,7 @@ function makeBento(item, x, y, w, h, opts) {
   if (opts.badge) { t.appendChild(el('div', 'bento-badge', opts.badge)); }
   t._item = item;
   if (item) { t._activate = function () { openDetail(item); }; }
-  if (window.XUPER_DESKTOP && item && !art) { applyGenericCover(t, item); }
+  if (window.OPENTV_DESKTOP && item && !art) { applyGenericCover(t, item); }
   schedulePosterMemoryPass();
   return t;
 }
@@ -66,7 +66,7 @@ function bentoPage(page, items, opts) {
   if (opts.dots) {
     var dots = bentoDots(848, 535.5, opts.dots, 0);
     page.appendChild(dots);
-    if (window.XUPER_DESKTOP && opts.titles && source.length > 1) {
+    if (window.OPENTV_DESKTOP && opts.titles && source.length > 1) {
       /* The rotation must not repeat the titles already on the other tiles:
          use the first title plus the ones after the six tiles when the
          section has them. */
@@ -84,7 +84,7 @@ var bannerTimer = null;
 var BANNER_INTERVAL_MS = 6500;
 var bannerKeyAt = 0;
 var bannerPointerAt = 0;
-if (window.XUPER_DESKTOP) {
+if (window.OPENTV_DESKTOP) {
   document.addEventListener('keydown', function () { bannerKeyAt = Date.now(); }, true);
   document.addEventListener('pointermove', function () { bannerPointerAt = Date.now(); }, { capture: true, passive: true });
 }
@@ -155,6 +155,8 @@ function allVodFor(category) {
   var out = [], i;
   if (category) {
     for (i = 0; i < VOD.length; i++) {
+      /* (Titles of an anime list only live in Anime, not in Series.) */
+      if (VOD[i]._animeCat && category !== 'anime') { continue; }
       var cats = norm(VOD[i].category || '').split(',');
       if (cats.indexOf(category) !== -1 || (VOD[i].kind && norm(VOD[i].kind).indexOf(category) !== -1)) {
         out.push(VOD[i]);
@@ -172,7 +174,7 @@ function appendCatalogGrid(page, items, startY, titleText) {
   page.appendChild(sub);
   y += 50;
 
-  var compact = window.XUPER_DESKTOP && catalogCompact();
+  var compact = window.OPENTV_DESKTOP && catalogCompact();
   var colW = compact ? 236 : 276;
   var colH = compact ? 340 : 390;
   var maxCols = compact ? 7 : 6;
@@ -181,7 +183,7 @@ function appendCatalogGrid(page, items, startY, titleText) {
   if (platformIsTv()) { colW = ROW_STEP; colH = ROW_POSTER_H + 34; maxCols = 6; posterW = ROW_POSTER_W; posterH = ROW_POSTER_H; }
   var cursor = 0;
   var more = null;
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     more = el('button', 'desktop-more focusable');
     more.type = 'button';
     more._activate = appendBatch;
@@ -209,12 +211,12 @@ function appendCatalogGrid(page, items, startY, titleText) {
 
 function buildFeaturedPage(page) {
   var all = allVodFor('destacado');
-  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: '', top10: 'destacado', trendKey: 'inicio', rows: 'destacado', gridTitle: 'Títulos destacados' }); return; }
+  if (window.OPENTV_DESKTOP) { buildDesktopSection(page, all, { continueFilter: '', top10: 'destacado', trendKey: 'inicio', rows: 'destacado', gridTitle: 'Títulos destacados' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
-  bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
+  bentoPage(page, window.OPENTV_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
   var rest = all.slice(6);
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     /* Desktop: "Seguir viendo", then one row per portal shelf. */
     var y = appendContinueRow(page, 830, '');
     var rows = portalRowsFor('destacado', 4);
@@ -230,12 +232,12 @@ function buildFeaturedPage(page) {
 
 function buildMoviesPage(page) {
   var all = allVodFor('pelicula');
-  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', trending: 'movie', trendKey: 'movie', rows: 'pelicula', grid: true, gridTitle: 'Todas las películas' }); return; }
+  if (window.OPENTV_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', trending: 'movie', trendKey: 'movie', rows: 'pelicula', grid: true, gridTitle: 'Todas las películas' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
-  bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
+  bentoPage(page, window.OPENTV_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
   var rest = all.slice(6);
-  var gridY = window.XUPER_DESKTOP ? appendContinueRow(page, 830, 'movie') + (page._continueCount ? 10 : 30) : 860;
+  var gridY = window.OPENTV_DESKTOP ? appendContinueRow(page, 830, 'movie') + (page._continueCount ? 10 : 30) : 860;
   if (rest.length) {
     appendCatalogGrid(page, rest, gridY, 'Más películas');
   }
@@ -243,12 +245,12 @@ function buildMoviesPage(page) {
 
 function buildSeriesPage(page) {
   var all = allVodFor('serie');
-  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', trending: 'series', trendKey: 'series', rows: 'serie', grid: true, gridTitle: 'Todas las series' }); return; }
+  if (window.OPENTV_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', trending: 'series', trendKey: 'series', rows: 'serie', grid: true, gridTitle: 'Todas las series' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
-  bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
+  bentoPage(page, window.OPENTV_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
   var rest = all.slice(6);
-  var gridY = window.XUPER_DESKTOP ? appendContinueRow(page, 830, 'series') + (page._continueCount ? 10 : 30) : 860;
+  var gridY = window.OPENTV_DESKTOP ? appendContinueRow(page, 830, 'series') + (page._continueCount ? 10 : 30) : 860;
   if (rest.length) {
     appendCatalogGrid(page, rest, gridY, 'Más series');
   }
@@ -256,10 +258,10 @@ function buildSeriesPage(page) {
 
 function buildAnimePage(page) {
   var all = allVodFor('anime');
-  if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { rows: 'anime', trendKey: 'anime', grid: true, gridTitle: 'Todo el anime' }); return; }
+  if (window.OPENTV_DESKTOP) { buildDesktopSection(page, all, { rows: 'anime', trendKey: 'anime', grid: true, gridTitle: 'Todo el anime' }); return; }
   var items = all.slice(0, 6);
   var real = !!(items[0] && items[0]._portal);
-  bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
+  bentoPage(page, window.OPENTV_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
   var rest = all.slice(6);
   if (rest.length) {
     appendCatalogGrid(page, rest, 860, 'Anime y animación');
@@ -298,7 +300,7 @@ function buildNovelsPage(page) {
   } else {
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
-    bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
+    bentoPage(page, window.OPENTV_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
     appendCatalogGrid(page, all, 860, 'Más novelas');
   }
 }
@@ -306,7 +308,7 @@ function buildNovelsPage(page) {
 /* KIDS: hero 831x534 + 2x2 grid 413x222 on the right, a subtitle line and a
    horizontal poster row (7 columns, last one clipped by the screen edge). */
 function buildKidsPage(page) {
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     buildDesktopSection(page, allVodFor('infantil'), { rows: 'infantil', trendKey: 'kids', grid: true, gridTitle: 'Todo para niños' });
     return;
   }
@@ -365,8 +367,17 @@ function buildDesktopSection(page, all, opts) {
     var idxEmpty = pages.indexOf(page);
     if (idxEmpty >= 0) { delete heroPages[idxEmpty]; }
     /* (The page is rebuilt when the catalogue arrives.) */
-    var empty = el('div', 'catalog-empty', portalState.refreshing ? 'Cargando los títulos de esta sección…'
-      : 'No hay títulos de esta sección disponibles en el catálogo actual.');
+    if (vodApiState.loading) {
+      /* Loading: the loader in the middle of the section, replaced by
+         the rows as soon as they arrive. */
+      var wait = makeLoader('Cargando los títulos de tus addons…', 'is-page');
+      abs(wait, 192, 0, 1560, 760);
+      page.appendChild(wait);
+      return;
+    }
+    var empty = el('div', 'catalog-empty', getVodSourcesConfig().addons.length
+      ? 'Tus addons no tienen títulos de esta sección.'
+      : 'Agrega un addon con catálogo en Ajustes → Addons para ver películas y series.');
     abs(empty, 192, 170, 1500, 80);
     page.appendChild(empty);
     return;
@@ -384,10 +395,11 @@ function buildDesktopSection(page, all, opts) {
   }
   var y;
   if (platformIsTv()) {
-    /* TVs: no big hero; two large cards and four small ones. */
+    /* TVs: not the desktop hero (a full-screen layer, too heavy for a
+       Fire TV) but a light banner inside the page (home/rows.js). */
     var idxTv = pages.indexOf(page);
     if (idxTv >= 0) { delete heroPages[idxTv]; }
-    y = appendTvFeature(page, featured, opts);
+    y = appendTvHero(page, featured);
   } else {
     y = buildHero(page, featured);
   }

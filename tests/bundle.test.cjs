@@ -1,5 +1,5 @@
 'use strict';
-/* The TV (webOS, Chromium 53) runs ui/js/app.js as is: it must be ES5 and
+/* TVs run ui/js/app.js as is: it must be ES5 and
    match the modules in ui/js/src. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -28,7 +28,7 @@ test('ui/js/app.js is up to date with the modules', () => {
   execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'build-app.cjs'), '--check'], { stdio: 'pipe' });
 });
 
-test('ui/js/app.js is ES5 (webOS TV)', () => {
+test('ui/js/app.js is ES5 (old TV WebViews)', () => {
   const code = fs.readFileSync(path.join(ROOT, 'ui', 'js', 'app.js'), 'utf8');
   assert.doesNotThrow(() => acorn.parse(code, { ecmaVersion: 5 }));
 });

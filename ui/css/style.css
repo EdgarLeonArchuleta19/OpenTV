@@ -1,5 +1,5 @@
 /* =============================================================================
-   OpenTV  ->  LG webOS 4 (Chromium 53) layout
+   OpenTV  ->  TV layout (1920×1080 canvas)
    -----------------------------------------------------------------------------
    Scale convention taken from the decoded AndroidManifest:
        design_width       = 1920
@@ -14,14 +14,14 @@
 
 html, body {
   /* The design canvas remains 1920×1080 (#app). The outer document must use
-     the real viewport so UHD webOS sets do not clip its scaled right side. */
+     the real viewport so UHD sets do not clip its scaled right side. */
   width: 100%;
   height: 100%;
   overflow: hidden;
   background: #000000;
   color: #ffffff;
   /* The APK bundles no UI font (only assets/amazingkids.otf for kids artwork).
-     Android renders "sans-serif" (Roboto); webOS supplies its own sans face. */
+     Android renders "sans-serif" (Roboto). */
   font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   cursor: none;
@@ -371,7 +371,7 @@ div, section, span { outline: none; }
 }
 
 /* Keep the native live-video surface completely outside the expanded rail.
-   Some webOS compositors paint hardware video above translucent DOM layers. */
+   Some TV compositors paint hardware video above translucent DOM layers. */
 #screen-home.is-rail-open .live-main {
   left: 354px;
   width: 1118px;
@@ -1501,7 +1501,7 @@ div, section, span { outline: none; }
 
 /* Local profile and continue-watching history. */
 
-/* XuperTV account-style settings shell: a calm black rail, clear icons and
+/* Account-style settings shell: a calm black rail, clear icons and
    a rounded red selection instead of the former full-width technical list. */
 #screen-settings { background: #000; }
 .settings-menu {
@@ -1575,7 +1575,7 @@ div, section, span { outline: none; }
 .account-history-btn.is-focused { background: #747474; outline: 2px solid #fff; }
 .share-copy { position: absolute; left: 48px; top: 215px; right: 150px; color: #ccc; font-size: 31px; line-height: 44px; }
 
-/* My List follows XuperTV's full-library layout rather than the settings
+/* My List uses a full-library layout rather than the settings
    sidebar: tabs at the top and a five-column poster library underneath. */
 .history-panel { background: #000; }
 .history-tabs {
@@ -1778,11 +1778,11 @@ div, section, span { outline: none; }
   border: 5px solid rgba(255,255,255,.28);
   border-top-color: #ffffff;
   border-radius: 50%;
-  -webkit-animation: xuper-loading-spin .85s linear infinite;
-  animation: xuper-loading-spin .85s linear infinite;
+  -webkit-animation: opentv-loading-spin .85s linear infinite;
+  animation: opentv-loading-spin .85s linear infinite;
 }
-@-webkit-keyframes xuper-loading-spin { to { -webkit-transform: rotate(360deg); } }
-@keyframes xuper-loading-spin { to { transform: rotate(360deg); } }
+@-webkit-keyframes opentv-loading-spin { to { -webkit-transform: rotate(360deg); } }
+@keyframes opentv-loading-spin { to { transform: rotate(360deg); } }
 /* Center OSD status icon (Play / Pause / Seek feedback) */
 .player-osd-icon {
   position: absolute;
@@ -2993,11 +2993,16 @@ div, section, span { outline: none; }
   display: flex;
 }
 
+/* Each sample sits on its own dark chip, like a real subtitle over the
+   picture: white or yellow letters stay readable when the selected button
+   turns white. */
 .dps-color-preview {
   display: inline-block;
-  padding: 2px 10px;
+  padding: 2px 14px;
   border-radius: 4px;
   font-weight: bold;
+  background: #26262c;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
 }
 .dps-color-preview.white {
   color: #ffffff;
@@ -3097,7 +3102,7 @@ div, section, span { outline: none; }
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0 20px;
-  /* Chromium 53 (webOS 4) ignores flexbox `gap`; margins keep the pills
+  /* Old TV WebViews ignore flexbox `gap`; margins keep the pills
      spaced and the scrollWidth calculation correct. */
 }
 .pc-categories::-webkit-scrollbar { display: none; }

@@ -17,8 +17,6 @@ function buildDesktopProfilePanel() {
   avatar.innerHTML = avatarSvg(me.avatar);
   var who = el('div', 'acc-who');
   var nameRow = el('div', 'acc-name', me.name);
-  /* Stremio mode (PC): say it here too. */
-  if (stremioModeOn()) { nameRow.appendChild(el('span', 'mode-pill is-inline', 'Modo Addons')); }
   who.appendChild(nameRow);
   who.appendChild(el('div', 'acc-id', (me.kids ? 'Perfil infantil · ' : '') + 'Guardado solo en este equipo'));
   head.appendChild(avatar);
@@ -57,7 +55,7 @@ function buildDesktopProfilePanel() {
   [
     { icon: UI_ICONS.mylist, title: 'Mi lista', text: 'Películas y series que guardaste', run: function () { showSettingsPanel(settingsIndexOf('history'), true); } },
     { icon: UI_ICONS.history, title: 'Historial', text: 'Sigue donde lo dejaste', run: function () { openHistoryView(); } },
-    { icon: UI_ICONS.settings, title: 'Reproducción', text: 'Calidad, idioma y subtítulos', run: function () { showSettingsPanel(settingsIndexOf('playback'), true); } }
+    { icon: UI_ICONS.settings, title: 'Ajustes', text: 'Apariencia, reproducción y preferencias', run: function () { showSettingsPanel(settingsIndexOf('playback'), true); } }
   ].forEach(function (a) {
     var card = el('div', 'acc-action focusable');
     var ic = el('div', 'acc-action-icon');
@@ -75,52 +73,14 @@ function buildDesktopProfilePanel() {
   });
   p.appendChild(actions);
 
-  p.appendChild(el('div', 'acc-section', 'Apariencia'));
-  var look = el('div', 'acc-appearance');
-  var lookText = el('div', 'acc-action-text');
-  lookText.appendChild(el('div', 'acc-action-title', 'Tamaño de los pósteres'));
-  lookText.appendChild(el('div', 'acc-action-sub', 'Compacto muestra más títulos en cada fila'));
-  look.appendChild(lookText);
-  var seg = el('div', 'acc-seg');
-  [['Normal', false], ['Compacto', true]].forEach(function (o) {
-    var b = el('div', 'acc-seg-btn focusable' + (catalogCompact() === o[1] ? ' is-selected' : ''), o[0]);
-    b._activate = function () {
-      setCatalogDensity(o[1]);
-      var all = seg.querySelectorAll('.acc-seg-btn');
-      for (var i = 0; i < all.length; i++) { all[i].classList.toggle('is-selected', all[i] === b); }
-    };
-    seg.appendChild(b);
-  });
-  look.appendChild(seg);
-  p.appendChild(look);
-
-  /* Modo ligero (core/lite.js). */
-  var lite = el('div', 'acc-appearance');
-  var liteText = el('div', 'acc-action-text');
-  liteText.appendChild(el('div', 'acc-action-title', 'Modo ligero'));
-  liteText.appendChild(el('div', 'acc-action-sub', platformHas('mouse') ? 'Quita desenfoques, animaciones y la tarjeta grande al pasar el ratón. Úsalo si los menús van lentos.'
-    : 'Quita desenfoques y animaciones. Úsalo si los menús van lentos.'));
-  lite.appendChild(liteText);
-  var liteSeg = el('div', 'acc-seg');
-  [['Apagado', false], ['Encendido', true]].forEach(function (o) {
-    var b = el('div', 'acc-seg-btn focusable' + (liteMode() === o[1] ? ' is-selected' : ''), o[0]);
-    b._activate = function () {
-      setLiteMode(o[1]);
-      var all = liteSeg.querySelectorAll('.acc-seg-btn');
-      for (var i = 0; i < all.length; i++) { all[i].classList.toggle('is-selected', all[i] === b); }
-    };
-    liteSeg.appendChild(b);
-  });
-  lite.appendChild(liteSeg);
-  p.appendChild(lite);
   /* (How your data is kept is told in Acerca de.) */
   return p;
 }
 
-/* Ajustes → Fuentes: de dónde salen las películas y series (solo PC) y las
-   listas M3U de TV en vivo. Diseño corto: un selector, listas y un campo. */
+/* Ajustes → Addons: los addons de películas y series y las listas M3U de TV
+   en vivo. Diseño corto: listas y un campo para agregar. */
 function buildSourcesPanel() {
-  var page = desktopSettingsPage('sd-sources scrollable', 'Fuentes', '');
+  var page = desktopSettingsPage('sd-sources scrollable', 'Addons', '');
   page.body.appendChild(buildContentSourcesSection());
   return page.panel;
 }
@@ -210,63 +170,24 @@ function fxRow(iconUrl, name, meta, actions) {
 
 function buildContentSourcesSection() {
   var wrap = el('div', 'fx-wrap');
-  if (platformHas('addons')) { wrap.appendChild(buildMoviesSourcesSection()); }
+  if (platformHas('addons')) {
+    wrap.appendChild(buildMoviesSourcesSection());
+  }
   wrap.appendChild(buildLiveSourcesSection());
   return wrap;
 }
 
-/* Películas y series (PC): two mode cards, and the addons. */
+/* Películas y series: the viewer's addons (catalog, sources, subtitles). */
 function buildMoviesSourcesSection() {
   var sec = fxSection('Películas y series');
-  var seg = el('div', 'fx-modes');
+  var intro = el('div', 'fx-meta', 'Los addons dan el catálogo, las fuentes para reproducir y los subtítulos.');
   var list = el('div', 'fx-list');
   var warn = el('div', 'fx-warn', '');
   var msg = el('div', 'fx-msg', '');
-  var busy = false;
 
   function say(text, kind) { msg.textContent = text || ''; msg.className = 'fx-msg' + (kind ? ' is-' + kind : ''); }
 
-  var modes = [
-    { id: 'auto', label: 'Automático', badge: 'Recomendado', hint: 'El catálogo de OpenTV, listo para ver.' },
-    { id: 'external', label: 'Addons', hint: 'Tus addons (compatibles con Stremio). Eliges la fuente al reproducir.' }
-  ];
-  modes.forEach(function (m) {
-    var b = el('div', 'fx-mode focusable');
-    var head = el('div', 'fx-mode-head');
-    head.appendChild(el('span', 'fx-mode-radio'));
-    head.appendChild(el('span', 'fx-mode-title', m.label));
-    if (m.badge) { head.appendChild(el('span', 'fx-mode-badge', m.badge)); }
-    b.appendChild(head);
-    b.appendChild(el('div', 'fx-mode-desc', m.hint));
-    b._mode = m.id;
-    b.setAttribute('role', 'radio');
-    b._activate = function () {
-      if (busy || getVodSourcesConfig().mode === m.id) { return; }
-      function apply() {
-        busy = true;
-        say('Cargando…', '');
-        applyVodSourceMode(m.id, function (err, count) {
-          busy = false;
-          if (err) { say(err, 'err'); } else { say(m.id === 'external' ? count + ' títulos de tus addons.' : '', 'ok'); }
-          paint();
-        });
-      }
-      /* Stremio: first say what this mode depends on. */
-      if (m.id === 'external') { openStremioModeNotice(getVodSourcesConfig().addons, apply); } else { apply(); }
-    };
-    seg.appendChild(b);
-  });
-
-  function paint() {
-    var cfg = getVodSourcesConfig();
-    var btns = seg.querySelectorAll('.fx-mode');
-    for (var i = 0; i < btns.length; i++) {
-      var on = btns[i]._mode === cfg.mode;
-      btns[i].classList.toggle('is-on', on);
-      btns[i].setAttribute('aria-checked', on ? 'true' : 'false');
-    }
-    renderAddons(cfg);
-  }
+  function paint() { renderAddons(getVodSourcesConfig()); }
 
   function renderAddons(cfg) {
     clear(list);
@@ -284,26 +205,30 @@ function buildMoviesSourcesSection() {
           c.addons.splice(idx - 1, 0, c.addons.splice(idx, 1)[0]);
           saveVodSourcesConfig(c);
           paint();
-          if (stremioModeOn()) { syncExternalVodCatalogs(function () {}); }
+          syncExternalVodCatalogs(function () {});
         }));
       }
-      actions.push(fxIconButton(FX_ICONS.remove, 'Quitar', function () {
-        var c = getVodSourcesConfig();
-        var manual = c.mode === 'external';
-        c.addons.splice(idx, 1);
-        if (!c.addons.length) { c.mode = 'auto'; }
-        saveVodSourcesConfig(c);
-        if (manual) { applyVodSourceMode(c.addons.length ? 'external' : 'auto', paint); } else { paint(); }
-      }, true));
+      /* The app's own three (catalog and subtitles) stay: no Quitar. */
+      if (isBuiltinVodAddon(ad)) {
+        var tag = el('span', 'fx-tag', 'Incluido');
+        tag.setAttribute('data-tip', 'Viene con la app y no se puede quitar');
+        actions.push(tag);
+      } else {
+        actions.push(fxIconButton(FX_ICONS.remove, 'Quitar', function () {
+          var c = getVodSourcesConfig();
+          c.addons.splice(idx, 1);
+          saveVodSourcesConfig(c);
+          paint();
+          syncExternalVodCatalogs(function () {});
+        }, true));
+      }
       list.appendChild(fxRow(ad.logo, ad.name || 'Addon', addonOffers(ad), actions));
     });
-    /* What is missing for the manual mode to work. */
+    /* What is missing, in one short line. */
     var hasCatalog = cfg.addons.some(function (ad) { return addonHas(ad, 'catalog'); });
-    var hasStream = cfg.addons.some(function (ad) { return addonHas(ad, 'stream') || ad.kind === 'm3u'; });
-    /* Only Modo Addons depends on them (Automático has its own catalog). */
-    warn.textContent = !cfg.addons.length || cfg.mode !== 'external' ? ''
-      : (!hasCatalog ? 'Falta un addon con Catálogo: sin él no hay películas ni series que mostrar.'
-        : (!hasStream ? 'Falta un addon con Fuentes: sin él no hay nada que reproducir.' : ''));
+    var hasStream = cfg.addons.some(function (ad) { return addonHas(ad, 'stream'); });
+    warn.textContent = !hasCatalog ? 'Sin addon de catálogo: no hay películas ni series.'
+      : (!hasStream ? 'Sin addon de fuentes: puedes ver la información, pero no reproducir.' : '');
     warn.hidden = !warn.textContent;
   }
 
@@ -315,12 +240,18 @@ function buildMoviesSourcesSection() {
       btn.textContent = 'Agregar';
       if (err) { return say('No se pudo agregar: ' + err, 'err'); }
       input.value = '';
-      say('✔ ' + info.name + (stremioModeOn() && count ? ' · ' + count + ' títulos' : ''), 'ok');
+      say('✔ ' + info.name + (count ? ' · ' + count + ' títulos' : ''), 'ok');
       paint();
     });
   });
 
-  sec.appendChild(seg);
+  /* Recomendados: movie and series addons (live/addons-dialog.js). */
+  var recommend = el('div', 'fx-btn is-ghost is-recommend focusable', 'Recomendados');
+  recommend.setAttribute('data-tip', 'Addons de películas y series recomendados');
+  recommend._activate = function () { openAddonsDialog('vod'); };
+  add.appendChild(recommend);
+
+  sec.appendChild(intro);
   sec.appendChild(list);
   sec.appendChild(warn);
   sec.appendChild(add);

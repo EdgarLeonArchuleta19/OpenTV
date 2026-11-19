@@ -1,5 +1,5 @@
 /* =============================================================================
-   OpenTV — interfaz (TV LG webOS y escritorio Windows)
+   OpenTV — interfaz (Windows, Android, Android TV y Fire TV)
    ARCHIVO GENERADO por scripts/build-app.cjs: no lo edites a mano.
    El código fuente está en ui/js/src/ (orden en ui/js/src/modules.json).
    ============================================================================= */
@@ -68,7 +68,7 @@
   /* core/platform.js — Acceso a la plataforma (ver ui/js/platform.js).
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-  /* window.XUPER_DESKTOP means "the new interface" and is on everywhere.
+  /* window.OPENTV_DESKTOP means "the new interface" and is on everywhere.
      What only some devices can do (a window of its own, a mouse, the
      system volume...) is asked here instead. */
   function platformName() {
@@ -95,7 +95,7 @@
   var ACTIVE_PROFILE_SESSION = 'opentv_active_profile';
   var PROFILES_MAX = 6;
   var PROFILE_SCOPED_KEYS = [
-    'xuper_local_profile_v1', 'xuper_global_playback_v1', 'opentv_recent_searches_v1',
+    'opentv_local_profile_v1', 'opentv_global_playback_v1', 'opentv_recent_searches_v1',
     'opentv_live_saved_v1', 'opentv_catalog_density_v1'
   ];
 
@@ -127,10 +127,10 @@
     }
     return profilesData.list[0];
   }
-  function isKidsProfile() { return !!(window.XUPER_DESKTOP && activeProfile().kids); }
+  function isKidsProfile() { return !!(window.OPENTV_DESKTOP && activeProfile().kids); }
 
   function profileKey(key) {
-    if (!window.XUPER_DESKTOP || activeProfileId === 'main' || PROFILE_SCOPED_KEYS.indexOf(key) === -1) { return key; }
+    if (!window.OPENTV_DESKTOP || activeProfileId === 'main' || PROFILE_SCOPED_KEYS.indexOf(key) === -1) { return key; }
     return key + '@' + activeProfileId;
   }
 
@@ -154,7 +154,7 @@
   /* Where the app starts and where Esc on the home screen goes: Inicio on
      desktop (Kids for a kids profile), TV on the TV set. */
   function homeTabIndex() {
-    if (!window.XUPER_DESKTOP) { return 0; }
+    if (!window.OPENTV_DESKTOP) { return 0; }
     var want = isKidsProfile() ? 4 : 1;
     for (var i = 0; i < TABS.length; i++) { if (TABS[i].page === want) { return i; } }
     return 0;
@@ -162,7 +162,8 @@
   function onTvTab() { var t = TABS[state.tab]; return !!t && t.page === 0; }
 
   /* ----------------------------------------------------------- avatars */
-  /* Twelve drawn avatars: a coloured tile and a simple face. */
+  /* Drawn avatars: a coloured tile and a simple face. New ones go at the end
+     (profiles keep their avatar by its index). */
   var AVATARS = [
     { a: '#3a7bff', b: '#8a4dff', face: 'smile' },
     { a: '#ff5f6d', b: '#ffc371', face: 'cat' },
@@ -175,7 +176,19 @@
     { a: '#7f53ac', b: '#647dee', face: 'ghost' },
     { a: '#e52d27', b: '#b31217', face: 'love' },
     { a: '#141e30', b: '#3a6186', face: 'planet' },
-    { a: '#a8e063', b: '#56ab2f', face: 'frog' }
+    { a: '#a8e063', b: '#56ab2f', face: 'frog' },
+    { a: '#8e5a2b', b: '#c48a4a', face: 'bear' },
+    { a: '#3e3e46', b: '#8a8a96', face: 'panda' },
+    { a: '#b06ab3', b: '#4568dc', face: 'owl' },
+    { a: '#1e3c72', b: '#2a5298', face: 'penguin' },
+    { a: '#56ab2f', b: '#1d976c', face: 'dino' },
+    { a: '#f12711', b: '#f5af19', face: 'cool' },
+    { a: '#ec008c', b: '#fc6767', face: 'wink' },
+    { a: '#0f2027', b: '#2c5364', face: 'ninja' },
+    { a: '#8e0e00', b: '#1f1c18', face: 'pirate' },
+    { a: '#f7971e', b: '#ffd200', face: 'crown' },
+    { a: '#e53935', b: '#e35d5b', face: 'popcorn' },
+    { a: '#7b4397', b: '#dc2430', face: 'monster' }
   ];
 
   var avatarSvgSeq = 0;
@@ -210,6 +223,49 @@
         eyes = '<path d="M36 50l-8-8a5 5 0 0 1 8-6 5 5 0 0 1 8 6z" fill="#fff"/><path d="M64 50l-8-8a5 5 0 0 1 8-6 5 5 0 0 1 8 6z" fill="#fff"/>'; break;
       case 'planet': extra = '<ellipse cx="50" cy="50" rx="44" ry="12" fill="none" stroke="#fff" stroke-width="3" opacity=".5" transform="rotate(-18 50 50)"/><circle cx="80" cy="18" r="3" fill="#fff"/><circle cx="18" cy="80" r="2" fill="#fff"/>'; break;
       case 'frog': eyes = '<circle cx="34" cy="34" r="10" fill="#fff"/><circle cx="66" cy="34" r="10" fill="#fff"/><circle cx="34" cy="34" r="4" fill="#123"/><circle cx="66" cy="34" r="4" fill="#123"/>'; mouth = '<path d="M28 62c12 10 32 10 44 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>'; break;
+      case 'bear':
+        extra = '<circle cx="22" cy="20" r="11" fill="#fff" opacity=".85"/><circle cx="78" cy="20" r="11" fill="#fff" opacity=".85"/><ellipse cx="50" cy="62" rx="15" ry="11" fill="#fff" opacity=".3"/><ellipse cx="50" cy="57" rx="5" ry="4" fill="#fff"/>';
+        mouth = '<path d="M43 66c4 4 10 4 14 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>'; break;
+      case 'panda':
+        extra = '<circle cx="20" cy="18" r="11" fill="#111" opacity=".6"/><circle cx="80" cy="18" r="11" fill="#111" opacity=".6"/><ellipse cx="34" cy="46" rx="11" ry="13" fill="#111" opacity=".55" transform="rotate(-20 34 46)"/><ellipse cx="66" cy="46" rx="11" ry="13" fill="#111" opacity=".55" transform="rotate(20 66 46)"/>';
+        eyes = '<circle cx="35" cy="46" r="4.5" fill="#fff"/><circle cx="65" cy="46" r="4.5" fill="#fff"/>';
+        mouth = '<path d="M44 64c3 4 9 4 12 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><ellipse cx="50" cy="58" rx="5" ry="3.5" fill="#fff"/>'; break;
+      case 'owl':
+        extra = '<path d="M18 22 30 30M82 22 70 30" stroke="#fff" stroke-width="5" stroke-linecap="round"/>';
+        eyes = '<circle cx="34" cy="46" r="13" fill="#fff"/><circle cx="66" cy="46" r="13" fill="#fff"/><circle cx="34" cy="46" r="5" fill="#222"/><circle cx="66" cy="46" r="5" fill="#222"/>';
+        mouth = '<path d="M44 62l6 9 6-9z" fill="#ffd34d"/>'; break;
+      case 'penguin':
+        extra = '<ellipse cx="50" cy="60" rx="28" ry="32" fill="#fff" opacity=".92"/>';
+        eyes = '<circle cx="40" cy="46" r="5" fill="#1e3c72"/><circle cx="60" cy="46" r="5" fill="#1e3c72"/>';
+        mouth = '<path d="M42 56h16l-8 9z" fill="#ffb02e"/>'; break;
+      case 'dino':
+        extra = '<path d="M30 14l6-10 6 10M46 10l6-10 6 10M62 14l6-10 6 10" fill="#fff" opacity=".85"/>';
+        eyes = '<circle cx="34" cy="42" r="6" fill="#fff"/><circle cx="66" cy="42" r="6" fill="#fff"/>';
+        mouth = '<path d="M28 62h44" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M38 62v6M50 62v6M62 62v6" stroke="#fff" stroke-width="4" stroke-linecap="round"/>'; break;
+      case 'cool':
+        eyes = '<path d="M20 38h60" stroke="#111" stroke-width="5" stroke-linecap="round"/><rect x="22" y="38" width="24" height="14" rx="6" fill="#111"/><rect x="54" y="38" width="24" height="14" rx="6" fill="#111"/>';
+        mouth = '<path d="M38 66c8 6 18 4 26-4" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>'; break;
+      case 'wink':
+        eyes = '<circle cx="36" cy="44" r="6" fill="#fff"/><path d="M57 45c3-4 11-4 14 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>';
+        mouth = '<path d="M34 62c10 10 24 10 32 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M58 66c2 6 8 8 10 2" fill="#ff8fb1"/>'; break;
+      case 'ninja':
+        extra = '<rect x="10" y="32" width="80" height="26" rx="6" fill="#111" opacity=".75"/><path d="M84 40l12-6-6 12" fill="#e52d27"/>';
+        eyes = '<path d="M28 46l14 2M58 48l14-2" stroke="#fff" stroke-width="6" stroke-linecap="round"/>';
+        mouth = ''; break;
+      case 'pirate':
+        extra = '<path d="M14 30c10-22 62-22 72 0z" fill="#111" opacity=".8"/><circle cx="50" cy="20" r="4" fill="#fff"/><path d="M20 36 80 50" stroke="#111" stroke-width="3"/>';
+        eyes = '<circle cx="36" cy="46" r="6" fill="#fff"/><ellipse cx="64" cy="47" rx="9" ry="8" fill="#111"/>';
+        mouth = '<path d="M38 66c8 4 18 4 24-2" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>'; break;
+      case 'crown':
+        extra = '<path d="M24 26 30 6l12 12 8-14 8 14 12-12 6 20z" fill="#fff" opacity=".95"/>'; break;
+      case 'popcorn':
+        extra = '<path d="M28 44h44l-6 46H34z" fill="#fff"/><path d="M38 44l2 46M50 44v46M62 44l-2 46" stroke="#e53935" stroke-width="4"/><circle cx="34" cy="38" r="9" fill="#fff6d5"/><circle cx="50" cy="32" r="10" fill="#fff6d5"/><circle cx="66" cy="38" r="9" fill="#fff6d5"/>';
+        eyes = '<circle cx="42" cy="60" r="3.5" fill="#e53935"/><circle cx="58" cy="60" r="3.5" fill="#e53935"/>';
+        mouth = '<path d="M44 70c3 3 9 3 12 0" fill="none" stroke="#e53935" stroke-width="3.5" stroke-linecap="round"/>'; break;
+      case 'monster':
+        extra = '<path d="M26 22 18 6M74 22 82 6" stroke="#fff" stroke-width="5" stroke-linecap="round"/>';
+        eyes = '<circle cx="50" cy="42" r="14" fill="#fff"/><circle cx="50" cy="42" r="6" fill="#222"/>';
+        mouth = '<path d="M30 66h40" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M36 66l4 8 4-8M56 66l4 8 4-8" fill="#fff"/>'; break;
     }
     return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="' + g + '" x1="0" y1="0" x2="1" y2="1">' +
       '<stop offset="0" stop-color="' + av.a + '"/><stop offset="1" stop-color="' + av.b + '"/></linearGradient></defs>' +
@@ -293,57 +349,233 @@
     }
   }
 
-  /* ---- data/demo-catalog.js -------------------------------------------------- */
-  /* data/demo-catalog.js — Catálogo de demostración integrado (VOD de ejemplo y addVod).
+  /* ---- core/loader.js -------------------------------------------------------- */
+  /* core/loader.js — Indicadores de carga: la barra fina de arriba mientras hay pedidos en curso y el indicador de una pantalla que espera datos.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-  /* ------------------------------------------------------------- demo data */
-  /* Server-driven in the real APK. These records only exercise the layouts. */
-  var GENRES = ['Acción', 'Drama', 'Comedia', 'Suspenso', 'Aventura',
-                'Animación', 'Familiar', 'Ciencia ficción'];
+  /* ------------------------------------------------------------- top bar */
+  /* A thin bar across the top of the window while addon or portal requests
+     are pending, on every screen. It shows up only after NET_SHOW_DELAY (quick
+     answers never flash it) and stays at least NET_MIN_VISIBLE once shown, so
+     it never blinks. Only a transform animates (cheap on a Fire TV), and only
+     while something is loading. It lives on <body>, outside the scaled
+     canvas, so it is the same on PC, TVs and phones. */
+  var netPending = 0;
+  var netBar = null;
+  var netShowTimer = null;
+  var netHideTimer = null;
+  var netShownAt = 0;
+  var NET_SHOW_DELAY = 300;
+  var NET_MIN_VISIBLE = 450;
+
+  function netBarElement() {
+    if (!netBar && document.body) {
+      netBar = el('div', 'net-bar');
+      netBar.setAttribute('aria-hidden', 'true');
+      netBar.appendChild(el('div', 'net-bar-run'));
+      document.body.appendChild(netBar);
+    }
+    return netBar;
+  }
+
+  function netBegin() {
+    netPending++;
+    if (netPending !== 1) { return; }
+    /* Still on screen and about to hide: it just stays. */
+    if (netHideTimer) { clearTimeout(netHideTimer); netHideTimer = null; return; }
+    if (netShowTimer) { return; }
+    netShowTimer = setTimeout(function () {
+      netShowTimer = null;
+      if (netPending <= 0) { return; }
+      /* Never over a video being watched (the player shows its own
+         "Cargando vídeo…"). */
+      if (typeof state !== 'undefined' && state.screen === 'player') { return; }
+      var bar = netBarElement();
+      if (!bar) { return; }
+      bar.classList.add('is-on');
+      netShownAt = Date.now();
+    }, NET_SHOW_DELAY);
+  }
+
+  function netEnd() {
+    if (netPending > 0) { netPending--; }
+    if (netPending > 0) { return; }
+    if (netShowTimer) { clearTimeout(netShowTimer); netShowTimer = null; return; }
+    if (!netBar || !netBar.classList.contains('is-on') || netHideTimer) { return; }
+    var wait = Math.max(0, NET_MIN_VISIBLE - (Date.now() - netShownAt));
+    netHideTimer = setTimeout(function () {
+      netHideTimer = null;
+      if (netPending === 0 && netBar) { netBar.classList.remove('is-on'); }
+    }, wait);
+  }
+
+  /* Wraps a request's callback: the bar counts the request until the
+     callback runs (once, even if it is called again). */
+  function trackedCallback(done) {
+    netBegin();
+    var ended = false;
+    return function () {
+      if (!ended) { ended = true; netEnd(); }
+      return done.apply(this, arguments);
+    };
+  }
+
+  /* ------------------------------------------------------- screen loader */
+  /* What a screen (or a part of one) shows while its data has not arrived:
+     three dots breathing in turn and, optionally, one line of text. It fades
+     in after a short moment, so content that is already there a split second
+     later never flashes it. Replace it with the content when it is ready (the
+     animation stops with the element). `cls` adds a size: 'is-small' for
+     inline places such as an episode list. */
+  function makeLoader(text, cls) {
+    var box = el('div', 'ot-loader' + (cls ? ' ' + cls : ''));
+    box.setAttribute('role', 'status');
+    var dots = el('div', 'ot-loader-dots');
+    for (var i = 0; i < 3; i++) { dots.appendChild(el('span')); }
+    box.appendChild(dots);
+    if (text) { box.appendChild(el('div', 'ot-loader-text', text)); }
+    return box;
+  }
+
+  /* ---- core/tv-keyboard.js --------------------------------------------------- */
+  /* core/tv-keyboard.js — Teclado en pantalla para la tele: letras, números, espacio y borrar, que se recorren con el control (buscador y guía de canales).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* TVs only. The system keyboard of a Fire TV covers the whole screen and
+     hides what is being searched; this one sits next to the results, which
+     change while the viewer types. Keys are plain focusable elements (the
+     usual spatial navigation moves through them); nothing animates. */
+  var TVK_ROWS = [
+    ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+    ['h', 'i', 'j', 'k', 'l', 'm', 'n'],
+    ['ñ', 'o', 'p', 'q', 'r', 's', 't'],
+    ['u', 'v', 'w', 'x', 'y', 'z', '\''],
+    ['1', '2', '3', '4', '5', '6', '7'],
+    ['8', '9', '0', '.', '-', ':', '&']
+  ];
+  var TVK_MAX = 60;
+  var TVK_BACKSPACE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m16 9-5 6M11 9l5 6"/></svg>';
+
+  /* opts: placeholder, value, onChange(text), doneLabel + onDone(text)
+     (the white button in the bar), cls (extra class for its size).
+     Returns { el, first, set(text), get() }. */
+  function makeTvKeyboard(opts) {
+    opts = opts || {};
+    var value = String(opts.value || '');
+    var box = el('div', 'tvk' + (opts.cls ? ' ' + opts.cls : ''));
+    /* The bar: what is typed and, with doneLabel, the white Buscar button
+       next to it (as on the desktop search bar). Up from the keys reaches it. */
+    var bar = el('div', 'tvk-bar');
+    var display = el('div', 'tvk-display');
+    var text = el('span', 'tvk-text');
+    display.appendChild(text);
+    bar.appendChild(display);
+    if (opts.doneLabel) {
+      var go = el('div', 'tvk-go focusable');
+      go.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+      go.appendChild(el('span', '', opts.doneLabel));
+      go._activate = function () { if (opts.onDone) { opts.onDone(value); } };
+      bar.appendChild(go);
+    }
+    box.appendChild(bar);
+    var grid = el('div', 'tvk-grid');
+
+    function show() {
+      text.textContent = value || opts.placeholder || '';
+      display.classList.toggle('is-empty', !value);
+    }
+    function set(v, quiet) {
+      value = String(v || '').slice(0, TVK_MAX);
+      show();
+      if (!quiet && opts.onChange) { opts.onChange(value); }
+    }
+    function key(label, cls, fn) {
+      var k = el('div', 'tvk-key focusable' + (cls ? ' ' + cls : ''), label);
+      k._activate = fn;
+      grid.appendChild(k);
+      return k;
+    }
+    for (var r = 0; r < TVK_ROWS.length; r++) {
+      for (var c = 0; c < TVK_ROWS[r].length; c++) {
+        key(TVK_ROWS[r][c], '', (function (ch) {
+          return function () { set(value + ch); };
+        })(TVK_ROWS[r][c]));
+      }
+    }
+    key('Espacio', 'is-wide3', function () {
+      if (value && value.charAt(value.length - 1) !== ' ') { set(value + ' '); }
+    });
+    var del = key('', 'is-wide2 is-del', function () { if (value) { set(value.slice(0, -1)); } });
+    del.innerHTML = TVK_BACKSPACE + '<span>Borrar</span>';
+    key('Limpiar', 'is-wide2', function () { if (value) { set(''); } });
+    box.appendChild(grid);
+    show();
+    return {
+      el: box,
+      first: grid.firstChild,
+      set: function (v) { set(v, true); },
+      get: function () { return value; }
+    };
+  }
+
+  /* ---------------------------------------------- keyboard over a window */
+  /* A panel with the keyboard over part of a window (the channel guide):
+     `cover` is the part it hides, whose controls stop taking the focus
+     while it is open (core/focus.js isVisible). Back closes it
+     (tvKeyboardBack, from handleKey). */
+  var tvKbPanel = null;
+
+  function openTvKeyboardPanel(host, opts) {
+    closeTvKeyboardPanel(true);
+    var panel = el('div', 'tvk-panel');
+    if (opts.title) { panel.appendChild(el('div', 'tvk-title', opts.title)); }
+    var kb = makeTvKeyboard({
+      placeholder: opts.placeholder, value: opts.value, cls: opts.cls,
+      onChange: opts.onChange,
+      doneLabel: opts.doneLabel,
+      onDone: function (v) { closeTvKeyboardPanel(true); if (opts.onDone) { opts.onDone(v); } }
+    });
+    panel.appendChild(kb.el);
+    host.appendChild(panel);
+    if (opts.cover) { opts.cover.classList.add('tvk-covered'); }
+    if (opts.hostClass) { host.classList.add(opts.hostClass); }
+    tvKbPanel = { panel: panel, host: host, opts: opts, returnFocus: state.focus };
+    setFocus(kb.first);
+    return kb;
+  }
+
+  /* `quiet`: no focus change (the caller decides where it goes). */
+  function closeTvKeyboardPanel(quiet) {
+    if (!tvKbPanel) { return false; }
+    var p = tvKbPanel;
+    tvKbPanel = null;
+    if (p.panel.parentNode) { p.panel.parentNode.removeChild(p.panel); }
+    if (p.opts.cover) { p.opts.cover.classList.remove('tvk-covered'); }
+    if (p.opts.hostClass) { p.host.classList.remove(p.opts.hostClass); }
+    if (!quiet && p.returnFocus && p.returnFocus.isConnected) { setFocus(p.returnFocus, true); }
+    return true;
+  }
+
+  /* Back with the panel open: close it (true when it did). */
+  function tvKeyboardBack() {
+    return closeTvKeyboardPanel(false);
+  }
+
+  /* ---- data/demo-catalog.js -------------------------------------------------- */
+  /* data/demo-catalog.js — El catálogo de películas y series en memoria (VOD).
+     Empieza vacío y lo llenan los addons del usuario (services/vod-api.js).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   var VOD = [];
-  var CATEGORY_BY_PREFIX = {
-    'Destacado': 'destacado', 'Película': 'pelicula', 'Serie': 'serie',
-    'Gratis': 'gratis', 'Infantil': 'infantil', 'UHD': 'uhd', 'Extra': 'extra'
-  };
-  function addVod(prefix, count, base) {
-    for (var i = 1; i <= count; i++) {
-      var g1 = GENRES[(base + i) % GENRES.length];
-      var g2 = GENRES[(base + i + 3) % GENRES.length];
-      VOD.push({
-        id: VOD.length + 1,
-        title: prefix + ' demo ' + pad2(i),
-        category: CATEGORY_BY_PREFIX[prefix] || '',
-        score: (7.9 + ((base + i) % 16) / 10).toFixed(1),
-        year: 2018 + ((base + i) % 7),
-        duration: (1 + ((base + i) % 2)) + ' h ' + (10 + ((base * 7 + i * 5) % 45)) + ' min',
-        genres: g1 === g2 ? [g1] : [g1, g2],
-        director: 'Director demo ' + pad2(i),
-        actors: 'Actor demo ' + pad2(i) + ', Actriz demo ' + pad2(i + 1),
-        synopsis: 'Sinopsis de demostración para ' + prefix.toLowerCase() + ' demo ' + pad2(i) +
-          '. Este texto sólo existe para comprobar el recorte a dos líneas, el interlineado y ' +
-          'la sangría de la etiqueta "Sinopsis :" definidos en activity_voddetails.',
-        kind: prefix.toLowerCase()
-      });
-    }
-  }
-  addVod('Destacado', 5, 1);
-  addVod('Película', 7, 2);
-  addVod('Serie', 7, 3);
-  addVod('Gratis', 5, 4);
-  addVod('Infantil', 8, 5);
-  addVod('UHD', 4, 6);
-  addVod('Extra', 4, 7);
 
   /* ---- services/vod-api.js --------------------------------------------------- */
   /* services/vod-api.js — Cliente de la API VOD: normalización de títulos, temporadas y peticiones HTTP.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------- VOD API
-     XMLHttpRequest is used deliberately: it works on Chromium 53, where
-     fetch/async functions are not a safe webOS 4 baseline. */
-  var vodApi = window.XUPERTV_API || {};
+     XMLHttpRequest is used deliberately: it works on the oldest TV
+     WebViews, where fetch/async functions are not a safe baseline. */
+  var vodApi = window.OPENTV_API || {};
   /* Desktop harness override: ?service=http://127.0.0.1:8910 */
   var devServiceParam = /[?&]service=([^&]+)/.exec(window.location.search || '');
   if (devServiceParam) { vodApi.devServiceUrl = decodeURIComponent(devServiceParam[1]); }
@@ -382,54 +614,6 @@
     var base = String(vodApi.baseUrl || '').replace(/\/$/, '');
     var path = String(vodApi[kind + 'Path'] || '');
     return base && path ? base + (path.charAt(0) === '/' ? path : '/' + path) : '';
-  }
-
-  function xuperSession() {
-    var session = vodApi.session || {};
-    return {
-      userId: String(session.userId || ''),
-      userToken: String(session.userToken || ''),
-      portalCode: String(session.portalCode || ''),
-      homePageCode: String(session.homePageCode || ''),
-      version: String(session.version || '4.34.4')
-    };
-  }
-
-  function hasXuperSession() {
-    var session = xuperSession();
-    return !!(session.userId && session.userToken && session.portalCode);
-  }
-
-  function xuperPayload(kind, value) {
-    var session = xuperSession();
-    if (kind === 'catalog') {
-      return {
-        userId: session.userId,
-        userToken: session.userToken,
-        portalCode: session.portalCode,
-        homePageCode: session.homePageCode,
-        version: session.version
-      };
-    }
-    if (kind === 'search') {
-      return {
-        userToken: session.userToken,
-        userId: session.userId,
-        portalCode: session.portalCode,
-        columnId: '',
-        value: value || '',
-        type: '',
-        pageSize: 20,
-        pageNum: 1,
-        filter: ''
-      };
-    }
-    return {
-      userToken: session.userToken,
-      userId: session.userId,
-      portalCode: session.portalCode,
-      programId: value
-    };
   }
 
   function apiImage(value) {
@@ -488,7 +672,7 @@
       landscape: apiImage(raw.landscapeUrl || raw.landscape_url || raw.landscape || raw.wideImage || raw.bannerImage),
       backdrop: apiImage(raw.backdropUrl || raw.backdrop_url || raw.backdrop || raw.backdrop_path),
       streamUrl: raw.streamUrl || raw.stream_url || '',
-      /* Magis portal records (service / snapshot). */
+      /* Records marked as coming from the old portal (history only). */
       type: type || (isSeries ? 'teleplay' : 'movie'),
       row: apiText(raw.row, ''),
       /* Every home shelf the title is on (the TOP rankings included). */
@@ -512,6 +696,7 @@
 
   function apiRequest(url, done, options) {
     options = options || {};
+    done = trackedCallback(done);   /* the loading bar at the top (core/loader.js) */
     var xhr = new XMLHttpRequest();
     var finished = false;
     var timeout = parseInt(vodApi.timeoutMs, 10) || 10000;
@@ -675,7 +860,7 @@
   }
 
   function refreshVodViews() {
-    if (homeBuilt && window.XUPER_DESKTOP && pages.length) {
+    if (homeBuilt && window.OPENTV_DESKTOP && pages.length) {
       markCatalogPagesStale();
       if (historyDrawerOpen) { renderHistoryDrawer(); }
       if (searchKeyboard) { buildSearch(); if (state.searchQuery) { runSearch(); } }
@@ -707,7 +892,7 @@
           rail.classList.add('is-expanded');
           rail.classList.remove('is-collapsed');
           var railBg = document.querySelector('.home-sidebar-bg');
-          if (railBg && !window.XUPER_DESKTOP) { railBg.classList.add('is-on'); }
+          if (railBg && !window.OPENTV_DESKTOP) { railBg.classList.add('is-on'); }
         }
       }
     }
@@ -715,28 +900,21 @@
     if (state.detail) { buildDetail(state.detail); }
   }
 
-  function bundledCatalog() {
-    var data = window.XUPERTV_CATALOG;
-    return data ? apiArray(data) : [];
-  }
-
-  /* ------------------------------------------- Modos del catálogo (solo PC)
-     Películas y series salen del catálogo integrado (magis.js) o, en modo
-     manual, solo de los addons de Stremio que añade el usuario
-     (manifest.json / catalog / meta / stream). La app no trae ningún addon.
-     TV en vivo no depende de esto: tiene sus propias listas M3U.
-     Solo en PC (capacidad 'addons'); en teles y celulares es siempre automático. */
+  /* ------------------------------------------- Addons
+     Películas y series salen solo de los addons del usuario (compatibles con
+     Stremio: manifest.json / catalog / meta / stream). Vienen instalados
+     Cinemeta y OpenSubtitles, como en Stremio; los de fuentes los agrega cada
+     usuario. TV en vivo no depende de esto: tiene sus propias listas M3U.
+     (The automatic catalog and its 'auto' mode were removed: `mode` is always
+     'external', kept so saved configs and older checks read the same.) */
   var VOD_SOURCES_STORAGE_KEY = 'opentv_vod_sources_v1';
 
   function getVodSourcesConfig() {
-    var cfg = { mode: 'auto', addons: [] };
+    var cfg = { mode: 'external', addons: [] };
     try {
       var raw = localStorage.getItem(VOD_SOURCES_STORAGE_KEY);
       var parsed = raw ? JSON.parse(raw) : null;
       if (parsed && typeof parsed === 'object') {
-        /* 'portal' (old "Modo servidor") and the old fallback mode are both
-           the automatic mode now. */
-        cfg.mode = parsed.mode === 'external' ? 'external' : 'auto';
         if (Object.prototype.toString.call(parsed.addons) === '[object Array]') {
           for (var i = 0; i < parsed.addons.length; i++) {
             var ad = parsed.addons[i];
@@ -747,15 +925,12 @@
         }
       }
     } catch (e) {}
-    if (!platformHas('addons')) { cfg.mode = 'auto'; return cfg; }
     seedDefaultVodAddons(cfg);
-    if (cfg.mode === 'external' && !cfg.addons.length) { cfg.mode = 'auto'; }
     return cfg;
   }
 
-  /* PC: the addons Stremio itself comes with, installed once (the viewer can
-     remove them; they are not added again). They are only URLs: nothing is
-     asked of them until the Stremio mode is on.
+  /* The addons that come with the app (as Stremio's own); they cannot be
+     removed (seedDefaultVodAddons).
      (Stremio's "Local Files" lives in Stremio's own local server, so it cannot
      be part of OpenTV.) */
   var VOD_DEFAULTS_KEY = 'opentv_vod_defaults_v1';
@@ -764,34 +939,76 @@
     { id: 'default_opensubtitles', name: 'OpenSubtitles v3', url: 'https://opensubtitles-v3.strem.io/manifest.json' }
   ];
 
+  /* Anime: the community's Kitsu catalog (Japanese anime as it is: airing,
+     popular, best rated, with its own search). A catalog only, no sources;
+     one of the app's own addons, right after Cinemeta. */
+  var VOD_ANIME_KEY = 'opentv_vod_anime_v1';
+  var DEFAULT_ANIME_ADDON = { id: 'default_kitsu', name: 'Anime Kitsu', url: 'https://anime-kitsu.strem.fun/manifest.json' };
+
+  /* The three that come with the app (Cinemeta, Anime Kitsu, OpenSubtitles)
+     cannot be removed: they are always in the list (one missing, also from
+     an install where the viewer had removed it, is put back at the end;
+     Kitsu right after Cinemeta). They give the catalog and subtitles only. */
+  function builtinVodAddons() {
+    return DEFAULT_VOD_ADDONS.slice(0, 1).concat([DEFAULT_ANIME_ADDON], DEFAULT_VOD_ADDONS.slice(1));
+  }
+
+  function isBuiltinVodAddon(ad) {
+    var base = ad && ad.url ? stremioBaseFromUrl(ad.url) : '';
+    if (!base) { return false; }
+    var list = builtinVodAddons();
+    for (var i = 0; i < list.length; i++) { if (stremioBaseFromUrl(list[i].url) === base) { return true; } }
+    return false;
+  }
+
+  /* Recommended addons ("Recomendados" in Ajustes → Addons): Torrentio and
+     TorrentsDB. None is preinstalled: the viewer adds them from here.
+     TorrentsDB works without debrid. */
+  var RECOMMENDED_VOD_ADDONS = [
+    { name: 'Torrentio', url: 'https://torrentio.strem.fun/manifest.json', desc: 'Fuentes para reproducir películas y series, en varios idiomas y calidades' },
+    { name: 'TorrentsDB', url: 'https://torrentsdb.com/manifest.json', desc: 'Fuentes torrent sin debrid, con proveedores y estrenos en varios idiomas' }
+  ];
+
+  function isVodAddonInstalled(url) {
+    var base = stremioBaseFromUrl(url);
+    var addons = getVodSourcesConfig().addons;
+    for (var i = 0; i < addons.length; i++) { if (stremioBaseFromUrl(addons[i].url) === base) { return true; } }
+    return false;
+  }
+
   function seedDefaultVodAddons(cfg) {
+    /* (Kept so the stored flags still mean "the defaults were handed out".) */
     try {
-      if (localStorage.getItem(VOD_DEFAULTS_KEY)) { return; }
-      localStorage.setItem(VOD_DEFAULTS_KEY, '1');
-    } catch (e) { return; }
+      if (!localStorage.getItem(VOD_DEFAULTS_KEY)) { localStorage.setItem(VOD_DEFAULTS_KEY, '1'); }
+      if (!localStorage.getItem(VOD_ANIME_KEY)) { localStorage.setItem(VOD_ANIME_KEY, '1'); }
+    } catch (e) { /* ignore */ }
     var have = {};
     for (var i = 0; i < cfg.addons.length; i++) { have[stremioBaseFromUrl(cfg.addons[i].url)] = true; }
-    for (var d = 0; d < DEFAULT_VOD_ADDONS.length; d++) {
-      var def = DEFAULT_VOD_ADDONS[d];
+    var list = builtinVodAddons();
+    var changed = false;
+    for (var d = 0; d < list.length; d++) {
+      var def = list[d];
       if (have[stremioBaseFromUrl(def.url)]) { continue; }
-      cfg.addons.push({ id: def.id, name: def.name, url: def.url, baseUrl: stremioBaseFromUrl(def.url), kind: 'stremio' });
+      var rec = { id: def.id, name: def.name, url: def.url, baseUrl: stremioBaseFromUrl(def.url), kind: 'stremio' };
+      /* Kitsu goes after Cinemeta, so the rows keep Cinemeta first. */
+      var at = cfg.addons.length;
+      if (def === DEFAULT_ANIME_ADDON) {
+        for (var c = 0; c < cfg.addons.length; c++) { if (/v3-cinemeta\.strem\.io/.test(cfg.addons[c].url || '')) { at = c + 1; } }
+      }
+      cfg.addons.splice(at, 0, rec);
+      changed = true;
     }
-    saveVodSourcesConfig(cfg);
+    if (changed) { saveVodSourcesConfig(cfg); }
   }
 
+  /* Always on: addons are the only source of movies and series. */
   function stremioModeOn() {
-    return getVodSourcesConfig().mode === 'external';
+    return true;
   }
-
-  /* The "Stremio" mark next to the logo and in Mi cuenta (body class). */
-  function paintStremioModeMark() {
-    if (document.body) { document.body.classList.toggle('is-stremio-mode', stremioModeOn()); }
-  }
-
   function saveVodSourcesConfig(cfg) {
     try {
       localStorage.setItem(VOD_SOURCES_STORAGE_KEY, JSON.stringify({
-        mode: (cfg && cfg.mode) || 'auto',
+        mode: 'external',
         addons: (cfg && cfg.addons) || []
       }));
     } catch (e) {}
@@ -812,6 +1029,7 @@
   /* Addon requests carry no custom headers: those would force a CORS
      preflight, and Stremio addons only promise plain GET with CORS. */
   function addonRequest(url, done, timeoutMs) {
+    done = trackedCallback(done);   /* the loading bar at the top (core/loader.js) */
     var xhr = new XMLHttpRequest();
     var finished = false;
     function finish(error, payload) {
@@ -867,12 +1085,21 @@
     var list = (manifest && manifest.catalogs) || [];
     for (var i = 0; i < list.length; i++) {
       var cat = list[i];
-      if (!cat || !cat.id || (cat.type !== 'movie' && cat.type !== 'series')) { continue; }
+      /* ("anime": Kitsu's lists, movies and series mixed, for the Anime section.) */
+      if (!cat || !cat.id || (cat.type !== 'movie' && cat.type !== 'series' && cat.type !== 'anime')) { continue; }
       var ex = catalogExtras(cat);
+      /* The genres the catalog can be filtered by (Cinemeta: Animation, Family…):
+         Kids and Anime ask for those lists (fetchAddonCatalogs). */
+      var genres = [];
+      for (var e = 0; e < (cat.extra || []).length; e++) {
+        if (cat.extra[e] && cat.extra[e].name === 'genre' && cat.extra[e].options) { genres = cat.extra[e].options.slice(0, 60); }
+      }
+      if (!genres.length && cat.genres) { genres = cat.genres.slice(0, 60); }
       catalogs.push({ type: cat.type, id: cat.id, name: cat.name || '',
-        home: !ex.required.length, search: ex.names.indexOf('search') !== -1 });
+        home: !ex.required.length, search: ex.names.indexOf('search') !== -1, genres: genres });
     }
     return {
+      manifestV: 3,
       url: url,
       baseUrl: stremioBaseFromUrl(url),
       kind: 'stremio',
@@ -888,6 +1115,15 @@
   }
 
   /* Does this addon answer `resource` for that type and id? */
+  /* Something to play with: an addon that gives sources (Cinemeta and
+     OpenSubtitles, the preinstalled ones, give none). Without one, titles
+     show their information only. */
+  function hasSourceAddons() {
+    var addons = getVodSourcesConfig().addons;
+    for (var i = 0; i < addons.length; i++) { if (addonSupports(addons[i], 'stream')) { return true; } }
+    return false;
+  }
+
   function addonSupports(ad, resource, type, id) {
     var res = ad && ad.resources;
     if (!res || !res.length) { return false; }
@@ -907,18 +1143,41 @@
 
   /* Addon ids in the app are 'stremio:<id>' so they never mix with the
      integrated catalog (history, Mi lista); _stremioId is the addon's own. */
-  function stremioMetaToVodRecord(meta, baseUrl, rowName) {
+  /* An installed addon has anime lists (Kitsu): then Anime shows only those,
+     and the other catalogs' "Anime" genre stays in Películas / Series. */
+  var animeCatalogInstalled = (function () {
+    /* (From the saved list at start; each catalog sync updates it.) */
+    try {
+      var saved = JSON.parse(localStorage.getItem(VOD_SOURCES_STORAGE_KEY) || 'null');
+      return !!(saved && saved.addons && hasAnimeCatalog(saved.addons));
+    } catch (e) { return false; }
+  })();
+  function hasAnimeCatalog(addons) {
+    for (var i = 0; i < addons.length; i++) {
+      for (var c = 0; c < (addons[i].catalogs || []).length; c++) {
+        if (addons[i].catalogs[c].type === 'anime' && addons[i].catalogs[c].home) { return true; }
+      }
+    }
+    return false;
+  }
+
+  /* `anime`: the title comes from an anime list (it only goes to Anime). */
+  function stremioMetaToVodRecord(meta, baseUrl, rowName, anime) {
     if (!meta || !meta.id) { return null; }
-    var isSeries = meta.type === 'series' || meta.type === 'tv';
+    var isSeries = meta.type === 'series' || meta.type === 'tv' || (meta.type === 'anime' && !/movie/i.test(String(meta.subtype || '')));
     var genres = meta.genres || meta.genre || [];
     if (Object.prototype.toString.call(genres) !== '[object Array]') { genres = [String(genres)]; }
-    var catParts = ['destacado', isSeries ? 'serie' : 'pelicula'];
-    for (var g = 0; g < genres.length; g++) {
+    var catParts = anime ? ['anime'] : ['destacado', isSeries ? 'serie' : 'pelicula'];
+    for (var g = 0; g < genres.length && !anime; g++) {
       var gn = norm(String(genres[g] || ''));
-      if (gn.indexOf('anim') !== -1) { catParts.push('anime'); }
+      /* "Anime" is Japanese animation. "Animation" alone is neither Anime
+         (it was: cartoons ended up there) nor Kids (it also has adult shows):
+         only "Family" goes to Kids, what a kids profile sees. */
+      if (gn === 'anime' && !animeCatalogInstalled) { catParts.push('anime'); }
       if (gn.indexOf('family') !== -1 || gn.indexOf('kids') !== -1 || gn.indexOf('infantil') !== -1) { catParts.push('infantil'); }
     }
     return {
+      _animeCat: !!anime,
       id: 'stremio:' + meta.id,
       title: String(meta.name || meta.title || 'Sin título'),
       category: catParts.join(','),
@@ -953,39 +1212,75 @@
 
   /* Row names: "Popular · Películas"; with several addons that would repeat,
      the addon's name is added. */
+  var ANIME_ROW_NAMES = {
+    'kitsu-anime-trending': 'Tendencias del anime',
+    'kitsu-anime-airing': 'En emisión',
+    'kitsu-anime-popular': 'Los más populares',
+    'kitsu-anime-rating': 'Mejor valorados'
+  };
+
+  var stremioRowOrder = {}, stremioRowSeq = 0;
+
   function stremioRowName(ad, cat, taken) {
     var kind = cat.type === 'series' ? 'Series' : 'Películas';
-    var name = cat.name ? (cat.name + ' · ' + kind) : kind;
+    var name = cat.type === 'anime' ? (ANIME_ROW_NAMES[cat.id] || ((cat.name || 'Anime') + ' · Anime'))
+      : (cat.name ? (cat.name + ' · ' + kind) : kind);
     if (taken[name]) { name += ' (' + ad.name + ')'; }
     taken[name] = true;
+    /* The rows follow the addons' order (portalRowsFor), not the order in
+       which titles happen to show up first. */
+    if (!(name in stremioRowOrder)) { stremioRowOrder[name] = stremioRowSeq++; }
     return name;
   }
 
   var STREMIO_HOME_CATALOGS = 12;   /* rows per addon */
   var STREMIO_CATALOG_PAGES = 2;    /* two pages per row (usually 100 titles or more) */
 
-  /* Every home catalog of one addon, one row each. */
+  /* Kids and Anime: the lists a catalog gives filtered by these genres (the
+     popular lists barely have them). Titles get their section from their own
+     genres (stremioMetaToVodRecord): Family / Animation → Kids, Anime → Anime. */
+  var STREMIO_SECTION_GENRES = [['Family', 'Familia'], ['Animation', 'Animación'], ['Anime', 'Anime']];
+
   function fetchAddonCatalogs(ad, taken, done) {
     var cats = [];
     for (var i = 0; i < (ad.catalogs || []).length && cats.length < STREMIO_HOME_CATALOGS; i++) {
-      if (ad.catalogs[i].home) { cats.push(ad.catalogs[i]); }
+      if (ad.catalogs[i].home) { cats.push({ cat: ad.catalogs[i], extra: '' }); }
     }
-    var items = [];
+    /* One genre list per type (movie, series), from the first catalog that
+     offers that genre. */
+    var done2 = {};
+    for (var c = 0; c < (ad.catalogs || []).length; c++) {
+      var cg = ad.catalogs[c];
+      if (!cg.home || !cg.genres || !cg.genres.length || cg.type === 'anime') { continue; }
+      STREMIO_SECTION_GENRES.forEach(function (g) {
+        var key = cg.type + ':' + g[0];
+        if (done2[key] || cg.genres.indexOf(g[0]) === -1) { return; }
+        /* With an anime catalog installed, Anime shows that one instead. */
+        if (g[0] === 'Anime' && animeCatalogInstalled) { return; }
+        done2[key] = true;
+        cats.push({ cat: { type: cg.type, id: cg.id, name: g[1] }, extra: 'genre=' + encodeURIComponent(g[0]), one: true });
+      });
+    }
+    /* Each list keeps its own bucket: the rows come out in the addon's order,
+       not in the order the answers happen to arrive. */
+    var buckets = cats.map(function () { return []; });
     var pending = cats.length;
-    if (!pending) { return done(items); }
-    cats.forEach(function (cat) {
+    if (!pending) { return done([]); }
+    cats.forEach(function (job, jobIndex) {
+      var cat = job.cat;
       var rowName = stremioRowName(ad, cat, taken);
       var got = 0;
       function page(n) {
-        addonRequest(catalogUrl(ad.baseUrl, cat, n ? 'skip=' + got : ''), function (err, payload) {
+        var extra = [job.extra, n ? 'skip=' + got : ''].filter(function (x) { return x; }).join('&');
+        addonRequest(catalogUrl(ad.baseUrl, cat, extra), function (err, payload) {
           var metas = (!err && payload && payload.metas) ? payload.metas : [];
           for (var m = 0; m < metas.length; m++) {
-            var rec = stremioMetaToVodRecord(metas[m], ad.baseUrl, rowName);
-            if (rec) { items.push(rec); }
+            var rec = stremioMetaToVodRecord(metas[m], ad.baseUrl, rowName, cat.type === 'anime');
+            if (rec) { buckets[jobIndex].push(rec); }
           }
           got += metas.length;
-          if (metas.length && n + 1 < STREMIO_CATALOG_PAGES) { return page(n + 1); }
-          if (--pending === 0) { done(items); }
+          if (metas.length && !job.one && n + 1 < STREMIO_CATALOG_PAGES) { return page(n + 1); }
+          if (--pending === 0) { done([].concat.apply([], buckets)); }
         });
       }
       page(0);
@@ -1059,7 +1354,6 @@
         cfg.addons.push(info);
       }
       saveVodSourcesConfig(cfg);
-      if (cfg.mode !== 'external') { return done(null, 0, info); }
       syncExternalVodCatalogs(function (sErr, count) { done(null, count, info); });
     });
   }
@@ -1068,7 +1362,8 @@
   function refreshAddonManifests(cfg, done) {
     var stale = [];
     for (var i = 0; i < cfg.addons.length; i++) {
-      if (!cfg.addons[i].resources && cfg.addons[i].kind !== 'm3u' && cfg.addons[i].kind !== 'json') { stale.push(i); }
+      /* Also read once more when saved by an older build (no genre lists). */
+      if ((!cfg.addons[i].resources || cfg.addons[i].manifestV !== 3) &&cfg.addons[i].kind !== 'm3u' && cfg.addons[i].kind !== 'json') { stale.push(i); }
     }
     if (!stale.length) { return done(); }
     var left = stale.length;
@@ -1080,13 +1375,16 @@
     });
   }
 
-  /* Manual (Stremio) mode: the whole catalog comes from the user's addons. */
-  function syncExternalVodCatalogs(done, forceApply) {
+  /* The whole catalog comes from the user's addons. Without any addon the
+     catalog is emptied (the home then says how to add one). */
+  function syncExternalVodCatalogs(done) {
     done = done || function () {};
     var cfg = getVodSourcesConfig();
-    if (cfg.mode !== 'external' && !forceApply) { return done(null, 0); }
-    if (!cfg.addons.length) { return done(null, 0); }
+    if (!cfg.addons.length) { animeCatalogInstalled = false; replaceVod([], 'stremio-external', false); return done(null, 0); }
     refreshAddonManifests(cfg, function () {
+      animeCatalogInstalled = hasAnimeCatalog(cfg.addons);
+      stremioRowOrder = {};
+      stremioRowSeq = 0;
       var byId = {}, all = [], taken = {};
       var left = cfg.addons.length;
       function collect(items) {
@@ -1119,90 +1417,197 @@
     });
   }
 
-  /* Catalog modes for movies and series (PC only):
-     - 'auto'      the integrated catalog (recommended).
-     - 'external'  only what the user's Stremio addons bring.
-     Switching saves the choice and reloads the catalog at once. */
-  var VOD_SOURCE_MODES = [
-    { id: 'auto', title: 'Modo automático', badge: 'Recomendado',
-      desc: 'Películas y series del catálogo integrado de OpenTV. No necesitas configurar nada.' },
-    { id: 'external', title: 'Modo Addons',
-      desc: 'Películas y series solo de los addons que tú agregues abajo (compatibles con Stremio). Al reproducir eliges la fuente: enlace directo o torrent.' }
-  ];
 
-  function applyVodSourceMode(mode, done) {
-    done = done || function () {};
-    var cfg = getVodSourcesConfig();
-    var previous = cfg.mode;
-    if (mode === 'external' && !cfg.addons.length) {
-      return done('Primero agrega al menos un addon abajo.');
-    }
-    if (mode === 'external' && !cfg.addons.some(function (ad) {
-      return ad.kind === 'm3u' || ad.kind === 'json' || (ad.catalogs && ad.catalogs.length) || !ad.resources;
-    })) {
-      /* (Torrentio, for example, only gives sources: it has nothing to browse.) */
-      return done('Ninguno de tus addons tiene Catálogo. Agrega uno con Catálogo para tener películas y series; los que solo dan Fuentes se usan al reproducir.');
-    }
-    cfg.mode = mode === 'external' ? 'external' : 'auto';
-    saveVodSourcesConfig(cfg);
-    if (cfg.mode === 'external') {
-      syncExternalVodCatalogs(function (err, count) {
-        if (!count) {
-          /* No addon answered: keep the previous mode so the app is not left empty. */
-          var back = getVodSourcesConfig();
-          back.mode = previous;
-          saveVodSourcesConfig(back);
-          return done('Tus addons no devolvieron títulos (¿tienen catálogo y están en línea?). Se mantuvo el modo anterior.');
-        }
-        vodApiState.error = null;
-        paintStremioModeMark();
-        if (typeof resetTrendingForMode === 'function') { resetTrendingForMode(); }
-        done(null, count);
-      }, true);
-      return;
-    }
-    /* Automatic: drop the addon titles and load the integrated catalog. */
-    var own = [];
-    for (var i = 0; i < VOD.length; i++) { if (!VOD[i]._stremio) { own.push(VOD[i]); } }
-    if (own.length && own.length !== VOD.length) { replaceVod(own, 'portal-snapshot', false); }
-    vodApiState.error = null;
-    paintStremioModeMark();
-    loadVodCatalog();
-    if (typeof resetTrendingForMode === 'function') { resetTrendingForMode(); }
-    done(null, own.length);
-  }
-
-  /* Search in the addons that offer it (catalogs with the "search" extra). */
-  function searchStremioAddons(query, done) {
+  /* Search in the addons that offer it (catalogs with the "search" extra).
+     done(list) once every addon answered; `each(list, pending)`, when given,
+     gets the list so far after every answer, so the fast addons show first. */
+  function searchStremioAddons(query, done, each, noAnime) {
     var cfg = getVodSourcesConfig();
     var jobs = [];
     for (var i = 0; i < cfg.addons.length; i++) {
       var ad = cfg.addons[i];
       for (var c = 0; c < (ad.catalogs || []).length; c++) {
-        if (ad.catalogs[c].search) { jobs.push({ ad: ad, cat: ad.catalogs[c] }); }
+        /* (noAnime: TMDB's trends, which never come from an anime list.) */
+        if (ad.catalogs[c].search && !(noAnime && ad.catalogs[c].type === 'anime')) { jobs.push({ ad: ad, cat: ad.catalogs[c] }); }
       }
     }
-    if (!jobs.length) { return done([]); }
+    if (!jobs.length) { if (each) { each([], 0); } return done([]); }
     var results = [], left = jobs.length;
+    function merged() {
+      var out = [];
+      for (var r = 0; r < results.length; r++) { out = out.concat(results[r] || []); }
+      return rankSearchResults(query, out);
+    }
     jobs.forEach(function (job, idx) {
       addonRequest(catalogUrl(job.ad.baseUrl, job.cat, 'search=' + encodeURIComponent(query)), function (err, payload) {
         var metas = (!err && payload && payload.metas) ? payload.metas : [];
         var recs = [];
         for (var m = 0; m < metas.length; m++) {
-          var rec = stremioMetaToVodRecord(metas[m], job.ad.baseUrl, '');
-          if (rec) { recs.push(rec); }
+          var rec = stremioMetaToVodRecord(metas[m], job.ad.baseUrl, '', job.cat.type === 'anime');
+          if (rec) { rec._searchOrder = m; recs.push(rec); }
         }
         results[idx] = recs;
-        if (--left === 0) {
-          var out = [], seen = {};
-          for (var r = 0; r < results.length; r++) {
-            for (var k = 0; k < (results[r] || []).length; k++) {
-              if (!seen[results[r][k].id]) { seen[results[r][k].id] = true; out.push(results[r][k]); }
-            }
-          }
-          done(out);
-        }
+        left--;
+        if (each) { each(merged(), left); }
+        if (left === 0) { done(merged()); }
       }, 12000);
+    });
+  }
+
+  /* ---- Search order ----
+     The addons answer in their own order (all the movies, then all the
+     series). One list instead, best match first: the same title, then titles
+     that start with the words, then whole words, then the rest; the addon's
+     own order breaks ties. The same title from two addons (Cinemeta's and
+     Kitsu's "Naruto") is shown once, the anime list's one. */
+  function searchNorm(text) {
+    return norm(String(text || '')).replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  function searchMatchScore(q, item) {
+    var best = 0;
+    var names = [item.title, item.alias, item._esTitle];
+    for (var i = 0; i < names.length; i++) {
+      var t = names[i] ? searchNorm(names[i]) : '';
+      if (!t) { continue; }
+      var s = 0;
+      var tc = t.replace(/ /g, ''), qc = q.replace(/ /g, '');
+      if (t === q) { s = 100; }
+      /* "Intensa-Mente" for "intensamente": the same without spaces. */
+      else if (tc === qc) { s = 95; }
+      else if (qc.length >= 4 && tc.indexOf(qc) === 0) { s = 75; }
+      else if (t.indexOf(q + ' ') === 0 || (t.indexOf(q) === 0 && q.length >= 4)) { s = 80; }
+      else if ((' ' + t + ' ').indexOf(' ' + q + ' ') !== -1) { s = 65; }
+      else if ((' ' + t).indexOf(' ' + q) !== -1) { s = 55; }
+      else if (t.indexOf(q) !== -1) { s = 40; }
+      else {
+        var words = q.split(' '), hits = 0;
+        for (var w = 0; w < words.length; w++) { if (words[w] && (' ' + t).indexOf(' ' + words[w]) !== -1) { hits++; } }
+        s = words.length ? Math.round(30 * hits / words.length) : 0;
+      }
+      if (s > best) { best = s; }
+    }
+    return best;
+  }
+
+  function rankSearchResults(query, list) {
+    var q = searchNorm(query);
+    var seen = {}, byTitle = {}, rows = [];
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i];
+      if (!it || seen[it.id]) { continue; }
+      seen[it.id] = true;
+      var name = searchNorm(it.title);
+      var key = name + '|' + String(it.year || '').slice(0, 4) + '|' + (isSeriesItem(it) ? 's' : 'm');
+      /* (Also one record twice in an addon: same title, same poster.) */
+      var keyArt = it.poster ? name + '|' + it.poster : '';
+      var prev = byTitle[key] || (keyArt && byTitle[keyArt]);
+      if (prev) {
+        if (it._animeCat && !prev.item._animeCat) { prev.item = it; }
+        continue;
+      }
+      var row = { item: it, at: rows.length };
+      byTitle[key] = row;
+      if (keyArt) { byTitle[keyArt] = row; }
+      rows.push(row);
+    }
+    for (var r = 0; r < rows.length; r++) {
+      var item = rows[r].item;
+      /* No poster: usually an unknown or broken record, after the rest. */
+      rows[r].score = searchMatchScore(q, item) + (item._searchBoost || 0) - Math.min(10, (item._searchOrder || 0) / 3) -
+        (item.poster ? 0 : 25);
+    }
+    rows.sort(function (a, b) { return (b.score - a.score) || (a.at - b.at); });
+    return rows.map(function (x) { return x.item; });
+  }
+
+  /* Titles in Spanish: Cinemeta only knows the English ones ("El padrino" →
+     nothing). TMDB says the original title, which is then searched in the
+     addons. done(list) with what it found (may be empty); never fails. */
+  var SEARCH_TMDB_TITLES = 3;
+  var SEARCH_TMDB_BOOST = 12;   /* above an exact title nobody knows */
+
+  /* Latin letters only (the addons' titles): not "進撃の巨人". */
+  function latinTitle(text) {
+    var s = String(text || '');
+    for (var i = 0; i < s.length; i++) { if (s.charCodeAt(i) > 0x24f) { return false; } }
+    return s.length > 0;
+  }
+
+  /* A result that is that TMDB title: its original title (or the Spanish
+     one) and the same year, same kind. */
+  function tmdbTitleIn(t, list) {
+    var orig = titleKey(t.original), es = titleKey(t.title);
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i];
+      if (!v || !!isSeriesItem(v) !== (t.kind === 'tv')) { continue; }
+      var vt = titleKey(v.title);
+      if (vt !== orig && vt !== es) { continue; }
+      var y = String(v.year || '').match(/\d{4}/);
+      if (t.year && y && Math.abs(parseInt(y[0], 10) - parseInt(t.year, 10)) <= 1) { return v; }
+    }
+    return null;
+  }
+
+  function searchByTranslatedTitle(query, have, done) {
+    var api = typeof tmdbApi === 'function' ? tmdbApi() : null;
+    if (!api || norm(query).length < 3) { return done([]); }
+    api('search:' + query).then(function (answer) {
+      var hits = (answer && answer.items) || [];
+      var q = searchNorm(query);
+      var picked = [];
+      for (var i = 0; i < hits.length && picked.length < SEARCH_TMDB_TITLES; i++) {
+        var t = hits[i];
+        /* Only the titles that are what was typed, in Spanish. */
+        if (!t.title || searchMatchScore(q, { title: t.title }) < 55) { continue; }
+        picked.push(t);
+      }
+      var out = [], jobs = [];
+      picked.forEach(function (t, n) {
+        var boost = SEARCH_TMDB_BOOST - n * 2;
+        /* Already found (the plain search gave it): it goes up, named in
+           Spanish too. Else its original title is searched. */
+        var known = tmdbTitleIn(t, have);
+        if (known) { known._esTitle = t.title; known._searchBoost = boost; return; }
+        if (!t.original || titleKey(t.original) === titleKey(t.title) || !latinTitle(t.original)) { return; }
+        jobs.push({ t: t, boost: boost });
+      });
+      if (!jobs.length) { return done(out); }
+      var left = jobs.length;
+      jobs.forEach(function (job) {
+        searchStremioAddons(job.t.original, function (found) {
+          var hit = tmdbTitleIn(job.t, found);
+          if (hit) {
+            hit._esTitle = job.t.title;
+            hit._searchBoost = job.boost;
+            out.push(hit);
+          }
+          if (--left === 0) { done(out); }
+        });
+      });
+    }).catch(function () { done([]); });
+  }
+
+  function searchTitles(query, update) {
+    var addonList = [], extra = [], addonsDone = false, extraDone = false;
+    function emit() {
+      update(rankSearchResults(query, extra.concat(addonList)), addonsDone && extraDone);
+    }
+    searchStremioAddons(query, function (list) {
+      addonList = list;
+      addonsDone = true;
+      /* The translated titles are looked up once the plain search is in,
+         so a title already found is not searched again. */
+      searchByTranslatedTitle(query, addonList, function (found) {
+        extra = found;
+        extraDone = true;
+        emit();
+      });
+      if (!extraDone) { emit(); }
+    }, function (list, pending) {
+      if (!pending) { return; }
+      addonList = list;
+      emit();
     });
   }
 
@@ -1248,7 +1653,12 @@
   }
 
   function applyStremioMeta(item, meta) {
-    if (meta.description) { item.synopsis = meta.description; }
+    if (meta.description) {
+      /* Catalogue in Spanish (home/catalog-lang.js): the addon's English
+         description is kept as the original, the Spanish one stays shown. */
+      if (item._en && item._esShown) { item._en.synopsis = meta.description; }
+      else { item.synopsis = meta.description; }
+    }
     if (meta.runtime) { item.duration = meta.runtime; }
     if (meta.imdbRating) { item.score = String(meta.imdbRating); }
     if (meta.genres && meta.genres.length) { item.genres = meta.genres; }
@@ -1304,36 +1714,15 @@
   }
 
   /* ---- services/portal.js ---------------------------------------------------- */
-  /* services/portal.js — Servicio del portal (Luna en webOS / IPC en escritorio): catálogo, detalle, keep-alive y errores.
+  /* services/portal.js — Servicio local (IPC en escritorio / HTTP en Android):
+     llamadas, errores y la carga del catálogo de los addons.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-  /* ------------------------------------------------------ portal service
-     The Magis portal answers no CORS preflight, so the page cannot call it.
-     The bundled Node service speaks the encrypted protocol and returns plain
-     JSON over Luna; devServiceUrl mirrors the same methods for desktop tests. */
-  function hasLuna() {
-    if (window.PalmServiceBridge && (!window.webOS || !window.webOS.service)) {
-      window.webOS = window.webOS || {};
-      window.webOS.service = {
-        request: function (uri, opts) {
-          opts = opts || {};
-          var bridge = new window.PalmServiceBridge();
-          bridge.onservicecallback = function (msg) {
-            var res;
-            try { res = JSON.parse(msg); } catch (e) { res = { returnValue: false, errorText: msg }; }
-            if (res.returnValue === false) {
-              if (opts.onFailure) { opts.onFailure(res); }
-            } else {
-              if (opts.onSuccess) { opts.onSuccess(res); }
-            }
-          };
-        var fullUri = opts.method ? (uri.replace(/\/$/, '') + '/' + opts.method) : uri;
-        bridge.call(fullUri, JSON.stringify(opts.parameters || {}));
-        return bridge;
-      }
-    };
-  }
-  return !!(window.webOS && window.webOS.service && window.webOS.service.request);
+  /* ------------------------------------------------------ local service
+     portalServiceCall reaches the bundled service: IPC in Electron
+     (window.desktop.service), HTTP on 127.0.0.1 on Android (devServiceUrl). */
+  function hasDesktopService() {
+    return !!(window.desktop && typeof window.desktop.service === 'function');
   }
 
   function queryString(params) {
@@ -1346,21 +1735,8 @@
   return parts.join('&');
   }
 
-  /* ls-hubd refuses a call when the app is missing from the service ACL, which
-   happens when the installed manifest is stale after an update.  "Denied
-   method netdiag for category /" means nothing to a viewer, so translate it
-   into the two things that actually fix it and keep the raw text in brackets
-   for whoever supports the TV. */
-  var SERVICE_BLOCKED_HINT = 'La TV tiene bloqueado el servicio de OpenTV. ' +
-  'Desenchufa la TV 10 segundos y vuelve a abrir la app; si sigue igual, ' +
-  'reinstala con el instalador.';
   function describeServiceError(text) {
-  var raw = String(text == null ? '' : text);
-  if (window.XUPER_DESKTOP) { return raw; }
-  if (/denied|permission|not permitted/i.test(raw)) {
-    return SERVICE_BLOCKED_HINT + ' (' + raw + ')';
-  }
-  return raw;
+  return String(text == null ? '' : text);
   }
 
   var lastVodAttempt = { phase: 'sin intento', status: 'sin datos', error: '' };
@@ -1379,14 +1755,13 @@
   state.streamError = 'No se pudo cargar ' + phase + ': ' + safe;
   setPlayerStatus(state.streamError);
   }
-  document.addEventListener('xuper:playback-timeout', function () {
+  document.addEventListener('opentv:playback-timeout', function () {
   if (state.playerMode === 'vod' && (state.screen === 'detail' || state.screen === 'player')) {
     vodFailure(lastVodAttempt.phase, 'La carga no terminó dentro de 30 segundos');
   }
   });
 
   function portalServiceCall(method, params, done, customTimeout) {
-  var serviceId = vodApi.serviceId || 'com.webosflux.xuptertv.fidelity.service';
   var settled = false;
   var timeoutMs = customTimeout || parseInt(vodApi.timeoutMs, 10) || 20000;
   var callTimer = null;
@@ -1399,19 +1774,16 @@
   callTimer = setTimeout(function () {
     finish('El servicio de la TV no respondió en ' + Math.round(timeoutMs / 1000) + ' s. Cierra y vuelve a abrir la aplicación de Windows.', null);
   }, timeoutMs + 1000);
-  /* webOSTV.js defines webOS.service.request even in a plain browser; without
-     the native bridge it only reports an error, so the desktop harness must
-     skip the Luna branch entirely. */
-  if (hasLuna() && window.PalmServiceBridge) {
+  if (hasDesktopService()) {
     try {
-      window.webOS.service.request('luna://' + serviceId, {
-        method: method,
-        parameters: params || {},
-        timeout: customTimeout || parseInt(vodApi.timeoutMs, 10) || 20000,
-        onSuccess: function (payload) { finish(null, payload); },
-        onFailure: function (error) {
-          finish((error && error.errorText) || 'Error del servicio OpenTV', null);
+      window.desktop.service(method, params || {}).then(function (payload) {
+        if (!payload || payload.returnValue === false) {
+          finish((payload && payload.errorText) || 'Error del servicio OpenTV', null);
+        } else {
+          finish(null, payload);
         }
+      }, function () {
+        finish('No se pudo contactar con el servicio local de Windows', null);
       });
       return true;
     } catch (e) {
@@ -1421,8 +1793,7 @@
       }
     }
   }
-  /* Desktop harness: reach the same methods over plain HTTP when the Luna
-     bridge is missing or rejected the request (webOSTV.js on a browser). */
+  /* Android (and the browser harness): the same methods over plain HTTP. */
   if (vodApi.devServiceUrl) {
     apiRequest(String(vodApi.devServiceUrl).replace(/\/$/, '') + '/' + method + '?' + queryString(params || {}),
       function (error, payload) { finish(error, payload); }, null);
@@ -1430,55 +1801,6 @@
   }
   finish('El servicio OpenTV no está disponible', null);
   return false;
-  }
-
-  function startServiceKeepAlive() {
-    if (!hasLuna()) { return; }
-    var serviceId = vodApi.serviceId || 'com.webosflux.xuptertv.fidelity.service';
-    try {
-      window.webOS.service.request('luna://' + serviceId, {
-        method: 'keepAlive',
-        parameters: { subscribe: true },
-        resubscribe: true,
-        onSuccess: function () {},
-        onFailure: function () {}
-      });
-    } catch (eSub) { /* ignore */ }
-
-    setInterval(function () {
-      try {
-        window.webOS.service.request('luna://' + serviceId, {
-          method: 'heartbeat',
-          parameters: {},
-          onSuccess: function () {},
-          onFailure: function () {}
-        });
-      } catch (eHb) { /* ignore */ }
-    }, 15000);
-  }
-
-  function portalSnapshot() {
-    var data = window.XUPERTV_PORTAL;
-    return data ? apiArray(data) : [];
-  }
-
-  /* Open movies are kept only to exercise the detail -> player pipeline; they
-     are not portal titles, so they never go through the resolver. */
-  function openSamples() {
-    var all = bundledCatalog();
-    var out = [];
-    for (var i = 0; i < all.length; i++) {
-      if (all[i] && all[i].streamUrl) {
-        var rec = {};
-        for (var k in all[i]) {
-          if (Object.prototype.hasOwnProperty.call(all[i], k)) { rec[k] = all[i][k]; }
-        }
-        rec.category = 'demo';
-        rec.portal = false;
-        out.push(rec);
-      }
-    }
-    return out;
   }
 
   /* The portal's kids section also carries mature anime (Tokyo Ghoul,
@@ -1495,373 +1817,54 @@
     item.category = String(item.category).split(',').filter(function (c) { return c !== 'infantil'; }).join(',');
   }
 
-  function applyPortalRefresh(roots) {
-    var byId = {}, order = [], cats = {};
-    function absorb(item) {
-      if (!item || !item.id) { return; }
-      var id = String(item.id);
-      if (!byId[id]) { byId[id] = item; order.push(id); item._rows = item.row ? [item.row] : []; }
-      else {
-        var cur = byId[id];
-        /* A title in several home sections keeps every shelf it is on (the
-           TOP 15 shelves lost titles when a later section overwrote it). */
-        if (item.row && cur._rows && cur._rows.indexOf(item.row) === -1) { cur._rows.push(item.row); }
-        for (var k in item) {
-          if (Object.prototype.hasOwnProperty.call(item, k) && k !== 'row' && k !== '_rows' &&
-              item[k] !== '' && item[k] !== '—' && item[k] !== null && item[k] !== undefined) {
-            cur[k] = item[k];
-          }
-        }
-        if (!cur.row && item.row) { cur.row = item.row; }
-      }
-      var list = String(item.category || '').split(',');
-      cats[id] = cats[id] || {};
-      for (var c = 0; c < list.length; c++) { if (list[c]) { cats[id][list[c]] = true; } }
-    }
-    var ROOT_CATEGORY = { featured: 'destacado', movies: 'pelicula', series: 'serie', anime: 'anime', kids: 'infantil', free: 'gratis' };
-    for (var r = 0; r < PORTAL_ROOTS.length; r++) {
-      var list = roots[PORTAL_ROOTS[r]] || [];
-      for (var i = 0; i < list.length; i++) { list[i].portal = true; absorb(list[i]); }
-    }
-    if (!order.length) {
-      /* Refresh received no items (service offline or slow): preserve snapshot catalog! */
-      return;
-    }
-    /* A section that did not answer keeps the titles it had (the Fire TV
-       showed an empty Anime for 20 minutes after one timeout). */
-    for (var m = 0; m < PORTAL_ROOTS.length; m++) {
-      var cat = ROOT_CATEGORY[PORTAL_ROOTS[m]];
-      if (roots[PORTAL_ROOTS[m]] || !cat) { continue; }
-      for (var v = 0; v < VOD.length; v++) {
-        if (!VOD[v]._portal || String(VOD[v].category || '').split(',').indexOf(cat) === -1) { continue; }
-        var known = String(VOD[v].id);
-        /* Also in a section that did answer: its fresh data stays, it only
-           gets this section back. */
-        if (byId[known]) { cats[known][cat] = true; continue; }
-        var keep = {};
-        for (var key in VOD[v]) { if (Object.prototype.hasOwnProperty.call(VOD[v], key)) { keep[key] = VOD[v][key]; } }
-        keep.category = cat;
-        keep.portal = true;
-        absorb(keep);
-      }
-    }
-    if (!order.length) {
-      /* Refresh received no items (service offline or slow): preserve snapshot catalog! */
-      return;
-    }
-    var records = [];
-    for (var o = 0; o < order.length; o++) {
-      var rec = byId[order[o]];
-      rec.category = Object.keys(cats[order[o]]).join(',');
-      records.push(rec);
-    }
-    var demo = openSamples();
-    for (var d = 0; d < demo.length; d++) { records.push(demo[d]); }
-    if (getVodSourcesConfig().mode === 'external') { return; }
-    if (records.length) { replaceVod(records, 'portal', true); }
+  /* Movies and series: the viewer's addons. If none answers, the home says so. */
+  function loadVodCatalog() {
+    if (!vodApi.enabled) { return; }
+    vodApiState.loading = true;
+    syncExternalVodCatalogs(function (err, count) {
+      vodApiState.loading = false;
+      vodApiState.error = count ? null : (getVodSourcesConfig().addons.length ? 'Tus addons no respondieron' : 'Agrega un addon con catálogo');
+    });
   }
 
-  function refreshPortalCatalog() {
-    if (portalState.refreshing || getVodSourcesConfig().mode === 'external') { return; }
-    portalState.refreshing = true;
-    portalState.error = null;
-    portalState.roots = 0;
-    var fresh = {};
-    var index = 0;
-    function next() {
-      if (index >= PORTAL_ROOTS.length) {
-        portalState.refreshing = false;
-        if (getVodSourcesConfig().mode === 'external') { return; }
-        if (portalState.roots > 0) {
-          portalState.lastSync = Date.now();
-          applyPortalRefresh(fresh);
-        } else {
-          portalState.error = portalState.error || 'No se pudo actualizar el catálogo del servicio';
-        }
-        return;
-      }
-      var root = PORTAL_ROOTS[index++];
-      ask(root, 0);
-    }
-    /* A section that fails (a timeout on a slow network) is asked once more;
-       applyPortalRefresh keeps its previous titles if it still fails, instead
-       of leaving the section empty until the next refresh. */
-    function ask(root, attempt) {
-      portalServiceCall('home', { root: root }, function (error, payload) {
-        if (!error && payload && payload.returnValue !== false && payload.items && payload.items.length) {
-          fresh[root] = payload.items;
-          portalState.roots++;
-          next();
-          return;
-        }
-        if (attempt < 1) { setTimeout(function () { ask(root, attempt + 1); }, 1500); return; }
-        if (error) { portalState.error = error; }
-        next();
-      });
-    }
-    next();
-  }
-
-  /* Desktop: refresh the catalog from the portal every 20 minutes so new
-     titles appear without restarting. It waits until the viewer is not in the
-     middle of browsing the home page, because a refresh rebuilds it. */
+  /* PC: the addons' catalogs are read again every 20 minutes so new titles
+     appear without restarting. It waits until the viewer is not in the middle
+     of browsing the home page, because a refresh rebuilds it. */
   var CATALOG_REFRESH_MS = 20 * 60 * 1000;
   var lastUserActivity = Date.now();
+  var lastCatalogSync = Date.now();
   function startCatalogAutoRefresh() {
-    if (!window.XUPER_DESKTOP || vodApi.mode !== 'portal' || vodApi.refresh === false) { return; }
+    if (!window.OPENTV_DESKTOP || vodApi.refresh === false) { return; }
     ['pointermove', 'keydown', 'wheel'].forEach(function (type) {
       document.addEventListener(type, function () { lastUserActivity = Date.now(); }, { passive: true, capture: true });
     });
     setInterval(function () {
-      if (portalState.refreshing || Date.now() - portalState.lastSync < CATALOG_REFRESH_MS) { return; }
-      if (getVodSourcesConfig().mode === 'external') { return; }
+      if (vodApiState.loading || Date.now() - lastCatalogSync < CATALOG_REFRESH_MS) { return; }
       var browsingHome = state.screen === 'home' && Date.now() - lastUserActivity < 60000;
-      if (!browsingHome) { refreshPortalCatalog(); }
+      if (browsingHome) { return; }
+      lastCatalogSync = Date.now();
+      syncExternalVodCatalogs(function () {});
     }, 60000);
   }
 
-  function loadPortalCatalog() {
-    /* Modo manual (Stremio, solo PC): solo los addons del usuario, nunca el
-       catálogo integrado (sus títulos se reproducirían con él). Si ninguno
-       responde, se dice abajo en el inicio. */
-    if (stremioModeOn()) {
-      syncExternalVodCatalogs(function (err, count) {
-        if (!count) { vodApiState.error = 'Tus addons no respondieron'; }
-      });
-      return;
-    }
-    loadPortalCatalogFromServer();
-  }
-
-  function loadPortalCatalogFromServer() {
-    var snap = portalSnapshot();
-    if (snap.length) {
-      replaceVod(snap, 'portal-snapshot', true);
-    }
-    if (vodApi.refresh === false) {
-      if (!snap.length) { vodApiState.error = 'Sin snapshot del portal'; }
-      return;
-    }
-    refreshPortalCatalog();
-  }
-
-  function useBundledCatalog(source, error) {
-    var records = bundledCatalog();
-    if (!replaceVod(records, source || 'bundled')) {
-      vodApiState.error = error || 'No hay catálogo local ni remoto';
-      return false;
-    }
-    if (error) { vodApiState.error = error; }
-    return true;
-  }
-
-  function loadVodCatalog() {
-    if (!vodApi.enabled) { return; }
-    if (vodApi.mode === 'portal') { loadPortalCatalog(); return; }
-    if (vodApi.mode === 'static') { useBundledCatalog('bundled', null); return; }
-    var url = apiUrl('catalog');
-    if (vodApi.mode === 'xuper' && !hasXuperSession()) {
-      vodApiState.error = 'Falta la sesión OpenTV (userId, userToken y portalCode)';
-      return;
-    }
-    if (!url) {
-      if (vodApi.useBundledCatalog) { useBundledCatalog('bundled', null); }
-      else { vodApiState.error = 'Falta baseUrl/catalogUrl del catálogo autorizado'; }
-      return;
-    }
-    vodApiState.loading = true;
-    apiRequest(url, function (error, payload) {
-      vodApiState.loading = false;
-      var responseError = apiError(payload);
-      if (!error && !responseError && replaceVod(apiArray(payload), 'api')) { return; }
-      var message = error || responseError || 'La API no devolvió películas';
-      /* A remote endpoint that is offline must not leave the port empty. */
-      if (!useBundledCatalog('bundled-fallback', message)) {
-        vodApiState.error = message;
-      }
-    }, vodApi.mode === 'xuper' ? { method: 'POST', body: xuperPayload('catalog') } : null);
-  }
-
-  function mergeDetail(item, raw) {
-    var groupedId = item && item._seriesGroup ? item.id : null;
-    var groupedTitle = item && item._seriesGroup ? item._seriesTitle : null;
-    var full = normalizeVod(raw, item.id);
-    /* Catalog values remain useful when a detail response omits a field. */
-    for (var key in full) {
-      /* An empty list in the answer (seasons, episodes…) must not wipe what
-         the title already knows: it removed every season from the dropdown
-         after switching season in House M.D. */
-      if (Object.prototype.hasOwnProperty.call(full, key) && full[key] !== '—' && full[key] !== '' &&
-          full[key] !== 'Sin sinopsis disponible.' && !(Array.isArray(full[key]) && !full[key].length)) {
-        item[key] = full[key];
-      }
-    }
-    if (groupedId !== null) {
-      item.id = groupedId;
-      item.title = groupedTitle;
-      item.alias = groupedTitle;
-      item.seasons = item._catalogSeasons || item.seasons;
-    }
-  }
-
+  /* A title's full details: the addon's meta (episodes, cast…). Anything else
+     already carries what it has. */
   function loadVodDetail(item, done) {
     done = done || function () {};
     if (!item) { return done(null); }
     if (item._detailsLoaded) { return done(item); }
     if (item._stremio) { return loadStremioMeta(item, done); }
-    if (item._detailLoading) {
-      item._detailWait = item._detailWait || [];
-      item._detailWait.push(done);
-      return;
-    }
-    if (vodApi.mode === 'portal' && item._portal) {
-      item._detailLoading = true;
-      item._detailWait = [done];
-      portalServiceCall('detail', { contentId: item.id }, function (error, payload) {
-        item._detailLoading = false;
-        /* portal100006 ("the episode list does not exist") is the portal's
-           normal answer for a movie: the catalogue record already has its
-           data, so the movie is ready to play. */
-        var noEpisodes = /portal100006/.test(String(error || (payload && payload.errorText) || ''));
-        if (noEpisodes && !isSeriesItem(item)) {
-          error = null;
-          payload = { item: item, episodes: [], seasons: [] };
-        }
-        if (error || !payload || payload.returnValue === false || !payload.item) {
-          item._detailError = error || (payload && payload.errorText) || 'El servidor no devolvió la ficha ni los capítulos';
-          var failedWaiters = item._detailWait || [];
-          item._detailWait = [];
-          if ((state.screen === 'detail' && state.detail === item) ||
-              (state.screen === 'player' && state.playerItem === item)) vodFailure('la ficha o los capítulos', item._detailError);
-          for (var failed = 0; failed < failedWaiters.length; failed++) failedWaiters[failed](null);
-          return;
-        }
-        item._detailError = '';
-        if (!error && payload && payload.returnValue !== false && payload.item) {
-          mergeDetail(item, payload.item);
-          item.episodes = payload.episodes || [];
-          item.seasons = item._catalogSeasons || payload.seasons || [];
-          /* The portal keys episodes by the season container, so remember
-             which container this list came from (item.id stays the series). */
-          if (!item.seasonId) { item.seasonId = item.id; }
-
-          /* Ordenar temporadas ascendentemente por numero */
-          if (item.seasons && item.seasons.length) {
-            item.seasons.sort(function (a, b) {
-              var na = parseInt(a.number, 10) || 0;
-              var nb = parseInt(b.number, 10) || 0;
-              return na - nb;
-            });
-          }
-
-          /* Si no hay temporadas pero el titulo o alias tiene T/S, asegurar al menos una temporada */
-          if ((!item.seasons || !item.seasons.length) && isSeriesItem(item)) {
-            var sNum = 1;
-            var sm = /S(\d+)/i.exec(item.alias || '') || /T(\d+)/i.exec(item.title || '');
-            if (sm) { sNum = parseInt(sm[1], 10) || 1; }
-            item.seasons = [{ id: item.id, number: sNum }];
-          }
-
-          /* Sincronizar indice de temporada activa con item.id */
-          if (item.seasons && item.seasons.length) {
-            var activeIdx = 0;
-            for (var s = 0; s < item.seasons.length; s++) {
-              if (item.seasons[s].id === item.id) {
-                activeIdx = s;
-                break;
-              }
-            }
-            state.detailSeason = activeIdx;
-            if (item.seasons[activeIdx]) {
-              item.seasons[activeIdx]._episodes = item.episodes;
-            }
-          }
-
-          /* Si el historial apunta a otra temporada de esta serie, cargar sus capítulos antes de terminar */
-          var histRec = window.XUPER_DESKTOP ? (pendingHistoryRecord || historyRecordFor(item)) : null;
-          var targetSeasonObj = null;
-          var targetSeasonIdx = -1;
-          if (histRec && item.seasons && item.seasons.length > 1) {
-            var wantedSeasonId = String(histRec.seasonId || histRec.id || '');
-            for (var hs = 0; hs < item.seasons.length; hs++) {
-              if (String(item.seasons[hs].id) === wantedSeasonId) {
-                targetSeasonIdx = hs;
-                targetSeasonObj = item.seasons[hs];
-                break;
-              }
-            }
-          }
-
-          function finishDetailLoad() {
-            if (item.episodes && item.episodes.length && !state.detailEpisode) {
-              state.detailEpisode = item.episodes[0];
-            }
-            applyPendingHistoryEpisode(item);
-            item._detailsLoaded = true;
-            var wait = item._detailWait || [];
-            item._detailWait = [];
-            var hadWaiters = wait.length > 0;
-            for (var i = 0; i < wait.length; i++) { wait[i](item); }
-            if (state.detail === item && state.screen === 'detail') {
-              buildDetail(item);
-              if (!hadWaiters && (!playerVideo || !playerVideo.src || playerVideo.paused) && autoPreviewAllowed(item)) {
-                startPlayerVideo(item, state.detailEpisode);
-              }
-            }
-          }
-
-          if (targetSeasonObj && targetSeasonObj.id && String(targetSeasonObj.id) !== String(item.seasonId || item.id)) {
-            state.detailSeason = targetSeasonIdx;
-            state.playerSeasonIndex = targetSeasonIdx;
-            portalServiceCall('detail', { contentId: targetSeasonObj.id }, function (sErr, sPayload) {
-              if (!sErr && sPayload && sPayload.returnValue !== false && sPayload.episodes && sPayload.episodes.length) {
-                item.episodes = sPayload.episodes;
-                item.seasonId = targetSeasonObj.id;
-                targetSeasonObj._episodes = item.episodes;
-              }
-              finishDetailLoad();
-            });
-            return;
-          }
-
-          finishDetailLoad();
-          return;
-        }
-      });
-      return;
-    }
-    var endpoint = apiUrl('detail');
-    if (!vodApi.enabled || !endpoint) { return done(item); }
-    if (vodApi.mode === 'xuper' && !hasXuperSession()) { return done(item); }
-    item._detailLoading = true;
-    var url = endpoint.replace('{id}', encodeURIComponent(item.id));
-    apiRequest(url, function (error, payload) {
-      item._detailLoading = false;
-      if (!error) {
-        var records = apiArray(payload);
-        var raw = records.length ? records[0] : (payload && (payload.item || payload.movie || payload));
-        if (raw && typeof raw === 'object') {
-          mergeDetail(item, raw);
-          item._detailsLoaded = true;
-          if (state.detail === item && state.screen === 'detail') {
-            buildDetail(item);
-            if ((!playerVideo || !playerVideo.src || playerVideo.paused) && autoPreviewAllowed(item)) {
-              startPlayerVideo(item, state.detailEpisode);
-            }
-          }
-        }
-      }
-      done(item);
-    }, vodApi.mode === 'xuper' ? { method: 'POST', body: xuperPayload('detail', item.id) } : null);
+    item._detailsLoaded = true;
+    done(item);
   }
 
   /* ---- core/config.js -------------------------------------------------------- */
   /* core/config.js — Configuración estática: canales, pestañas del inicio y menú de ajustes.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-  /* Live TV is portal-driven.  Do not draw fictitious rows while the local
-     service starts: they looked like real channels until the user left and
-     returned to the TV tab. */
+  /* Live TV comes only from the viewer's own M3U lists (live/channels.js).
+     CHANNELS holds the channels of the category on screen. Do not draw
+     fictitious rows while the lists load: they looked like real channels. */
   var CHANNELS = [];
 
   /* Tab order and labels observed on the running app (WSA, 1920x1080).
@@ -1893,7 +1896,7 @@
   ];
   /* Desktop: Novelas and Explorar are dropped, and history has its own button
      (and lives in Mi lista), so the rail only lists the main catalogues. */
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     TABS = TABS.filter(function (t) { return t.icon !== 'novel' && t.icon !== 'compass' && t.action !== 'history'; });
     /* Top bar labels, like the big streaming apps. */
     var DESKTOP_TAB_LABELS = { 'TV': 'TV en vivo', 'DESTACADOS': 'Inicio', 'PELICULA': 'Películas', 'SERIES': 'Series', 'KIDS': 'Kids', 'ANIME': 'Anime' };
@@ -1901,8 +1904,8 @@
     /* A kids profile only sees Kids (no TV, no Inicio or Anime, which also
        carry titles for adults). */
     if (isKidsProfile()) { TABS = TABS.filter(function (t) { return t.page === 4; }); }
-    /* TVs (LG, Android TV, Fire TV): the same sections in a menu on the left,
-       like the LG version; search, Mi lista and the account stay at the top
+    /* TVs (Android TV, Fire TV): the same sections in a menu on the left;
+       search, Mi lista and the account stay at the top
        right. Line icons in the style of the rest of the app. */
     if (platformIsTv()) {
       var TV_RAIL_ICONS = {
@@ -1921,8 +1924,9 @@
     { id: 'profile', label: 'Mi cuenta' },
     { id: 'history', label: 'Mi lista' },
     { id: 'parent', label: 'Bloqueo' },
-    { id: 'playback', label: 'Configuración global' },
-    { id: 'sources', label: 'Fuentes' },
+    { id: 'playback', label: 'Ajustes' },
+    { id: 'sources', label: 'Addons' },
+    { id: 'downloads', label: 'Descargas' },
     { id: 'feedback', label: 'Ayuda y Feedback' },
     { id: 'about', label: 'Sobre nosotros' }
   ];
@@ -1933,20 +1937,27 @@
     parent: '<svg viewBox="0 0 32 32"><rect x="7" y="14" width="18" height="14" rx="2"/><path d="M11 14V10a5 5 0 0 1 10 0v4"/><path d="M16 19v4"/></svg>',
     playback: '<svg viewBox="0 0 32 32"><rect x="4" y="6" width="24" height="20" rx="3"/><path d="M13 11l8 5-8 5z"/></svg>',
     sources: '<svg viewBox="0 0 32 32"><path d="M16 4l12 6-12 6L4 10l12-6z"/><path d="M4 16l12 6 12-6"/><path d="M4 22l12 6 12-6"/></svg>',
+    downloads: '<svg viewBox="0 0 32 32"><path d="M16 5v15"/><path d="M10 14l6 6 6-6"/><path d="M6 26h20"/></svg>',
     feedback: '<svg viewBox="0 0 32 32"><path d="M6 4h15l5 5v19H6z"/><path d="M20 4v6h6M10 16h12M10 21h8"/></svg>',
     about: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="M16 14v8M16 10h.1"/></svg>'
   };
 
   /* Desktop: short labels that fit the menu and line icons like the rest of the app. */
-  if (window.XUPER_DESKTOP) {
-    var DESKTOP_SETTINGS_LABELS = { playback: 'Reproducción', sources: 'Fuentes', feedback: 'Ayuda', about: 'Acerca de' };
+  if (window.OPENTV_DESKTOP) {
+    var DESKTOP_SETTINGS_LABELS = { playback: 'Ajustes', feedback: 'Ayuda', about: 'Acerca de' };
     /* The PIN lock was never available on Windows: no menu entry for it. */
     SETTINGS_ITEMS = SETTINGS_ITEMS.filter(function (it) { return it.id !== 'parent'; });
     SETTINGS_ITEMS.forEach(function (it) { if (DESKTOP_SETTINGS_LABELS[it.id]) { it.label = DESKTOP_SETTINGS_LABELS[it.id]; } });
     SETTINGS_MENU_ICONS = {
       profile: UI_ICONS.user, history: UI_ICONS.mylist, parent: UI_ICONS.lock,
-      playback: UI_ICONS.settings, sources: UI_ICONS.addons, feedback: UI_ICONS.help, about: UI_ICONS.info
+      playback: UI_ICONS.settings, sources: UI_ICONS.addons, feedback: UI_ICONS.help, about: UI_ICONS.info,
+      downloads: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg>'
     };
+  }
+  /* Descargas: only where the service can save files. Asked when Ajustes is
+     built (Android confirms it after start-up). */
+  function settingsItemsForDevice() {
+    return SETTINGS_ITEMS.filter(function (it) { return it.id !== 'downloads' || platformHas('downloads'); });
   }
 
   /* ---- core/state.js --------------------------------------------------------- */
@@ -1999,10 +2010,10 @@
   state.tab = homeTabIndex();
 
   /* A profile belongs to this TV only: no registration, credentials or
-     network account is required.  It intentionally stays small because old
-     webOS models have limited persistent storage. */
-  var LOCAL_PROFILE_KEY = 'xuper_local_profile_v1';
-  var LOCAL_PLAYBACK_KEY = 'xuper_global_playback_v1';
+     network account is required.  It intentionally stays small because TV
+     sticks have limited persistent storage. */
+  var LOCAL_PROFILE_KEY = 'opentv_local_profile_v1';
+  var LOCAL_PLAYBACK_KEY = 'opentv_global_playback_v1';
   var localProfile = { id: '', createdAt: 0, history: [] };
 
   function safeLocalRead(key, fallback) {
@@ -2014,7 +2025,7 @@
 
   function safeLocalWrite(key, value) {
     try { localStorage.setItem(profileKey(key), JSON.stringify(value)); } catch (eWrite) { /* storage unavailable */ }
-    if (window.XUPER_DESKTOP && typeof scheduleProfilesBackup === 'function') { scheduleProfilesBackup(); }
+    if (window.OPENTV_DESKTOP && typeof scheduleProfilesBackup === 'function') { scheduleProfilesBackup(); }
   }
 
   function loadLocalProfile() {
@@ -2028,10 +2039,10 @@
     }
     /* Desktop: Directo is the default. Older profiles saved Fluido globally;
        reset that once. Later choices in Ajustes are kept as usual. */
-    if (window.XUPER_DESKTOP && !safeLocalRead('xuper_direct_default_v1', false)) {
+    if (window.OPENTV_DESKTOP && !safeLocalRead('opentv_direct_default_v1', false)) {
       state.playback.streamMode = 'normal';
       safeLocalWrite(LOCAL_PLAYBACK_KEY, state.playback);
-      safeLocalWrite('xuper_direct_default_v1', true);
+      safeLocalWrite('opentv_direct_default_v1', true);
     }
     /* The default screen format is now Original (the film as it was made).
        Profiles still on the old default (Llenar pantalla) move to it once;
@@ -2119,7 +2130,7 @@
      category only updates classes instead of rebuilding (and detaching) the
      focused pill. */
   var renderedCategoryKey = '';
-  /* Older webOS models cannot keep a full 500–1000-row channel category in
+  /* Low-memory TV sticks cannot keep a full 500–1000-row channel category in
      memory.  The side panel therefore owns only this small moving window. */
   var LIVE_PANEL_WINDOW = 48;
   var playerVodInfo, vodInfobarPoster, vodInfobarTitle, vodTimeCurrent, vodTimeTotal, vodSeekbar, vodSeekProgress, vodSeekBuffered, vodSeekThumb, playerOsdIcon;
@@ -2140,7 +2151,7 @@
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(LITE_KEY) || 'null'); } catch (eRead) { saved = null; }
     if (saved === true || saved === false) { return saved; }
-    /* TV LG, Android TV and Fire TV start light; the PC starts full. */
+    /* Android TV and Fire TV start light; the PC starts full. */
     return platformIsTv();
   }
 
@@ -2166,11 +2177,27 @@
     /* moveFocus reads it right after focusables(): measured only once. */
     node._visRect = r;
     if (r.width < 1 || r.height < 1) { return false; }
+    /* Under the on-screen keyboard's panel (core/tv-keyboard.js). */
+    if (tvKbPanel && closest(node, '.tvk-covered')) { return false; }
     if (historyDrawerOpen) { return !!closest(node, '.history-drawer'); }
+    /* The profile editor opens over the picker (or over Mi cuenta): only its
+       own controls take the focus while it is open. */
+    if (profileEditor && profileEditor.classList.contains('is-open')) { return !!closest(node, '.profile-editor'); }
     if (profilePickerOpen) { return !!closest(node, '.profile-picker'); }
+    /* Closed, they stay in the page (only see-through): their tiles and
+       buttons took the focus from the details screen ("Mi usuario" below
+       "Ir a Addons"). */
+    if (closest(node, '.profile-picker') || closest(node, '.profile-editor')) { return false; }
     if (liveGuideOpen) { return !!closest(node, '.live-guide'); }
+    /* TV en vivo's category list is open over the channel list: the arrows
+       move through the categories, not the channels behind them. */
+    if (liveCatMenuOpen()) { return !!closest(node, '.live-cat-menu'); }
+    /* The season list of a series is open over its episodes: likewise. */
+    if (seasonPopup) { return !!closest(node, '.season-popup'); }
     if (dialogAddonsOpen) { return !!closest(node, '#dialog-addons'); }
-    if (sourcePickerOpen) { return !!closest(node, '#dialog-sources'); }
+    /* Every window of that kind ("Elegir fuente", the guide, the notices)
+       shares .source-picker: only its own buttons can take the focus. */
+    if (sourcePickerOpen) { return !!closest(node, '.source-picker'); }
     if (state.episodeBrowserOpen) {
       return !!closest(node, '#player-episodes');
     }
@@ -2262,7 +2289,14 @@
       var cell = childOf(node, strip);
       var cellLeft = cell ? parseFloat(cell.style.left) : NaN;
       if (!isNaN(cellLeft)) {
-        if (strip._tvMax === undefined) { strip._tvMax = Math.max(0, strip.scrollWidth - strip.clientWidth); }
+        /* Measured once per strip: reading sizes right after the focus class
+           changed forced a full style + layout pass inside every key press
+           (~15 ms on a Fire TV). */
+        if (strip._tvMax === undefined || strip._tvKids !== strip.children.length) {
+          strip._tvKids = strip.children.length;
+          strip._tvClientW = strip.clientWidth;
+          strip._tvMax = Math.max(0, strip.scrollWidth - strip._tvClientW);
+        }
         /* The focus moves along the row; the row only slides when the
            focused poster would leave the screen, and then shows half of the
            next one (so there is clearly more). */
@@ -2270,7 +2304,7 @@
         var cellW = parseFloat(cell.style.width) || cell.offsetWidth;
         var row = strip.parentNode;
         var stripPageLeft = (parseFloat(row && row.style.left) || 0) + (parseFloat(strip.style.left) || 0);
-        var viewW = Math.min(strip.clientWidth, 1920 - 60 - stripPageLeft);
+        var viewW = Math.min(strip._tvClientW, 1920 - 60 - stripPageLeft);
         var wantX = curX;
         if (cellLeft - ROW_PAD < curX) { wantX = cellLeft - ROW_PAD; }
         else if (cellLeft + cellW + cellW * 0.5 > curX + viewW) { wantX = cellLeft + cellW + cellW * 0.5 - viewW; }
@@ -2289,9 +2323,16 @@
       page._tvLine = line;
       var wantY = 0;
       if (lineTop >= 560) {
-        var lineH = line.offsetHeight || 0;
-        wantY = Math.round(lineTop + lineH / 2 - page.clientHeight / 2);
-        wantY = Math.max(0, Math.min(page.scrollHeight - page.clientHeight, wantY));
+        /* Written sizes first; the page box is measured again only when its
+           lines change (a section loading more rows). */
+        var lineH = parseFloat(line.style.height) || line.offsetHeight || 0;
+        if (page._tvKids !== page.children.length || !page._tvClientH) {
+          page._tvKids = page.children.length;
+          page._tvClientH = page.clientHeight;
+          page._tvScrollH = page.scrollHeight;
+        }
+        wantY = Math.round(lineTop + lineH / 2 - page._tvClientH / 2);
+        wantY = Math.max(0, Math.min(page._tvScrollH - page._tvClientH, wantY));
       }
       tvScrollTo(page, null, wantY);
     }
@@ -2343,12 +2384,15 @@
     var curTop = cur ? parseFloat(cur.style.top) : NaN;
     if (isNaN(curTop)) { return undefined; }
     var curX = tvPageX(node, page);
-    /* The next line: the nearest written top above / below. */
+    /* The next line: the nearest written top above / below. The hero's
+       buttons (.hero-info) are a line too: up from any poster of the first
+       row, even the far right one, lands on them (the measuring fallback
+       went to the top icons instead, which were closer on screen). */
     var kids = page.children;
     var lineTop = null;
     for (var i = 0; i < kids.length; i++) {
       var k = kids[i];
-      if (k.style.display === 'none' || !(k.classList.contains('d-row') || k.classList.contains('focusable'))) { continue; }
+      if (k.style.display === 'none' || !(k.classList.contains('d-row') || k.classList.contains('focusable') || k.classList.contains('hero-info'))) { continue; }
       var t = parseFloat(k.style.top);
       if (isNaN(t)) { continue; }
       if (dir === 'down' ? (t > curTop && (lineTop === null || t < lineTop)) : (t < curTop && (lineTop === null || t > lineTop))) { lineTop = t; }
@@ -2382,21 +2426,71 @@
     return parseFloat(top && top.style.left) || 0;
   }
 
+  /* TVs, details screen of a series: the screen stays still and its lower
+     part shows one section at a time. Down from the episodes (or the season
+     button) the episodes give way to Recomendaciones; up from those, the
+     episodes come back. The focus lands on the card most in line with the
+     one it leaves. True when it handled the key. */
+  function tvDetailSectionMove(dir) {
+    if (!platformIsTv() || state.screen !== 'detail' || (dir !== 'up' && dir !== 'down')) { return false; }
+    var bottom = state.focus && closest(state.focus, '.detail-bottom');
+    if (!bottom || !bottom.classList.contains('tv-sections')) { return false; }
+    var sections = bottom.querySelectorAll('.dd-section');
+    if (sections.length < 2) { return false; }
+    var epSec = sections[0], relSec = sections[1];
+    var inEp = epSec.contains(state.focus), inRel = relSec.contains(state.focus);
+    var fromRow = closest(state.focus, '.dd-grid, .dd-related');
+    var fr = state.focus.getBoundingClientRect();
+    var fx = fr.left + fr.width / 2;
+    function landIn(sec, remembered) {
+      var row = sec.querySelector('.dd-grid, .dd-related');
+      if (!row) { return false; }
+      if (remembered && remembered.isConnected && row.contains(remembered)) { setFocus(remembered); return true; }
+      var cards = row.querySelectorAll('.focusable');
+      var best = null, bestD = 1e9;
+      for (var i = 0; i < cards.length; i++) {
+        var r = cards[i].getBoundingClientRect();
+        if (r.right < 0 || r.left > window.innerWidth) { continue; }
+        var d = Math.abs(r.left + r.width / 2 - fx);
+        if (d < bestD) { bestD = d; best = cards[i]; }
+      }
+      best = best || cards[0];
+      if (best) { setFocus(best); return true; }
+      return false;
+    }
+    if (dir === 'down' && inEp && fromRow) {
+      bottom._lastEp = state.focus;
+      bottom.classList.remove('show-ep');
+      bottom.classList.add('show-rel');
+      return landIn(relSec, null);
+    }
+    if (dir === 'up' && inRel && fromRow) {
+      bottom.classList.remove('show-rel');
+      bottom.classList.add('show-ep');
+      return landIn(epSec, bottom._lastEp);
+    }
+    return false;
+  }
+
   function reveal(node) {
     /* A section still sliding in reads shifted on screen (its first poster
        looked off the right edge, and the row was scrolled to "show" it).
        Measure once it has landed. */
-    if (window.XUPER_DESKTOP && !platformIsTv() && closest(node, '.home-page.is-entering')) {
+    if (window.OPENTV_DESKTOP && !platformIsTv() && closest(node, '.home-page.is-entering')) {
       setTimeout(function () { if (state.focus === node) { reveal(node); } }, 420);
       return;
     }
-    if (platformIsTv() && window.XUPER_DESKTOP && tvReveal(node)) { return; }
+    if (platformIsTv() && window.OPENTV_DESKTOP && tvReveal(node)) { return; }
     var box = closest(node, '.scrollable');
-    var tvCenter = platformIsTv() && window.XUPER_DESKTOP;
+    var tvCenter = platformIsTv() && window.OPENTV_DESKTOP;
     while (box) {
       var er = node.getBoundingClientRect();
       var br = box.getBoundingClientRect();
-      if (tvCenter && box.scrollHeight > box.clientHeight + 1) {
+      if (tvCenter && box.classList.contains('detail-bottom')) {
+        /* TVs, details screen: it never scrolls up or down; its lower part
+           shows one section at a time (tvDetailSectionMove). */
+        if (box.scrollTop) { box.scrollTop = 0; }
+      } else if (tvCenter && box.scrollHeight > box.clientHeight + 1) {
         /* TVs (search, details, Mi lista, the guide, Ajustes…): the focused
            element is centred, and near the top the list stays at its start,
            as it was opened. The target comes from where the element sits in
@@ -2452,7 +2546,29 @@
   /* The menu on the left follows the focus (also called by showScreen: the
      focus can land on a tab while another screen is still showing, and the
      menu then stayed closed with the focus hidden inside it). */
+  /* TVs: the section's name next to the logo at the top ("OpenTV | Películas").
+     While the remote moves through the menu it shows the icon in focus, so
+     the menu itself stays icons only; back in the page it shows the section
+     on screen again. Only the text of one span changes. */
+  var tvSectionEl = null;
+  function syncTvSectionLabel(node) {
+    if (!platformIsTv() || !window.OPENTV_DESKTOP) { return; }
+    if (!tvSectionEl) {
+      var brand = document.querySelector('#screen-home .home-port-credit');
+      if (!brand) { return; }
+      tvSectionEl = el('span', 'tv-section');
+      brand.appendChild(tvSectionEl);
+    }
+    var tabEl = node && closest(node, '.home-tabs') ? closest(node, '.tab-item') : null;
+    if (!tabEl && tabEls[state.tab]) { tabEl = tabEls[state.tab]; }
+    var titleEl = tabEl ? tabEl.querySelector('.tab-title') : null;
+    var label = titleEl ? titleEl.textContent : '';
+    if (tvSectionEl.textContent !== label) { tvSectionEl.textContent = label; }
+    tvSectionEl.classList.toggle('is-browsing', !!(node && closest(node, '.home-tabs')));
+  }
+
   function syncHomeRail(node) {
+    syncTvSectionLabel(node);
     /* The tab rail expands while it holds focus and collapses to icons as soon
        as the content takes focus (observed on the running app). */
     var rail = $('home-tabs');
@@ -2460,7 +2576,7 @@
       var inRail = closest(node, '.home-tabs');
       /* Desktop: the rail always shows icon + label; the pages make room for
          it (desktop/theme.css) instead of the rail covering them. */
-      var keepOpen = !!window.XUPER_DESKTOP;
+      var keepOpen = !!window.OPENTV_DESKTOP;
       /* TVs: the menu on the left opens over the page; only opacities change,
          nothing on the page moves ("Teles" in desktop/tw/input.css). */
       /* (On the menu and its backdrop, not on <body>: a class on <body> makes
@@ -2482,7 +2598,7 @@
   /* Desktop: the focus ring (white frame + zoom) is shown only while the
      keyboard is being used, like Windows does. With the mouse, the current
      element is still tracked, just not highlighted. The TV always shows it. */
-  var focusRingVisible = !window.XUPER_DESKTOP || platformIsTv();
+  var focusRingVisible = !window.OPENTV_DESKTOP || platformIsTv();
 
   function setFocusRingVisible(on) {
     on = !!on;
@@ -2493,7 +2609,7 @@
   }
 
   function installFocusRingMode() {
-    if (!window.XUPER_DESKTOP || platformIsTv()) {
+    if (!window.OPENTV_DESKTOP || platformIsTv()) {
       if (focusRingVisible && document.body) { document.body.classList.add('is-keyboard-nav'); }
       return;
     }
@@ -2512,19 +2628,24 @@
 
   function setFocus(node, silent) {
     if (!node) { return; }
+    /* "¿Quién está viendo?" or the profile editor on screen: nothing behind
+       it takes the focus (screens/profiles-ui.js). */
+    var overlay = profileOverlayRoot();
+    if (overlay && !overlay.contains(node)) {
+      if (!state.focus || !overlay.contains(state.focus)) {
+        var inside = firstIn(overlay);
+        if (inside && inside !== node) { setFocus(inside, true); }
+      }
+      return;
+    }
     if (state.focus === node) {
       if (!silent) { reveal(node); }
       return;
     }
     if (state.focus) {
       state.focus.classList.remove('is-focused');
-      /* TVs: the poster that loses focus keeps its own layer while it shrinks
-         back, so the zoom out is animated by the compositor too. */
-      if (platformIsTv()) {
-        var prevFocus = state.focus;
-        prevFocus.classList.add('was-focused');
-        setTimeout(function () { prevFocus.classList.remove('was-focused'); }, 260);
-      }
+      /* (TVs: the zoom is instant now, without a layer of its own while it
+         shrinks back; see "Foco" in 10-teles.css.) */
     }
     state.focus = node;
     if (focusRingVisible) { node.classList.add('is-focused'); }
@@ -2576,12 +2697,23 @@
       if (guideNode) { setFocus(guideNode); return; }
     }
     if (state.focus._onMove && state.focus._onMove(dir)) { return; }
+    if (tvDetailSectionMove(dir)) { return; }
 
     var inPage = state.screen === 'home' && closest(state.focus, '.home-page');
     var inSidebar = state.screen === 'home' && closest(state.focus, '.home-tabs');
+
+    /* TVs: down from the icons at the top (Buscar, Mi lista, perfil) goes to
+       the top of the section on screen (the hero's Reproducir), not to the
+       nearest poster on screen, which could be in any row, even one
+       scrolled out of view (the focus seemed lost). */
+    if (dir === 'down' && platformIsTv() && state.screen === 'home' && closest(state.focus, '.home-notify')) {
+      var curPage = TABS[state.tab] ? pages[TABS[state.tab].page] : null;
+      var top = curPage ? firstIn(curPage) : null;
+      if (top) { setFocus(top); return; }
+    }
     /* (Not on TV en vivo: preview, channel list and controls sit side by side
        there, so moves across them must stay free.) */
-    var tvRowNav = !!inPage && platformIsTv() && !!window.XUPER_DESKTOP && inPage !== pages[0];
+    var tvRowNav = !!inPage && platformIsTv() && !!window.OPENTV_DESKTOP && inPage !== pages[0];
 
     /* TVs: rows move by position (no measuring), like Leanback. */
     if (tvRowNav) {
@@ -2626,13 +2758,13 @@
       return;
     }
 
-    if (window.XUPER_DESKTOP && !platformIsTv() && dir === 'up' && inPage) {
+    if (window.OPENTV_DESKTOP && !platformIsTv() && dir === 'up' && inPage) {
       if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
       return;
     }
     /* Leftmost limit reached in page content: now focus sidebar tab (the TV
        menu on the left). */
-    if (dir === 'left' && inPage && (!window.XUPER_DESKTOP || platformIsTv())) {
+    if (dir === 'left' && inPage && (!window.OPENTV_DESKTOP || platformIsTv())) {
       if (tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
     }
   }
@@ -2660,19 +2792,108 @@
     return out;
   }
 
+  /* Can `c` be a target from the current focus at all (menu / page rules)? */
+  function focusCandidateAllowed(c, inPage, inSidebar) {
+    if (c === state.focus) { return false; }
+    /* Don't let sidebar tabs intercept left navigation while inside page content */
+    if (inPage && closest(c, '.home-tabs')) { return false; }
+    /* Desktop: from the page, up goes to the tab bar, not the icons. */
+    if (inPage && window.OPENTV_DESKTOP && !platformIsTv() && closest(c, '.home-notify')) { return false; }
+    /* Don't let page content intercept navigation while inside sidebar tabs */
+    if (inSidebar && !closest(c, '.home-tabs')) { return false; }
+    return true;
+  }
+
+  /* TVs: the remote moves only to what is really in that direction.
+     Up/down: the nearest line above/below (the elements level with the
+     nearest one), and on it the one most in line horizontally.
+     Left/right: only the same line (elements level with the focus), the
+     nearest one on that side. Never diagonally to another line. */
+  var TV_NAV_REGIONS = '.settings-right, .settings-menu, .live-side, .live-bar3a, .search-keyboard, ' +
+    '.search-hot, .search-results, .lg-cats, .lg-grid, .tvk-panel, .detail-bottom, .season-popup, .live-cat-menu';
+  /* Blocks that sit side by side with another (menu and panel, keyboard and
+     results…): up/down never leave them diagonally. */
+  var TV_NAV_COLUMNS = '.settings-right, .settings-menu, .live-side, .search-keyboard, .search-hot, ' +
+    '.search-results, .lg-cats, .lg-grid, .tvk-panel';
+  function pickTvFocusTarget(list, dir, fr, fx, inPage, inSidebar) {
+    var TOL = 3;
+    var cands = [];
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if (!focusCandidateAllowed(c, inPage, inSidebar)) { continue; }
+      var r = c._visRect || c.getBoundingClientRect();
+      var ok;
+      if (dir === 'up') { ok = r.bottom <= fr.top + TOL; }
+      else if (dir === 'down') { ok = r.top >= fr.bottom - TOL; }
+      else {
+        ok = r.bottom > fr.top + TOL && r.top < fr.bottom - TOL &&
+          (dir === 'left' ? r.right <= fr.left + TOL : r.left >= fr.right - TOL);
+      }
+      if (ok) { cands.push({ c: c, r: r }); }
+    }
+    if (!cands.length) { return null; }
+    var best = null, bestKey = 1e9, bestTie = 1e9;
+    if (dir === 'left' || dir === 'right') {
+      for (var h = 0; h < cands.length; h++) {
+        var rh = cands[h].r;
+        var gap = dir === 'left' ? fr.left - rh.right : rh.left - fr.right;
+        var tie = Math.abs((rh.top + rh.bottom) / 2 - (fr.top + fr.bottom) / 2);
+        if (gap < bestKey - 0.5 || (Math.abs(gap - bestKey) <= 0.5 && tie < bestTie)) { bestKey = gap; bestTie = tie; best = cands[h].c; }
+      }
+      return best;
+    }
+    /* First the block the focus is in (Ajustes' panel or menu, the channel
+       column, the keyboard, the results, the lower part of a title's page…):
+       in Ajustes, down from a tab went to the menu on the left, a little
+       lower. Only when nothing is there in that direction, the whole screen. */
+    var region = closest(state.focus, TV_NAV_REGIONS);
+    var pool = cands;
+    if (region) {
+      var inside = [];
+      for (var q = 0; q < cands.length; q++) { if (region.contains(cands[q].c)) { inside.push(cands[q]); } }
+      if (inside.length) { pool = inside; }
+      else if (region.matches && region.matches(TV_NAV_COLUMNS)) {
+        /* Leaving a column that has another one beside it: only straight up
+           or down (the end of Ajustes' panel jumped diagonally to the menu on
+           the left). Other blocks (the lower part of a title's page) go on
+           to the nearest line, like the buttons above the seasons. */
+        var column = [];
+        for (var w = 0; w < cands.length; w++) {
+          var rw = cands[w].r;
+          if (rw.right > fr.left + TOL && rw.left < fr.right - TOL) { column.push(cands[w]); }
+        }
+        if (!column.length) { return null; }
+        pool = column;
+      }
+    }
+    /* The nearest line in that direction: the nearest element, and every
+       element level with it. */
+    var near = null, nearGap = 1e9;
+    for (var n = 0; n < pool.length; n++) {
+      var rn = pool[n].r;
+      var g = dir === 'up' ? fr.top - rn.bottom : rn.top - fr.bottom;
+      if (g < nearGap) { nearGap = g; near = rn; }
+    }
+    for (var k = 0; k < pool.length; k++) {
+      var rk = pool[k].r;
+      if (!(rk.bottom > near.top + TOL && rk.top < near.bottom - TOL)) { continue; }
+      /* Most in line: overlapping the focus horizontally first, then the
+         nearest centre. */
+      var overlapX = rk.right > fr.left + TOL && rk.left < fr.right - TOL;
+      var dist = Math.abs((rk.left + rk.right) / 2 - fx) + (overlapX ? 0 : 10000);
+      if (dist < bestKey) { bestKey = dist; best = pool[k].c; }
+    }
+    return best;
+  }
+
   /* Spatial navigation: the best candidate of `list` in direction `dir`. */
   function pickFocusTarget(list, dir, fr, fx, fy, inPage, inSidebar, tvRowNav) {
+    if (platformIsTv()) { return pickTvFocusTarget(list, dir, fr, fx, inPage, inSidebar); }
     var best = null;
     var bestScore = 1e9;
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
-      if (c === state.focus) { continue; }
-      /* Don't let sidebar tabs intercept left navigation while inside page content */
-      if (inPage && closest(c, '.home-tabs')) { continue; }
-      /* Desktop: from the page, up goes to the tab bar, not the icons. */
-      if (inPage && window.XUPER_DESKTOP && !platformIsTv() && closest(c, '.home-notify')) { continue; }
-      /* Don't let page content intercept navigation while inside sidebar tabs */
-      if (inSidebar && !closest(c, '.home-tabs')) { continue; }
+      if (!focusCandidateAllowed(c, inPage, inSidebar)) { continue; }
 
       var r = c._visRect || c.getBoundingClientRect();
       var cx = r.left + r.width / 2;
@@ -2726,10 +2947,10 @@
     if (target) { target.classList.add('is-active'); }
     var previousScreen = state.screen;
     state.screen = name;
-    if (window.XUPER_DESKTOP && name !== 'player') { leaveLiveFullscreen(); }
-    if (window.XUPER_DESKTOP) { updateTitleBarSection(); if (name !== 'player' && updateStatus.state === 'ready') { showUpdateNotice(); } }
+    if (window.OPENTV_DESKTOP && name !== 'player') { leaveLiveFullscreen(); }
+    if (window.OPENTV_DESKTOP) { updateTitleBarSection(); if (name !== 'player' && updateStatus.state === 'ready') { showUpdateNotice(); } }
     if (historyDrawerOpen) { closeHistoryDrawer(true); }
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       if (name === 'home') {
         /* Back from the full-screen TV player: keep the same video playing
            in the home preview instead of reloading the channel. */
@@ -2782,6 +3003,7 @@
     lastBackTime = now;
     if (historyDrawerOpen) { closeHistoryDrawer(); return; }
     if (sourcePickerOpen) { closeSourcePicker(); return; }
+    if (typeof liveCatMenuOpen === 'function' && liveCatMenuOpen()) { closeLiveCatMenu(true); return; }
     /* The remote's Back (Fire TV, Android TV) closes the channel guide; it
        used to move the focus to the menu behind it, leaving the guide open. */
     if (liveGuideOpen) { closeLiveGuide(); return; }
@@ -2794,7 +3016,7 @@
       if (vodScrubbing) {
         leaveVodScrub(false);
         /* (TVs: Back during a glide cancels it and still leaves.) */
-        if (!(platformIsTv() && window.XUPER_DESKTOP)) { return; }
+        if (!(platformIsTv() && window.OPENTV_DESKTOP)) { return; }
       }
       if (state.categoryPickerOpen) {
         lastBackTime = Date.now();
@@ -2812,7 +3034,7 @@
       }
       if (state.channelsOpen) {
         closeChannelPanel();
-      } else if (platformIsTv() && window.XUPER_DESKTOP) {
+      } else if (platformIsTv() && window.OPENTV_DESKTOP) {
         /* TVs: Back leaves the player at once (hiding the controls first made
            it take several presses, as they come back with any key). */
         restorePlayerReturn();
@@ -2858,10 +3080,11 @@
     if (state.screen === 'search') {
       /* TVs: Back from the results goes up to the search field first (a long
          way with the arrows), then leaves. */
-      if (platformIsTv() && window.XUPER_DESKTOP && searchInput && state.focus && state.focus !== searchInput &&
-          closest(state.focus, '.search-results')) {
+      if (platformIsTv() && window.OPENTV_DESKTOP && searchInput && state.focus && state.focus !== searchInput &&
+          (closest(state.focus, '.search-results') || closest(state.focus, '.search-hot'))) {
         if (searchResults) { searchResults.scrollTop = 0; searchResults._tvTop = 0; }
-        setFocus(searchInput);
+        /* (Back to the on-screen keyboard, core/tv-keyboard.js.) */
+        setFocus(searchTvKb ? searchTvKb.first : searchInput);
         return;
       }
       clearSearchState();
@@ -2878,7 +3101,7 @@
     }
     if (state.screen === 'home') {
       /* TVs: Back from the content returns to the menu on the left first. */
-      if (platformIsTv() && window.XUPER_DESKTOP && state.focus && !closest(state.focus, '.home-tabs') && tabEls[state.tab]) {
+      if (platformIsTv() && window.OPENTV_DESKTOP && state.focus && !closest(state.focus, '.home-tabs') && tabEls[state.tab]) {
         setFocus(tabEls[state.tab]);
         return;
       }
@@ -2889,11 +3112,7 @@
         if (tabEls[homeTabIndex()]) { setFocus(tabEls[homeTabIndex()]); }
         return;
       }
-      if (window.webOSTV && window.webOSTV.platformBack) {
-        window.webOSTV.platformBack();
-      } else if (window.PalmSystem && window.PalmSystem.platformBack) {
-        window.PalmSystem.platformBack();
-      } else if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
         window.Capacitor.Plugins.App.exitApp();   /* Android / Fire TV */
       }
     }
@@ -2906,11 +3125,11 @@
   }
 
   function handleKey(e) {
-    if (window.XUPER_DESKTOP && e.target && closest(e.target, '.desktop-native-control') &&
+    if (window.OPENTV_DESKTOP && e.target && closest(e.target, '.desktop-native-control') &&
         (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32)) { return; }
     /* Let real desktop text fields keep their caret, selection, paste and
        Backspace behaviour instead of treating them as TV remote commands. */
-    if (window.XUPER_DESKTOP && e.target &&
+    if (window.OPENTV_DESKTOP && e.target &&
         (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
       return;
     }
@@ -2919,8 +3138,16 @@
     var handled = true;
 
     /* Back buttons */
-    var isBack = (k === 461 || k === 27 || k === 8 || key === 'Back' || key === 'GoBack' || key === 'Escape');
+    var isBack = (k === 27 || k === 8 || key === 'Back' || key === 'GoBack' || key === 'Escape');
     if (isBack) {
+      /* "¿Quién está viendo?" / the profile editor (screens/profiles-ui.js),
+         or the on-screen keyboard over the channel guide (core/tv-keyboard.js). */
+      if (profileOverlayBack() || tvKeyboardBack()) {
+        lastBackTime = Date.now();
+        if (e.preventDefault) { e.preventDefault(); }
+        if (e.stopPropagation) { e.stopPropagation(); }
+        return;
+      }
       if (sourcePickerOpen) {
         lastBackTime = Date.now();
         closeSourcePicker();
@@ -2948,7 +3175,7 @@
         return;
       }
       if (dialogPlaySettingsOpen) {
-        /* LG sends a keyup after this keydown.  Mark it consumed, otherwise
+        /* A keyup can follow this keydown.  Mark it consumed, otherwise
            that second event sees the dialog closed and exits the detail page. */
         lastBackTime = Date.now();
         closePlaySettingsDialog();
@@ -3008,7 +3235,7 @@
       return;
     }
 
-    /* Media Play / Pause / Seek keys on webOS & Android TV remotes */
+    /* Media Play / Pause / Seek keys on Android TV / Fire TV remotes */
     var isPlay = (k === 415 || key === 'MediaPlay' || key === 'Play');
     var isPause = (k === 19 || key === 'MediaPause' || key === 'Pause');
     var isPlayPause = (k === 10252 || key === 'MediaPlayPause');
@@ -3016,7 +3243,7 @@
     var isRwd = (k === 412 || key === 'MediaRewind' || key === 'Rewind');
     var isStop = (k === 413 || key === 'MediaStop' || key === 'Stop');
 
-    if (window.XUPER_DESKTOP && !e.ctrlKey && !e.altKey && !e.metaKey && state.screen !== 'search') {
+    if (window.OPENTV_DESKTOP && !e.ctrlKey && !e.altKey && !e.metaKey && state.screen !== 'search') {
       if (k === 70 || key === 'f' || key === 'F') {
         if (window.desktop && window.desktop.fullscreen) { window.desktop.fullscreen(); }
         if (e.preventDefault) { e.preventDefault(); }
@@ -3028,7 +3255,7 @@
         if (e.preventDefault) { e.preventDefault(); }
         return;
       }
-      if ((k === 77 || key === 'm' || key === 'M') && playerVideo && window.XUPER_DESKTOP && state.screen === 'player') {
+      if ((k === 77 || key === 'm' || key === 'M') && playerVideo && window.OPENTV_DESKTOP && state.screen === 'player') {
         togglePlayerMute();
         if (e.preventDefault) { e.preventDefault(); }
         return;
@@ -3135,13 +3362,13 @@
         }
         if (k === 38) {
           /* TVs: up only shows the controls (left/right already move through
-             the film); on the LG layout it grabbed the bar. */
+             the film). */
           if (platformIsTv()) { showVodInfobar(); } else { enterVodScrub(); }
           if (e.preventDefault) { e.preventDefault(); }
           return;
         }
       } else {
-        /* Some webOS remote events arrive after the panel has painted but
+        /* Some remote events arrive after the panel has painted but
            before its boolean state is restored.  Focus inside the visible
            panel is the authoritative signal, so Up never zaps from channel 1
            to the last channel while the channel list is on screen. */
@@ -3181,7 +3408,7 @@
           }
           /* TVs open the list with → (it sits on the right), so ← closes it. */
           if (k === (platformIsTv() ? 37 : 39)) { closeChannelPanel(); if (e.preventDefault) { e.preventDefault(); } return; }
-        } else if (platformIsTv() && window.XUPER_DESKTOP) {
+        } else if (platformIsTv() && window.OPENTV_DESKTOP) {
           /* TVs, the remote in the live player (shown on the banner):
              ↑ next channel · ↓ previous · → channel list · ← last channel. */
           if (k === 38 || k === 40) {
@@ -3268,7 +3495,7 @@
     var frame = 1;
     welcomeTimer = setInterval(function () {
       frame++;
-      if (frame > (window.XUPER_DESKTOP ? 9 : 16)) { finishWelcome(); return; }
+      if (frame > (window.OPENTV_DESKTOP ? 9 : 16)) { finishWelcome(); return; }
       img.src = 'assets/original/welcome/img_welcome_loading' + frame + '.png';
     }, 250);
   }
@@ -3289,7 +3516,9 @@
        focus; the rail collapses on the first focus change. */
     var rail = $('home-tabs');
     if (rail) { rail.classList.add('is-expanded'); rail.classList.remove('is-collapsed'); }
-    if (!window.XUPER_DESKTOP) {
+    /* First launch: the short guide (later, Ajustes → Ayuda). */
+    maybeShowFirstRunGuide();
+    if (!window.OPENTV_DESKTOP) {
       var railBg = document.querySelector('.home-sidebar-bg');
       if (railBg) { railBg.classList.add('is-on'); }
       var homeScreen = $('screen-home');
@@ -3354,7 +3583,7 @@
     if (platformIsTv() && onScreen && window.performance && performance.now() > 60000) { return; }
     if (current > 0 && pages[current]) {
       ensurePageBuilt(current);
-      if (window.XUPER_DESKTOP && state.screen === 'home') { showHeroForPage(current); }
+      if (window.OPENTV_DESKTOP && state.screen === 'home') { showHeroForPage(current); }
     }
   }
 
@@ -3369,7 +3598,7 @@
     /* Create placeholder wrappers for each tab, but build DOM only on demand */
     for (var i = 0; i < pageDefs.length; i++) {
       var page = el('div', 'home-page scrollable');
-      if (window.XUPER_DESKTOP) {
+      if (window.OPENTV_DESKTOP) {
         /* Top bar: solid once the page scrolls (pages without a hero too). */
         page.addEventListener('scroll', function () {
           if (this.classList.contains('is-current')) { document.body.classList.toggle('is-home-scrolled', this.scrollTop > 140); }
@@ -3393,7 +3622,7 @@
     host.classList.add('scrollable');
     host.classList.add('is-expanded');
     tabEls = [];
-    /* TVs: a vertical menu on the left (like the LG version). Moving through it
+    /* TVs: a vertical menu on the left. Moving through it
        only previews the section once the remote rests on it, so holding the
        arrow does not build every page on the way. */
     var railTv = platformIsTv();
@@ -3456,7 +3685,7 @@
           }
           /* Desktop: the tabs are a horizontal bar at the top (left/right
              change tab, down goes into the page). */
-          if (window.XUPER_DESKTOP) {
+          if (window.OPENTV_DESKTOP) {
             if (dir === 'up') { return true; }
             if (dir === 'down') { dir = 'right'; }
             else if (dir === 'left') {
@@ -3532,7 +3761,7 @@
       { cls: 'filter', icon: 'assets/original/search/icon_category_filter_n.png', small: true },
       { cls: 'personal', icon: 'assets/original/home/icon_notify_personal.png', small: true }
     ];
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       defs = [
         { cls: 'search' + (isKidsProfile() ? ' is-hidden-kids' : ''), svg: UI_ICONS.search, tip: 'Buscar (Ctrl+F)', small: true, run: function () { openSearch(); } },
         { cls: 'mylist', svg: UI_ICONS.mylist, tip: 'Mi lista', small: true,
@@ -3575,8 +3804,19 @@
     time.id = 'notify-time';
     notifyEl.appendChild(time);
     updateClock();
-    setInterval(updateClock, 30000);
-    if (window.XUPER_DESKTOP) { refreshProfileChrome(); }
+    scheduleClockTick();
+    /* Back from another app or from standby: the right time at once. */
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) { updateClock(); } });
+    if (window.OPENTV_DESKTOP) { refreshProfileChrome(); }
+  }
+
+  /* The clock changes right when the device's minute does (it ran on a
+     30-second timer from the app's start, up to half a minute behind the
+     Fire TV's own clock). */
+  function scheduleClockTick() {
+    var now = new Date();
+    var wait = (60 - now.getSeconds()) * 1000 - now.getMilliseconds() + 50;
+    setTimeout(function () { updateClock(); scheduleClockTick(); }, wait);
   }
 
   function updateClock() {
@@ -3598,13 +3838,14 @@
     if (!def || def.action) { return; }
     var prevPage = TABS[state.tab] ? TABS[state.tab].page : def.page;
     state.tab = index;
-    if (window.XUPER_DESKTOP) { updateTitleBarSection(); }
+    if (window.OPENTV_DESKTOP) { updateTitleBarSection(); }
     for (var i = 0; i < tabEls.length; i++) {
       tabEls[i].classList.toggle('is-selected', i === index);
     }
+    syncTvSectionLabel(state.focus);
     if (def.page >= 0) {
       ensurePageBuilt(def.page);
-      if (window.XUPER_DESKTOP) { showHeroForPage(def.page); }
+      if (window.OPENTV_DESKTOP) { showHeroForPage(def.page); }
     }
     if (def.page === 0) {
       scheduleLivePreview(CHANNELS[state.channel]);
@@ -3619,10 +3860,10 @@
       pages[p].classList.toggle('is-current', p === def.page);
       /* Desktop: a section opened from the tab bar starts at its top (once it
          is displayed: a hidden page ignores scrollTop). */
-      if (window.XUPER_DESKTOP && p === def.page && def.page !== prevPage && def.page > 0) { pages[p].scrollTop = 0; pages[p]._tvLine = null; }
+      if (window.OPENTV_DESKTOP && p === def.page && def.page !== prevPage && def.page > 0) { pages[p].scrollTop = 0; pages[p]._tvLine = null; }
     }
     /* Same slide direction as the ViewPager; the page itself is the only
-       visible layer, which keeps its raster sharp on webOS. */
+       visible layer, which keeps its raster sharp on TVs. */
     if (def.page !== prevPage && pages[def.page]) {
       var pg = pages[def.page];
       pg.classList.add('is-entering', def.page > prevPage ? 'from-right' : 'from-left');
@@ -3630,7 +3871,7 @@
         pg.classList.remove('is-entering', 'from-left', 'from-right');
         /* Posters that were off screen during the slide load now. */
         schedulePosterMemoryPass();
-      }, window.XUPER_DESKTOP ? 400 : 320);
+      }, window.OPENTV_DESKTOP ? 400 : 320);
     }
     if (focusContent) {
       if (def.page === 0) {
@@ -3662,11 +3903,17 @@
      native TV apps. The WebView then never decodes a full-size cover for a
      small tile (the main cause of stutter on the Fire TV). `w` is the width in
      page pixels. */
-  var nativeImageSizer = /OpenTVImg\/\d/.test(navigator.userAgent || '');
+  /* PC (Electron) does the same in its main process (platforms/electron/
+     sized-images.cjs, opentv-img://): episode pictures came from 825 px to
+     4K and the big ones, shrunk by the page, looked rough next to the rest. */
+  var nativeImageSizer = /OpenTVImg\/\d/.test(navigator.userAgent || '') ? 'https://opentv-img.local/i'
+    : (window.desktop && typeof window.desktop.imageSizer === 'string' ? window.desktop.imageSizer : '');
   function sizedImageUrl(url, w) {
     if (!nativeImageSizer || !url || !w || !/^https?:\/\//i.test(url)) { return url; }
     var px = Math.round(w * (window.innerWidth || 1920) / 1920 * (window.devicePixelRatio || 1));
-    return 'https://opentv-img.local/i?w=' + px + '&u=' + encodeURIComponent(url);
+    /* (A few sizes only, so a resized window does not fill the cache.) */
+    px = Math.min(3840, Math.ceil(px / 40) * 40);
+    return nativeImageSizer + '?w=' + px + '&u=' + encodeURIComponent(url);
   }
   function tileImageUrl(img) {
     var src = img.getAttribute('data-poster-src');
@@ -3678,7 +3925,7 @@
     /* Desktop: throttle instead of debounce, so posters keep appearing while
        a list is still gliding under the mouse wheel. */
     if (posterMemoryTimer) {
-      if (window.XUPER_DESKTOP) { return; }
+      if (window.OPENTV_DESKTOP) { return; }
       clearTimeout(posterMemoryTimer);
     }
     posterMemoryTimer = setTimeout(function () {
@@ -3707,37 +3954,27 @@
   function refreshPosterMemory() {
     /* Desktop never unloads a poster, so only the ones still waiting need a
        look (a long session has hundreds already on screen). */
-    var sel = window.XUPER_DESKTOP ? 'img[data-poster-src]:not([src])' : 'img[data-poster-src]';
+    var sel = window.OPENTV_DESKTOP ? 'img[data-poster-src]:not([src])' : 'img[data-poster-src]';
     /* TVs: only the posters of the page on screen, and rows far from the
        scroll position are skipped by their written position (measuring
        hundreds of catalogue posters after every key press cost ~18 ms). */
     var tvPage = null;
-    if (platformIsTv() && window.XUPER_DESKTOP && state.screen === 'home') {
+    if (platformIsTv() && window.OPENTV_DESKTOP && state.screen === 'home') {
       tvPage = document.querySelector('.home-page.is-current');
     }
-    var imgs;
     if (tvPage) {
-      /* Only the rows (and catalogue lines) near the scroll position. */
-      imgs = [];
-      var top0 = tvPage.scrollTop;
-      var lines = tvPage.children;
-      for (var l = 0; l < lines.length; l++) {
-        var lineTop = parseFloat(lines[l].style.top);
-        if (!isNaN(lineTop) && (lineTop < top0 - 900 || lineTop > top0 + 1800)) { continue; }
-        var found = lines[l].querySelectorAll(sel);
-        for (var k = 0; k < found.length; k++) { imgs.push(found[k]); }
-      }
-    } else {
-      imgs = document.querySelectorAll(sel);
+      refreshTvPagePosters(tvPage, sel);
+      return;
     }
+    var imgs = document.querySelectorAll(sel);
     var viewW = window.innerWidth || 1920;
     var viewH = window.innerHeight || 1080;
     for (var i = 0; i < imgs.length; i++) {
       var img = imgs[i];
       var tile = closest(img, '.poster, .bento, .continue-card');
       var r = tile && tile.getBoundingClientRect ? tile.getBoundingClientRect() : null;
-      var marginY = window.XUPER_DESKTOP ? viewH : 420;
-      var marginX = window.XUPER_DESKTOP ? viewW / 2 : 320;
+      var marginY = window.OPENTV_DESKTOP ? viewH : 420;
+      var marginX = window.OPENTV_DESKTOP ? viewW / 2 : 320;
       var near = posterBelongsToVisiblePage(img) && r &&
         r.bottom > -marginY && r.top < viewH + marginY && r.right > -marginX && r.left < viewW + marginX;
       if (near) {
@@ -3745,13 +3982,58 @@
           img.style.display = '';
           img.src = tileImageUrl(img);
         }
-      } else if (img.getAttribute('src') && !window.XUPER_DESKTOP) {
+      } else if (img.getAttribute('src') && !window.OPENTV_DESKTOP) {
         /* (TV only: a PC has memory to spare, and reloading on the way back
            left posters blank while they downloaded again.) */
         /* Removing the source gives Starfish a chance to release the decoded
            texture instead of keeping whole catalog pages resident in RAM. */
         img.removeAttribute('src');
         try { img.src = ''; } catch (eRelease) { /* ignore */ }
+      }
+    }
+  }
+
+  /* TVs, home page on screen: which posters get their image comes from the
+     positions written on the rows and cells (top/left, the row's slide in
+     strip._tvX) and one read of the page's scroll. Measuring every tile with
+     getBoundingClientRect cost ~40 ms after each key press on a Fire TV.
+     Same margins as the measured version (half a screen sideways, a whole
+     screen up/down), so posters are usually ready before the focus gets
+     there. Loaded posters are kept, as before. All in canvas pixels. */
+  var TV_POSTER_LOAD_X = 960, TV_POSTER_LOAD_Y = 1080;
+  function refreshTvPagePosters(page, sel) {
+    var top0 = page.scrollTop;
+    var viewH = page._tvClientH || page.clientHeight || 1080;
+    var lines = page.children;
+    for (var l = 0; l < lines.length; l++) {
+      var line = lines[l];
+      var lineTop = parseFloat(line.style.top);
+      var lineH = parseFloat(line.style.height) || 0;
+      if (isNaN(lineTop)) { continue; }
+      /* Distance from the line to the visible band (0 when on screen). */
+      var gapY = lineTop + lineH < top0 ? top0 - (lineTop + lineH)
+        : (lineTop > top0 + viewH ? lineTop - (top0 + viewH) : 0);
+      if (gapY > TV_POSTER_LOAD_Y) { continue; }
+      var strip = line.querySelector('.d-row-strip');
+      var stripX = strip ? (strip._tvX || 0) : 0;
+      var stripW = strip ? (strip._tvClientW || parseFloat(strip.style.width) || 1920) : 1920;
+      var imgs = line.querySelectorAll(sel);
+      for (var i = 0; i < imgs.length; i++) {
+        var img = imgs[i];
+        var gapX = 0;
+        if (strip) {
+          var cell = childOf(img, strip);
+          var cellLeft = cell ? parseFloat(cell.style.left) : NaN;
+          var cellW = cell ? (parseFloat(cell.style.width) || 0) : 0;
+          if (!isNaN(cellLeft)) {
+            var x = cellLeft - stripX;
+            gapX = x + cellW < 0 ? -(x + cellW) : (x > stripW ? x - stripW : 0);
+          }
+        }
+        if (gapX <= TV_POSTER_LOAD_X && !img.getAttribute('src')) {
+          img.style.display = '';
+          img.src = tileImageUrl(img);
+        }
       }
     }
   }
@@ -3777,7 +4059,7 @@
     return brokenCovers;
   }
   function markCoverBroken(item) {
-    if (!window.XUPER_DESKTOP || !item || item.id === undefined) { return; }
+    if (!window.OPENTV_DESKTOP || !item || item.id === undefined) { return; }
     var all = loadBrokenCovers();
     if (all[item.id]) { return; }
     all[item.id] = Date.now();
@@ -3790,14 +4072,14 @@
   }
   /* Home lists on desktop skip titles without a working cover. */
   function withCovers(list) {
-    if (!window.XUPER_DESKTOP || !list) { return list; }
+    if (!window.OPENTV_DESKTOP || !list) { return list; }
     var out = [];
     for (var i = 0; i < list.length; i++) { if (hasUsableCover(list[i])) { out.push(list[i]); } }
     return out.length ? out : list;
   }
   /* OpenTV generic cover: dark card, logo and the title. */
   function applyGenericCover(tile, item) {
-    if (!window.XUPER_DESKTOP || !tile || tile._generic) { return; }
+    if (!window.OPENTV_DESKTOP || !tile || tile._generic) { return; }
     tile._generic = true;
     var imgs = tile.querySelectorAll('img');
     for (var i = 0; i < imgs.length; i++) { imgs[i].style.display = 'none'; }
@@ -3820,18 +4102,20 @@
   function posterImageError() {
     var img = this;
     var tries = img._posterRetries || 0;
-    if (window.XUPER_DESKTOP && tries < 2) {
+    if (window.OPENTV_DESKTOP && tries < 2) {
       img._posterRetries = tries + 1;
       setTimeout(function () {
         var src = img.getAttribute('data-poster-src');
         if (!src || !img.isConnected) { return; }
         img.removeAttribute('src');
-        img.src = tileImageUrl(img);
+        /* First retry with the picture itself: a failure of the resizer must
+           not mark a good cover as broken. */
+        img.src = tries === 0 && nativeImageSizer ? src : tileImageUrl(img);
       }, 1500 * (tries + 1));
       return;
     }
     var tile = img.parentNode;
-    if (window.XUPER_DESKTOP && tile && tile.classList) {
+    if (window.OPENTV_DESKTOP && tile && tile.classList) {
       markCoverBroken(tile._item);
       applyGenericCover(tile, tile._item);
       return;
@@ -3861,8 +4145,8 @@
       p.appendChild(el('div', 'p-title', item.title));
     }
     p._item = item;
-    if (window.XUPER_DESKTOP && !item.poster) { applyGenericCover(p, item); }
-    if (window.XUPER_DESKTOP && item.title) { p.appendChild(el('div', 'p-hover', item.title)); }
+    if (window.OPENTV_DESKTOP && !item.poster) { applyGenericCover(p, item); }
+    if (window.OPENTV_DESKTOP && item.title) { p.appendChild(el('div', 'p-hover', item.title)); }
     p._activate = function () { openDetail(item); };
     schedulePosterMemoryPass();
     return p;
@@ -3895,8 +4179,49 @@
     later();
   }
 
+  /* PC and TV (design "3A"): the channel list on the left (search, category chips,
+     channels), the video in a 16:9 card on the right and, under it, the
+     channel's name and the controls, so nothing covers the picture. */
+  var liveUnder = null;
+
+  function liveSideLayout() { return !!window.OPENTV_DESKTOP; }
+
+  /* The channel's name on the preview and, on PC, the line under the video. */
+  function setLiveInfoText(text) {
+    if (liveInfoText) { liveInfoText.textContent = text || ''; }
+    syncLiveUnder();
+  }
+
+  function syncLiveUnder() {
+    if (!liveUnder) { return; }
+    var ch = CHANNELS[state.channel];
+    var logo = liveUnder._logo, name = liveUnder._name, meta = liveUnder._meta;
+    clear(logo);
+    if (!ch) {
+      name.textContent = '';
+      meta.textContent = '';
+      liveUnder.classList.add('is-empty');
+      return;
+    }
+    liveUnder.classList.remove('is-empty');
+    if (ch.logo) {
+      var img = document.createElement('img');
+      img.alt = '';
+      img.decoding = 'async';
+      img.src = ch.logo;
+      img.onerror = function () { clear(logo); logo.textContent = String(ch.name || '?').charAt(0).toUpperCase(); };
+      logo.appendChild(img);
+    } else {
+      logo.textContent = String(ch.name || '?').charAt(0).toUpperCase();
+    }
+    name.textContent = ch.name || '';
+    meta.textContent = 'Canal ' + (state.channel + 1) + '  ·  ' + liveChannelGroups(ch).join(', ');
+  }
+
   /* ------------------------------------------------------------- home live */
   function buildLivePage(page) {
+    var pcLayout = liveSideLayout();
+    if (pcLayout) { page.classList.add('live-3a'); }
     liveMain = el('div', 'live-main');
     livePreviewVideo = document.createElement('video');
     livePreviewVideo.className = 'live-preview-video';
@@ -3911,6 +4236,7 @@
     liveMain.appendChild(el('div', 'live-logo'));
     livePreviewStatus = el('div', 'live-preview-status');
     liveMain.appendChild(livePreviewStatus);
+    if (pcLayout) { liveMain.appendChild(el('span', 'live-badge', 'EN VIVO')); }
     page.appendChild(liveMain);
 
     var info = el('div', 'live-info');
@@ -3928,7 +4254,7 @@
     var down = el('div', 'live-arrow-down focusable');
     up.title = 'Desplazar canales hacia arriba';
     down.title = 'Desplazar canales hacia abajo';
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       up.innerHTML = UI_ICONS.chevronUp;
       down.innerHTML = UI_ICONS.chevronDown;
       up._activate = function () {
@@ -3944,13 +4270,33 @@
     page.appendChild(up);
     page.appendChild(down);
 
-    if (window.XUPER_DESKTOP) {
-      page.appendChild(createChannelSearchBox('is-home', 'Buscar canal en vivo…'));
+    /* PC: one column on the left (search, category chips, channels). */
+    var side = page;
+    if (pcLayout) {
+      side = el('div', 'live-side');
+      page.appendChild(side);
+    }
+    if (window.OPENTV_DESKTOP) {
+      side.appendChild(createChannelSearchBox('is-home', 'Buscar canal'));
+    }
+    /* PC: the category chips above the list (TVs have them under the video). */
+    if (pcLayout) {
+      liveDockCats = el('div', 'live-dock-cats live-side-cats');
+      side.appendChild(liveDockCats);
+      liveUnder = el('div', 'live-under');
+      liveUnder._logo = el('div', 'live-under-logo');
+      var text = el('div', 'live-under-text');
+      liveUnder._name = el('div', 'live-under-name');
+      liveUnder._meta = el('div', 'live-under-meta');
+      text.appendChild(liveUnder._name);
+      text.appendChild(liveUnder._meta);
+      liveUnder.appendChild(liveUnder._logo);
+      liveUnder.appendChild(text);
     }
 
     liveList = el('div', 'live-list scrollable');
-    page.appendChild(liveList);
-    if (window.XUPER_DESKTOP) { bindScrollArrows(liveList, up, down); }
+    side.appendChild(liveList);
+    if (window.OPENTV_DESKTOP) { bindScrollArrows(liveList, up, down); }
     renderLiveRows(false);
     loadLiveChannels();
 
@@ -3958,7 +4304,7 @@
     liveFocus._onMove = function (dir) {
       /* TVs: down goes to the controls under the preview and up to the icons
          at the top (the channel list on the right changes channel). */
-      if (platformIsTv() && window.XUPER_DESKTOP) {
+      if (platformIsTv() && window.OPENTV_DESKTOP) {
         if (dir === 'down') {
           var dockBtn = liveDock && (liveDock.querySelector('.live-dock-btn.is-play') || firstIn(liveDock));
           if (dockBtn && isVisible(dockBtn)) { setFocus(dockBtn); }
@@ -3974,24 +4320,39 @@
         if (state.channel < CHANNELS.length - 1) { setChannel(state.channel + 1); }
         return true;
       }
-      if (dir === 'right') {
+      /* Design "3A": the list is on the left of the video. */
+      if (dir === (pcLayout ? 'left' : 'right')) {
         var row = liveRows.filter(function (r) { return r._channel === state.channel; })[0];
         if (row) { setFocus(row); }
         else if (liveRows.length) { setFocus(liveRows[0]); }
+        else {
+          /* No channels: the "Agregar lista M3U" button of the empty list. */
+          var add = liveList && liveList.querySelector('.focusable');
+          if (add) { setFocus(add); }
+        }
         return true;
       }
-      if (dir === 'left') {
-        if (tabEls[0]) { setFocus(tabEls[0]); }
+      if (dir === 'left' || dir === 'right') {
+        if (!pcLayout && tabEls[0]) { setFocus(tabEls[0]); }
         return true;
       }
       return false;
     };
     liveFocus._activate = function () { openPlayer('live'); };
     page.appendChild(liveFocus);
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       buildLiveDock(page);
       installLivePreviewGestures(liveFocus);
     }
+    /* PC: under the video, one line: the channel on the left, the controls
+       on the right. */
+    if (pcLayout && liveDock) {
+      var bar = el('div', 'live-bar3a');
+      bar.appendChild(liveUnder);
+      bar.appendChild(liveDock);
+      page.appendChild(bar);
+    }
+    syncLiveUnder();
   }
 
   /* ---- home/live-dock.js ----------------------------------------------------- */
@@ -3999,12 +4360,9 @@
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------------
-     Desktop: sound for the home TV preview, a control bar and country /
-     topic chips under the video (the TV app kept this preview muted).
+     Desktop: sound for the home TV preview, a control bar and category
+     chips under the video (the TV app kept this preview muted).
      ------------------------------------------------------------------ */
-  var LIVE_COUNTRIES = ['Perú', 'México', 'Colombia', 'Venezuela', 'Ecuador', 'Chile', 'Bolivia',
-    'Uruguay', 'Paraguay', 'Argentina', 'Panamá', 'Puerto Rico', 'España', 'Costa Rica',
-    'Estados Unidos', 'Centroamérica', 'Honduras', 'El Salvador', 'República Dominicana', 'Guatemala', 'Nicaragua'];
   var liveDock = null, liveDockCats = null, liveMuteBtn = null, liveVolLabel = null, liveFavBtn = null;
   var liveAudio = { muted: false, volume: 0.8 };
 
@@ -4025,7 +4383,7 @@
   var liveVolToastTimer = null;
 
   function loadLiveAudio() {
-    var saved = safeLocalRead('xuper_live_audio_v1', null);
+    var saved = safeLocalRead('opentv_live_audio_v1', null);
     if (saved) {
       liveAudio.muted = !!saved.muted;
       if (typeof saved.volume === 'number') { liveAudio.volume = Math.max(0, Math.min(1, saved.volume)); }
@@ -4038,7 +4396,7 @@
   var systemVolumeTimer = null;
   var systemVolumePending = null;
   function systemVolumeApi() {
-    return window.XUPER_DESKTOP && window.desktop && window.desktop.systemVolume ? window.desktop.systemVolume : null;
+    return window.OPENTV_DESKTOP && window.desktop && window.desktop.systemVolume ? window.desktop.systemVolume : null;
   }
   function syncFromSystemVolume() {
     var api = systemVolumeApi();
@@ -4109,9 +4467,9 @@
     }
     if (save) {
       if (systemVolumeOn) { pushSystemVolume(); }
-      else { safeLocalWrite('xuper_live_audio_v1', liveAudio); }
+      else { safeLocalWrite('opentv_live_audio_v1', liveAudio); }
     }
-    if (window.XUPER_DESKTOP) { applyPlayerAudio(); }
+    if (window.OPENTV_DESKTOP) { applyPlayerAudio(); }
   }
   function changeLiveVolume(delta) {
     liveAudio.volume = Math.max(0, Math.min(1, Math.round((liveAudio.volume + delta) * 20) / 20));
@@ -4123,7 +4481,7 @@
   /* Small "volume" pill over the preview while it changes. */
   function showLiveVolumeToast() {
     var host = state.screen === 'player' ? playerStage : liveMain;
-    if (!window.XUPER_DESKTOP || !host) { return; }
+    if (!window.OPENTV_DESKTOP || !host) { return; }
     if (!liveVolToast || liveVolToast.parentNode !== host) {
       if (liveVolToast && liveVolToast.parentNode) { liveVolToast.parentNode.removeChild(liveVolToast); }
       liveVolToast = el('div', 'live-vol-toast');
@@ -4138,11 +4496,12 @@
     liveVolToastTimer = setTimeout(function () { liveVolToast.classList.remove('is-visible'); }, 1100);
   }
 
-  function liveFavKey(ch) { return 'live:' + (ch.channelCode || ch.id || ch.name); }
+  /* A TV favourite is kept by the channel's link (stable when the lists change). */
+  function liveFavKey(ch) { return 'live:' + (ch.streamUrl || ch.channelCode || ch.id || ch.name); }
   function syncLiveFavButton() {
     if (!liveFavBtn) { return; }
     var ch = CHANNELS[state.channel];
-    var on = !!(ch && state.favs[liveFavKey(ch)]);
+    var on = !!(ch && (ch.fav || state.favs[liveFavKey(ch)]));
     liveFavBtn.classList.toggle('is-selected', on);
     liveFavBtn.querySelector('span').textContent = on ? 'En favoritos' : 'Favorito';
     liveFavBtn.setAttribute('data-tip', on ? 'Quitar de favoritos' : 'Guardar canal en favoritos');
@@ -4157,7 +4516,7 @@
     if (title) { b.setAttribute('data-tip', title); b.setAttribute('aria-label', title); }
     b._activate = run;
     /* TVs: up goes back to the preview above; nothing below the bar. */
-    if (platformIsTv() && window.XUPER_DESKTOP) {
+    if (platformIsTv() && window.OPENTV_DESKTOP) {
       b._onMove = function (dir) {
         if (dir === 'up' && liveFocus) { setFocus(liveFocus); return true; }
         if (dir === 'down') { return true; }
@@ -4174,7 +4533,7 @@
     /* Desktop: three groups — sound and tools, the channel buttons with
        pause in the middle, and favourites / guide / full screen. */
     var dockLeft = dockBar, dockCenter = dockBar, dockRight = dockBar;
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       dockLeft = el('div', 'ldb-group is-left');
       dockCenter = el('div', 'ldb-group is-center');
       dockRight = el('div', 'ldb-group is-right');
@@ -4184,9 +4543,9 @@
     }
     var bar = dockCenter;
     bar.appendChild(dockButton('is-zap', LIVE_DOCK_ICONS.prev, 'Anterior', 'Canal anterior', function () { setChannel(state.channel - 1, true); }));
-    if (window.XUPER_DESKTOP) { bar.appendChild(makeLiveDockPlayButton()); }
+    if (window.OPENTV_DESKTOP) { bar.appendChild(makeLiveDockPlayButton()); }
     bar.appendChild(dockButton('is-zap', LIVE_DOCK_ICONS.next, 'Siguiente', 'Canal siguiente', function () { setChannel(state.channel + 1, true); }));
-    if (!window.XUPER_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); }
+    if (!window.OPENTV_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); }
     bar = dockLeft;
     liveMuteBtn = dockButton('is-icon is-mute', LIVE_DOCK_ICONS.sound, '', 'Silenciar', function () {
       if (liveAudio.volume === 0) { liveAudio.volume = 0.5; liveAudio.muted = false; }
@@ -4218,7 +4577,7 @@
     liveVolLabel = el('span', 'live-dock-vol', '80%');
     volWrap.appendChild(liveVolLabel);
     bar.appendChild(volWrap);
-    if (window.XUPER_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); appendLiveDockTools(bar); }
+    if (window.OPENTV_DESKTOP) { bar.appendChild(el('i', 'live-dock-sep')); appendLiveDockTools(bar); }
     else { bar.appendChild(el('i', 'live-dock-sep')); }
     bar = dockRight;
     liveFavBtn = dockButton('is-fav', LIVE_DOCK_ICONS.star, 'Favorito', 'Guardar canal en favoritos', function () {
@@ -4228,7 +4587,7 @@
       if (liveGuideOpen) { renderLiveGuideGrid(); }
     });
     bar.appendChild(liveFavBtn);
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       bar.appendChild(dockButton('is-guide', LIVE_DOCK_ICONS.guide, 'Guía', 'Guía de canales (G)', openLiveGuide));
     }
     bar.appendChild(dockButton('is-full', LIVE_DOCK_ICONS.full, 'Pantalla completa', 'Ver en pantalla completa', function () { openPlayer('live'); }));
@@ -4236,7 +4595,7 @@
 
     /* Desktop: the categories live in the Guía (ordered by country and
        topic); the chip row under the preview is only on the TV. */
-    if (!window.XUPER_DESKTOP) {
+    if (!window.OPENTV_DESKTOP) {
       liveDockCats = el('div', 'live-dock-cats scrollable');
       liveDockCats.setAttribute('data-wheel-x', '');
       liveDock.appendChild(liveDockCats);
@@ -4258,19 +4617,116 @@
     if (!liveDock._systemSync) { liveDock._systemSync = true; startSystemVolumeSync(); }
   }
 
+  /* PC and TV (design "3A"): the categories in one drop-down in the app's
+     style (lists bring 30 or more; chips covered the channels). A button
+     with the current one; it opens a panel with every category, a check on
+     the chosen one, scrolling when long. Mouse, keyboard and remote. */
+  var liveCatMenu = null;
+
+  function liveCatMenuOpen() { return !!(liveCatMenu && liveCatMenu.parentNode); }
+
+  function closeLiveCatMenu(refocus) {
+    if (!liveCatMenuOpen()) { return; }
+    liveCatMenu.parentNode.removeChild(liveCatMenu);
+    liveCatMenu = null;
+    var btn = liveDockCats ? liveDockCats.querySelector('.live-cat-btn') : null;
+    if (btn) {
+      btn.classList.remove('is-open');
+      if (refocus) { setFocus(btn); }
+    }
+  }
+
+  function liveCatChoices() {
+    var out = [{ cat: LIVE_ALL_CATEGORY, text: 'Todas las categorías' }];
+    var saved = liveSaved();
+    if (saved.favs.length) { out.push({ cat: LIVE_SAVED_CATS.favs, text: 'Favoritos' }); }
+    if (saved.recent.length) { out.push({ cat: LIVE_SAVED_CATS.recent, text: 'Recientes' }); }
+    for (var i = 0; i < liveCategories.length; i++) {
+      if (liveCategories[i].id !== LIVE_ALL_CATEGORY.id) { out.push({ cat: liveCategories[i], text: liveCategories[i].name }); }
+    }
+    return out;
+  }
+
+  function sameLiveCategory(a, b) { return a === b || !!(a && b && a.id === b.id); }
+
+  function openLiveCatMenu(btn) {
+    closeLiveCatMenu(false);
+    liveCatMenu = el('div', 'live-cat-menu scrollable');
+    liveCatMenu.setAttribute('role', 'listbox');
+    var current = null;
+    liveCatChoices().forEach(function (c) {
+      var on = sameLiveCategory(currentLiveCategory, c.cat);
+      var item = el('div', 'live-cat-item focusable' + (on ? ' is-selected' : ''));
+      item.setAttribute('role', 'option');
+      item.appendChild(el('span', 'live-cat-name', c.text));
+      var check = el('i', 'live-cat-check');
+      check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>';
+      item.appendChild(check);
+      item._activate = function () {
+        closeLiveCatMenu(false);
+        if (!on) { switchLiveCategory(c.cat); renderLiveDockCats(); }
+        var again = liveDockCats ? liveDockCats.querySelector('.live-cat-btn') : null;
+        if (again) { setFocus(again); }
+      };
+      /* The list stays the remote's whole world while it is open. */
+      item._onMove = function (dir) { return dir === 'left' || dir === 'right'; };
+      if (on) { current = item; }
+      liveCatMenu.appendChild(item);
+    });
+    btn.classList.add('is-open');
+    /* Last in the column, right under the button: over the channel list. */
+    var column = liveDockCats.parentNode || liveDockCats;
+    liveCatMenu.style.top = (liveDockCats.offsetTop + btn.offsetHeight + 8) + 'px';
+    column.appendChild(liveCatMenu);
+    var first = current || liveCatMenu.firstChild;
+    if (first) {
+      setFocus(first, true);
+      liveCatMenu.scrollTop = Math.max(0, first.offsetTop - 120);
+    }
+  }
+
+  function renderLiveCatSelect() {
+    closeLiveCatMenu(false);
+    clear(liveDockCats);
+    var label = 'Cargando categorías…';
+    if (liveCategoriesLoaded) {
+      var choices = liveCatChoices();
+      label = choices[0].text;
+      for (var i = 0; i < choices.length; i++) { if (sameLiveCategory(currentLiveCategory, choices[i].cat)) { label = choices[i].text; } }
+    }
+    var btn = el('div', 'live-cat-btn focusable');
+    btn.setAttribute('role', 'button');
+    btn.setAttribute('aria-haspopup', 'listbox');
+    btn.appendChild(el('span', 'live-cat-label', label));
+    var chev = el('i', 'live-cat-chev');
+    chev.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+    btn.appendChild(chev);
+    btn._activate = function () {
+      if (!liveCategoriesLoaded) { return; }
+      if (liveCatMenuOpen()) { closeLiveCatMenu(true); } else { openLiveCatMenu(btn); }
+    };
+    liveDockCats.appendChild(btn);
+  }
+
+  /* A click anywhere else closes it. */
+  document.addEventListener('pointerdown', function (event) {
+    if (!liveCatMenuOpen()) { return; }
+    var t = event.target;
+    if (liveDockCats && t && (liveDockCats.contains(t) || liveCatMenu.contains(t))) { return; }
+    closeLiveCatMenu(false);
+  }, true);
+
   function renderLiveDockCats() {
     if (!liveDockCats) { return; }
+    if (typeof liveSideLayout === 'function' && liveSideLayout()) { renderLiveCatSelect(); return; }
     clear(liveDockCats);
-    if (!liveCategories.length) {
-      liveDockCats.appendChild(el('span', 'live-dock-label', 'Cargando países y temas…'));
+    if (!liveCategoriesLoaded) {
+      liveDockCats.appendChild(el('span', 'live-dock-label', 'Cargando categorías…'));
       return;
     }
-    var countries = [], topics = [], all = null;
+    var topics = [];
     for (var i = 0; i < liveCategories.length; i++) {
-      var c = liveCategories[i];
-      if (c.name === 'Todos') { all = c; }
-      else if (LIVE_COUNTRIES.indexOf(c.name) !== -1) { countries.push(c); }
-      else { topics.push(c); }
+      if (liveCategories[i].id !== LIVE_ALL_CATEGORY.id) { topics.push(liveCategories[i]); }
     }
     function chip(cat, text) {
       var selected = currentLiveCategory === cat ||
@@ -4282,19 +4738,15 @@
       };
       liveDockCats.appendChild(b);
     }
-    if (all) { chip(all, 'Todos'); }
-    if (window.XUPER_DESKTOP) {
+    chip(LIVE_ALL_CATEGORY, 'Todos');
+    if (window.OPENTV_DESKTOP) {
       var saved = liveSaved();
       if (saved.favs.length) { chip(LIVE_SAVED_CATS.favs, '★ Favoritos'); }
       if (saved.recent.length) { chip(LIVE_SAVED_CATS.recent, 'Recientes'); }
     }
-    if (countries.length) {
-      liveDockCats.appendChild(el('span', 'live-dock-label', 'Países'));
-      for (var k = 0; k < countries.length; k++) { chip(countries[k]); }
-    }
     if (topics.length) {
-      liveDockCats.appendChild(el('span', 'live-dock-label', 'Temas'));
-      for (var t = 0; t < topics.length; t++) { chip(topics[t], topics[t].isAddon ? 'Mis listas M3U' : null); }
+      liveDockCats.appendChild(el('span', 'live-dock-label', 'Categorías'));
+      for (var t = 0; t < topics.length; t++) { chip(topics[t]); }
     }
   }
 
@@ -4436,6 +4888,19 @@
 
   /* --- Live TV Categories & Addons (M3U / IPTV) --- */
   var PRESET_ADDONS = [
+    /* Free ad-supported (FAST) channels from Pluto TV, Plex, Samsung TV Plus,
+       Tubi and Roku, as M3U lists rebuilt every day by
+       github.com/BuddyChewChew/app-m3u-generator (from i.mjh.nz data).
+       First, so "Buscar" shows them at the top. */
+    { id: 'pluto_mx', name: 'Pluto TV México', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_mx.m3u', desc: '200+ canales gratis: películas, series, anime, deportes e infantil' },
+    { id: 'pluto_ar', name: 'Pluto TV Argentina', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_ar.m3u', desc: '190+ canales gratis de películas y series en español' },
+    { id: 'plex_mx', name: 'Plex México', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plex_mx.m3u', desc: '270+ canales gratis de películas, series y documentales' },
+    { id: 'samsung_es', name: 'Samsung TV Plus España', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/samsungtvplus_es.m3u', desc: '180+ canales gratis: cine, series, documentales y música' },
+    { id: 'pluto_es', name: 'Pluto TV España', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_es.m3u', desc: '150+ canales gratis: cine, series, policiacas e infantil' },
+    { id: 'pluto_us', name: 'Pluto TV Estados Unidos', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_us.m3u', desc: 'Con una sección En Español; el resto en inglés' },
+    { id: 'tubi_us', name: 'Tubi (EE. UU.)', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/tubi_all.m3u', desc: 'Canales en vivo de Tubi, en inglés: reality, comedia y deportes' },
+    { id: 'roku_us', name: 'The Roku Channel (EE. UU.)', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/roku_all.m3u', desc: 'Canales en inglés: series, deportes y noticias' },
+    /* Free-to-air channels from iptv-org. */
     {
       id: 'es_tdt',
       name: 'España - Canales Nacionales y TDT',
@@ -4460,7 +4925,7 @@
       url: 'https://iptv-org.github.io/iptv/categories/movies.m3u',
       desc: 'Cine clásico, cine de acción y canales continuos de series'
     },
-    /* More free lists from iptv-org, found with "Buscar" in Ajustes → Fuentes. */
+    /* More free lists from iptv-org, found with "Buscar" in Ajustes → Addons → TV en vivo. */
     { id: 'mx', name: 'México', url: 'https://iptv-org.github.io/iptv/countries/mx.m3u', desc: 'Canales abiertos y locales de México' },
     { id: 'ar', name: 'Argentina', url: 'https://iptv-org.github.io/iptv/countries/ar.m3u', desc: 'Canales abiertos y locales de Argentina' },
     { id: 'co', name: 'Colombia', url: 'https://iptv-org.github.io/iptv/countries/co.m3u', desc: 'Canales abiertos y locales de Colombia' },
@@ -4479,20 +4944,20 @@
 
   function getSavedAddons() {
     try {
-      var raw = localStorage.getItem('xuper_m3u_addons');
+      var raw = localStorage.getItem('opentv_m3u_addons');
       if (raw) {
         var parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) { return parsed; }
       }
     } catch (e) {}
     /* Default seed: España TDT so user has working external addon out of the box */
-    var initial = [PRESET_ADDONS[0]];
-    try { localStorage.setItem('xuper_m3u_addons', JSON.stringify(initial)); } catch (e2) {}
+    var initial = PRESET_ADDONS.filter(function (p) { return p.id === 'es_tdt'; });
+    try { localStorage.setItem('opentv_m3u_addons', JSON.stringify(initial)); } catch (e2) {}
     return initial;
   }
 
   function saveSavedAddons(list) {
-    try { localStorage.setItem('xuper_m3u_addons', JSON.stringify(list || [])); } catch (e) {}
+    try { localStorage.setItem('opentv_m3u_addons', JSON.stringify(list || [])); } catch (e) {}
   }
 
   var liveCategories = [];
@@ -4500,8 +4965,6 @@
   var liveCategoriesLoaded = false;
   var liveChannelsLoaded = false;
   var liveChannelsLoading = false;
-  var liveChannelRequestSeq = 0;
-  var liveChannelLoadColumnId = null;
   /* Home only keeps one muted live preview alive.  This warms the channel
      without creating a second full player or playing sound in the menu. */
   var livePreviewVideo = null;
@@ -4520,10 +4983,12 @@
      ------------------------------------------------------------------ */
   var liveHandoff = null;
   var livePreviewHls = null;
-  function liveChannelKey(ch) { return ch ? (ch.channelCode || ch.streamUrl || '') : ''; }
+  /* M3U channels are known by their link: their channelCode ('m3u_N') is only
+     the position in one list and repeats between lists. */
+  function liveChannelKey(ch) { return ch ? (ch.streamUrl || ch.channelCode || '') : ''; }
 
   function borrowPreviewIntoPlayer() {
-    if (!window.XUPER_DESKTOP || !livePreviewVideo || !playerStage || !liveMain || liveHandoff) { return false; }
+    if (!window.OPENTV_DESKTOP || !livePreviewVideo || !playerStage || !liveMain || liveHandoff) { return false; }
     var ch = CHANNELS[state.channel];
     if (!liveMain.classList.contains('is-preview-playing') || !livePreviewChannel ||
         livePreviewChannel !== liveChannelKey(ch) || livePreviewVideo.paused) { return false; }
@@ -4548,7 +5013,7 @@
   }
 
   function borrowPlayerIntoHome() {
-    if (!window.XUPER_DESKTOP || !liveMain || liveHandoff || !playerIsPlayingLive()) { return false; }
+    if (!window.OPENTV_DESKTOP || !liveMain || liveHandoff || !playerIsPlayingLive()) { return false; }
     stopLivePreview();
     liveMain.insertBefore(playerVideo, liveMain.firstChild);
     playerVideo.classList.add('is-handoff-home');
@@ -4590,7 +5055,7 @@
   }
 
   function startLivePreview(ch) {
-    if (!livePreviewVideo || !ch || (!ch.channelCode && !ch.streamUrl)) { return; }
+    if (!livePreviewVideo || !ch || !ch.streamUrl) { return; }
     /* A preview belongs only to the TV tab on the home screen. */
     if (state.screen !== 'home' || !onTvTab()) { return; }
     /* The full-screen player is already showing this channel here. */
@@ -4598,7 +5063,7 @@
       if (liveHandoff.key === liveChannelKey(ch)) { return; }
       returnPlayerToStage(false);
     }
-    var key = ch.channelCode || ch.streamUrl;
+    var key = liveChannelKey(ch);
     if (key === livePreviewChannel && liveMain &&
         (liveMain.classList.contains('is-preview-loading') || liveMain.classList.contains('is-preview-playing'))) {
       return;
@@ -4609,16 +5074,13 @@
     var mySeq = ++livePreviewSeq;
     liveMain.classList.add('is-preview-loading');
     if (livePreviewStatus) { livePreviewStatus.textContent = 'Cargando ' + (ch.name || 'canal') + '…'; }
-    var params = ch.streamUrl ? { streamUrl: ch.streamUrl } : { channelCode: ch.channelCode };
-    portalServiceCall('resolveLive', params, function (err, payload) {
-      if (mySeq !== livePreviewSeq || state.screen !== 'home' || !onTvTab()) { return; }
-      var url = !err && payload && payload.returnValue !== false && (payload.proxyPath || payload.url);
-      if (!url) {
-        liveMain.classList.remove('is-preview-loading');
-        if (livePreviewStatus) { livePreviewStatus.textContent = ''; }
-        return;
-      }
-      livePreviewVideo.onloadeddata = function () {
+    /* An M3U channel plays its own link (no service round trip). */
+    var url = ch.streamUrl;
+    (function () {
+      /* Playing: the "Cargando…" label goes. Android's native player sends
+         loadeddata only for the first channel on this element, so playing and
+         canplay clear it too (it stayed over the picture). */
+      livePreviewVideo.onloadeddata = livePreviewVideo.onplaying = livePreviewVideo.oncanplay = function () {
         if (mySeq !== livePreviewSeq) { return; }
         liveMain.classList.remove('is-preview-loading');
         liveMain.classList.add('is-preview-playing');
@@ -4631,7 +5093,7 @@
       };
       /* Desktop: play HLS with hls.js, like the full-screen player. Chromium's
          own HLS support rejects some channels (ECDF: error 4). */
-      if (window.XUPER_DESKTOP && !platformHas('native-player') && window.Hls && window.Hls.isSupported() && /\.m3u8(?:\?|$)/i.test(url)) {
+      if (window.OPENTV_DESKTOP && !platformHas('native-player') && window.Hls && window.Hls.isSupported() && /\.m3u8(?:\?|$)/i.test(url)) {
         try {
           var hls = new window.Hls({ enableWorker: true, maxBufferLength: 20, backBufferLength: 10 });
           livePreviewHls = hls;
@@ -4656,7 +5118,7 @@
         var promise = livePreviewVideo.play();
         if (promise && promise.catch) { promise.catch(function () {}); }
       } catch (ePlay) { liveMain.classList.remove('is-preview-loading'); }
-    });
+    })();
   }
 
   function scheduleLivePreview(ch) {
@@ -4667,40 +5129,183 @@
     }, 220);
   }
 
-  function loadLiveCategories(done) {
-    if (liveCategoriesLoaded && liveCategories.length) {
-      if (done) { done(null, liveCategories); }
-      return;
+  /* ------------------------------------------------------------------
+     Loading. Every saved M3U list is downloaded once (service fetchM3u),
+     merged into liveAllChannels and split into categories by group-title.
+     Choosing a category only filters that list in memory (no network), so
+     the 1 GB Fire TV does no extra work when the viewer changes category.
+     ------------------------------------------------------------------ */
+  var LIVE_ALL_CATEGORY = { id: 'm3u:all', name: 'Todos', isAddon: true };
+  var liveAllChannels = [];
+  /* '' (not loaded yet), 'none' (no lists saved), 'failed' (no list could be
+     read), 'ok' (at least one list answered). */
+  var liveListsStatus = '';
+  var liveListsLoadedKey = null;
+  var liveListsSeq = 0;
+  var liveListsWaiting = [];
+  currentLiveCategory = LIVE_ALL_CATEGORY;
+
+  /* group-title values of the free iptv-org lists come in English. */
+  var LIVE_GROUP_NAMES = {
+    animation: 'Animación', auto: 'Motor', business: 'Negocios', classic: 'Clásicos', comedy: 'Comedia',
+    cooking: 'Cocina', culture: 'Cultura', documentary: 'Documentales', education: 'Educación',
+    entertainment: 'Entretenimiento', family: 'Familia', general: 'General', kids: 'Infantil',
+    legislative: 'Legislativo', lifestyle: 'Estilo de vida', movies: 'Cine', music: 'Música', news: 'Noticias',
+    outdoor: 'Aire libre', relax: 'Relax', religious: 'Religión', science: 'Ciencia', series: 'Series',
+    shop: 'Compras', sports: 'Deportes', travel: 'Viajes', weather: 'Clima', public: 'Públicos',
+    undefined: 'Otros', other: 'Otros', others: 'Otros', addon: 'Otros'
+  };
+
+  function liveListsKey(addons) {
+    var key = '';
+    for (var i = 0; i < addons.length; i++) { key += (addons[i] && addons[i].url) + '\n'; }
+    return key;
+  }
+
+  function liveChannelGroups(ch) {
+    var parts = String((ch && ch.group) || '').split(';');
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var g = parts[i].replace(/^\s+|\s+$/g, '');
+      var known = LIVE_GROUP_NAMES[g.toLowerCase()];
+      if (known) { g = known; }
+      if (g && out.indexOf(g) === -1) { out.push(g); }
     }
-    portalServiceCall('liveCategories', {}, function (err, payload) {
-      var cats = [];
-      if (payload && payload.categories && payload.categories.length) {
-        for (var i = 0; i < payload.categories.length; i++) {
-          var c = payload.categories[i];
-          var nm = c.name;
-          if (nm === 'ChannelList' || c.id === 76182) { nm = 'Todos'; }
-          cats.push({ id: c.id, name: nm, code: c.code, isAddon: false });
-        }
-      } else {
-        /* Fallback categories if portal takes time */
-        cats = [
-          { id: 76182, name: 'Todos' },
-          { id: 76206, name: 'Deportes' },
-          { id: 76205, name: 'Cine y Series' },
-          { id: 76188, name: 'Colombia' },
-          { id: 76191, name: 'España' },
-          { id: 76197, name: 'México' }
-        ];
+    if (!out.length) { out.push('Otros'); }
+    return out;
+  }
+
+  /* Favourites are kept by the channel's link; the old saved list (and its
+     links) still marks the channels saved by earlier versions. */
+  function liveFavoriteUrls() {
+    var set = {};
+    var favs = liveSaved().favs;
+    for (var i = 0; i < favs.length; i++) { if (favs[i] && favs[i].streamUrl) { set[favs[i].streamUrl] = true; } }
+    return set;
+  }
+
+  /* Merges the answers of every list (in the order the lists were added):
+     repeated links and adult groups are left out. */
+  function mergeLiveLists(results) {
+    var seen = {};
+    var favUrls = liveFavoriteUrls();
+    var out = [];
+    for (var r = 0; r < results.length; r++) {
+      var list = results[r] || [];
+      for (var c = 0; c < list.length; c++) {
+        var ch = list[c];
+        if (!ch || !ch.streamUrl || seen[ch.streamUrl]) { continue; }
+        var groups = liveChannelGroups(ch);
+        var adult = false;
+        for (var g = 0; g < groups.length; g++) { if (isAdultCategory({ name: groups[g] })) { adult = true; break; } }
+        if (adult) { continue; }
+        seen[ch.streamUrl] = true;
+        ch._groups = groups;
+        ch.index = out.length + 1;
+        if (!ch.now) { ch.now = 'En vivo'; }
+        ch.fav = !!(favUrls[ch.streamUrl] || state.favs[liveFavKey(ch)]);
+        out.push(ch);
       }
-      /* Append Addons Category */
-      cats.push({ id: 'addons', name: '➕ Addons M3U', isAddon: true });
-      liveCategories = hideAdultCategories(cats);
-      liveCategoriesLoaded = true;
-      if (!currentLiveCategory) { currentLiveCategory = liveCategories[0]; }
-      renderPlayerCategories();
-      renderLiveDockCats();
-      if (done) { done(null, liveCategories); }
+    }
+    return out;
+  }
+
+  function buildLiveCategories(channels) {
+    var byName = {};
+    var cats = [];
+    for (var i = 0; i < channels.length; i++) {
+      var groups = channels[i]._groups || liveChannelGroups(channels[i]);
+      for (var g = 0; g < groups.length; g++) {
+        var cat = byName[groups[g]];
+        if (!cat) {
+          cat = { id: 'm3u:' + groups[g], name: groups[g], isAddon: true, channels: [] };
+          byName[groups[g]] = cat;
+          cats.push(cat);
+        }
+        cat.channels.push(channels[i]);
+      }
+    }
+    cats.sort(function (a, b) {
+      if (a.name === 'Otros') { return 1; }
+      if (b.name === 'Otros') { return -1; }
+      return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0);
     });
+    /* One group holding every channel adds nothing next to Todos. */
+    if (cats.length === 1 && cats[0].channels.length === channels.length) { cats = []; }
+    return [LIVE_ALL_CATEGORY].concat(cats);
+  }
+
+  function liveCategoryChannels(cat) {
+    if (!cat || cat.id === LIVE_ALL_CATEGORY.id) { return liveAllChannels; }
+    for (var i = 0; i < liveCategories.length; i++) {
+      if (liveCategories[i].id === cat.id) { return liveCategories[i].channels || []; }
+    }
+    return [];
+  }
+
+  /* The text shown where the channels go when there are none. */
+  function liveEmptyMessage() {
+    if (currentLiveCategory && currentLiveCategory.isSaved === 'favs') {
+      return platformIsTv()
+        ? 'Aún no tienes canales favoritos. Usa el botón Favorito debajo de la vista previa de TV en vivo.'
+        : 'Aún no tienes canales favoritos. Usa la estrella para guardar uno.';
+    }
+    if (currentLiveCategory && currentLiveCategory.isSaved === 'recent') { return 'Aquí aparecerán los últimos canales que veas.'; }
+    if (liveChannelsPending()) { return 'Cargando canales…'; }
+    if (liveListsStatus === 'none') {
+      return 'Aún no tienes listas de TV en vivo. Agrega una lista M3U en Ajustes → Addons → TV en vivo.';
+    }
+    if (liveListsStatus === 'failed') {
+      return 'No se pudieron cargar tus listas de TV en vivo. Revisa tu conexión o agrega otra lista M3U en Ajustes → Addons → TV en vivo.';
+    }
+    if (!liveAllChannels.length) {
+      return 'Tus listas no tienen canales. Agrega otra lista M3U en Ajustes → Addons → TV en vivo.';
+    }
+    return 'No hay canales en esta categoría.';
+  }
+
+  /* True while the channel lists are still being read (and none is in yet). */
+  function liveChannelsPending() {
+    return !liveChannelsLoaded || (liveChannelsLoading && !liveAllChannels.length);
+  }
+
+  /* True when the viewer needs to add (or fix) a list to see any channel. */
+  function liveNeedsLists() {
+    return liveChannelsLoaded && !liveChannelsLoading && !liveAllChannels.length;
+  }
+
+  /* "Agregar lista M3U": opens Ajustes → Addons, where the TV lists are. */
+  function makeLiveListsButton() {
+    var b = el('div', 'fx-btn live-add-lists focusable', 'Agregar lista M3U');
+    b.style.display = 'inline-flex';
+    b.style.marginTop = '24px';
+    b._activate = function () {
+      if (state.screen === 'player') { restorePlayerReturn(); }
+      openSettingsAt('sources');
+    };
+    return b;
+  }
+
+  /* Shows one category of the loaded lists as the channel list. */
+  function showLiveCategory(cat, keepIndex) {
+    var keep = livePlayingToKeep();
+    var list = liveCategoryChannels(cat);
+    var previous = state.channel;
+    CHANNELS.splice(0, CHANNELS.length);
+    for (var i = 0; i < list.length; i++) { CHANNELS.push(list[i]); }
+    state.channel = keepIndex && previous > 0 && previous < CHANNELS.length ? previous : 0;
+    var kept = keep && CHANNELS.length ? keepLivePlayingChannel(keep) : false;
+    renderLiveRows(false);
+    renderPlayerChannels();
+    setLiveInfoText(CHANNELS[state.channel] ? CHANNELS[state.channel].name : '');
+    syncLiveFavButton();
+    if (!CHANNELS[state.channel]) { return; }
+    if (state.screen === 'player' && state.playerMode === 'live') {
+      updatePlayer();
+      if (!kept) { startLiveChannel(CHANNELS[state.channel], true); }
+    } else {
+      scheduleLivePreview(CHANNELS[state.channel]);
+    }
   }
 
   function switchLiveCategory(cat, done) {
@@ -4709,182 +5314,95 @@
     currentLiveCategory = cat;
     renderPlayerCategories();
     if (cat.isSaved) { loadSavedChannels(cat.isSaved, done); return; }
-    if (cat.isAddon) {
-      loadAddonChannels(function () {
-        if (done) { done(); }
-      });
-    } else {
-      loadLiveChannels(cat.id, function () {
-        if (done) { done(); }
-      });
+    /* The lists changed in Ajustes meanwhile: read them again first. */
+    if (liveListsLoadedKey !== null && liveListsLoadedKey !== liveListsKey(getSavedAddons())) {
+      reloadLiveLists(done);
+      return;
     }
+    if (!liveChannelsLoaded) { loadLiveChannels(done); return; }
+    showLiveCategory(cat, false);
+    if (done) { done(); }
   }
 
-  function loadAddonChannels(done) {
-    /* Cancels a category still loading pages; a later choice cancels this. */
-    var addonSeq = ++liveChannelRequestSeq;
-    liveChannelsLoading = false;
-    liveChannelLoadColumnId = null;
-    var addons = getSavedAddons();
-    if (!addons || !addons.length) {
-      CHANNELS.splice(0, CHANNELS.length);
-      state.channel = 0;
-      liveChannelsLoaded = true;
-      renderLiveRows(false);
-      renderPlayerChannels();
-      if (liveInfoText) { liveInfoText.textContent = 'Sin addons instalados'; }
+  /* Loads the viewer's lists once (boot, the TV page, the phone layout). Later
+     calls only redraw, unless the saved lists changed since. */
+  function loadLiveChannels(done) {
+    if (typeof done !== 'function') { done = null; }
+    if (liveChannelsLoading) { if (done) { liveListsWaiting.push(done); } return; }
+    if (liveChannelsLoaded && liveListsLoadedKey === liveListsKey(getSavedAddons())) {
       if (done) { done(); }
       return;
     }
-    var addonKeep = livePlayingToKeep();
-    setPlayerStatus('Cargando canales de Addon…');
-    var allChannels = [];
-    var pending = addons.length;
-    for (var a = 0; a < addons.length; a++) {
-      (function (ad) {
-        portalServiceCall('fetchM3u', { url: ad.url }, function (err, payload) {
-          if (payload && payload.channels && payload.channels.length) {
-            for (var c = 0; c < payload.channels.length; c++) {
-              allChannels.push(payload.channels[c]);
-            }
-          }
-          pending--;
-          if (pending <= 0 && addonSeq !== liveChannelRequestSeq) { return; }
-          if (pending <= 0) {
-            setPlayerStatus('');
-            CHANNELS.splice(0, CHANNELS.length);
-            for (var k = 0; k < allChannels.length; k++) {
-              allChannels[k].index = k + 1;
-              CHANNELS.push(allChannels[k]);
-            }
-            state.channel = 0;
-            var keptAddon = keepLivePlayingChannel(addonKeep);
-            renderLiveRows(false);
-            renderPlayerChannels();
-            if (CHANNELS[state.channel] && liveInfoText) {
-              liveInfoText.textContent = CHANNELS[state.channel].name;
-            }
-            if (state.screen === 'player' && state.playerMode === 'live') {
-              updatePlayer();
-              if (!keptAddon) { startLiveChannel(CHANNELS[0], true); }
-            }
-            if (done) { done(); }
-          }
-        });
-      })(addons[a]);
-    }
+    reloadLiveLists(done);
   }
 
-  function loadLiveChannels(columnId, done) {
-    var requestedColumnId = columnId || 76182;
-    /* buildLivePage and the initial boot can both ask for Todos.  Keep the
-       existing request instead of clearing the first page while it streams. */
-    if (liveChannelsLoading && liveChannelLoadColumnId === requestedColumnId) { if (done) { done(); } return; }
-    var keepPlaying = livePlayingToKeep();
-    var requestSeq = ++liveChannelRequestSeq;
-    liveChannelLoadColumnId = requestedColumnId;
+  /* Reads every saved list again (a list was added or removed, "Actualizar"). */
+  function loadAddonChannels(done) { reloadLiveLists(done); }
+
+  function reloadLiveLists(done) {
+    if (typeof done === 'function') { liveListsWaiting.push(done); }
+    var addons = getSavedAddons();
+    var seq = ++liveListsSeq;
+    liveListsLoadedKey = liveListsKey(addons);
     liveChannelsLoading = true;
-    liveChannelsLoaded = false;
-    CHANNELS.splice(0, CHANNELS.length);
-    state.channel = 0;
-    renderLiveRows(false);
-    renderPlayerChannels();
-
-    var pageNum = 1;
-    var didReturnFirstPage = false;
-    function fetchNextPage() {
-      portalServiceCall('liveChannels', {
-        columnId: requestedColumnId,
-        pageNum: pageNum,
-        pageSize: 20
-      }, function (err, payload) {
-        /* A category was selected while this page was in flight. */
-        if (requestSeq !== liveChannelRequestSeq) { return; }
-        var pageChannels = payload && payload.channels ? payload.channels : [];
-        if (!err && pageChannels.length) {
-          var known = {};
-          for (var k = 0; k < CHANNELS.length; k++) {
-            if (CHANNELS[k] && CHANNELS[k].channelCode) {
-              known[CHANNELS[k].channelCode] = true;
-            }
-          }
-          for (var c = 0; c < pageChannels.length; c++) {
-            var channel = pageChannels[c];
-            if (channel && (!channel.channelCode || !known[channel.channelCode])) {
-              if (channel.channelCode) { known[channel.channelCode] = true; }
-              channel.fav = !!state.favs['live:' + (channel.channelCode || channel.id || channel.name)];
-              CHANNELS.push(channel);
-            }
-          }
-          liveChannelsLoaded = true;
-          var firstPage = pageNum === 1;
-          if (window.XUPER_DESKTOP && !firstPage) {
-            /* Later pages: redraw the list in batches instead of on every page
-               (it flickered and kept restarting the preview for ~15 s). */
-            if (!(payload && payload.hasMore)) { liveChannelsLoading = false; }
-            scheduleLiveRowsRender(payload && payload.hasMore);
-            if (payload && payload.hasMore) { pageNum++; setTimeout(fetchNextPage, 25); }
-            return;
-          }
-          if (firstPage && keepPlaying) { keepLivePlayingChannel(keepPlaying); }
-          renderLiveRows(false);
-          renderPlayerChannels();
-          if (state.channel < 0 || state.channel >= CHANNELS.length) { state.channel = 0; }
-          if (CHANNELS[state.channel] && liveInfoText) {
-            liveInfoText.textContent = CHANNELS[state.channel].name;
-          }
-          syncLiveFavButton();
-          if (state.screen === 'player' && state.playerMode === 'live') {
-            updatePlayer();
-          } else {
-            scheduleLivePreview(CHANNELS[state.channel]);
-          }
-        }
-
-        if (!didReturnFirstPage) {
-          didReturnFirstPage = true;
-          if (!liveCategoriesLoaded) { loadLiveCategories(); }
-          if (done) { done(err, payload); }
-        }
-
-        if (!err && payload && payload.hasMore && pageChannels.length) {
-          pageNum++;
-          /* Yield to webOS between pages so navigating the first block stays
-             responsive while the rest of the catalogue arrives. */
-          setTimeout(fetchNextPage, 25);
-          return;
-        }
-
-        liveChannelsLoading = false;
-        /* The last page can come back empty: nothing redraws the guide then,
-           and its header said "cargando…" for good. */
-        if (liveGuideOpen && liveGuideCount) {
-          liveGuideCount.textContent = liveGuideCount.textContent.replace(' · cargando…', '');
-        }
-        if (err && !liveChannelsLoaded) {
-          setTimeout(function () {
-            if (requestSeq === liveChannelRequestSeq) { loadLiveChannels(requestedColumnId); }
-          }, 2500);
-        }
-      });
+    if (!addons.length) { finishLiveLists(seq, [], 'none'); return; }
+    if (!CHANNELS.length) { renderLiveRows(false); renderPlayerChannels(); }
+    if (state.screen === 'player' && state.playerMode === 'live' && !CHANNELS.length) { setPlayerStatus('Cargando canales…'); }
+    var results = [];
+    var pending = addons.length;
+    var answered = 0;
+    for (var a = 0; a < addons.length; a++) {
+      (function (idx, ad) {
+        portalServiceCall('fetchM3u', { url: ad.url }, function (err, payload) {
+          if (seq !== liveListsSeq) { return; }
+          var chs = !err && payload && payload.channels ? payload.channels : [];
+          if (chs.length) { answered++; }
+          results[idx] = chs;
+          pending--;
+          if (pending > 0) { return; }
+          /* Merging thousands of channels runs once, after the last answer. */
+          finishLiveLists(seq, mergeLiveLists(results), answered ? 'ok' : 'failed');
+        });
+      })(a, addons[a]);
     }
-    fetchNextPage();
   }
 
-  var liveRowsRenderTimer = null;
-  var liveRowsRenderedAt = 0;
-  function scheduleLiveRowsRender(more) {
-    /* While pages keep arriving, redraw only if the viewer is near the end of
-       the list and needs more rows; otherwise once, when all have arrived. */
-    var nearEnd = liveList && liveList.scrollHeight - liveList.scrollTop - liveList.clientHeight < 400;
-    if (more && !nearEnd) { return; }
-    var wait = more ? Math.max(0, 2500 - (Date.now() - liveRowsRenderedAt)) : 0;
-    if (liveRowsRenderTimer) { if (more) { return; } clearTimeout(liveRowsRenderTimer); }
-    liveRowsRenderTimer = setTimeout(function () {
-      liveRowsRenderTimer = null;
-      renderLiveRows(false);
-      renderPlayerChannels();
-    }, wait);
+  /* Tests (window.__opentv.live.use): shows the given channels as if they came
+     from the viewer's lists, without the network. */
+  function useLiveChannels(list) {
+    var seq = ++liveListsSeq;
+    liveListsLoadedKey = liveListsKey(getSavedAddons());
+    liveChannelsLoading = true;
+    finishLiveLists(seq, mergeLiveLists([list || []]), list && list.length ? 'ok' : 'none');
+  }
+
+  function finishLiveLists(seq, channels, status) {
+    if (seq !== liveListsSeq) { return; }
+    var firstLoad = !liveChannelsLoaded;
+    liveAllChannels = channels;
+    liveListsStatus = status;
+    liveCategories = buildLiveCategories(channels);
+    liveCategoriesLoaded = true;
+    liveChannelsLoading = false;
+    liveChannelsLoaded = true;
+    if (state.screen === 'player' && state.playerMode === 'live') { setPlayerStatus(''); }
+    /* Stay on the same category if the new lists still have it. */
+    var cur = currentLiveCategory;
+    if (!cur || !cur.isSaved) {
+      var found = LIVE_ALL_CATEGORY;
+      for (var i = 0; cur && i < liveCategories.length; i++) {
+        if (liveCategories[i].id === cur.id) { found = liveCategories[i]; break; }
+      }
+      currentLiveCategory = found;
+      showLiveCategory(found, firstLoad);
+      if (!CHANNELS.length && state.screen === 'player' && state.playerMode === 'live') { setPlayerStatus(liveEmptyMessage()); }
+    }
+    renderPlayerCategories();
+    renderLiveDockCats();
+    if (liveGuideOpen) { renderLiveGuideCats(); renderLiveGuideGrid(); }
+    var waiting = liveListsWaiting;
+    liveListsWaiting = [];
+    for (var w = 0; w < waiting.length; w++) { waiting[w](); }
   }
 
   function renderLiveRows(favOnly) {
@@ -4900,15 +5418,25 @@
   }
 
   function renderLiveRowsNow(favOnly) {
-    liveRowsRenderedAt = Date.now();
-    var keepScroll = window.XUPER_DESKTOP ? liveList.scrollTop : 0;
+    var keepScroll = window.OPENTV_DESKTOP ? liveList.scrollTop : 0;
     clear(liveList);
     if (keepScroll) { setTimeout(function () { liveList.scrollTop = keepScroll; }, 0); }
     liveRows = [];
     if (!CHANNELS.length) {
-      var listStatus = el('div', 'live-list-status',
-        liveChannelsLoaded ? 'No se encontraron canales' : 'Cargando canales…');
+      var saved = currentLiveCategory && currentLiveCategory.isSaved;
+      if (liveChannelsPending() && !saved) {
+        liveList.appendChild(makeLoader('Cargando canales…', 'is-list'));
+        setLiveInfoText('');
+        return;
+      }
+      var listStatus = el('div', 'live-list-status', liveEmptyMessage());
+      /* No lists (or none could be read): a way to add one. */
+      if (liveNeedsLists() && !saved) {
+        listStatus.appendChild(document.createElement('br'));
+        listStatus.appendChild(makeLiveListsButton());
+      }
       liveList.appendChild(listStatus);
+      setLiveInfoText('');
       return;
     }
     /* Desktop: the list can hold 1000+ channels. Drawing them all made every
@@ -4917,7 +5445,7 @@
        channel moves further down). */
     liveRowsFavOnly = !!favOnly;
     var hasQuery = !!(liveChannelQuery && norm(liveChannelQuery));
-    var limit = (window.XUPER_DESKTOP && !favOnly && !hasQuery)
+    var limit = (window.OPENTV_DESKTOP && !favOnly && !hasQuery)
       ? Math.min(CHANNELS.length, Math.max(LIVE_ROWS_BATCH, state.channel + (platformIsTv() ? 12 : 25)))
       : CHANNELS.length;
     appendLiveRows(limit);
@@ -4925,7 +5453,7 @@
       liveList.appendChild(el('div', 'live-list-status', 'Sin canales para «' + liveChannelQuery.trim() + '»'));
     }
     if (CHANNELS[state.channel] && liveInfoText) {
-      liveInfoText.textContent = CHANNELS[state.channel].name;
+      setLiveInfoText(CHANNELS[state.channel].name);
     }
     if (!hasQuery) { scrollLiveList(); }
     if (liveGuideOpen) { renderLiveGuideGrid(); }
@@ -5028,13 +5556,40 @@
     wrap.appendChild(ico);
     wrap.appendChild(inp);
     wrap.appendChild(clr);
+    /* TVs, TV en vivo: the box is one focusable control; OK opens the
+       on-screen keyboard (core/tv-keyboard.js) over the channel column, not
+       the system keyboard. The list is filtered with its Buscar key. */
+    if (cls === 'is-home' && platformIsTv()) {
+      inp.readOnly = true;
+      inp.tabIndex = -1;
+      wrap.classList.add('focusable');
+      wrap._activate = function () { openLiveSearchKeyboard(wrap); };
+    }
     return wrap;
+  }
+
+  function openLiveSearchKeyboard(box) {
+    var side = closest(box, '.live-side');
+    var page = side && side.parentNode;
+    if (!page) { return; }
+    openTvKeyboardPanel(page, {
+      placeholder: 'Nombre del canal',
+      value: liveChannelQuery,
+      cls: 'is-live',
+      cover: side,
+      doneLabel: 'Buscar',
+      onDone: function (v) {
+        setLiveChannelQuery(v, null);
+        if (liveRows && liveRows.length) { setFocus(liveRows[0]); }
+        else { setFocus(box); }
+      }
+    });
   }
 
   /* Renders channel rows up to (not including) index `upTo`. */
   function appendLiveRows(upTo) {
     if (!liveList) { return; }
-    if (window.XUPER_DESKTOP && !liveList._lazyRows) {
+    if (window.OPENTV_DESKTOP && !liveList._lazyRows) {
       liveList._lazyRows = true;
       liveList.addEventListener('scroll', function () {
         if (liveRowsShown < CHANNELS.length && liveList.scrollTop + liveList.clientHeight > liveList.scrollHeight - 700) {
@@ -5056,7 +5611,7 @@
   }
 
   function ensureLiveRowsUpTo(index) {
-    if (window.XUPER_DESKTOP && liveRowsShown < CHANNELS.length && index >= liveRowsShown - 5) {
+    if (window.OPENTV_DESKTOP && liveRowsShown < CHANNELS.length && index >= liveRowsShown - 5) {
       appendLiveRows(Math.min(CHANNELS.length, index + LIVE_ROWS_BATCH));
     }
   }
@@ -5073,14 +5628,24 @@
     }
     var play = el('div', 'row-play');
     var name = el('div', 'row-name', CHANNELS[i].name);
-    row.appendChild(icon);
-    row.appendChild(play);
-    row.appendChild(name);
+    /* PC: number, logo, then the name with its category under it. */
+    if (typeof liveSideLayout === 'function' && liveSideLayout()) {
+      row.appendChild(el('div', 'row-num', String(i + 1)));
+      row.appendChild(icon);
+      var rowText = el('div', 'row-text');
+      rowText.appendChild(name);
+      rowText.appendChild(el('div', 'row-sub', liveChannelGroups(CHANNELS[i]).join(', ')));
+      row.appendChild(rowText);
+    } else {
+      row.appendChild(icon);
+      row.appendChild(play);
+      row.appendChild(name);
+    }
     if (i === state.channel) { row.classList.add('is-current'); }
     if (CHANNELS[i]._keptPlaying) { row.classList.add('is-kept'); row.title = 'En reproducción (de otra categoría)'; }
     row._activate = (function (idx) {
       return function () {
-        if (window.XUPER_DESKTOP) {
+        if (window.OPENTV_DESKTOP) {
           /* Desktop: a click only switches the home preview. Enter on the
              channel already playing (keyboard) opens it big. */
           if (idx === state.channel) { if (focusRingVisible) { openPlayer('live'); } return; }
@@ -5090,7 +5655,7 @@
         setChannel(idx, true); openPlayer('live');
       };
     })(i);
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       (function (idx, r) {
         r.addEventListener('dblclick', function () { setChannel(idx, true); openPlayer('live'); });
         var open = el('button', 'row-open');
@@ -5109,14 +5674,24 @@
     }
     row._onMove = (function (rowIdx) {
       return function (dir) {
-        if (dir === 'left') {
+        /* Design "3A": the video is on the right of the list; on a TV, left
+           goes to the menu. */
+        var side = typeof liveSideLayout === 'function' && liveSideLayout();
+        if (dir === (side ? 'right' : 'left')) {
           if (liveFocus) { setFocus(liveFocus); }
           else if (tabEls[0]) { setFocus(tabEls[0]); }
           return true;
         }
+        if (side && dir === 'left') {
+          if (platformIsTv() && tabEls[state.tab]) { setFocus(tabEls[state.tab]); }
+          return true;
+        }
         if (dir === 'up') {
+          var catBtn = side && liveDockCats ? liveDockCats.querySelector('.live-cat-btn') : null;
           if (rowIdx > 0 && liveRows[rowIdx - 1]) {
             setFocus(liveRows[rowIdx - 1]);
+          } else if (catBtn) {
+            setFocus(catBtn);
           } else {
             /* From the first channel: up to Buscar, Mi lista and the profile. */
             focusHomeTopIcons();
@@ -5171,11 +5746,11 @@
       liveRows[i].classList.toggle('is-current', liveRows[i]._channel === index);
     }
     if (CHANNELS[index] && liveInfoText) {
-      liveInfoText.textContent = CHANNELS[index].name;
+      setLiveInfoText(CHANNELS[index].name);
     }
     scrollLiveList();
     syncLiveFavButton();
-    if (window.XUPER_DESKTOP && CHANNELS[index]) { rememberLiveChannel(CHANNELS[index]); updateTitleBarSection(); }
+    if (window.OPENTV_DESKTOP && CHANNELS[index]) { rememberLiveChannel(CHANNELS[index]); updateTitleBarSection(); }
     if (state.screen === 'player') {
       updatePlayerChannel();
       if (state.playerMode === 'live') {
@@ -5189,18 +5764,28 @@
   /* ---- live/addons-dialog.js ------------------------------------------------- */
   /* live/addons-dialog.js — "Buscar listas de TV": las listas M3U recomendadas
      (PRESET_ADDONS), con un buscador. Se abre con el botón Buscar de Ajustes →
-     Fuentes y desde el panel de canales del reproductor.
+     Addons y desde el panel de canales del reproductor. El mismo diálogo muestra
+     los addons recomendados (botón Recomendados de Películas y series).
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   var addonsDialogReturn = null;
+  /* 'm3u': TV lists (PRESET_ADDONS). 'vod': recommended movie and series
+     addons (RECOMMENDED_VOD_ADDONS), from Ajustes → Addons → Recomendados. */
+  var addonsDialogMode = 'm3u';
 
-  function openAddonsDialog() {
+  function openAddonsDialog(mode) {
     var dlg = $('dialog-addons');
     if (!dlg) { return; }
+    addonsDialogMode = mode === 'vod' ? 'vod' : 'm3u';
+    var title = dlg.querySelector('.da-title');
+    if (title) { title.textContent = addonsDialogMode === 'vod' ? 'Addons recomendados' : 'Buscar listas de TV'; }
     dialogAddonsOpen = true;
     addonsDialogReturn = state.focus;
     dlg.classList.add('is-active');
     var search = $('da-search');
+    if (search) {
+      search.placeholder = addonsDialogMode === 'vod' ? 'Buscar (Torrentio, TorrentsDB…)' : 'País, idioma o tema (México, noticias, infantil…)';
+    }
     if (search && !search._bound) {
       search._bound = true;
       search.addEventListener('input', function () { renderAddonsDialog(); });
@@ -5226,10 +5811,10 @@
       else { setFocus(playerStage); }
       return;
     }
-    /* From Ajustes → Fuentes: show the lists just added there. */
+    /* From Ajustes → Addons → TV en vivo: show the lists just added there. */
     if (state.screen === 'settings' && typeof settingsIndexOf === 'function') {
       showSettingsPanel(settingsIndexOf('sources'), false);
-      var again = settingsRight && settingsRight.querySelector('.fx-btn.is-search');
+      var again = settingsRight && settingsRight.querySelector(addonsDialogMode === 'vod' ? '.fx-btn.is-recommend' : '.fx-btn.is-search');
       if (again) { setFocus(again); return; }
     }
     if (addonsDialogReturn && isVisible(addonsDialogReturn)) { setFocus(addonsDialogReturn); }
@@ -5239,6 +5824,7 @@
     var box = $('da-presets-list');
     if (!box) { return; }
     var q = norm(($('da-search') || {}).value || '');
+    if (addonsDialogMode === 'vod') { renderVodAddonsDialog(box, q); return; }
     var saved = {};
     getSavedAddons().forEach(function (ad) { saved[ad.url] = true; });
     clear(box);
@@ -5268,12 +5854,51 @@
           on = true;
           item.classList.add('is-installed');
           tag.textContent = '✔ ' + count + ' canales';
-          if (currentLiveCategory && currentLiveCategory.isAddon) { loadAddonChannels(); }
+          /* TV en vivo shows the new list's channels at once. */
+          loadAddonChannels();
         });
       };
       box.appendChild(item);
     });
     if (!shown) { box.appendChild(el('div', 'da-empty', 'No hay listas con ese nombre.')); }
+    var exitBtn = $('da-btn-exit');
+    if (exitBtn) { exitBtn._activate = function () { closeAddonsDialog(); }; }
+  }
+
+  /* Recommended movie and series addons: sources, aggregator and a catalog. */
+  function renderVodAddonsDialog(box, q) {
+    clear(box);
+    var shown = 0;
+    RECOMMENDED_VOD_ADDONS.forEach(function (rec) {
+      if (q && norm(rec.name + ' ' + rec.desc).indexOf(q) === -1) { return; }
+      shown++;
+      var on = isVodAddonInstalled(rec.url);
+      var item = el('div', 'da-preset-item focusable' + (on ? ' is-installed' : ''));
+      var info = el('div', 'da-preset-info');
+      info.appendChild(el('div', 'da-preset-name', rec.name));
+      info.appendChild(el('div', 'da-preset-desc', rec.desc));
+      item.appendChild(info);
+      var tag = el('span', 'da-preset-tag', on ? '✔ Agregado' : '+ Agregar');
+      item.appendChild(tag);
+      item._activate = function () {
+        if (on || item._busy) { return; }
+        item._busy = true;
+        tag.textContent = 'Agregando…';
+        installVodAddon({ url: rec.url }, function (err) {
+          item._busy = false;
+          if (err) {
+            tag.textContent = 'No cargó';
+            setTimeout(function () { tag.textContent = '+ Agregar'; }, 2500);
+            return;
+          }
+          on = true;
+          item.classList.add('is-installed');
+          tag.textContent = '✔ Agregado';
+        });
+      };
+      box.appendChild(item);
+    });
+    if (!shown) { box.appendChild(el('div', 'da-empty', 'No hay addons con ese nombre.')); }
     var exitBtn = $('da-btn-exit');
     if (exitBtn) { exitBtn._activate = function () { closeAddonsDialog(); }; }
   }
@@ -5311,10 +5936,10 @@
   /* live/guide.js — Escritorio: guía de canales (cuadrícula con buscador), favoritos y recientes.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-  /* The portal sends no programme schedule (EPG) for its channels, only the
-     channel itself, so the guide lists channels: by country/theme, with a
-     name filter, the favourites and the channels watched last. Favourites and
-     recents are kept with the data needed to play them from any category. */
+  /* The M3U lists bring no programme schedule (EPG), only the channels, so the
+     guide lists channels: by the lists' categories (group-title), with a name
+     filter, the favourites and the channels watched last. Favourites and
+     recents are kept with their link, so they play from any category. */
   var LIVE_SAVED_KEY = 'opentv_live_saved_v1';
   var LIVE_RECENT_MAX = 24;
   var LIVE_SAVED_CATS = {
@@ -5341,7 +5966,7 @@
   }
 
   function rememberLiveChannel(ch) {
-    if (!window.XUPER_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
+    if (!window.OPENTV_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
     var s = liveSaved();
     s.recent = s.recent.filter(function (x) { return !sameChannel(x, ch); });
     s.recent.unshift(savedChannelCopy(ch));
@@ -5350,7 +5975,7 @@
   }
 
   function syncSavedFavorite(ch, on) {
-    if (!window.XUPER_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
+    if (!window.OPENTV_DESKTOP || !ch || !liveChannelKey(ch)) { return; }
     var s = liveSaved();
     s.favs = s.favs.filter(function (x) { return !sameChannel(x, ch); });
     if (on) { s.favs.unshift(savedChannelCopy(ch)); }
@@ -5359,7 +5984,14 @@
 
   function toggleLiveFavorite(ch) {
     if (!ch) { return false; }
-    ch.fav = toggleFavorite({ id: liveFavKey(ch) });
+    var key = liveFavKey(ch);
+    var on = !(ch.fav || state.favs[key]);
+    if (!!state.favs[key] !== on) { toggleFavorite({ id: key }); }
+    /* Earlier versions saved M3U favourites as 'live:m3u_N' (the position in
+       a list): drop that key when the channel stops being a favourite. */
+    var legacy = ch.channelCode ? 'live:' + ch.channelCode : '';
+    if (!on && legacy && legacy !== key && state.favs[legacy]) { toggleFavorite({ id: legacy }); }
+    ch.fav = on;
     syncSavedFavorite(ch, ch.fav);
     syncLiveFavButton();
     return ch.fav;
@@ -5370,29 +6002,24 @@
     var keepPlaying = livePlayingToKeep();
     var list = liveSaved()[kind] || [];
     CHANNELS.splice(0, CHANNELS.length);
+    var favUrls = liveFavoriteUrls();
     for (var i = 0; i < list.length; i++) {
+      /* Channels saved from the old portal have no link and cannot play. */
+      if (!list[i] || !list[i].streamUrl) { continue; }
       var ch = savedChannelCopy(list[i]);
-      ch.index = i + 1;
+      ch.index = CHANNELS.length + 1;
       ch.now = 'En vivo';
-      ch.fav = !!state.favs[liveFavKey(ch)];
+      ch.fav = !!(favUrls[ch.streamUrl] || state.favs[liveFavKey(ch)]);
       CHANNELS.push(ch);
     }
     state.channel = 0;
-    if (keepPlaying && list.length) { keepLivePlayingChannel(keepPlaying); }
-    liveChannelsLoaded = true;
-    liveChannelsLoading = false;
-    liveChannelRequestSeq++;
+    if (keepPlaying && CHANNELS.length) { keepLivePlayingChannel(keepPlaying); }
     renderLiveRows(false);
     renderPlayerChannels();
     if (CHANNELS[state.channel]) {
-      if (liveInfoText) { liveInfoText.textContent = CHANNELS[state.channel].name; }
+      setLiveInfoText(CHANNELS[state.channel].name);
       if (state.screen === 'player' && state.playerMode === 'live') { updatePlayer(); if (!keepPlaying) { startLiveChannel(CHANNELS[0], true); } }
       else { scheduleLivePreview(CHANNELS[state.channel]); }
-    } else if (liveList) {
-      clear(liveList);
-      liveList.appendChild(el('div', 'live-list-status', kind === 'favs'
-        ? 'Aún no tienes canales favoritos. Usa la estrella para guardar uno.'
-        : 'Aquí aparecerán los últimos canales que veas.'));
     }
     syncLiveFavButton();
     if (done) { done(); }
@@ -5438,7 +6065,12 @@
     liveGuideSearch.addEventListener('change', function () {
       if (platformIsTv()) { guideSearchToResults(); }
     });
-    liveGuideSearch._activate = function () { liveGuideSearch.focus(); };
+    liveGuideSearch._activate = function () {
+      /* TVs: the on-screen keyboard (core/tv-keyboard.js) over the category
+         column; the channels on the right are filtered while typing. */
+      if (platformIsTv()) { openGuideKeyboard(panel); return; }
+      liveGuideSearch.focus();
+    };
     head.appendChild(liveGuideSearch);
     var close = el('button', 'lg-close focusable');
     close.type = 'button';
@@ -5462,8 +6094,29 @@
     ($('screen-home') || document.body).appendChild(liveGuide);
   }
 
+  /* The guide's on-screen keyboard (TVs). Typing only edits the text; the
+     channels are filtered once, with the Buscar key (a batch of cards per
+     letter kept a Fire TV busy). */
+  function openGuideKeyboard(panel) {
+    openTvKeyboardPanel(panel, {
+      title: 'Buscar canal',
+      placeholder: 'Nombre del canal',
+      value: liveGuideSearch.value,
+      cls: 'is-guide',
+      cover: liveGuideCats,
+      hostClass: 'is-typing',
+      doneLabel: 'Buscar',
+      /* (Back closes it without changing the search.) */
+      onDone: function (v) {
+        liveGuideSearch.value = v;
+        renderLiveGuideGrid();
+        guideSearchToResults();
+      }
+    });
+  }
+
   function openLiveGuide() {
-    if (!window.XUPER_DESKTOP) { return; }
+    if (!window.OPENTV_DESKTOP) { return; }
     if (!liveGuide || !liveGuide.isConnected) { buildLiveGuide(); }
     liveGuideOpen = true;
     liveGuideReturnFocus = state.focus;
@@ -5482,6 +6135,7 @@
   function closeLiveGuide() {
     if (!liveGuideOpen) { return; }
     liveGuideOpen = false;
+    closeTvKeyboardPanel(true);
     if (liveGuide) { liveGuide.classList.remove('is-open'); }
     document.body.classList.remove('has-live-guide');
     if (liveGuideSearch) { liveGuideSearch.blur(); }
@@ -5490,18 +6144,14 @@
   }
 
   function guideCategories() {
-    var groups = [{ title: '', items: [] }, { title: 'Países', items: [] }, { title: 'Temas', items: [] }];
+    var groups = [{ title: '', items: [] }, { title: 'Categorías', items: [] }];
+    groups[0].items.push({ cat: LIVE_ALL_CATEGORY, label: 'Todos' });
     for (var i = 0; i < liveCategories.length; i++) {
       var c = liveCategories[i];
-      if (c.name === 'Todos') { groups[0].items.push({ cat: c, label: 'Todos' }); }
-      else if (LIVE_COUNTRIES.indexOf(c.name) !== -1) { groups[1].items.push({ cat: c, label: c.name }); }
-      else { groups[2].items.push({ cat: c, label: c.isAddon ? 'Mis listas M3U' : c.name }); }
+      if (c.id !== LIVE_ALL_CATEGORY.id) { groups[1].items.push({ cat: c, label: c.name }); }
     }
     groups[0].items.push({ cat: LIVE_SAVED_CATS.favs, label: 'Favoritos', icon: UI_ICONS.star });
     groups[0].items.push({ cat: LIVE_SAVED_CATS.recent, label: 'Recientes', icon: UI_ICONS.history });
-    /* TVs: themes (Deportes, Cine y Series…) before the long country list,
-       which pushed them a dozen presses down. */
-    if (platformIsTv()) { return [groups[0], groups[2], groups[1]]; }
     return groups;
   }
 
@@ -5538,6 +6188,9 @@
     var first = liveGuideGrid.querySelector('.lg-card');
     liveGuideSearch.blur();
     if (first) { setFocusRingVisible(true); setFocus(first); }
+    /* Nothing found: back on the search field (the keyboard's panel that had
+       the focus is gone), to try another name. */
+    else { setFocus(liveGuideSearch); }
   }
 
   function focusGuideCategory(catId) {
@@ -5602,18 +6255,22 @@
     appendGuideCards(want);
     var shown = guideIndexes.length;
     if (!shown) {
-      var msg = !CHANNELS.length && liveChannelsLoading ? 'Cargando canales…'
-        : q ? 'Ningún canal coincide con «' + liveGuideSearch.value.trim() + '»'
-        : currentLiveCategory && currentLiveCategory.isSaved === 'favs' ? (platformIsTv()
-          ? 'Aún no tienes canales favoritos. Usa el botón Favorito debajo de la vista previa de TV en vivo.'
-          : 'Aún no tienes canales favoritos. Pasa el ratón por un canal y toca la estrella.')
-        : currentLiveCategory && currentLiveCategory.isSaved === 'recent' ? 'Aquí aparecerán los últimos canales que veas.'
-        : 'No hay canales en esta categoría.';
+      var msg = q ? 'Ningún canal coincide con «' + liveGuideSearch.value.trim() + '»'
+        : currentLiveCategory && currentLiveCategory.isSaved === 'favs' && !platformIsTv()
+          ? 'Aún no tienes canales favoritos. Pasa el ratón por un canal y toca la estrella.'
+        : liveEmptyMessage();
       var empty = el('div', 'lg-empty', msg);
       if (!CHANNELS.length && liveChannelsLoading) { empty.insertBefore(el('i', 'tv-loader'), empty.firstChild); }
+      if (!q && liveNeedsLists() && !(currentLiveCategory && currentLiveCategory.isSaved)) {
+        empty.appendChild(document.createElement('br'));
+        var addBtn = makeLiveListsButton();
+        var baseActivate = addBtn._activate;
+        addBtn._activate = function () { closeLiveGuide(); baseActivate(); };
+        empty.appendChild(addBtn);
+      }
       liveGuideGrid.appendChild(empty);
     }
-    var name = currentLiveCategory ? (currentLiveCategory.isAddon ? 'Mis listas M3U' : currentLiveCategory.name) : 'Todos';
+    var name = currentLiveCategory ? currentLiveCategory.name : 'Todos';
     liveGuideCount.textContent = name + ' · ' + (q ? shown + ' de ' + CHANNELS.length : CHANNELS.length) + (CHANNELS.length === 1 && !q ? ' canal' : ' canales') +
       (liveChannelsLoading ? ' · cargando…' : '');
     liveGuideGrid.scrollTop = keep;
@@ -5681,7 +6338,7 @@
   }
 
   function installLiveGuide() {
-    if (!window.XUPER_DESKTOP) { return; }
+    if (!window.OPENTV_DESKTOP) { return; }
     document.addEventListener('keydown', function (event) {
       if (!liveGuideOpen) {
         /* G opens the guide from the TV tab. */
@@ -5692,7 +6349,7 @@
         }
         return;
       }
-      if (event.key === 'Escape' || event.key === 'Backspace' || event.keyCode === 461) {
+      if (event.key === 'Escape' || event.key === 'Backspace') {
         if (document.activeElement === liveGuideSearch && event.key === 'Backspace') { return; }
         event.preventDefault();
         event.stopPropagation();
@@ -5702,23 +6359,15 @@
   }
 
   /* ---- live/adult-filter.js -------------------------------------------------- */
-  /* live/adult-filter.js — Las categorías para adultos (+18) del portal no se muestran nunca.
+  /* live/adult-filter.js — Las categorías para adultos (+18) de las listas M3U no se muestran nunca.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
-  /* The portal has an adult ("18+") TV category. OpenTV never lists it, on
-     any platform, and never opens it. */
+  /* M3U lists can carry adult ("18+", "XXX") groups. OpenTV never lists them
+     or their channels, on any platform, and never opens them. */
   function isAdultCategory(cat) {
     if (!cat) { return false; }
     var name = String(cat.name || '');
-    return /18\s*\+|\+\s*18|adult|xxx/i.test(name) || String(cat.id) === '76208';
-  }
-
-  function hideAdultCategories(cats) {
-    var visible = [];
-    for (var i = 0; i < cats.length; i++) {
-      if (!isAdultCategory(cats[i])) { visible.push(cats[i]); }
-    }
-    return visible;
+    return /18\s*\+|\+\s*18|adult|xxx/i.test(name);
   }
 
   /* Settings and PIN left by older versions (the private section is gone). */
@@ -5755,7 +6404,7 @@
     opts = opts || {};
     var t = el('div', 'bento focusable');
     /* Desktop: a little air between the large tiles. */
-    var gap = window.XUPER_DESKTOP ? BENTO_GAP : 0;
+    var gap = window.OPENTV_DESKTOP ? BENTO_GAP : 0;
     abs(t, x + gap, y + gap, w - gap * 2, h - gap * 2);
     var art = item ? (item.landscape || item.poster) : '';
     if (art) {
@@ -5771,7 +6420,7 @@
     if (opts.badge) { t.appendChild(el('div', 'bento-badge', opts.badge)); }
     t._item = item;
     if (item) { t._activate = function () { openDetail(item); }; }
-    if (window.XUPER_DESKTOP && item && !art) { applyGenericCover(t, item); }
+    if (window.OPENTV_DESKTOP && item && !art) { applyGenericCover(t, item); }
     schedulePosterMemoryPass();
     return t;
   }
@@ -5802,7 +6451,7 @@
     if (opts.dots) {
       var dots = bentoDots(848, 535.5, opts.dots, 0);
       page.appendChild(dots);
-      if (window.XUPER_DESKTOP && opts.titles && source.length > 1) {
+      if (window.OPENTV_DESKTOP && opts.titles && source.length > 1) {
         /* The rotation must not repeat the titles already on the other tiles:
            use the first title plus the ones after the six tiles when the
            section has them. */
@@ -5820,7 +6469,7 @@
   var BANNER_INTERVAL_MS = 6500;
   var bannerKeyAt = 0;
   var bannerPointerAt = 0;
-  if (window.XUPER_DESKTOP) {
+  if (window.OPENTV_DESKTOP) {
     document.addEventListener('keydown', function () { bannerKeyAt = Date.now(); }, true);
     document.addEventListener('pointermove', function () { bannerPointerAt = Date.now(); }, { capture: true, passive: true });
   }
@@ -5891,6 +6540,8 @@
     var out = [], i;
     if (category) {
       for (i = 0; i < VOD.length; i++) {
+        /* (Titles of an anime list only live in Anime, not in Series.) */
+        if (VOD[i]._animeCat && category !== 'anime') { continue; }
         var cats = norm(VOD[i].category || '').split(',');
         if (cats.indexOf(category) !== -1 || (VOD[i].kind && norm(VOD[i].kind).indexOf(category) !== -1)) {
           out.push(VOD[i]);
@@ -5908,7 +6559,7 @@
     page.appendChild(sub);
     y += 50;
 
-    var compact = window.XUPER_DESKTOP && catalogCompact();
+    var compact = window.OPENTV_DESKTOP && catalogCompact();
     var colW = compact ? 236 : 276;
     var colH = compact ? 340 : 390;
     var maxCols = compact ? 7 : 6;
@@ -5917,7 +6568,7 @@
     if (platformIsTv()) { colW = ROW_STEP; colH = ROW_POSTER_H + 34; maxCols = 6; posterW = ROW_POSTER_W; posterH = ROW_POSTER_H; }
     var cursor = 0;
     var more = null;
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       more = el('button', 'desktop-more focusable');
       more.type = 'button';
       more._activate = appendBatch;
@@ -5945,12 +6596,12 @@
 
   function buildFeaturedPage(page) {
     var all = allVodFor('destacado');
-    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: '', top10: 'destacado', trendKey: 'inicio', rows: 'destacado', gridTitle: 'Títulos destacados' }); return; }
+    if (window.OPENTV_DESKTOP) { buildDesktopSection(page, all, { continueFilter: '', top10: 'destacado', trendKey: 'inicio', rows: 'destacado', gridTitle: 'Títulos destacados' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
-    bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
+    bentoPage(page, window.OPENTV_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
     var rest = all.slice(6);
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       /* Desktop: "Seguir viendo", then one row per portal shelf. */
       var y = appendContinueRow(page, 830, '');
       var rows = portalRowsFor('destacado', 4);
@@ -5966,12 +6617,12 @@
 
   function buildMoviesPage(page) {
     var all = allVodFor('pelicula');
-    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', trending: 'movie', trendKey: 'movie', rows: 'pelicula', grid: true, gridTitle: 'Todas las películas' }); return; }
+    if (window.OPENTV_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'movie', trending: 'movie', trendKey: 'movie', rows: 'pelicula', grid: true, gridTitle: 'Todas las películas' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
-    bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
+    bentoPage(page, window.OPENTV_DESKTOP ? all : items, { titles: real, dots: real ? 4 : 0, shade: real });
     var rest = all.slice(6);
-    var gridY = window.XUPER_DESKTOP ? appendContinueRow(page, 830, 'movie') + (page._continueCount ? 10 : 30) : 860;
+    var gridY = window.OPENTV_DESKTOP ? appendContinueRow(page, 830, 'movie') + (page._continueCount ? 10 : 30) : 860;
     if (rest.length) {
       appendCatalogGrid(page, rest, gridY, 'Más películas');
     }
@@ -5979,12 +6630,12 @@
 
   function buildSeriesPage(page) {
     var all = allVodFor('serie');
-    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', trending: 'series', trendKey: 'series', rows: 'serie', grid: true, gridTitle: 'Todas las series' }); return; }
+    if (window.OPENTV_DESKTOP) { buildDesktopSection(page, all, { continueFilter: 'series', trending: 'series', trendKey: 'series', rows: 'serie', grid: true, gridTitle: 'Todas las series' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
-    bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
+    bentoPage(page, window.OPENTV_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
     var rest = all.slice(6);
-    var gridY = window.XUPER_DESKTOP ? appendContinueRow(page, 830, 'series') + (page._continueCount ? 10 : 30) : 860;
+    var gridY = window.OPENTV_DESKTOP ? appendContinueRow(page, 830, 'series') + (page._continueCount ? 10 : 30) : 860;
     if (rest.length) {
       appendCatalogGrid(page, rest, gridY, 'Más series');
     }
@@ -5992,10 +6643,10 @@
 
   function buildAnimePage(page) {
     var all = allVodFor('anime');
-    if (window.XUPER_DESKTOP) { buildDesktopSection(page, all, { rows: 'anime', trendKey: 'anime', grid: true, gridTitle: 'Todo el anime' }); return; }
+    if (window.OPENTV_DESKTOP) { buildDesktopSection(page, all, { rows: 'anime', trendKey: 'anime', grid: true, gridTitle: 'Todo el anime' }); return; }
     var items = all.slice(0, 6);
     var real = !!(items[0] && items[0]._portal);
-    bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
+    bentoPage(page, window.OPENTV_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
     var rest = all.slice(6);
     if (rest.length) {
       appendCatalogGrid(page, rest, 860, 'Anime y animación');
@@ -6034,7 +6685,7 @@
     } else {
       var items = all.slice(0, 6);
       var real = !!(items[0] && items[0]._portal);
-      bentoPage(page, window.XUPER_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
+      bentoPage(page, window.OPENTV_DESKTOP ? all : items, { titles: real, dots: real ? 3 : 2, shade: real });
       appendCatalogGrid(page, all, 860, 'Más novelas');
     }
   }
@@ -6042,7 +6693,7 @@
   /* KIDS: hero 831x534 + 2x2 grid 413x222 on the right, a subtitle line and a
      horizontal poster row (7 columns, last one clipped by the screen edge). */
   function buildKidsPage(page) {
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       buildDesktopSection(page, allVodFor('infantil'), { rows: 'infantil', trendKey: 'kids', grid: true, gridTitle: 'Todo para niños' });
       return;
     }
@@ -6101,8 +6752,17 @@
       var idxEmpty = pages.indexOf(page);
       if (idxEmpty >= 0) { delete heroPages[idxEmpty]; }
       /* (The page is rebuilt when the catalogue arrives.) */
-      var empty = el('div', 'catalog-empty', portalState.refreshing ? 'Cargando los títulos de esta sección…'
-        : 'No hay títulos de esta sección disponibles en el catálogo actual.');
+      if (vodApiState.loading) {
+        /* Loading: the loader in the middle of the section, replaced by
+           the rows as soon as they arrive. */
+        var wait = makeLoader('Cargando los títulos de tus addons…', 'is-page');
+        abs(wait, 192, 0, 1560, 760);
+        page.appendChild(wait);
+        return;
+      }
+      var empty = el('div', 'catalog-empty', getVodSourcesConfig().addons.length
+        ? 'Tus addons no tienen títulos de esta sección.'
+        : 'Agrega un addon con catálogo en Ajustes → Addons para ver películas y series.');
       abs(empty, 192, 170, 1500, 80);
       page.appendChild(empty);
       return;
@@ -6120,10 +6780,11 @@
     }
     var y;
     if (platformIsTv()) {
-      /* TVs: no big hero; two large cards and four small ones. */
+      /* TVs: not the desktop hero (a full-screen layer, too heavy for a
+         Fire TV) but a light banner inside the page (home/rows.js). */
       var idxTv = pages.indexOf(page);
       if (idxTv >= 0) { delete heroPages[idxTv]; }
-      y = appendTvFeature(page, featured, opts);
+      y = appendTvHero(page, featured);
     } else {
       y = buildHero(page, featured);
     }
@@ -6194,7 +6855,7 @@
      posters, so more titles fit in each row and grid line. */
   var CATALOG_DENSITY_KEY = 'opentv_catalog_density_v1';
   function catalogCompact() {
-    return !!window.XUPER_DESKTOP && safeLocalRead(CATALOG_DENSITY_KEY, 'normal') === 'compact';
+    return !!window.OPENTV_DESKTOP && safeLocalRead(CATALOG_DENSITY_KEY, 'normal') === 'compact';
   }
   function applyCatalogDensity() {
     var compact = catalogCompact();
@@ -6206,13 +6867,14 @@
     CONTINUE_H = compact ? 189 : 225;
     CONTINUE_STEP = CONTINUE_W + 24;
     CONTINUE_ROW_HEIGHT = ROW_TITLE_H + CONTINUE_H + 64 + ROW_PAD * 2 + 20;
-    /* TVs: a fixed size with exactly six posters (four "Seguir viendo" cards)
-       on screen and a margin on the right; fewer images to load and draw. */
+    /* TVs: a fixed size, a bit bigger than on a PC so posters read well from
+       the sofa (five and a half on screen, four "Seguir viendo" cards) and a
+       margin on the right; fewer images to load and draw. */
     if (platformIsTv()) {
       ROW_W = 1560;   /* 240..1800 on screen: 120 px of margin on the right */
-      ROW_POSTER_W = 240;
-      ROW_POSTER_H = 346;
-      ROW_STEP = 264;
+      ROW_POSTER_W = 262;
+      ROW_POSTER_H = 378;
+      ROW_STEP = 288;
       ROW_HEIGHT = ROW_TITLE_H + ROW_POSTER_H + ROW_PAD * 2 + 26;
       CONTINUE_W = 372;
       CONTINUE_H = 209;
@@ -6314,6 +6976,16 @@
         groups[shelves[s]].push(item);
       }
     }
+    /* Addon rows keep the addon's order (stremioRowOrder); others stay where
+       they first appeared. */
+    var known = typeof stremioRowOrder === 'object' ? stremioRowOrder : {};
+    var firstAt = {};
+    for (var f = 0; f < order.length; f++) { firstAt[order[f]] = f; }
+    order.sort(function (a, b) {
+      var ka = a in known ? known[a] : 100000 + firstAt[a];
+      var kb = b in known ? known[b] : 100000 + firstAt[b];
+      return ka - kb;
+    });
     var out = [];
     for (var r = 0; r < order.length; r++) {
       if (groups[order[r]].length >= (minItems || 4)) {
@@ -6340,122 +7012,176 @@
     return y + height;
   }
 
-  /* ------------------------------------------------------ TV: cards on top */
-  /* TVs have no big hero (its full-screen image, slow zoom and cross-fades
-     cost too much on a Fire TV): two large cards that stay in place while
-     what they show changes every few seconds, and four small cards under
-     them. On Inicio they show this week's trends (TMDB), on the other
-     sections the portal's titles. */
-  var TVF_GAP = 24;
-  var TVF_BIG_H = 372, TVF_SMALL_H = 216;
-  var TVF_ROTATE_MS = 8000;
-  var tvFeatureCards = [];
-  var tvFeatureTimer = null;
+  /* ------------------------------------------------------- TV: light hero */
+  /* TVs: the desktop hero's look (big picture fading into the page, title,
+     details, synopsis, Reproducir / Más información / Mi lista) built so a
+     Fire TV can carry it. What made the desktop hero (home/hero.js) heavy is
+     left out:
+     - the picture is an element inside the page, not a full-screen layer
+       behind the rows (that layer gave every row its own layer too)
+     - one picture at the size it is shown (the app's image sizer), no slow
+       zoom, no cross-fade: the next picture is decoded first and swapped in
+       one go; no blurred buttons
+     - it turns by itself only while the remote has been still for a while,
+       the section is on screen and scrolled to the top, and never while the
+       focus is on its buttons (the viewer may be reading it).
+     The buttons sit in a .hero-info block, which TV navigation already moves
+     through like a row (core/focus.js): left from Reproducir goes to the menu,
+     down to the first row. */
+  var TVH_ART_H = 660;             /* page height of the picture */
+  var TVH_ART_W = 1500;            /* its width, from the right edge */
+  var TVH_ROWS_Y = 650;            /* where the rows start (over the fade) */
+  var TVH_MAX = 8;
+  var TVH_ROTATE_MS = 9000;
+  var TVH_IDLE_MS = 6000;          /* remote untouched this long before turning */
+  var tvHeroes = [];
+  var tvHeroTimer = null;
+  var tvHeroKeyAt = 0;
+  var tvHeroKeysWatched = false;
 
-  function tvCardArt(item) { return item._trendArt || heroArt(item) || item.poster || ''; }
+  function tvHeroArt(item) { return item._trendArt || heroArt(item) || ''; }
+  /* A title's wide picture, or its poster when it has none (details screen). */
+  function tvCardArt(item) { return tvHeroArt(item) || item.poster || ''; }
 
-  /* Shows `item` in a card (image, kind, title, details). */
-  function setFeatureCard(card, item) {
-    card._item = item;
-    var img = card._img;
-    var src = tvCardArt(item);
-    img.setAttribute('data-poster-src', src);
-    if (img.getAttribute('src')) { img.src = tileImageUrl(img); }
-    card._kicker.textContent = isSeriesItem(item) ? 'Serie' : 'Película';
-    card._title.textContent = item.title || '';
-    if (card._meta) { card._meta.textContent = itemMetaLine(item) || ''; }
+  function tvHeroImageUrl(item) { return sizedImageUrl(tvHeroArt(item), TVH_ART_W); }
+
+  /* Writes the texts, the Mi lista state and the dashes for the title shown. */
+  function renderTvHeroText(hero) {
+    var item = hero._items[hero._index];
+    hero._item = item;
+    hero._kicker.textContent = isSeriesItem(item) ? 'Serie' : 'Película';
+    var len = String(item.title || '').length;
+    hero._title.className = 'hero-title' + (len > 52 ? ' is-xlong' : len > 30 ? ' is-long' : '');
+    hero._title.textContent = item.title || '';
+    hero._meta.textContent = itemMetaLine(item) || '';
+    var syn = String(item.synopsis || '');
+    hero._syn.textContent = syn && !/^sin sinopsis/i.test(syn) ? syn : itemGenres(item, 3).join('  •  ');
+    var on = inMyList(item);
+    hero._fav.classList.toggle('is-on', on);
+    hero._fav.innerHTML = on ? UI_ICONS.check : UI_ICONS.mylist;
+    var dots = hero._dots.children;
+    for (var d = 0; d < dots.length; d++) { dots[d].className = 'hero-dot' + (d === hero._index ? ' is-active' : ''); }
   }
 
-  function makeFeatureCard(item, x, y, w, h, small) {
-    var c = el('div', 'poster focusable gold tvf-card' + (small ? ' is-small' : ''));
-    abs(c, x, y, w, h);
-    var img = el('img', 'p-img');
+  /* Shows title number `index`: the picture is loaded and decoded before
+     the swap (a Fire TV showed an empty frame otherwise), then text and
+     picture change together. The next one is fetched in the background so
+     the following turn is ready. */
+  function showTvHero(hero, index) {
+    var n = hero._items.length;
+    index = (index % n + n) % n;
+    var item = hero._items[index];
+    var url = tvHeroImageUrl(item);
+    var seq = ++hero._seq;
+    var pre = new Image();
+    var apply = function () {
+      if (seq !== hero._seq || !hero._info.isConnected) { return; }
+      hero._index = index;
+      hero._img.src = url;
+      renderTvHeroText(hero);
+      var after = hero._items[(index + 1) % n];
+      if (after !== item) { (new Image()).src = tvHeroImageUrl(after); }
+    };
+    pre.onload = function () { if (pre.decode) { pre.decode().then(apply, apply); } else { apply(); } };
+    pre.onerror = apply;
+    pre.src = url;
+  }
+
+  function makeTvHeroButton(cls, html, label) {
+    var b = el('div', 'hero-btn focusable' + (cls ? ' ' + cls : ''));
+    b.innerHTML = html + (label ? '<span>' + label + '</span>' : '');
+    return b;
+  }
+
+  /* Lays the hero at the top of the page. Returns the y where the rows
+     start, or 0 when the section has no titles with wide art. */
+  function appendTvHero(page, all) {
+    var items = [];
+    for (var i = 0; i < all.length && items.length < TVH_MAX; i++) {
+      if (tvHeroArt(all[i]) && hasUsableCover(all[i])) { items.push(all[i]); }
+    }
+    if (!items.length) { return 0; }
+    var hero = { _items: items, _index: 0, _seq: 0, _page: page };
+
+    /* The picture, on the right, fading into the page on the left and at
+       the bottom (one shade element). Not focusable: navigation skips it. */
+    var art = el('div', 'tvh-art');
+    art.style.top = '0px';
+    var img = el('img', 'tvh-img');
+    img.alt = '';
     img.decoding = 'async';
-    img.onerror = posterImageError;
-    img.onload = posterImageLoaded;
-    c.appendChild(img);
-    c.appendChild(el('div', 'tvf-shade'));
-    var text = el('div', 'tvf-text');
-    c._kicker = el('div', 'tvf-kicker');
-    c._title = el('div', 'tvf-title');
-    text.appendChild(c._kicker);
-    text.appendChild(c._title);
-    if (!small) { c._meta = el('div', 'tvf-meta'); text.appendChild(c._meta); }
-    c.appendChild(text);
-    c._img = img;
-    setFeatureCard(c, item);
-    c._activate = function () { openDetail(c._item); };
-    schedulePosterMemoryPass();
-    return c;
+    art.appendChild(img);
+    art.appendChild(el('div', 'tvh-shade'));
+    page.appendChild(art);
+    hero._img = img;
+
+    /* Text and buttons, as on desktop. */
+    var info = el('div', 'hero-info tvh-info');
+    abs(info, ROW_X, 40, 1060, 560);
+    hero._kicker = el('div', 'hero-kicker');
+    hero._title = el('div', 'hero-title');
+    hero._meta = el('div', 'hero-meta');
+    hero._syn = el('div', 'hero-synopsis');
+    info.appendChild(hero._kicker);
+    info.appendChild(hero._title);
+    info.appendChild(hero._meta);
+    info.appendChild(hero._syn);
+    var row = el('div', 'hero-buttons');
+    var play = makeTvHeroButton('is-primary', UI_ICONS.play, 'Reproducir');
+    play._activate = function () { playTitleNow(hero._item); };
+    var more = makeTvHeroButton('', UI_ICONS.info, 'Más información');
+    more._activate = function () { openDetail(hero._item); };
+    var fav = makeTvHeroButton('is-round', UI_ICONS.mylist, '');
+    fav._activate = function () {
+      var on = toggleMyList(hero._item);
+      fav.classList.toggle('is-on', on);
+      fav.innerHTML = on ? UI_ICONS.check : UI_ICONS.mylist;
+    };
+    hero._fav = fav;
+    row.appendChild(play);
+    row.appendChild(more);
+    row.appendChild(fav);
+    info.appendChild(row);
+    page.appendChild(info);
+    hero._info = info;
+
+    /* Dashes: which title is showing. */
+    hero._dots = el('div', 'hero-dots tvh-dots');
+    abs(hero._dots, ROW_X + ROW_W - 360, 600, 360, 20);
+    for (var d = 0; d < items.length && items.length > 1; d++) { hero._dots.appendChild(el('i', 'hero-dot')); }
+    page.appendChild(hero._dots);
+
+    /* First title: picture and text at once, no waiting for a decode. */
+    img.src = tvHeroImageUrl(items[0]);
+    renderTvHeroText(hero);
+    /* Spanish texts (home/catalog-lang.js) as they arrive. */
+    items.forEach(function (it) {
+      localizeItem(it, function (changed) {
+        if (changed && hero._item === it && hero._info.isConnected) { renderTvHeroText(hero); }
+      });
+    });
+    if (items.length > 1) { (new Image()).src = tvHeroImageUrl(items[1]); }
+
+    tvHeroes.push(hero);
+    if (!tvHeroKeysWatched) {
+      tvHeroKeysWatched = true;
+      document.addEventListener('keydown', function () { tvHeroKeyAt = Date.now(); }, true);
+    }
+    if (!tvHeroTimer) { tvHeroTimer = setInterval(rotateTvHeroes, TVH_ROTATE_MS); }
+    return TVH_ROWS_Y;
   }
 
-  /* Lays the block on the page from y = 20. Returns the y below it, or 0 when
-     the section has no titles with wide art. */
-  function appendTvFeature(page, all, opts) {
-    var pool = [];
-    for (var i = 0; i < all.length && pool.length < 12; i++) {
-      if (tvCardArt(all[i]) && (heroArt(all[i]) || all[i]._trendArt) && hasUsableCover(all[i])) { pool.push(all[i]); }
-    }
-    if (pool.length < 2) { return 0; }
-    /* The list comes best first (the trends, then the portal's titles): the
-       big cards open with #1 and #2, the small ones show #3 to #6, and the big
-       ones then take turns with #7 onwards. */
-    var small = pool.slice(2, 6);
-    var big = pool.slice(0, 2).concat(pool.slice(6));
-    var bigW = Math.floor((ROW_W - TVF_GAP) / 2);
-    var smallW = Math.floor((ROW_W - TVF_GAP * 3) / 4);
-    var y = 20;
-    for (var b = 0; b < 2; b++) {
-      var card = makeFeatureCard(big[b % big.length], ROW_X + b * (bigW + TVF_GAP), y, bigW, TVF_BIG_H, false);
-      card._turns = big.filter(function (v, n) { return n % 2 === b; });
-      card._turn = 0;
-      card._page = page;
-      /* Dashes that tell which of the card's titles is showing. */
-      if (card._turns.length > 1) {
-        card._dots = el('div', 'tvf-dots');
-        for (var d = 0; d < card._turns.length; d++) { card._dots.appendChild(el('i', d === 0 ? 'is-on' : '')); }
-        card.appendChild(card._dots);
-      }
-      page.appendChild(card);
-      if (card._turns.length > 1) { tvFeatureCards.push(card); }
-    }
-    y += TVF_BIG_H + 28;
-    for (var s = 0; s < small.length; s++) {
-      page.appendChild(makeFeatureCard(small[s], ROW_X + s * (smallW + TVF_GAP), y, smallW, TVF_SMALL_H, true));
-    }
-    if (small.length) { y += TVF_SMALL_H + 36; }
-    if (!tvFeatureTimer && tvFeatureCards.length) { tvFeatureTimer = setInterval(rotateTvFeatures, TVF_ROTATE_MS); }
-    return y;
-  }
-
-  /* Every few seconds each big card shows its next title: the new image is
-     loaded first and then swapped in one go (no cross-fade to draw), only on
-     the section on screen and never under the remote. */
-  function rotateTvFeatures() {
-    tvFeatureCards = tvFeatureCards.filter(function (c) { return document.documentElement.contains(c); });
+  function rotateTvHeroes() {
+    tvHeroes = tvHeroes.filter(function (h) { return h._info.isConnected; });
     if (state.screen !== 'home' || document.hidden) { return; }
-    tvFeatureCards.forEach(function (card) {
-      if (!card._page.classList.contains('is-current') || card._page.scrollTop > 200 || state.focus === card) { return; }
-      var next = card._turns[(card._turn + 1) % card._turns.length];
-      var pre = new Image();
-      var apply = function () {
-        if (state.focus === card) { return; }
-        card._turn = (card._turn + 1) % card._turns.length;
-        setFeatureCard(card, next);
-        card._img.src = pre.src;
-        if (card._dots) {
-          for (var d = 0; d < card._dots.children.length; d++) { card._dots.children[d].className = d === card._turn ? 'is-on' : ''; }
-        }
-      };
-      /* Swap only once the new picture is decoded: on a Fire TV the card
-         showed one empty frame otherwise (a flash every 8 s). */
-      pre.onload = function () {
-        if (pre.decode) { pre.decode().then(apply, apply); } else { apply(); }
-      };
-      pre.src = sizedImageUrl(tvCardArt(next), parseFloat(card.style.width));
+    if (Date.now() - tvHeroKeyAt < TVH_IDLE_MS) { return; }
+    tvHeroes.forEach(function (hero) {
+      if (hero._items.length < 2) { return; }
+      if (state.focus && hero._info.contains(state.focus)) { return; }
+      if (!hero._page.classList.contains('is-current') || hero._page.scrollTop > 200) { return; }
+      showTvHero(hero, hero._index + 1);
     });
   }
-
 
   /* ------------------------------------------------------------ Seguir viendo */
   /* Titles started and not finished, newest first. `filter` is 'movie',
@@ -6597,7 +7323,7 @@
      appear or disappear, the page layout changes, so that page is rebuilt the
      next time it is shown. */
   function refreshContinueRows() {
-    if (!window.XUPER_DESKTOP || !pages) { return; }
+    if (!window.OPENTV_DESKTOP || !pages) { return; }
     var alive = [];
     for (var h = 0; h < continueRowHosts.length; h++) {
       if (continueRowHosts[h].parentNode) { alive.push(continueRowHosts[h]); }
@@ -6757,13 +7483,27 @@
     var shown = a.classList.contains('is-shown') ? a : (b.classList.contains('is-shown') ? b : null);
     if (shown && shown.getAttribute('src') === art) { return; }
     var next = shown === a ? b : a;
-    next.onload = function () {
-      next.classList.add('is-shown');
+    /* A big picture that takes a while (or never comes): the previous one
+       fades out instead of staying under another title (Anime showed Inicio's
+       picture under its own first title). */
+    if (heroArtTimer) { clearTimeout(heroArtTimer); heroArtTimer = null; }
+    function dropShown() {
       if (shown && shown !== next) { shown.classList.remove('is-shown'); }
+    }
+    next.onload = function () {
+      if (heroArtTimer) { clearTimeout(heroArtTimer); heroArtTimer = null; }
+      next.classList.add('is-shown');
+      dropShown();
     };
-    next.onerror = function () { next.classList.remove('is-shown'); };
+    next.onerror = function () {
+      if (heroArtTimer) { clearTimeout(heroArtTimer); heroArtTimer = null; }
+      next.classList.remove('is-shown');
+      dropShown();
+    };
     next.src = art;
+    if (!next.complete) { heroArtTimer = setTimeout(function () { heroArtTimer = null; dropShown(); }, 250); }
   }
+  var heroArtTimer = null;
 
   /* Builds the hero block at the top of `page`. Returns the y where the rest
      of the page starts, or 0 when the section has no artwork to show. */
@@ -6787,6 +7527,13 @@
     page.appendChild(dots);
     heroPages[idx] = { items: items, index: 0, info: info, dots: dots, page: page };
     renderHeroInfo(heroPages[idx]);
+    /* Spanish texts (home/catalog-lang.js) as they arrive. */
+    items.forEach(function (it) {
+      localizeItem(it, function (changed) {
+        var h = heroPages[idx];
+        if (changed && h && h.items[h.index] === it && h.info.isConnected) { renderHeroInfo(h); }
+      });
+    });
     if (!page._heroScroll) {
       page._heroScroll = true;
       page.addEventListener('scroll', function () {
@@ -6808,7 +7555,7 @@
       info.appendChild(el('div', 'hero-kicker', isSeriesItem(item) ? 'Serie' : 'Película'));
       /* Long titles get a smaller size instead of being cut. */
       var len = String(item.title || '').length;
-      info.appendChild(el('div', 'hero-title' + (len > 52 ? ' is-xlong' : len > 30 ? ' is-long' : ''), item.title));
+      info.appendChild(el('div', 'hero-title' + (len > 80 ? ' is-xxlong' : len > 52 ? ' is-xlong' : len > 30 ? ' is-long' : ''), item.title));
       info.appendChild(el('div', 'hero-meta', itemMetaLine(item)));
       var genres = itemGenres(item, 3);
       if (genres.length) { info.appendChild(el('div', 'hero-genres', genres.join('  •  '))); }
@@ -6859,7 +7606,7 @@
 
   /* Called when the home page changes (or the home screen shows again). */
   function showHeroForPage(idx) {
-    if (!window.XUPER_DESKTOP) { return; }
+    if (!window.OPENTV_DESKTOP) { return; }
     var h = heroPages[idx];
     var layer = ensureHeroLayer();
     heroShownPage = h && h.info.isConnected ? idx : -1;
@@ -6935,7 +7682,7 @@
   /* Electron asks its main process; TVs and Android ask the service (method
      "tmdb"), which keeps the key. Both answer { items } or { error }. */
   function tmdbApi() {
-    if (!window.XUPER_DESKTOP) { return null; }
+    if (!window.OPENTV_DESKTOP) { return null; }
     if (window.desktop && window.desktop.tmdb) { return window.desktop.tmdb; }
     return function (list) {
       return new Promise(function (resolve) {
@@ -6950,6 +7697,8 @@
      TMDB for it ('inicio' mixes movies and series), only titles our catalogue
      can play, the lists taking turns. */
   function sectionTrendItems(key) {
+    /* An anime catalog (Kitsu) brings its own trends, first in its rows. */
+    if (key === 'anime' && animeCatalogInstalled) { return []; }
     var want = TREND_SECTIONS[key] || [];
     var lists = [];
     for (var t = 0; t < trendingRows.length; t++) {
@@ -7002,18 +7751,9 @@
     return best;
   }
 
-  function searchPortalFor(t, done) {
-    if (vodApi.mode !== 'portal' || getVodSourcesConfig().mode === 'external') { done(null); return; }
-    portalServiceCall('search', { value: t.title, pageNum: 1, pageSize: 10 }, function (error, payload) {
-      if (error || !payload || !payload.items) { done(null); return; }
-      var found = [];
-      for (var i = 0; i < payload.items.length; i++) {
-        var item = normalizeVod(payload.items[i], i + 1);
-        item._portal = true;
-        found.push(item);
-      }
-      done(catalogMatch(t, found));
-    });
+  /* A trend that is not in the loaded rows: searched in the addons. */
+  function searchAddonsFor(t, done) {
+    searchStremioAddons(t.title, function (found) { done(found && found.length ? catalogMatch(t, found) : null); }, null, true);
   }
 
   /* Keeps the matched titles for a TMDB list, in TMDB order. */
@@ -7026,6 +7766,12 @@
       if (tmdbItems[idx].backdrop && !hit._trendArt) { hit._trendArt = tmdbItems[idx].backdrop; }
       out[idx] = hit;
     }
+    /* Nothing that is not out yet (the service drops it too; this covers an
+       answer it kept in its cache from before). Local date, as TMDB's. */
+    var now = new Date();
+    var today = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
+    tmdbItems = tmdbItems.filter(function (t) { return !t.date || t.date <= today; });
+    out = new Array(tmdbItems.length);
     for (var i = 0; i < tmdbItems.length; i++) {
       var hit = catalogMatch(tmdbItems[i], VOD);
       if (hit) { keep(i, hit); } else { missing.push(i); }
@@ -7041,7 +7787,7 @@
     }
     if (!pending) { finish(); return; }
     missing.slice(0, searches).forEach(function (idx) {
-      searchPortalFor(tmdbItems[idx], function (hit) {
+      searchAddonsFor(tmdbItems[idx], function (hit) {
         if (hit) { keep(idx, hit); }
         if (--pending === 0) { finish(); }
       });
@@ -7050,7 +7796,8 @@
 
   function trendingRowsFromCache() {
     var saved = safeLocalRead(trendingCacheKey(), null);
-    if (!saved || !saved.rows || Date.now() - (saved.at || 0) > TRENDING_TTL_MS * 4) { return null; }
+    /* (v2: trends without films that are not out yet; older saved ones go.) */
+    if (!saved || !saved.rows || saved.v !== 2 || Date.now() - (saved.at || 0) > TRENDING_TTL_MS * 4) { return null; }
     return saved;
   }
 
@@ -7070,6 +7817,8 @@
     var results = [];
     var left = TRENDING_LISTS.length;
     TRENDING_LISTS.forEach(function (def, n) {
+      /* (No addon searches for TMDB's anime when Kitsu gives Anime's top.) */
+      if (def.list === 'anime-tv' && animeCatalogInstalled) { setTimeout(function () { step(n, null); }, 0); return; }
       api(def.list).then(function (answer) {
         if (!answer || !answer.items || !answer.items.length) { step(n, null); return; }
         matchTrending(def, answer.items, function (row) { step(n, row); });
@@ -7082,7 +7831,7 @@
       var rows = results.filter(function (r) { return !!r; });
       if (!rows.length) { return; }
       trendingRows = rows;
-      safeLocalWrite(trendingCacheKey(), { at: Date.now(), rows: rows });
+      safeLocalWrite(trendingCacheKey(), { v: 2, at: Date.now(), rows: rows });
       refreshTrendingPage();
     }
   }
@@ -7133,6 +7882,195 @@
     setInterval(loadTrending, TRENDING_TTL_MS);
   }
 
+  /* ---- home/catalog-lang.js -------------------------------------------------- */
+  /* home/catalog-lang.js — Idioma del catálogo: en español (por defecto) el título, la sinopsis y los episodios de los títulos de los addons se toman de TMDB.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* The catalogue still comes from the addons (Cinemeta answers in English);
+     only what is shown is translated, through the service's TMDB lookups
+     ("es:<imdb id>", "es-season:<tmdb id>:<season>", service/tmdb.js and
+     Tmdb.java). Titles without an IMDb id (Kitsu's anime) stay as they are.
+     The English texts are kept (item._en): the search still finds a title by
+     its English name, and switching to Inglés reloads the app with them. */
+  var CATALOG_LANG_KEY = 'opentv_catalog_lang_v1';
+  var CATALOG_ES_CACHE_KEY = 'opentv_catalog_es_v1';
+  var CATALOG_ES_CACHE_MAX = 600;
+  var catalogEsCache = null;
+  var catalogEsSaveTimer = null;
+  var catalogEsWaiting = {};
+
+  function catalogLang() { return safeLocalRead(CATALOG_LANG_KEY, 'es') === 'en' ? 'en' : 'es'; }
+
+  function setCatalogLang(lang) {
+    var next = lang === 'en' ? 'en' : 'es';
+    if (next === catalogLang()) { return; }
+    safeLocalWrite(CATALOG_LANG_KEY, next);
+    /* Every screen shows the other texts at once: start again. */
+    setTimeout(function () { location.reload(); }, 150);
+  }
+
+  function itemImdbId(item) {
+    var id = String((item && item._stremioId) || '');
+    return /^tt\d{5,10}$/.test(id) ? id : '';
+  }
+
+  /* imdb id -> { t: title, o: overview, id: tmdb id, k: 'movie'|'tv', at }.
+     One cache for every profile (texts, not choices), on its own key. */
+  function catalogEsStore() {
+    if (catalogEsCache) { return catalogEsCache; }
+    catalogEsCache = {};
+    try {
+      var raw = localStorage.getItem(CATALOG_ES_CACHE_KEY);
+      var parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === 'object') { catalogEsCache = parsed; }
+    } catch (eRead) { /* storage off */ }
+    return catalogEsCache;
+  }
+
+  function saveCatalogEsSoon() {
+    if (catalogEsSaveTimer) { return; }
+    catalogEsSaveTimer = setTimeout(function () {
+      catalogEsSaveTimer = null;
+      var store = catalogEsStore();
+      var keys = Object.keys(store);
+      if (keys.length > CATALOG_ES_CACHE_MAX) {
+        keys.sort(function (a, b) { return (store[a].at || 0) - (store[b].at || 0); });
+        for (var i = 0; i < keys.length - CATALOG_ES_CACHE_MAX; i++) { delete store[keys[i]]; }
+      }
+      try { localStorage.setItem(CATALOG_ES_CACHE_KEY, JSON.stringify(store)); } catch (eSave) { /* full */ }
+    }, 1500);
+  }
+
+  function applyEsTexts(item, es) {
+    if (!item._en) { item._en = { title: item.title, synopsis: item.synopsis, alias: item.alias }; }
+    if (es.t) {
+      item.title = es.t;
+      /* The English name stays searchable. */
+      if (!item.alias || item.alias === item._en.title) { item.alias = item._en.title; }
+    }
+    if (es.o) { item.synopsis = es.o; item._esShown = true; }
+    item._esTmdb = es.id || 0;
+    item._esKind = es.k || '';
+  }
+
+  /* Gives `item` its Spanish texts: from the cache at once, else from TMDB.
+     done(changed) runs once they are in (changed false when nothing to do). */
+  function localizeItem(item, done) {
+    done = done || function () {};
+    if (!item || catalogLang() !== 'es') { done(false); return; }
+    if (item._esDone) { done(false); return; }
+    var imdb = itemImdbId(item);
+    if (!imdb) { item._esDone = true; done(false); return; }
+    var hit = catalogEsStore()[imdb];
+    if (hit) { applyEsTexts(item, hit); item._esDone = true; done(true); return; }
+    var api = typeof tmdbApi === 'function' ? tmdbApi() : null;
+    if (!api) { done(false); return; }
+    /* One request per title, however many places ask for it. */
+    if (catalogEsWaiting[imdb]) { catalogEsWaiting[imdb].push({ item: item, done: done }); return; }
+    catalogEsWaiting[imdb] = [{ item: item, done: done }];
+    api('es:' + imdb).then(function (out) {
+      var waiting = catalogEsWaiting[imdb] || [];
+      delete catalogEsWaiting[imdb];
+      var found = out && !out.error && out.item;
+      var es = found ? { t: found.title || '', o: found.overview || '', id: found.tmdbId, k: found.kind, at: Date.now() } : null;
+      /* Not on TMDB: remembered too, so it is not asked again. */
+      if (out && !out.error) {
+        catalogEsStore()[imdb] = es || { t: '', o: '', id: 0, k: '', at: Date.now() };
+        saveCatalogEsSoon();
+      }
+      waiting.forEach(function (w) {
+        if (es) { applyEsTexts(w.item, es); }
+        w.item._esDone = !!(out && !out.error);
+        w.done(!!es);
+      });
+    });
+  }
+
+  /* The episodes of one season of a series in Spanish (names and summaries),
+     once its Spanish texts are known. done(changed). */
+  function localizeSeason(item, seasonNumber, episodes, done) {
+    done = done || function () {};
+    if (!item || catalogLang() !== 'es' || !episodes || !episodes.length || !seasonNumber) { done(false); return; }
+    localizeItem(item, function () {
+      var tmdbId = item._esTmdb;
+      if (!tmdbId || item._esKind !== 'tv') { done(false); return; }
+      var key = tmdbId + ':' + seasonNumber;
+      if (episodes._esKey === key) { done(false); return; }
+      var api = typeof tmdbApi === 'function' ? tmdbApi() : null;
+      if (!api) { done(false); return; }
+      api('es-season:' + key).then(function (out) {
+        var list = out && !out.error && out.episodes;
+        if (!list || !list.length) { done(false); return; }
+        var byNumber = {};
+        for (var i = 0; i < list.length; i++) { byNumber[list[i].number] = list[i]; }
+        var changed = false;
+        for (var e = 0; e < episodes.length; e++) {
+          var ep = episodes[e];
+          var n = ep.number !== undefined && ep.number !== null ? ep.number : e + 1;
+          var es = byNumber[n];
+          if (!es) { continue; }
+          if (!ep._en) { ep._en = { title: ep.title, synopsis: ep.synopsis }; }
+          /* TMDB says "Episodio 5" when it has no Spanish name: keep the
+             addon's one then. */
+          if (es.title && !/^(episodio|episode)\s*\d+$/i.test(es.title)) { ep.title = es.title; changed = true; }
+          if (es.overview) { ep.synopsis = es.overview; changed = true; }
+        }
+        episodes._esKey = key;
+        done(changed);
+      });
+    });
+  }
+
+  /* Anime from Kitsu: its episode pictures are uploaded by people and come in
+     every size and quality (825 px to heavily compressed 4K). When the series
+     is found on TMDB with certainty, its own pictures (and, in Spanish, the
+     episode names) are used instead:
+     - a TV series first aired the same year as Kitsu's entry (Kitsu lists
+       each season apart: "Attack on Titan" 2017 is the 2nd season, not found
+       here, so nothing changes), and
+     - whose first season has exactly as many episodes.
+     Anything else keeps Kitsu's pictures. done(changed). */
+  function animeEpisodeStills(item, episodes, done) {
+    done = done || function () {};
+    var id = String((item && item._stremioId) || '');
+    if (!/^kitsu:/.test(id) || !episodes || !episodes.length || episodes._stillsKey) { done(false); return; }
+    var api = typeof tmdbApi === 'function' ? tmdbApi() : null;
+    var year = String((item && item.year) || '').slice(0, 4);
+    if (!api || !/^\d{4}$/.test(year)) { done(false); return; }
+    episodes._stillsKey = 'pending';
+    var name = (item._en && item._en.title) || item.title || '';
+    api('search:' + name).then(function (out) {
+      var list = (out && !out.error && out.items) || [];
+      var show = null;
+      for (var i = 0; i < list.length && !show; i++) {
+        if (list[i].kind === 'tv' && String(list[i].year) === year) { show = list[i]; }
+      }
+      if (!show) { episodes._stillsKey = 'none'; done(false); return; }
+      api('es-season:' + show.tmdbId + ':1').then(function (s) {
+        var eps = (s && !s.error && s.episodes) || [];
+        if (eps.length !== episodes.length) { episodes._stillsKey = 'none'; done(false); return; }
+        var byNumber = {};
+        for (var k = 0; k < eps.length; k++) { byNumber[eps[k].number] = eps[k]; }
+        var changed = false;
+        var spanish = catalogLang() === 'es';
+        for (var e = 0; e < episodes.length; e++) {
+          var ep = episodes[e];
+          var n = ep.number !== undefined && ep.number !== null ? ep.number : e + 1;
+          var match = byNumber[n];
+          if (!match) { continue; }
+          if (match.still) { ep._kitsuThumb = ep.thumb; ep.thumb = match.still; changed = true; }
+          if (spanish) {
+            if (!ep._en) { ep._en = { title: ep.title, synopsis: ep.synopsis }; }
+            if (match.title && !/^(episodio|episode)\s*\d+$/i.test(match.title)) { ep.title = match.title; changed = true; }
+            if (match.overview) { ep.synopsis = match.overview; changed = true; }
+          }
+        }
+        episodes._stillsKey = String(show.tmdbId);
+        done(changed);
+      });
+    });
+  }
+
   /* ---- screens/detail.js ----------------------------------------------------- */
   /* screens/detail.js — Ficha de un título: datos, botones, temporadas, episodios y recomendaciones.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
@@ -7141,11 +8079,32 @@
   /* Back from the player: bring the resume button ("Reanudar · 25:10") up to
      date. Returns true when the buttons had to be rebuilt (never now). */
   function refreshDetailResume(item) {
-    if (!window.XUPER_DESKTOP || !item || !detailButtons) { return false; }
+    if (!window.OPENTV_DESKTOP || !item || !detailButtons) { return false; }
     var label = resumeLabelFor(item) || 'Reproducir';
     var span = detailButtons.querySelector('.detail-btn[data-kind="fullscreen"] span');
     if (span && span.textContent !== label) { span.textContent = label; }
+    syncStartOverButton(item);
     return false;
+  }
+
+  /* "Ver desde el principio" shows only when Reproducir would resume. */
+  function syncStartOverButton(item) {
+    var btn = detailButtons && detailButtons.querySelector('.detail-btn[data-kind="restart"]');
+    if (!btn) { return; }
+    var show = canStartOver(item, isSeriesItem(item) ? state.detailEpisode : null);
+    btn.style.display = show ? '' : 'none';
+    /* The focus never stays on a button that just went away. */
+    if (!show && state.focus === btn) {
+      var play = detailButtons.querySelector('.detail-btn[data-kind="fullscreen"]');
+      if (play) { setFocus(play); }
+    }
+  }
+
+  /* PC and TV: the details screen shows the title's picture, faded into the
+     page behind the text, not a small playing preview (it searched sources
+     and loaded a video just to look at a title). Reproducir goes full screen. */
+  function detailShowsArt() {
+    return !!window.OPENTV_DESKTOP;
   }
 
   function openDetail(item) {
@@ -7181,7 +8140,7 @@
     }
     resetResumePlan();
     preferHistoryEpisode(item);
-    if (window.XUPER_DESKTOP && pendingHistoryRecord && item.seasons && item.seasons.length > 1) {
+    if (window.OPENTV_DESKTOP && pendingHistoryRecord && item.seasons && item.seasons.length > 1) {
       var wantedSid = String(pendingHistoryRecord.seasonId || pendingHistoryRecord.id || '');
       for (var hs = 0; hs < item.seasons.length; hs++) {
         if (String(item.seasons[hs].id) === wantedSid) {
@@ -7205,14 +8164,30 @@
     }
     ensureMediaInfo(item);
 
+    /* Spanish texts (home/catalog-lang.js): from the cache before drawing;
+       when they come from TMDB a moment later, they are put in place. */
+    localizeItem(item, function (changed) {
+      if (!changed || state.detail !== item || !detailLeft || !detailLeft.isConnected) { return; }
+      var tNode = detailLeft.querySelector('.detail-title');
+      if (tNode) { tNode.textContent = item.title; }
+      var sNode = detailLeft.querySelector('.detail-synopsis .text');
+      if (sNode) { sNode.textContent = item.synopsis; }
+    });
+
     buildDetail(item);
     showScreen('detail');
 
     /* Mostrar reproductor en recuadro mini */
     if (!playerStage) { buildPlayer(); }
     var scrPlayer = $('screen-player');
-    /* (TVs: no small player on the details screen, only the picture.) */
-    if (scrPlayer && !platformIsTv()) {
+    /* (PC and TVs: no small player on the details screen, only the picture.) */
+    var scrDetailPage = $('screen-detail');
+    if (scrDetailPage) {
+      /* (TVs: the whole screen scrolls as one page, core/focus.js reveal.) */
+      scrDetailPage.scrollTop = 0;
+      scrDetailPage._tvTop = 0;
+    }
+    if (scrPlayer && !detailShowsArt()) {
       scrPlayer.classList.add('is-mini');
       scrPlayer.classList.add('is-active');
       /* The title's picture while the preview loads (or when there is none:
@@ -7228,25 +8203,16 @@
     if (f) { setFocus(f); }
 
     if (item._detailsLoaded) {
-      var recSeason = window.XUPER_DESKTOP && pendingHistoryRecord && item.seasons && item.seasons[state.detailSeason];
-      if (recSeason && recSeason.id && String(recSeason.id) !== String(item.seasonId || item.id) &&
-          (!recSeason._episodes || !recSeason._episodes.length)) {
-        if (autoPreviewAllowed(item)) { setPlayerStatus('Preparando la reproducción…'); }
-        portalServiceCall('detail', { contentId: recSeason.id }, function (sErr, sPayload) {
-          if (!sErr && sPayload && sPayload.returnValue !== false) {
-            item.episodes = sPayload.episodes || [];
-            item.seasonId = recSeason.id;
-            recSeason._episodes = item.episodes;
-            applyPendingHistoryEpisode(item);
-          }
-          if (state.screen === 'detail' && state.detail === item) {
-            buildDetail(item);
-            if (autoPreviewAllowed(item)) { startPlayerVideo(item, state.detailEpisode); }
-          }
-        });
-      } else if (autoPreviewAllowed(item)) {
-        startPlayerVideo(item, state.detailEpisode);
+      /* "Seguir viendo" on another season: its episodes came with the title. */
+      var recSeason = window.OPENTV_DESKTOP && pendingHistoryRecord && item.seasons && item.seasons[state.detailSeason];
+      if (recSeason && recSeason._episodes && recSeason._episodes.length &&
+          String(recSeason.id) !== String(item.seasonId || item.id)) {
+        item.episodes = recSeason._episodes;
+        item.seasonId = recSeason.id;
+        applyPendingHistoryEpisode(item);
+        buildDetail(item);
       }
+      if (autoPreviewAllowed(item)) { startPlayerVideo(item, state.detailEpisode); }
     } else {
       if (autoPreviewAllowed(item)) { setPlayerStatus('Preparando la reproducción…'); }
       loadVodDetail(item, function (loaded) {
@@ -7264,7 +8230,7 @@
     if (!screen) { return; }
     var open = !screen.classList.contains('is-synopsis-open');
     screen.classList.toggle('is-synopsis-open', open);
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       var backdrop = screen.querySelector('.synopsis-backdrop');
       if (!backdrop) {
         backdrop = el('div', 'synopsis-backdrop');
@@ -7277,18 +8243,20 @@
     }
     var more = document.querySelector('.detail-more');
     if (more) {
-      more.textContent = window.XUPER_DESKTOP ? (open ? '✕  Cerrar' : 'Leer más') : (open ? 'Menos' : 'Más');
+      more.textContent = window.OPENTV_DESKTOP ? (open ? '✕  Cerrar' : 'Leer más') : (open ? 'Menos' : 'Más');
     }
   }
 
   /* Line icons for the desktop detail buttons (currentColor, 24px grid). */
   var DESKTOP_DETAIL_ICONS = {
     fullscreen: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>',
+    restart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>',
     language: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 11h3M13 11h4M7 15h6M15 15h2"/></svg>',
     favorite: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.1a4.3 4.3 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20z"/></svg>',
     mylist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6.5 3.5h11v17l-5.5-3.8-5.5 3.8z"/></svg>',
     mode: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></svg>',
-    source: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h11M4 12h16M4 17h9"/><path d="m17 4 3 3-3 3"/></svg>'
+    source: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h11M4 12h16M4 17h9"/><path d="m17 4 3 3-3 3"/></svg>',
+    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg>'
   };
 
   function buildDetail(item) {
@@ -7300,8 +8268,12 @@
 
     /* left column: 806px at 80/50 */
     var tw = el('div', 'detail-titlewrap');
-    tw.appendChild(el('div', 'detail-title', item.title));
-    tw.appendChild(el('div', 'detail-score', item.score));
+    /* Long titles (anime: "… Season 2 - Arise from the Shadow") get a
+       smaller size and every line shows; fitDetailLeft shrinks more if needed. */
+    var titleLen = String(item.title || '').length;
+    tw.appendChild(el('div', 'detail-title' + (titleLen > 70 ? ' is-xlong' : titleLen > 40 ? ' is-long' : ''), item.title));
+    /* No rating from the addon: no empty "★ —" badge. */
+    if (item.score && !/^[\s—–-]*$/.test(String(item.score))) { tw.appendChild(el('div', 'detail-score', item.score)); }
     detailLeft.appendChild(tw);
 
     var metaText;
@@ -7319,7 +8291,10 @@
       parts.push('HD');
       metaText = parts.join('  ·  ');
     }
-    detailLeft.appendChild(el('div', 'detail-meta', metaText));
+    /* PC: a tighter top. Year · length · HD go on the genres' line, and
+       Dirección / Reparto on one line (below). */
+    var pcPage = !!window.OPENTV_DESKTOP && !platformIsTv();
+    if (!pcPage) { detailLeft.appendChild(el('div', 'detail-meta', metaText)); }
 
     /* mTextUpdate: gold "T10 - E73", series only. The season comes from the
        alias ("... S10") or the season list; the count is the episode total. */
@@ -7347,24 +8322,41 @@
     for (var g = 0; g < genreList.length; g++) {
       genres.appendChild(el('div', 'chip', genreList[g]));
     }
+    if (pcPage) {
+      genres.classList.add('has-meta');
+      genres.insertBefore(el('span', 'detail-meta is-inline', metaText), genres.firstChild);
+    }
     detailLeft.appendChild(genres);
 
-    var desk = !!window.XUPER_DESKTOP;
+    var desk = !!window.OPENTV_DESKTOP;
     function emptyValue(v) { return !v || /^[\s—–\-]*$/.test(String(v)); }
 
+    if (pcPage && !(emptyValue(item.director) && emptyValue(item.actors))) {
+      var credits = el('div', 'detail-row is-credits');
+      if (!emptyValue(item.director)) {
+        credits.appendChild(el('span', 'row-label', 'Dirección'));
+        credits.appendChild(el('span', 'val', item.director));
+      }
+      if (!emptyValue(item.actors)) {
+        if (!emptyValue(item.director)) { credits.appendChild(el('span', 'row-sep', '·')); }
+        credits.appendChild(el('span', 'row-label', 'Reparto'));
+        credits.appendChild(el('span', 'val', String(item.actors).replace(/\s*,\s*/g, ', ')));
+      }
+      detailLeft.appendChild(credits);
+    }
     var dir = el('div', 'detail-row');
     if (desk) { dir.appendChild(el('span', 'row-label', 'Dirección')); }
     else { dir.appendChild(document.createTextNode('Director : ')); }
     var dirV = el('span', 'val', item.director);
     dir.appendChild(dirV);
-    if (!(desk && emptyValue(item.director))) { detailLeft.appendChild(dir); }
+    if (!(desk && emptyValue(item.director)) && !pcPage) { detailLeft.appendChild(dir); }
 
     var act = el('div', 'detail-row');
     if (desk) { act.appendChild(el('span', 'row-label', 'Reparto')); }
     else { act.appendChild(document.createTextNode('Actors : ')); }
     var actV = el('span', 'val', desk ? String(item.actors || '').replace(/\s*,\s*/g, ', ') : item.actors);
     act.appendChild(actV);
-    if (!(desk && emptyValue(item.actors))) { detailLeft.appendChild(act); }
+    if (!(desk && emptyValue(item.actors)) && !pcPage) { detailLeft.appendChild(act); }
 
     var syn = el('div', 'detail-synopsis');
     syn.appendChild(el('span', 'label', desk ? 'Sinopsis' : 'Sinopsis : '));
@@ -7379,7 +8371,8 @@
 
     /* player window 765x430 at right 80 / top 50. */
     clear(detailPlayer);
-    if (platformIsTv()) {
+    detailPlayer.classList.toggle('is-art', detailShowsArt());
+    if (detailShowsArt()) {
       /* TVs: the title's picture instead of a playing preview (a second video
          next to the buttons came out black on the Fire TV and slowed the whole
          screen down). Reproducir opens the full-screen player. */
@@ -7395,6 +8388,27 @@
       detailPlayer.classList.add('focusable');
       detailPlayer._activate = function () { expandToFullscreen(item, state.detailEpisode); };
       detailPlayer._onMove = function () { return false; };
+      /* Addon titles play no preview here (it could start a torrent just by
+         opening the page): their picture instead, with a play mark, until the
+         title is playing in this box. */
+      var playingHere = state.playerItem === item && playerVideo && playerVideo.currentSrc;
+      var pcArt = !autoPreviewAllowed(item) && !playingHere ? (heroArt(item) || item.poster) : '';
+      if (pcArt) {
+        var pic = el('div', 'detail-pc-art');
+        pic.style.backgroundImage = 'url("' + String(sizedImageUrl(pcArt, 1280)).replace(/"/g, '%22') + '")';
+        var mark = el('i', 'detail-pc-play');
+        mark.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>';
+        pic.appendChild(mark);
+        detailPlayer.appendChild(pic);
+        /* Once a video plays in this box, the picture steps aside. */
+        if (playerVideo) {
+          var dropArt = function () {
+            playerVideo.removeEventListener('playing', dropArt);
+            if (pic.parentNode) { pic.parentNode.removeChild(pic); }
+          };
+          playerVideo.addEventListener('playing', dropArt);
+        }
+      }
     }
 
     /* buttons 276x68, gap 30 */
@@ -7408,21 +8422,47 @@
       btnDefs.push({ icon: 'icon_detail_subscribe.png', label: 'Notificaciones', kind: 'subscribe' });
     }
     if (desk) {
-      /* Reanudar (always where it was left) · Idioma y subtítulos · two
-         icon-only toggles: Favorito and Mi lista. */
+      /* Two groups, one big button. Watching: Reproducir (with Cambiar
+         fuente joined to it) and Idioma y subtítulos. Then, after a line, the
+         viewer's own: Favorito, Mi lista, Descargar. Icons show their name
+         as a tooltip, and on a TV / keyboard when they have the focus. */
       btnDefs = [
-        { label: resumeLabelFor(item) || 'Reproducir', kind: 'fullscreen' },
-        { label: 'Idioma y subtítulos', kind: 'language' },
-        { label: state.favs[String(item.id)] ? 'Quitar de favoritos' : 'Añadir a favoritos', kind: 'favorite', iconOnly: true },
-        { label: inMyList(item) ? 'Quitar de Mi lista' : 'Añadir a Mi lista', kind: 'mylist', iconOnly: true }
+        { label: resumeLabelFor(item) || 'Reproducir', kind: 'fullscreen' }
       ];
-      /* Stremio mode: choose another source (quality, torrent or direct link). */
-      if (item._stremio && !item._plain) {
-        btnDefs.push({ label: 'Cambiar fuente', kind: 'source' });
+      var canChooseSource = item._stremio && !item._plain && !item._downloadId;
+      if (canChooseSource) { btnDefs.push({ label: 'Cambiar fuente', kind: 'source', iconOnly: true, attached: true }); }
+      /* Hidden by syncStartOverButton while there is nothing to resume. */
+      btnDefs.push({ label: 'Ver desde el principio', kind: 'restart', iconOnly: true });
+      btnDefs.push({ label: 'Idioma y subtítulos', kind: 'language', iconOnly: true });
+      btnDefs.push({ label: state.favs[String(item.id)] ? 'Quitar de favoritos' : 'Añadir a favoritos', kind: 'favorite', iconOnly: true, group: true });
+      btnDefs.push({ label: inMyList(item) ? 'Quitar de Mi lista' : 'Añadir a Mi lista', kind: 'mylist', iconOnly: true });
+      if (canChooseSource) {
+        /* PC: save the movie or the selected episode to watch without internet. */
+        if (platformHas('downloads')) {
+          var dl = downloadFor(item, isSeriesItem(item) ? state.detailEpisode : null);
+          btnDefs.push({ label: dl && dl.status === 'done' ? 'Descargado' : (dl && dl.status !== 'error' && dl.status !== 'missing' ? 'Descargando…' : 'Descargar'),
+            kind: 'download', iconOnly: true });
+        }
       }
     }
+    /* No addon with sources: information only, and where to add one. */
+    var canPlay = !item._stremio || item._downloadId || hasSourceAddons() || !!downloadedFileFor(item, state.detailEpisode);
+    if (!canPlay) {
+      btnDefs = btnDefs.filter(function (d) { return d.kind === 'favorite' || d.kind === 'mylist'; });
+      var noSrc = el('div', 'detail-nosrc');
+      noSrc.appendChild(el('span', 'detail-nosrc-text', 'Para reproducir, agrega un addon de fuentes.'));
+      var goAddons = el('div', 'detail-btn focusable detail-nosrc-btn');
+      goAddons.appendChild(el('span', null, 'Ir a Addons'));
+      goAddons._activate = function () { openSettingsAt('sources'); };
+      noSrc.appendChild(goAddons);
+      detailButtons.appendChild(noSrc);
+    }
     for (var b = 0; b < btnDefs.length; b++) {
+      /* The line between "watch" and "mine". */
+      if (btnDefs[b].group && b > 0) { detailButtons.appendChild(el('i', 'detail-btn-sep')); }
       var btn = el('div', 'detail-btn focusable');
+      if (btnDefs[b].attached) { btn.classList.add('is-attached'); }
+      if (btnDefs[b + 1] && btnDefs[b + 1].attached) { btn.classList.add('has-attached'); }
       btn.setAttribute('data-kind', btnDefs[b].kind);
       if (desk && DESKTOP_DETAIL_ICONS[btnDefs[b].kind]) {
         var svgWrap = el('i', 'detail-btn-icon');
@@ -7447,15 +8487,17 @@
         btn.classList.add('is-selected');
         if (!desk) { btn.querySelector('span').textContent = 'En favoritos'; }
       }
-      if (window.XUPER_DESKTOP && btnDefs[b].kind === 'subscribe') {
+      if (window.OPENTV_DESKTOP && btnDefs[b].kind === 'subscribe') {
         btn.setAttribute('aria-disabled', 'true');
         btn.title = 'Las notificaciones del servicio no están disponibles';
       }
       btn._activate = (function (kind, it) {
         return function () {
-          if (kind === 'fullscreen') { expandToFullscreen(it, state.detailEpisode); }
+          if (kind === 'fullscreen') { resumeFromStartKey = ''; expandToFullscreen(it, state.detailEpisode); }
+          else if (kind === 'restart') { startOverTitle(it, isSeriesItem(it) ? state.detailEpisode : null); }
           else if (kind === 'language') { openPlaySettingsDialog(it); }
           else if (kind === 'source') { changeStremioSource(it, state.detailEpisode); }
+          else if (kind === 'download') { startTitleDownload(it, state.detailEpisode); }
           else if (kind === 'favorite' || kind === 'mylist') {
             var enabled = kind === 'favorite' ? toggleFavorite(it) : toggleMyList(it);
             this.classList.toggle('is-selected', enabled);
@@ -7477,6 +8519,7 @@
       })(btnDefs[b].kind, item);
       detailButtons.appendChild(btn);
     }
+    syncStartOverButton(item);
     var modeBtn = el('div', 'detail-btn focusable');
     modeBtn.setAttribute('data-kind', 'mode');
     if (desk) {
@@ -7504,11 +8547,11 @@
       setSmoothMode(item, state.streamMode !== 'smooth');
       modeLabel.textContent = modeText();
       modeBtn.classList.toggle('is-on', state.streamMode === 'smooth');
-      if (window.XUPER_DESKTOP && state.playerItem === item && playerVideo && playerVideo.currentSrc) restartCurrentPlayback();
+      if (window.OPENTV_DESKTOP && state.playerItem === item && playerVideo && playerVideo.currentSrc) restartCurrentPlayback();
     };
     /* Desktop: compatibility is automatic (see tryCompatFallback); the manual
        choice lives in the player settings, not next to Play. */
-    if (!desk) { detailButtons.appendChild(modeBtn); }
+    if (!desk && canPlay) { detailButtons.appendChild(modeBtn); }
 
     renderDetailBottom(item);
     /* Rebuilt once the full details arrive: the remote must not stay on the
@@ -7519,11 +8562,14 @@
     }
   }
 
-  /* Episode ranges are chunks of 20 ("1-20", "21-40", ...) as observed. */
+  /* Episode ranges: only very long series are split ("1-100", "101-200"…),
+     so a season of 25 is one row (it was cut at 20 for no reason); a
+     1,000-episode anime still does not draw every card at once. */
+  var DETAIL_RANGE_SIZE = 100;
   function detailRanges(count) {
     var out = [];
-    for (var s = 0; s < count; s += 20) {
-      out.push({ start: s, end: Math.min(count, s + 20) });
+    for (var s = 0; s < count; s += DETAIL_RANGE_SIZE) {
+      out.push({ start: s, end: Math.min(count, s + DETAIL_RANGE_SIZE) });
     }
     return out;
   }
@@ -7569,7 +8615,7 @@
     if (arrow) { arrow.classList.add('is-open'); }
 
     seasonPopup = el('div', 'season-popup');
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       /* Flow layout: open right under the season button. */
       /* Many seasons (Anatomía según Grey has 22): a compact grid of numbers
          so they all fit without scrolling. */
@@ -7588,7 +8634,7 @@
         var isSelected = sIndex === state.detailSeason;
         var pItem = el('div', 'season-popup-item focusable' + (isSelected ? ' is-selected' : ''));
         var sText = 'Temporada ' + (sData.number || (sIndex + 1));
-        var compact = window.XUPER_DESKTOP && item.seasons.length > 6;
+        var compact = window.OPENTV_DESKTOP && item.seasons.length > 6;
         pItem.appendChild(el('span', 'season-item-text', compact ? String(sData.number || (sIndex + 1)) : sText));
         if (compact) { pItem.title = sText; }
 
@@ -7603,31 +8649,19 @@
             state.detailSeason = sIndex;
             state.detailRange = 0;
             state.detailEpisode = null;
+            /* The addon gave every season's episodes with the title. */
             var targetSeason = item.seasons[sIndex];
-            if (targetSeason && targetSeason.id) {
-              setPlayerStatus('Cargando temporada…');
-              portalServiceCall('detail', { contentId: targetSeason.id }, function (err, payload) {
-                /* Another season (or title) was picked meanwhile: a late reply
-                   must not overwrite its episodes. */
-                if (state.detail !== item || state.detailSeason !== sIndex) { return; }
-                setPlayerStatus('');
-                if (!err && payload && payload.returnValue !== false) {
-                  if (payload.item) { mergeDetail(item, payload.item); }
-                  item.episodes = payload.episodes || [];
-                  item.seasonId = targetSeason.id;
-                  targetSeason._episodes = item.episodes;
-                  state.detailEpisode = item.episodes[0] || null;
-                }
-                /* The viewer left the detail page: keep the episodes for when
-                   it is opened again, but do not start a hidden video. */
-                if (state.screen !== 'detail') { state.detailNeedsRebuild = true; return; }
-                buildDetail(item);
-                if (state.detailEpisode) {
-                  startPlayerVideo(item, state.detailEpisode);
-                }
-                var sBtn = detailBottom ? detailBottom.querySelector('.detail-season') : null;
-                if (sBtn) { setFocus(sBtn); }
-              });
+            if (targetSeason) {
+              item.episodes = targetSeason._episodes || [];
+              item.seasonId = targetSeason.id;
+              state.detailEpisode = item.episodes[0] || null;
+              buildDetail(item);
+              /* Changing season only shows its episodes. (It used to start
+                 the first one: with addons that searched a torrent and played
+                 it without the viewer asking.) */
+              if (state.detailEpisode && autoPreviewAllowed(item)) { startPlayerVideo(item, state.detailEpisode); }
+              var sBtn = detailBottom ? detailBottom.querySelector('.detail-season') : null;
+              if (sBtn) { setFocus(sBtn); }
             }
           } else {
             var sBtn2 = detailBottom ? detailBottom.querySelector('.detail-season') : null;
@@ -7643,7 +8677,7 @@
     var focusedChild = seasonPopup.children[state.detailSeason] || seasonPopup.children[0];
     /* Desktop: focus without scrolling the page. Revealing the current
        season pushed the whole "Episodios" section out of view. */
-    if (focusedChild) { setFocus(focusedChild, !!window.XUPER_DESKTOP); }
+    if (focusedChild) { setFocus(focusedChild, !!window.OPENTV_DESKTOP); }
   }
 
   /* Desktop layout: one scrollable column (episodes, then related titles)
@@ -7652,12 +8686,27 @@
     var episodes = (isSeriesItem(item) && item.episodes) ? item.episodes : [];
     var ranges = detailRanges(episodes.length);
     if (state.detailRange >= ranges.length) { state.detailRange = 0; }
-    detailBottom.classList.add('scrollable', 'dd-flow');
+    detailBottom.classList.add('dd-flow');
+    /* PC: the whole page scrolls (the top too), not only this part. TVs keep
+       their own scrolling list under the buttons. */
+    var pageScroll = !platformIsTv();
+    detailBottom.classList.toggle('scrollable', !pageScroll);
+    var detailScreen = $('screen-detail');
+    if (detailScreen) {
+      detailScreen.classList.toggle('scrollable', pageScroll);
+      detailScreen.classList.toggle('is-page-scroll', pageScroll);
+    }
 
     if (isSeriesItem(item)) {
       var epSection = el('section', 'dd-section');
       var head = el('div', 'dd-head');
-      head.appendChild(el('h2', 'dd-title', 'Episodios'));
+      var tvDetail = platformIsTv();
+      /* TVs: the season button says enough (no "Episodios" title or count). */
+      if (!tvDetail) { head.appendChild(el('h2', 'dd-title', 'Episodios')); }
+      /* TVs: "Viendo" only on the episode really in the history, not on the
+         first one of a series never watched. */
+      var watchedRec = tvDetail ? historyRecordFor(item) : null;
+      var watchedEp = watchedRec && watchedRec.episodeId ? String(watchedRec.episodeId) : '';
 
       var seasonBtn = el('div', 'detail-season focusable');
       seasonBtn.appendChild(el('span', 'season-text', detailSeasonLabel(item)));
@@ -7674,12 +8723,12 @@
         toggleSeasonPopup(seasonBtn, item);
       };
       head.appendChild(seasonBtn);
-      if (episodes.length) {
+      if (episodes.length && !tvDetail) {
         head.appendChild(el('span', 'dd-count', episodes.length + (episodes.length === 1 ? ' episodio' : ' episodios')));
       }
       epSection.appendChild(head);
 
-      if (episodes.length > 20) {
+      if (episodes.length > DETAIL_RANGE_SIZE) {
         var rangeRow = el('div', 'detail-ranges dd-ranges');
         for (var i = 0; i < ranges.length; i++) {
           (function (idx) {
@@ -7694,15 +8743,41 @@
 
       if (episodes.length) {
         var current = ranges[state.detailRange] || { start: 0, end: episodes.length };
-        var grid = el('div', 'detail-episodes dd-grid');
+        /* Addon series with a picture per episode (Cinemeta has them): cards
+           with the picture, the title and two lines of summary. */
+        var cards = !!item._stremio && episodes.some(function (x) { return x.thumb && x.thumb !== item.backdrop && x.thumb !== item.poster; });
+        /* One sideways row, with arrows like "Recomendaciones". */
+        var grid = el('div', 'detail-episodes dd-grid dd-ep-row scrollable' + (cards ? ' has-cards' : ''));
         for (var e = current.start; e < current.end; e++) {
           (function (ep, index) {
-            var isPlaying = state.detailEpisode && (state.detailEpisode.id === ep.id || state.detailEpisode === ep);
+            var isPlaying = tvDetail ? (!!watchedEp && String(ep.id) === watchedEp)
+              : (state.detailEpisode && (state.detailEpisode.id === ep.id || state.detailEpisode === ep));
             var tile = el('div', 'detail-episode focusable' + (isPlaying ? ' is-playing' : ''));
+            tile._epIndex = index;
             var numText = (ep.number !== undefined && ep.number !== null) ? String(ep.number) : String(index + 1);
+            var title = episodeDisplayTitle(item, ep, index);
+            var play = el('i', 'ep-play');
+            play.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>';
+            if (cards) {
+              var thumb = el('div', 'ep-thumb');
+              if (ep.thumb) { thumb.style.backgroundImage = 'url("' + String(sizedImageUrl(ep.thumb, 480)).replace(/"/g, '%22') + '")'; }
+              thumb.appendChild(play);
+              tile.appendChild(thumb);
+              var cardText = el('span', 'ep-info');
+              cardText.appendChild(el('span', 'ep-title', numText + '. ' + (title !== 'Episodio ' + numText ? title : 'Capítulo ' + numText)));
+              var cdur = episodeDurationLabel(ep);
+              if (cdur) { cardText.appendChild(el('span', 'ep-meta', cdur)); }
+              if (ep.synopsis) { cardText.appendChild(el('span', 'ep-syn', ep.synopsis)); }
+              cardText.appendChild(el('span', 'ep-now', 'Viendo'));
+              tile.appendChild(cardText);
+              tile.title = 'Capítulo ' + numText + (title ? ' · ' + title : '');
+              tile._ep = ep;
+              tile._activate = function () { selectDetailEpisode(item, ep); };
+              grid.appendChild(tile);
+              return;
+            }
             tile.appendChild(el('span', 'ep-num', numText));
             var info = el('span', 'ep-info');
-            var title = episodeDisplayTitle(item, ep, index);
             /* "Episodio 7" only repeats the big number: leave it out. */
             if (title !== 'Episodio ' + numText) {
               info.appendChild(el('span', 'ep-title', title));
@@ -7717,8 +8792,6 @@
             info.appendChild(el('span', 'ep-meta', metaBits.join(' · ')));
             info.appendChild(el('span', 'ep-now', 'Viendo'));
             tile.appendChild(info);
-            var play = el('i', 'ep-play');
-            play.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>';
             tile.appendChild(play);
             tile.title = 'Episodio ' + numText + (title && title !== 'Episodio ' + numText ? ' · ' + title : '');
             tile._ep = ep;
@@ -7726,15 +8799,34 @@
             grid.appendChild(tile);
           })(episodes[e], e);
         }
-        epSection.appendChild(grid);
+        /* The season's episodes in Spanish (home/catalog-lang.js), written
+           into the cards already drawn when they arrive. */
+        var seasonNow = item.seasons && item.seasons[state.detailSeason];
+        var seasonNo = seasonNow ? (seasonNow.number || state.detailSeason + 1) : 1;
+        localizeSeason(item, seasonNo, episodes, function (changed) {
+          if (changed && grid.isConnected) { refreshEpisodeTiles(item, grid); }
+        });
+        /* Kitsu's anime: TMDB's pictures when the series matches for sure. */
+        animeEpisodeStills(item, episodes, function (changed) {
+          if (changed && grid.isConnected) { refreshEpisodeTiles(item, grid); }
+        });
+        var epWrap = el('div', 'dd-related-wrap dd-ep-wrap');
+        epWrap.appendChild(grid);
+        addDetailRowArrows(epWrap, grid, 'Capítulos anteriores', 'Más capítulos');
+        epSection.appendChild(epWrap);
+        /* The episode being watched in view (row opened at its place). */
+        setTimeout(function () {
+          var now = grid.querySelector('.detail-episode.is-playing');
+          if (now && now.offsetLeft > grid.clientWidth - now.offsetWidth) { grid.scrollLeft = now.offsetLeft - 40; }
+        }, 0);
       } else {
-        epSection.appendChild(el('div', 'dd-empty', 'Cargando episodios…'));
+        epSection.appendChild(makeLoader('Cargando episodios…', 'is-small'));
       }
       detailBottom.appendChild(epSection);
     }
 
     var relSection = el('section', 'dd-section');
-    relSection.appendChild(el('h2', 'dd-title detail-related', 'Quizás te guste'));
+    relSection.appendChild(el('h2', 'dd-title detail-related', 'Recomendaciones'));
     /* A sideways row of up to 30 similar titles (same kind, shared genres),
        with arrows; the wheel keeps scrolling the page. */
     var relWrap = el('div', 'dd-related-wrap');
@@ -7742,37 +8834,108 @@
     var related = relatedTitles(item, 30);
     for (var r = 0; r < related.length; r++) {
       var cell = el('div', 'cell');
+      /* (No name under it: as on the home rows; the hover card says it.) */
       cell.appendChild(makePoster(related[r], 0, 0, 190, 279, { gold: true }));
-      cell.appendChild(el('div', 'd-name', related[r].title));
       rel.appendChild(cell);
     }
     relWrap.appendChild(rel);
+    addDetailRowArrows(relWrap, rel, 'Anteriores', 'Más títulos');
+    relSection.appendChild(relWrap);
+    detailBottom.appendChild(relSection);
+    /* TVs, a series: the screen stays still and the lower part shows one
+       section at a time, the episodes first (core/focus.js
+       tvDetailSectionMove swaps them for Recomendaciones and back). */
+    var sectioned = platformIsTv() && isSeriesItem(item) && detailBottom.querySelectorAll('.dd-section').length > 1;
+    detailBottom.classList.toggle('tv-sections', sectioned);
+    detailBottom.classList.toggle('show-ep', sectioned);
+    detailBottom.classList.remove('show-rel');
+    detailBottom._lastEp = null;
+  }
+
+  /* New names and summaries (catalogue language) into the episode cards. */
+  function refreshEpisodeTiles(item, grid) {
+    var tiles = grid.querySelectorAll('.detail-episode');
+    var cards = grid.classList.contains('has-cards');
+    for (var i = 0; i < tiles.length; i++) {
+      var ep = tiles[i]._ep;
+      if (!ep) { continue; }
+      var idx = tiles[i]._epIndex || 0;
+      var num = (ep.number !== undefined && ep.number !== null) ? String(ep.number) : String(idx + 1);
+      var name = episodeDisplayTitle(item, ep, idx);
+      var tNode = tiles[i].querySelector('.ep-title');
+      if (tNode) { tNode.textContent = cards ? num + '. ' + (name !== 'Episodio ' + num ? name : 'Capítulo ' + num) : name; }
+      var sNode = tiles[i].querySelector('.ep-syn');
+      if (sNode && ep.synopsis) { sNode.textContent = ep.synopsis; }
+      var thumb = tiles[i].querySelector('.ep-thumb');
+      if (thumb && ep.thumb) { thumb.style.backgroundImage = 'url("' + String(sizedImageUrl(ep.thumb, 480)).replace(/"/g, '%22') + '")'; }
+    }
+  }
+
+  /* PC: clicking an episode on the details screen picks it: Reproducir now
+     plays it, and its sources are looked up meanwhile (kept for a while, so
+     "Elegir fuente" opens with them at once). Nothing opens. TVs: OK on an
+     episode plays it, as before (one press with the remote). */
+  var detailEpisodeLookup = 0;
+  function selectDetailEpisode(item, ep) {
+    if (platformIsTv()) { playEpisode(item, ep); return; }
+    state.detailEpisode = ep;
+    syncDetailEpisodeHighlight(item);
+    var season = item.seasons && item.seasons[state.detailSeason];
+    var code = (season && season.number ? 'T' + season.number + ':' : '') + 'E' + (ep.number || '');
+    var resume = resumeLabelFor(item);
+    var playSpan = detailButtons ? detailButtons.querySelector('.detail-btn[data-kind="fullscreen"] span') : null;
+    if (playSpan) { playSpan.textContent = resume && resume.indexOf(code) !== -1 ? resume : 'Reproducir ' + code; }
+    syncStartOverButton(item);
+    var status = detailButtons ? detailButtons.querySelector('.detail-ep-status') : null;
+    if (!item._stremio || item._plain || !hasSourceAddons()) {
+      if (status) { status.textContent = ''; }
+      return;
+    }
+    if (!status) {
+      status = el('span', 'detail-ep-status');
+      status.setAttribute('aria-live', 'polite');
+      detailButtons.appendChild(status);
+    }
+    var mine = ++detailEpisodeLookup;
+    var name = 'Capítulo ' + (ep.number || '');
+    status.textContent = 'Buscando fuentes del ' + name.toLowerCase() + '…';
+    status.className = 'detail-ep-status is-busy';
+    fetchStremioStreams(item, ep, function (groups, pending) {
+      if (mine !== detailEpisodeLookup || pending) { return; }
+      var count = 0;
+      groups.forEach(function (g) { count += g.sources.length; });
+      status.className = 'detail-ep-status' + (count ? ' is-ready' : ' is-none');
+      status.textContent = count ? (name + ' · ' + count + (count === 1 ? ' fuente lista' : ' fuentes listas')) : ('Sin fuentes para el ' + name.toLowerCase());
+    });
+  }
+
+  /* The two arrows of a sideways row (episodes, "Recomendaciones"): one
+     page of the row per click; hidden at each end. */
+  function addDetailRowArrows(wrap, strip, prevLabel, nextLabel) {
     ['prev', 'next'].forEach(function (dir) {
       var arrow = el('button', 'dd-rel-arrow is-' + dir);
       arrow.type = 'button';
       arrow.innerHTML = dir === 'prev' ? UI_ICONS.prev : UI_ICONS.next;
-      arrow.setAttribute('aria-label', dir === 'prev' ? 'Anteriores' : 'Más títulos');
+      arrow.setAttribute('aria-label', dir === 'prev' ? prevLabel : nextLabel);
       arrow.addEventListener('click', function (event) {
         event.stopPropagation();
-        var by = Math.max(300, rel.clientWidth * 0.8) * (dir === 'prev' ? -1 : 1);
-        try { rel.scrollBy({ left: by, behavior: 'smooth' }); } catch (eScroll) { rel.scrollLeft += by; }
+        var by = Math.max(300, strip.clientWidth * 0.8) * (dir === 'prev' ? -1 : 1);
+        try { strip.scrollBy({ left: by, behavior: 'smooth' }); } catch (eScroll) { strip.scrollLeft += by; }
       });
-      relWrap.appendChild(arrow);
+      wrap.appendChild(arrow);
     });
     function syncArrows() {
-      relWrap.classList.toggle('at-start', rel.scrollLeft <= 4);
-      relWrap.classList.toggle('at-end', rel.scrollLeft >= rel.scrollWidth - rel.clientWidth - 4);
+      wrap.classList.toggle('at-start', strip.scrollLeft <= 4);
+      wrap.classList.toggle('at-end', strip.scrollLeft >= strip.scrollWidth - strip.clientWidth - 4);
       schedulePosterMemoryPass();
     }
-    rel.addEventListener('scroll', syncArrows, { passive: true });
-    relWrap.addEventListener('mouseenter', syncArrows);
+    strip.addEventListener('scroll', syncArrows, { passive: true });
+    wrap.addEventListener('mouseenter', syncArrows);
     setTimeout(syncArrows, 0);
-    relSection.appendChild(relWrap);
-    detailBottom.appendChild(relSection);
   }
 
   function renderDetailBottom(item) {
-    if (window.XUPER_DESKTOP) { return renderDetailBottomDesktop(item); }
+    if (window.OPENTV_DESKTOP) { return renderDetailBottomDesktop(item); }
     var episodes = (isSeriesItem(item) && item.episodes) ? item.episodes : [];
     var hasEpisodes = episodes.length > 0;
     var ranges = detailRanges(episodes.length);
@@ -7795,7 +8958,7 @@
     }
 
     /* Range tabs (1-20, 21-40...) */
-    if (hasEpisodes && episodes.length > 20) {
+    if (hasEpisodes && episodes.length > DETAIL_RANGE_SIZE) {
       var rangeRow = el('div', 'detail-ranges');
       abs(rangeRow, 398, 51, 1522, 46);
       for (var i = 0; i < ranges.length; i++) {
@@ -7836,7 +8999,7 @@
        episode selector, so the poster row is clipped by the screen edge. */
     var relatedTop = hasEpisodes ? 240 : 25;
     var gridTop = hasEpisodes ? 290 : 91;
-    var heading = el('div', 'detail-related', 'Quizás te guste');
+    var heading = el('div', 'detail-related', 'Recomendaciones');
     abs(heading, 80, relatedTop, 400, 44);
     detailBottom.appendChild(heading);
 
@@ -7864,16 +9027,28 @@
      half and "Leer más" stays visible. */
   function fitDetailLeft(syn) {
     var text = syn.querySelector('.text');
+    var title = detailLeft.querySelector('.detail-title');
     function overflowing() { return detailLeft.scrollHeight > detailLeft.clientHeight + 1; }
     function fit() {
       if (!detailLeft.clientHeight || !text) { return; }
       text.style.webkitLineClamp = '';
+      if (title) { title.style.fontSize = ''; }
       var rows = detailLeft.querySelectorAll('.detail-row');
       for (var r = 0; r < rows.length; r++) { rows[r].style.display = ''; }
+      /* The whole title always shows: first the synopsis gives up lines, then
+         Dirección / Reparto go, and only then the title gets smaller. */
       for (var lines = 2; overflowing() && lines >= 1; lines--) { text.style.webkitLineClamp = String(lines); }
       for (var k = 0; overflowing() && k < rows.length; k++) { rows[k].style.display = 'none'; }
+      if (title) {
+        var size = parseFloat(window.getComputedStyle(title).fontSize) || 52;
+        var cut = function () { return title.scrollHeight > title.clientHeight + 2; };
+        while ((overflowing() || cut()) && size > 32) { size -= 3; title.style.fontSize = size + 'px'; }
+      }
     }
     setTimeout(fit, 0);
+    /* Once more when the page has settled (fonts, entrance animation): the
+       first pass can measure too early and leave the title too small. */
+    setTimeout(function () { if (detailLeft && detailLeft.contains(syn)) { fit(); } }, 450);
   }
 
   /* Similar titles: same kind first, then shared genres, then the same
@@ -7905,18 +9080,14 @@
   }
 
   /* ---- screens/search.js ----------------------------------------------------- */
-  /* screens/search.js — Búsqueda: campo, teclado de TV, populares y búsqueda local + portal.
+  /* screens/search.js — Búsqueda: campo, teclado de TV, populares y búsqueda en los addons.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ================================================================ SEARCH */
+  /* "Populares": the first titles of the addons' catalogs (their first rows
+     are their popular lists). */
   function hotSearches() {
-    var all = bundledCatalog();
-    var out = [];
-    for (var i = 0; i < all.length; i++) {
-      var cat = String((all[i] && all[i].category) || '').toLowerCase();
-      if (cat.indexOf('busqueda') !== -1) { out.push(normalizeVod(all[i], i + 1)); }
-    }
-    return out;
+    return VOD.slice(0, 12);
   }
 
   function buildSearch() {
@@ -7927,12 +9098,17 @@
     searchHotGrid = $('search-hot-grid');
     searchResultGrid = $('search-result-grid');
     searchNav = $('search-nav');
+    /* Rebuilt when the catalogue reloads: the key in focus is focused again. */
+    var tvKeyIndex = -1;
+    if (searchTvKb && state.focus && searchKeyboard.contains(state.focus)) {
+      tvKeyIndex = Array.prototype.indexOf.call(searchKeyboard.querySelectorAll('.tvk-key'), state.focus);
+    }
     clear(searchKeyboard); clear(searchHotGrid); clear(searchResultGrid);
     /* Result rows can extend beyond the first screen.  Mark their viewport as
        scrollable so reveal() follows D-pad focus down through every result. */
     if (searchResults) { searchResults.classList.add('scrollable'); }
-    if (window.XUPER_DESKTOP && searchHot) { searchHot.classList.add('scrollable'); }
-    if (window.XUPER_DESKTOP && searchResults && !searchStateBox) {
+    if (window.OPENTV_DESKTOP && searchHot) { searchHot.classList.add('scrollable'); }
+    if (window.OPENTV_DESKTOP && searchResults && !searchStateBox) {
       /* Centered state (Buscando… / error) and a small line under the counter. */
       searchStateBox = el('div', 'search-state');
       searchResults.appendChild(searchStateBox);
@@ -7941,8 +9117,8 @@
     }
 
     /* --- keyboard panel (layout_search_keybord_full_uni) --- */
-    searchInput = el(window.XUPER_DESKTOP ? 'input' : 'div', 'kb-edit focusable');
-    if (window.XUPER_DESKTOP) {
+    searchInput = el(window.OPENTV_DESKTOP ? 'input' : 'div', 'kb-edit focusable');
+    if (window.OPENTV_DESKTOP) {
       searchInput.type = 'search';
       searchInput.id = 'desktop-search-input';
       searchInput.placeholder = 'Buscar películas o series';
@@ -8018,7 +9194,7 @@
       var act = el('div', 'kb-action focusable ' + actionDefs[a].cls);
       act.style.width = actionDefs[a].w + 'px';
       if (actionDefs[a].cls === 'go') {
-        if (window.XUPER_DESKTOP) {
+        if (window.OPENTV_DESKTOP) {
           act.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Buscar</span>';
         } else {
           act.textContent = 'Busca';
@@ -8033,7 +9209,7 @@
           else if (kind === 'clear') { setSearchQuery(''); }
           else if (kind === 'del') { setSearchQuery(state.searchQuery.slice(0, -1)); }
           else {
-            if (window.XUPER_DESKTOP && searchInput) { state.searchQuery = searchInput.value; }
+            if (window.OPENTV_DESKTOP && searchInput) { state.searchQuery = searchInput.value; }
             runSearch();
           }
         };
@@ -8041,6 +9217,27 @@
       actions.appendChild(act);
     }
     searchKeyboard.appendChild(actions);
+
+    /* TVs: the on-screen keyboard on the left (core/tv-keyboard.js) instead
+       of the text field, which opened the system keyboard over everything.
+       The results on the right follow what is typed. */
+    if (tvSearchKeyboardOn()) {
+      searchKeyboard.classList.add('has-tvk');
+      searchKeyboard.appendChild(el('div', 'tvk-title', 'Buscar'));
+      searchTvKb = makeTvKeyboard({
+        placeholder: 'Película, serie o actor',
+        value: state.searchQuery,
+        cls: 'is-search',
+        onChange: onTvSearchTyped,
+        doneLabel: 'Buscar',
+        onDone: function () { if (String(state.searchQuery || '').trim()) { submitTvSearch(); } }
+      });
+      searchKeyboard.appendChild(searchTvKb.el);
+      if (tvKeyIndex >= 0) {
+        var again = searchTvKb.el.querySelectorAll('.tvk-key')[tvKeyIndex];
+        if (again) { setFocus(again, true); }
+      }
+    }
 
     searchKeys = [];
     var rows = [
@@ -8075,6 +9272,19 @@
     updateSearchInput();
   }
 
+  /* ------------------------------------------------- TV on-screen keyboard */
+  var searchTvKb = null;
+
+  function tvSearchKeyboardOn() { return platformIsTv() && !!window.OPENTV_DESKTOP; }
+
+  /* Typing only edits the text: the addons are asked once, with the Buscar
+     key (searching on every letter kept a Fire TV busy). Emptying it goes
+     back to the popular titles. */
+  function onTvSearchTyped(text) {
+    state.searchQuery = text;
+    if (!text.trim()) { clearSearchState(); renderPopularSearch(); }
+  }
+
   /* TV, the system keyboard's action key: search, close the keyboard and move
      to the first result as soon as there is one (renderDesktopSearchList). */
   var tvSearchedQuery = '';
@@ -8099,8 +9309,9 @@
     if (!searchKeyboard) { buildSearch(); }
     showScreen('search');
     if (!state.searchQuery) { renderPopularSearch(); }
+    if (searchTvKb) { setFocus(searchTvKb.first); return; }
     setFocus(searchInput);
-    if (window.XUPER_DESKTOP) searchInput.focus();
+    if (window.OPENTV_DESKTOP) searchInput.focus();
   }
 
   function popularSearchItems() {
@@ -8124,7 +9335,8 @@
 
   function updateSearchInput() {
     if (!searchInput) { return; }
-    if (window.XUPER_DESKTOP && searchInput.tagName === 'INPUT') {
+    if (searchTvKb && searchTvKb.get() !== (state.searchQuery || '')) { searchTvKb.set(state.searchQuery || ''); }
+    if (window.OPENTV_DESKTOP && searchInput.tagName === 'INPUT') {
       if (searchInput.value !== state.searchQuery) searchInput.value = state.searchQuery;
       return;
     }
@@ -8177,33 +9389,17 @@
         localMatches.push(VOD[i]);
       }
     }
-    if (window.XUPER_DESKTOP) { runDesktopSearch(rawQ, localMatches); return; }
+    if (window.OPENTV_DESKTOP) { runDesktopSearch(rawQ, localMatches); return; }
     renderSearchResults(localMatches);
 
-    /* Debounced remote portal search (350ms) */
+    /* Debounced search in the addons that can search (350 ms). */
     if (state.searchTimer) { clearTimeout(state.searchTimer); }
-    if (vodApi.mode === 'portal' && getVodSourcesConfig().mode !== 'external' && q.length >= 2) {
+    if (q.length >= 2) {
       var seq = ++state.searchSeq;
       state.searchTimer = setTimeout(function () {
-        portalServiceCall('search', { value: rawQ.trim() }, function (error, payload) {
-          if (seq !== state.searchSeq) { return; }
-          if (error || !payload || payload.returnValue === false || !payload.items || !payload.items.length) {
-            /* Keep existing local matches, never clear on empty remote response */
-            return;
-          }
-          var merged = localMatches.slice();
-          var seen = {};
-          for (var m = 0; m < merged.length; m++) { seen[String(merged[m].id)] = true; }
-          for (var p = 0; p < payload.items.length; p++) {
-            if (payload.items[p] && typeof payload.items[p] === 'object') { payload.items[p].portal = true; }
-            var item = normalizeVod(payload.items[p], merged.length + 1);
-            item._portal = true;
-            if (!seen[String(item.id)]) {
-              seen[String(item.id)] = true;
-              merged.push(item);
-            }
-          }
-          renderSearchResults(merged);
+        searchTitles(rawQ.trim(), function (found) {
+          if (seq !== state.searchSeq || !found.length) { return; }
+          renderSearchResults(rankSearchResults(rawQ.trim(), localMatches.concat(found)));
         });
       }, 350);
     }
@@ -8229,72 +9425,26 @@
     var query = rawQ.trim();
     rememberRecentSearch(query);
     hideSearchSuggest();
-    var addonSearch = stremioModeOn() && norm(query).length >= 2;
-    var remote = vodApi.mode === 'portal' && !stremioModeOn() && norm(query).length >= 2;
+    var addonSearch = norm(query).length >= 2;
     state.searchRemote = null;
     if (addonSearch) {
-      /* Stremio mode: the addons that can search answer instead of the server. */
+      /* The addons that can search answer (catalogs with the "search" extra). */
       state.searchStatus = 'searching';
       renderSearchResults(localMatches);
       state.searchTimer = setTimeout(function () {
         state.searchTimer = null;
-        searchStremioAddons(query, function (found) {
+        /* Results show as each addon answers, best match first (the loaded
+           titles that match go into the same order). */
+        searchTitles(query, function (found, finished) {
           if (seq !== state.searchSeq) { return; }
-          var merged = localMatches.slice(), seen = {};
-          for (var m = 0; m < merged.length; m++) { seen[String(merged[m].id)] = true; }
-          for (var f = 0; f < found.length; f++) {
-            if (!seen[String(found[f].id)]) { seen[String(found[f].id)] = true; merged.push(found[f]); }
-          }
-          state.searchStatus = 'done';
-          renderSearchResults(merged);
+          state.searchStatus = finished ? 'done' : 'searching';
+          renderSearchResults(rankSearchResults(query, localMatches.concat(found)));
         });
       }, 350);
       return;
     }
-    if (!remote) {
-      state.searchStatus = 'done';
-      renderSearchResults(localMatches);
-      return;
-    }
-    state.searchStatus = 'searching';
-    if (localMatches.length || !(state.searchMatches && state.searchMatches.length)) {
-      renderSearchResults(localMatches);
-    } else {
-      updateSearchStateUi();   /* keep the previous results, mark them as updating */
-    }
-    state.searchTimer = setTimeout(function () {
-      state.searchTimer = null;
-      var settled = false;
-      function finish(status, matches, remoteState) {
-        if (settled || seq !== state.searchSeq) { return; }
-        settled = true;
-        if (searchRequestTimeout) { clearTimeout(searchRequestTimeout); searchRequestTimeout = null; }
-        state.searchStatus = status;
-        state.searchRemote = remoteState || null;
-        renderSearchResults(matches);
-        maybeLoadMoreSearch();
-      }
-      searchRequestTimeout = setTimeout(function () { finish('error', localMatches); }, 15000);
-      portalServiceCall('search', { value: query, pageNum: 1, pageSize: SEARCH_REMOTE_PAGE }, function (error, payload) {
-        if (error || !payload || payload.returnValue === false) { finish('error', localMatches); return; }
-        var merged = localMatches.slice();
-        var seen = {};
-        for (var m = 0; m < merged.length; m++) { seen[String(merged[m].id)] = true; }
-        var items = payload.items || [];
-        for (var p = 0; p < items.length; p++) {
-          if (items[p] && typeof items[p] === 'object') { items[p].portal = true; }
-          var item = normalizeVod(items[p], merged.length + 1);
-          item._portal = true;
-          if (!seen[String(item.id)]) { seen[String(item.id)] = true; merged.push(item); }
-        }
-        var total = parseInt(payload.total, 10) || items.length;
-        finish('done', merged, {
-          query: query, seq: seq, total: total, nextPage: 2, received: items.length,
-          seen: seen, loading: false, error: false,
-          done: items.length < SEARCH_REMOTE_PAGE || items.length >= total
-        });
-      });
-    }, 350);
+    state.searchStatus = 'done';
+    renderSearchResults(localMatches);
   }
 
   function retrySearch() {
@@ -8307,7 +9457,7 @@
      the viewer scrolls near the end.
      ------------------------------------------------------------------ */
   var SEARCH_REMOTE_PAGE = 50;
-  var SEARCH_VIEW_KEY = 'xuper_search_view_v1';
+  var SEARCH_VIEW_KEY = 'opentv_search_view_v1';
   var srWrap = null, srCount = null, srBody = null, srMore = null, srToggle = null;
 
   function getSearchView() {
@@ -8362,11 +9512,11 @@
       img.decoding = 'async';
       img.src = item.poster;
       img.onerror = function () {
-        if (window.XUPER_DESKTOP) { markCoverBroken(item); applyGenericCover(art, item); }
+        if (window.OPENTV_DESKTOP) { markCoverBroken(item); applyGenericCover(art, item); }
         else { this.style.visibility = 'hidden'; }
       };
       art.appendChild(img);
-    } else if (window.XUPER_DESKTOP) {
+    } else if (window.OPENTV_DESKTOP) {
       applyGenericCover(art, item);
     }
     card.appendChild(art);
@@ -8401,9 +9551,7 @@
     var frag = document.createDocumentFragment();
     for (var i = 0; i < list.length; i++) {
       var raw = list[i];
-      var cardItem = (raw && raw._portal !== undefined) ? raw : normalizeVod(raw, offset + i + 1);
-      if (raw && raw._portal) { cardItem._portal = true; }
-      frag.appendChild(makeDesktopSearchCard(cardItem));
+      frag.appendChild(makeDesktopSearchCard(raw && raw._stremio ? raw : normalizeVod(raw, offset + i + 1)));
     }
     srBody.appendChild(frag);
   }
@@ -8411,75 +9559,15 @@
   function updateSearchCount() {
     if (!srCount) { return; }
     var shown = (state.searchMatches || []).length;
-    var remote = state.searchRemote;
-    var total = Math.max(shown, remote ? remote.total + (shown - remote.received > 0 ? shown - remote.received : 0) : shown);
-    if (searchCapped() && total > shown && shown >= SEARCH_TV_MAX) {
-      srCount.textContent = 'Los primeros ' + shown + ' de ' + total + ' resultados · escribe más para afinar';
-      return;
-    }
-    srCount.textContent = total === 1 ? '1 resultado' : (total + ' resultados');
+    srCount.textContent = shown === 1 ? '1 resultado' : (shown + ' resultados');
   }
 
+  /* (The addons answer one page: there is nothing more to load.) */
   function updateSearchMore() {
-    if (!srMore) { return; }
-    clear(srMore);
-    var remote = state.searchRemote;
-    if (!remote || remote.done) { srMore.className = 'sr-more'; return; }
-    srMore.className = 'sr-more is-active';
-    if (remote.error) {
-      srMore.appendChild(document.createTextNode('No se pudieron cargar más resultados. '));
-      var retry = el('span', 'search-retry-link focusable', 'Reintentar');
-      retry._activate = function () { remote.error = false; loadMoreSearch(); };
-      srMore.appendChild(retry);
-      return;
-    }
-    srMore.appendChild(el('i', 'search-spinner is-small'));
-    srMore.appendChild(document.createTextNode(remote.loading ? 'Cargando más resultados…' : 'Baja para ver más resultados'));
+    if (srMore) { clear(srMore); srMore.className = 'sr-more'; }
   }
 
-  function maybeLoadMoreSearch() {
-    var remote = state.searchRemote;
-    if (!remote || remote.done || remote.loading || remote.error || !searchResults) { return; }
-    if (remote.seq !== state.searchSeq) { return; }
-    if (searchCapped() && (state.searchMatches || []).length >= SEARCH_TV_MAX) { remote.done = true; updateSearchMore(); return; }
-    var gap = searchResults.scrollHeight - searchResults.scrollTop - searchResults.clientHeight;
-    if (gap < 700) { loadMoreSearch(); }
-  }
-
-  function loadMoreSearch() {
-    var remote = state.searchRemote;
-    if (!remote || remote.done || remote.loading) { return; }
-    remote.loading = true;
-    updateSearchMore();
-    portalServiceCall('search', { value: remote.query, pageNum: remote.nextPage, pageSize: SEARCH_REMOTE_PAGE }, function (error, payload) {
-      if (state.searchRemote !== remote || remote.seq !== state.searchSeq) { return; }
-      remote.loading = false;
-      if (error || !payload || payload.returnValue === false) {
-        remote.error = true;
-        updateSearchMore();
-        return;
-      }
-      var items = payload.items || [];
-      var fresh = [];
-      for (var p = 0; p < items.length; p++) {
-        if (items[p] && typeof items[p] === 'object') { items[p].portal = true; }
-        var item = normalizeVod(items[p], (state.searchMatches || []).length + fresh.length + 1);
-        item._portal = true;
-        if (!remote.seen[String(item.id)]) { remote.seen[String(item.id)] = true; fresh.push(item); }
-      }
-      var offset = state.searchMatches.length;
-      if (searchCapped()) { fresh = fresh.slice(0, Math.max(0, SEARCH_TV_MAX - offset)); }
-      state.searchMatches = state.searchMatches.concat(fresh);
-      if (fresh.length) { appendSearchCards(fresh, offset); }
-      remote.received += items.length;
-      remote.nextPage++;
-      if (payload.total) { remote.total = parseInt(payload.total, 10) || remote.total; }
-      if (items.length < SEARCH_REMOTE_PAGE || remote.received >= remote.total) { remote.done = true; }
-      updateSearchCount();
-      updateSearchMore();
-      setTimeout(maybeLoadMoreSearch, 0);
-    });
-  }
+  function maybeLoadMoreSearch() {}
 
   function renderDesktopSearchList() {
     ensureDesktopSearchLayout();
@@ -8487,18 +9575,20 @@
     var view = getSearchView();
     searchHot.classList.add('is-hidden');
     searchResults.classList.add('is-active');
+    /* Each addon's answer re-renders the cards: a remote on one of them keeps
+       its place instead of losing the focus (TV). Read before the cards are
+       removed (after, the focused card was already detached and the focus
+       was lost when the second addon answered). */
+    var focusedIndex = -1;
+    if (state.focus && state.focus.parentNode === srBody) {
+      focusedIndex = Array.prototype.indexOf.call(srBody.children, state.focus);
+    }
     clear(searchResultGrid);
     if (searchNav) { searchNav.textContent = ''; }
     clear(srBody);
     srBody.className = 'sr-body is-' + view;
     var views = srToggle.children;
     for (var v = 0; v < views.length; v++) { views[v].classList.toggle('is-selected', views[v]._mode === view); }
-    /* The server's answer re-renders the cards: a remote on one of them keeps
-       its place instead of losing the focus (TV). */
-    var focusedIndex = -1;
-    if (state.focus && state.focus.parentNode === srBody) {
-      focusedIndex = Array.prototype.indexOf.call(srBody.children, state.focus);
-    }
     if (!matches.length) {
       searchEmpty.classList.add('is-active');
       srWrap.hidden = true;
@@ -8534,14 +9624,14 @@
       searchStateBox.classList.add('is-active');
       searchStateBox.appendChild(el('div', 'search-spinner'));
       searchStateBox.appendChild(el('div', 'search-state-title', 'Buscando…'));
-      searchStateBox.appendChild(el('div', 'search-state-hint', 'Consultando el catálogo completo'));
+      searchStateBox.appendChild(el('div', 'search-state-hint', 'Buscando en tus addons'));
       return;
     }
     if (!count && status === 'error') {
       searchEmpty.classList.remove('is-active');
       searchStateBox.classList.add('is-active');
       searchStateBox.appendChild(el('div', 'search-state-title', 'No se pudo completar la búsqueda'));
-      searchStateBox.appendChild(el('div', 'search-state-hint', 'El servicio no respondió. Revisa la conexión e inténtalo otra vez.'));
+      searchStateBox.appendChild(el('div', 'search-state-hint', 'Tus addons no respondieron. Revisa la conexión e inténtalo otra vez.'));
       var retry = el('div', 'search-retry focusable', 'Reintentar');
       retry._activate = retrySearch;
       searchStateBox.appendChild(retry);
@@ -8550,12 +9640,12 @@
     if (count && status === 'searching') {
       searchInlineState.classList.add('is-active');
       searchInlineState.appendChild(el('i', 'search-spinner is-small'));
-      searchInlineState.appendChild(document.createTextNode('Buscando más en el servidor…'));
+      searchInlineState.appendChild(document.createTextNode('Buscando en tus addons…'));
       return;
     }
     if (count && status === 'error') {
       searchInlineState.classList.add('is-active', 'is-error');
-      searchInlineState.appendChild(document.createTextNode('No se pudo consultar el servidor. '));
+      searchInlineState.appendChild(document.createTextNode('Algún addon no respondió. '));
       var retry2 = el('span', 'search-retry-link focusable', 'Reintentar');
       retry2._activate = retrySearch;
       searchInlineState.appendChild(retry2);
@@ -8567,11 +9657,11 @@
   /* TVs: at most this many results ("spi" matched 445). More cards only cost
      memory and make the way back up long; the count asks for a longer word. */
   var SEARCH_TV_MAX = 100;
-  function searchCapped() { return platformIsTv() && window.XUPER_DESKTOP; }
+  function searchCapped() { return platformIsTv() && window.OPENTV_DESKTOP; }
 
   function renderSearchResults(matches) {
-    /* A short query can match hundreds of portal titles.  webOS 4 runs out
-       of media/UI memory if every poster is inserted at once, so retain the
+    /* A short query can match hundreds of portal titles.  A 1 GB TV stick runs
+       out of media/UI memory if every poster is inserted at once, so retain the
        complete result list in JS but render one 2-row page at a time. */
     matches = matches || [];
     if (searchCapped() && matches.length > SEARCH_TV_MAX) { matches = matches.slice(0, SEARCH_TV_MAX); }
@@ -8581,7 +9671,7 @@
   }
 
   function renderSearchResultPage(requestedPage, focusIndex) {
-    if (window.XUPER_DESKTOP) { renderDesktopSearchList(); return; }
+    if (window.OPENTV_DESKTOP) { renderDesktopSearchList(); return; }
     var matches = state.searchMatches || [];
     searchHot.classList.add('is-hidden');
     searchResults.classList.add('is-active');
@@ -8602,7 +9692,7 @@
     if (searchNav) {
       searchNav.textContent = 'Resultados ' + (start + 1) + '-' + end + ' de ' + matches.length +
         (pageCount > 1 ? '  ·  Página ' + (page + 1) + '/' + pageCount : '');
-      if (window.XUPER_DESKTOP && pageCount > 1) {
+      if (window.OPENTV_DESKTOP && pageCount > 1) {
         function pageButton(label, next, disabled) {
           var button = el('button', 'desktop-search-page focusable', label);
           button.type = 'button';
@@ -8728,7 +9818,7 @@
 
   /* "Búsquedas recientes" chips above the popular titles. */
   function renderRecentSearches() {
-    if (!window.XUPER_DESKTOP || !searchHot) { return; }
+    if (!window.OPENTV_DESKTOP || !searchHot) { return; }
     if (!searchRecentBox || searchRecentBox.parentNode !== searchHot) {
       searchRecentBox = el('div', 'search-recent');
       searchHot.insertBefore(searchRecentBox, searchHot.firstChild);
@@ -8741,7 +9831,7 @@
     head.appendChild(el('div', 'sr-recent-title', 'Búsquedas recientes'));
     var wipe = el('button', 'sr-recent-clear focusable', 'Borrar todo');
     wipe.type = 'button';
-    wipe._activate = function () { safeLocalWrite(RECENT_SEARCH_KEY, []); renderRecentSearches(); setFocus(searchInput, true); };
+    wipe._activate = function () { safeLocalWrite(RECENT_SEARCH_KEY, []); renderRecentSearches(); setFocus(searchTvKb ? searchTvKb.first : searchInput, true); };
     head.appendChild(wipe);
     searchRecentBox.appendChild(head);
     var chips = el('div', 'sr-recent-chips');
@@ -8832,7 +9922,7 @@
   }
 
   function updateSearchSuggest() {
-    if (!window.XUPER_DESKTOP || !searchInput) { return; }
+    if (!window.OPENTV_DESKTOP || !searchInput) { return; }
     /* TV: the system keyboard covers the suggestions; skip the work. */
     if (platformIsTv()) { return; }
     var raw = searchInput.value;
@@ -8920,6 +10010,8 @@
     settingsMenu = $('settings-menu');
     settingsRight = $('settings-right');
     clear(settingsMenu); clear(settingsRight);
+    /* Only the entries this device has (Descargas…). */
+    SETTINGS_ITEMS = settingsItemsForDevice();
 
     settingsItems = [];
     for (var i = 0; i < SETTINGS_ITEMS.length; i++) {
@@ -8958,8 +10050,10 @@
     settingsPanels = {};
     settingsPanels.profile = buildProfilePanel();
     settingsPanels.history = buildHistoryPanel();
-    settingsPanels.playback = buildPlaybackPanel();
+    /* Ajustes: Apariencia, Reproducción and Preferencias de addons. */
+    settingsPanels.playback = window.OPENTV_DESKTOP ? buildSettingsHubPanel() : buildPlaybackPanel();
     settingsPanels.sources = buildSourcesPanel();
+    if (platformHas('downloads')) { settingsPanels.downloads = buildDownloadsPanel(); }
     settingsPanels.parent = buildParentPanel();
     settingsPanels.feedback = buildFeedbackPanel();
     settingsPanels.about = buildAboutPanel();
@@ -8974,6 +10068,19 @@
     showScreen('settings');
     showSettingsPanel(0, false);
     setFocus(settingsItems[0]);
+  }
+
+  /* Opens Ajustes on one panel ('downloads', 'sources'…). */
+  function openSettingsAt(id) {
+    /* Phone: its own Addons screen (the canvas is hidden there). */
+    if (typeof isPhone === 'function' && isPhone() && id === 'sources') {
+      mobileOpen('addons');
+      return;
+    }
+    openSettings();
+    for (var i = 0; i < SETTINGS_ITEMS.length; i++) {
+      if (SETTINGS_ITEMS[i].id === id) { showSettingsPanel(i, true); setFocus(settingsItems[i]); return; }
+    }
   }
 
   function showSettingsPanel(index, focus) {
@@ -8993,6 +10100,8 @@
       settingsRight.replaceChild(refreshedSources, settingsPanels.sources);
       settingsPanels.sources = refreshedSources;
     }
+    /* Descargas keeps itself up to date only while it is the panel shown. */
+    if (settingsPanels.downloads) { setDownloadsPanelLive(activeId === 'downloads'); }
     for (var i = 0; i < settingsItems.length; i++) {
       settingsItems[i].classList.toggle('is-selected', i === index);
     }
@@ -9021,8 +10130,8 @@
     p.appendChild(el('div', 'sp-hr'));
 
     p.appendChild(el('div', 'sp-global-note', 'Estas preferencias se aplican automáticamente a todas las películas y series nuevas.'));
-    addOptionRow(p, 198, window.XUPER_DESKTOP ? 'Calidad' : 'Reproductor',
-      window.XUPER_DESKTOP ? ['Automática', 'Compatibilidad máxima'] : ['Normal (directo)', 'Modo fluido'],
+    addOptionRow(p, 198, window.OPENTV_DESKTOP ? 'Calidad' : 'Reproductor',
+      window.OPENTV_DESKTOP ? ['Automática', 'Compatibilidad máxima'] : ['Normal (directo)', 'Modo fluido'],
       'streamMode', state.playback.streamMode === 'smooth' ? 1 : 0);
     addOptionRow(p, 307, 'Formato de pantalla', ['Llenar pantalla', 'Original', '16:9', '4:3'],
       'screen', state.playback.screen);
@@ -9123,7 +10232,7 @@
   }
 
   function buildProfilePanel() {
-    if (window.XUPER_DESKTOP) { return buildDesktopProfilePanel(); }
+    if (window.OPENTV_DESKTOP) { return buildDesktopProfilePanel(); }
     var p = el('div', 'settings-panel account-panel');
     var avatar = el('div', 'account-avatar');
     avatar.innerHTML = SETTINGS_MENU_ICONS.profile;
@@ -9177,8 +10286,6 @@
     avatar.innerHTML = avatarSvg(me.avatar);
     var who = el('div', 'acc-who');
     var nameRow = el('div', 'acc-name', me.name);
-    /* Stremio mode (PC): say it here too. */
-    if (stremioModeOn()) { nameRow.appendChild(el('span', 'mode-pill is-inline', 'Modo Addons')); }
     who.appendChild(nameRow);
     who.appendChild(el('div', 'acc-id', (me.kids ? 'Perfil infantil · ' : '') + 'Guardado solo en este equipo'));
     head.appendChild(avatar);
@@ -9217,7 +10324,7 @@
     [
       { icon: UI_ICONS.mylist, title: 'Mi lista', text: 'Películas y series que guardaste', run: function () { showSettingsPanel(settingsIndexOf('history'), true); } },
       { icon: UI_ICONS.history, title: 'Historial', text: 'Sigue donde lo dejaste', run: function () { openHistoryView(); } },
-      { icon: UI_ICONS.settings, title: 'Reproducción', text: 'Calidad, idioma y subtítulos', run: function () { showSettingsPanel(settingsIndexOf('playback'), true); } }
+      { icon: UI_ICONS.settings, title: 'Ajustes', text: 'Apariencia, reproducción y preferencias', run: function () { showSettingsPanel(settingsIndexOf('playback'), true); } }
     ].forEach(function (a) {
       var card = el('div', 'acc-action focusable');
       var ic = el('div', 'acc-action-icon');
@@ -9235,52 +10342,14 @@
     });
     p.appendChild(actions);
 
-    p.appendChild(el('div', 'acc-section', 'Apariencia'));
-    var look = el('div', 'acc-appearance');
-    var lookText = el('div', 'acc-action-text');
-    lookText.appendChild(el('div', 'acc-action-title', 'Tamaño de los pósteres'));
-    lookText.appendChild(el('div', 'acc-action-sub', 'Compacto muestra más títulos en cada fila'));
-    look.appendChild(lookText);
-    var seg = el('div', 'acc-seg');
-    [['Normal', false], ['Compacto', true]].forEach(function (o) {
-      var b = el('div', 'acc-seg-btn focusable' + (catalogCompact() === o[1] ? ' is-selected' : ''), o[0]);
-      b._activate = function () {
-        setCatalogDensity(o[1]);
-        var all = seg.querySelectorAll('.acc-seg-btn');
-        for (var i = 0; i < all.length; i++) { all[i].classList.toggle('is-selected', all[i] === b); }
-      };
-      seg.appendChild(b);
-    });
-    look.appendChild(seg);
-    p.appendChild(look);
-
-    /* Modo ligero (core/lite.js). */
-    var lite = el('div', 'acc-appearance');
-    var liteText = el('div', 'acc-action-text');
-    liteText.appendChild(el('div', 'acc-action-title', 'Modo ligero'));
-    liteText.appendChild(el('div', 'acc-action-sub', platformHas('mouse') ? 'Quita desenfoques, animaciones y la tarjeta grande al pasar el ratón. Úsalo si los menús van lentos.'
-      : 'Quita desenfoques y animaciones. Úsalo si los menús van lentos.'));
-    lite.appendChild(liteText);
-    var liteSeg = el('div', 'acc-seg');
-    [['Apagado', false], ['Encendido', true]].forEach(function (o) {
-      var b = el('div', 'acc-seg-btn focusable' + (liteMode() === o[1] ? ' is-selected' : ''), o[0]);
-      b._activate = function () {
-        setLiteMode(o[1]);
-        var all = liteSeg.querySelectorAll('.acc-seg-btn');
-        for (var i = 0; i < all.length; i++) { all[i].classList.toggle('is-selected', all[i] === b); }
-      };
-      liteSeg.appendChild(b);
-    });
-    lite.appendChild(liteSeg);
-    p.appendChild(lite);
     /* (How your data is kept is told in Acerca de.) */
     return p;
   }
 
-  /* Ajustes → Fuentes: de dónde salen las películas y series (solo PC) y las
-     listas M3U de TV en vivo. Diseño corto: un selector, listas y un campo. */
+  /* Ajustes → Addons: los addons de películas y series y las listas M3U de TV
+     en vivo. Diseño corto: listas y un campo para agregar. */
   function buildSourcesPanel() {
-    var page = desktopSettingsPage('sd-sources scrollable', 'Fuentes', '');
+    var page = desktopSettingsPage('sd-sources scrollable', 'Addons', '');
     page.body.appendChild(buildContentSourcesSection());
     return page.panel;
   }
@@ -9370,63 +10439,24 @@
 
   function buildContentSourcesSection() {
     var wrap = el('div', 'fx-wrap');
-    if (platformHas('addons')) { wrap.appendChild(buildMoviesSourcesSection()); }
+    if (platformHas('addons')) {
+      wrap.appendChild(buildMoviesSourcesSection());
+    }
     wrap.appendChild(buildLiveSourcesSection());
     return wrap;
   }
 
-  /* Películas y series (PC): two mode cards, and the addons. */
+  /* Películas y series: the viewer's addons (catalog, sources, subtitles). */
   function buildMoviesSourcesSection() {
     var sec = fxSection('Películas y series');
-    var seg = el('div', 'fx-modes');
+    var intro = el('div', 'fx-meta', 'Los addons dan el catálogo, las fuentes para reproducir y los subtítulos.');
     var list = el('div', 'fx-list');
     var warn = el('div', 'fx-warn', '');
     var msg = el('div', 'fx-msg', '');
-    var busy = false;
 
     function say(text, kind) { msg.textContent = text || ''; msg.className = 'fx-msg' + (kind ? ' is-' + kind : ''); }
 
-    var modes = [
-      { id: 'auto', label: 'Automático', badge: 'Recomendado', hint: 'El catálogo de OpenTV, listo para ver.' },
-      { id: 'external', label: 'Addons', hint: 'Tus addons (compatibles con Stremio). Eliges la fuente al reproducir.' }
-    ];
-    modes.forEach(function (m) {
-      var b = el('div', 'fx-mode focusable');
-      var head = el('div', 'fx-mode-head');
-      head.appendChild(el('span', 'fx-mode-radio'));
-      head.appendChild(el('span', 'fx-mode-title', m.label));
-      if (m.badge) { head.appendChild(el('span', 'fx-mode-badge', m.badge)); }
-      b.appendChild(head);
-      b.appendChild(el('div', 'fx-mode-desc', m.hint));
-      b._mode = m.id;
-      b.setAttribute('role', 'radio');
-      b._activate = function () {
-        if (busy || getVodSourcesConfig().mode === m.id) { return; }
-        function apply() {
-          busy = true;
-          say('Cargando…', '');
-          applyVodSourceMode(m.id, function (err, count) {
-            busy = false;
-            if (err) { say(err, 'err'); } else { say(m.id === 'external' ? count + ' títulos de tus addons.' : '', 'ok'); }
-            paint();
-          });
-        }
-        /* Stremio: first say what this mode depends on. */
-        if (m.id === 'external') { openStremioModeNotice(getVodSourcesConfig().addons, apply); } else { apply(); }
-      };
-      seg.appendChild(b);
-    });
-
-    function paint() {
-      var cfg = getVodSourcesConfig();
-      var btns = seg.querySelectorAll('.fx-mode');
-      for (var i = 0; i < btns.length; i++) {
-        var on = btns[i]._mode === cfg.mode;
-        btns[i].classList.toggle('is-on', on);
-        btns[i].setAttribute('aria-checked', on ? 'true' : 'false');
-      }
-      renderAddons(cfg);
-    }
+    function paint() { renderAddons(getVodSourcesConfig()); }
 
     function renderAddons(cfg) {
       clear(list);
@@ -9444,26 +10474,30 @@
             c.addons.splice(idx - 1, 0, c.addons.splice(idx, 1)[0]);
             saveVodSourcesConfig(c);
             paint();
-            if (stremioModeOn()) { syncExternalVodCatalogs(function () {}); }
+            syncExternalVodCatalogs(function () {});
           }));
         }
-        actions.push(fxIconButton(FX_ICONS.remove, 'Quitar', function () {
-          var c = getVodSourcesConfig();
-          var manual = c.mode === 'external';
-          c.addons.splice(idx, 1);
-          if (!c.addons.length) { c.mode = 'auto'; }
-          saveVodSourcesConfig(c);
-          if (manual) { applyVodSourceMode(c.addons.length ? 'external' : 'auto', paint); } else { paint(); }
-        }, true));
+        /* The app's own three (catalog and subtitles) stay: no Quitar. */
+        if (isBuiltinVodAddon(ad)) {
+          var tag = el('span', 'fx-tag', 'Incluido');
+          tag.setAttribute('data-tip', 'Viene con la app y no se puede quitar');
+          actions.push(tag);
+        } else {
+          actions.push(fxIconButton(FX_ICONS.remove, 'Quitar', function () {
+            var c = getVodSourcesConfig();
+            c.addons.splice(idx, 1);
+            saveVodSourcesConfig(c);
+            paint();
+            syncExternalVodCatalogs(function () {});
+          }, true));
+        }
         list.appendChild(fxRow(ad.logo, ad.name || 'Addon', addonOffers(ad), actions));
       });
-      /* What is missing for the manual mode to work. */
+      /* What is missing, in one short line. */
       var hasCatalog = cfg.addons.some(function (ad) { return addonHas(ad, 'catalog'); });
-      var hasStream = cfg.addons.some(function (ad) { return addonHas(ad, 'stream') || ad.kind === 'm3u'; });
-      /* Only Modo Addons depends on them (Automático has its own catalog). */
-      warn.textContent = !cfg.addons.length || cfg.mode !== 'external' ? ''
-        : (!hasCatalog ? 'Falta un addon con Catálogo: sin él no hay películas ni series que mostrar.'
-          : (!hasStream ? 'Falta un addon con Fuentes: sin él no hay nada que reproducir.' : ''));
+      var hasStream = cfg.addons.some(function (ad) { return addonHas(ad, 'stream'); });
+      warn.textContent = !hasCatalog ? 'Sin addon de catálogo: no hay películas ni series.'
+        : (!hasStream ? 'Sin addon de fuentes: puedes ver la información, pero no reproducir.' : '');
       warn.hidden = !warn.textContent;
     }
 
@@ -9475,12 +10509,18 @@
         btn.textContent = 'Agregar';
         if (err) { return say('No se pudo agregar: ' + err, 'err'); }
         input.value = '';
-        say('✔ ' + info.name + (stremioModeOn() && count ? ' · ' + count + ' títulos' : ''), 'ok');
+        say('✔ ' + info.name + (count ? ' · ' + count + ' títulos' : ''), 'ok');
         paint();
       });
     });
 
-    sec.appendChild(seg);
+    /* Recomendados: movie and series addons (live/addons-dialog.js). */
+    var recommend = el('div', 'fx-btn is-ghost is-recommend focusable', 'Recomendados');
+    recommend.setAttribute('data-tip', 'Addons de películas y series recomendados');
+    recommend._activate = function () { openAddonsDialog('vod'); };
+    add.appendChild(recommend);
+
+    sec.appendChild(intro);
     sec.appendChild(list);
     sec.appendChild(warn);
     sec.appendChild(add);
@@ -9551,6 +10591,37 @@
   var profilePickerOpen = false;
   var profileEditing = false;
 
+  /* The profile window on screen (the editor over the picker), or null.
+     While one is open the focus cannot go to anything behind it (core/focus.js
+     setFocus): at start-up the home screen used to take the focus from the
+     picker, and the remote then moved the hidden menu behind it. */
+  function profileOverlayRoot() {
+    if (profileEditor && profileEditor.classList.contains('is-open')) { return profileEditor; }
+    if (profilePickerOpen && profilePicker) { return profilePicker; }
+    return null;
+  }
+
+  /* Back while a profile window is open: the editor closes, "Administrar
+     perfiles" goes back to choosing, and the picker continues with the
+     profile in use. True when it was handled. Called from the keyboard
+     listener (installProfiles) and from handleKey (the TV remote's Back comes
+     through the Capacitor App plugin, not as a key event). */
+  function profileOverlayBack() {
+    if (profileEditor && profileEditor.classList.contains('is-open')) {
+      if (profileEditor._close) { profileEditor._close(); }
+      return true;
+    }
+    if (!profilePickerOpen) { return false; }
+    if (profileEditing) {
+      profileEditing = false;
+      profilePicker.classList.remove('is-editing');
+      renderProfilePicker();
+    } else {
+      chooseProfile(activeProfileId);
+    }
+    return true;
+  }
+
   function profileTile(p, onClick) {
     var tile = el('div', 'pp-tile focusable');
     var av = el('div', 'pp-avatar');
@@ -9600,7 +10671,7 @@
 
   function showProfilePicker(editing) {
     /* (Phones have their own "¿Quién está viendo?", mobile/mobile-app.js.) */
-    if (!window.XUPER_DESKTOP || isPhone()) { return; }
+    if (!window.OPENTV_DESKTOP || isPhone()) { return; }
     if (!profilePicker) {
       profilePicker = el('div', 'profile-picker');
       profilePicker.setAttribute('data-no-gesture', '');
@@ -9639,7 +10710,9 @@
       document.body.appendChild(profileEditor);
     }
     clear(profileEditor);
-    var card = el('div', 'pe2-card');
+    /* (scrollable: on a TV the card is taller than the screen, and the focus
+       moved by the remote is scrolled into view like in any other list.) */
+    var card = el('div', 'pe2-card scrollable');
     card.appendChild(el('div', 'pe2-title', isNew ? 'Añadir perfil' : 'Editar perfil'));
     var top = el('div', 'pe2-top');
     var preview = el('div', 'pe2-preview');
@@ -9651,9 +10724,17 @@
     name.className = 'pe2-name focusable';
     name.placeholder = 'Nombre';
     name.value = draft.name;
+    /* Remote: OK on the field opens the keyboard; up/down leave it. */
+    name._activate = function () { name.focus(); };
     name.addEventListener('keydown', function (event) {
       if (event.key === 'Enter') { event.preventDefault(); save(); }
       if (event.key === 'Escape') { event.preventDefault(); close(); }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        name.blur();
+        setFocus(name, true);
+        moveFocus(event.key === 'ArrowDown' ? 'down' : 'up');
+      }
       event.stopPropagation();
     });
     top.appendChild(name);
@@ -9671,15 +10752,18 @@
         var all = grid.querySelectorAll('.pe2-av');
         for (var k = 0; k < all.length; k++) { all[k].classList.toggle('is-selected', all[k] === b); }
       });
+      b._activate = function () { b.click(); };
       grid.appendChild(b);
     });
     card.appendChild(grid);
 
-    var kids = el('label', 'pe2-kids');
+    var kids = el('label', 'pe2-kids focusable');
     var box = document.createElement('input');
     box.type = 'checkbox';
     box.checked = draft.kids;
+    box.tabIndex = -1;
     kids.appendChild(box);
+    kids._activate = function () { box.checked = !box.checked; };
     var kt = el('span');
     kt.appendChild(el('b', null, 'Perfil infantil'));
     kt.appendChild(el('small', null, 'Solo la sección Kids: sin TV en vivo, buscador ni contenido para adultos.'));
@@ -9689,16 +10773,19 @@
     var msg = el('div', 'pe2-msg', '');
     card.appendChild(msg);
     var actions = el('div', 'pe2-actions');
-    var ok = el('button', 'pe2-btn is-primary', 'Guardar');
+    /* Buttons reachable with the remote too (focusable + _activate). */
+    var ok = el('button', 'pe2-btn is-primary focusable', 'Guardar');
     ok.type = 'button';
     ok.addEventListener('click', save);
-    var cancel = el('button', 'pe2-btn', 'Cancelar');
+    ok._activate = save;
+    var cancel = el('button', 'pe2-btn focusable', 'Cancelar');
     cancel.type = 'button';
     cancel.addEventListener('click', close);
+    cancel._activate = close;
     actions.appendChild(ok);
     actions.appendChild(cancel);
     if (!isNew && profilesData.list.length > 1) {
-      var del = el('button', 'pe2-btn is-danger', 'Eliminar perfil');
+      var del = el('button', 'pe2-btn is-danger focusable', 'Eliminar perfil');
       del.type = 'button';
       var armed = false;
       del.addEventListener('click', function () {
@@ -9706,12 +10793,18 @@
         deleteProfile(p.id);
         close();
       });
+      del._activate = function () { del.click(); };
       actions.appendChild(del);
     }
     card.appendChild(actions);
     profileEditor.appendChild(card);
     profileEditor.classList.add('is-open');
-    setTimeout(function () { name.focus(); }, 50);
+    profileEditor._close = close;
+    var returnFocus = state.focus;
+    /* TVs: the remote's focus starts on the name (OK opens the keyboard);
+       opening the keyboard by itself covered the whole screen. */
+    if (platformIsTv()) { setFocus(name, true); }
+    else { setTimeout(function () { name.focus(); }, 50); }
 
     function save() {
       var n = String(name.value || '').replace(/\s+/g, ' ').trim();
@@ -9733,8 +10826,12 @@
       if (!isNew && p.id === activeProfileId) { setTimeout(function () { location.reload(); }, 150); }
     }
     function close() {
+      /* The hidden name field kept the browser's focus and swallowed every
+         key afterwards (the picker could not be moved with the remote). */
+      if (document.activeElement === name) { name.blur(); }
       profileEditor.classList.remove('is-open');
       if (profilePickerOpen) { renderProfilePicker(); }
+      else if (returnFocus && returnFocus.isConnected) { setFocus(returnFocus, true); }
     }
   }
 
@@ -9762,7 +10859,7 @@
   /* --------------------------------------------------------------- backup */
   var profilesBackupTimer = null;
   function profilesBackupApi() {
-    return window.XUPER_DESKTOP && window.desktop && window.desktop.backup ? window.desktop.backup : null;
+    return window.OPENTV_DESKTOP && window.desktop && window.desktop.backup ? window.desktop.backup : null;
   }
   function collectProfilesBackup() {
     var data = { kind: 'opentv-profiles', version: 1, savedAt: Date.now(), profiles: profilesData, values: {} };
@@ -9806,7 +10903,10 @@
       no.type = 'button';
       yes.addEventListener('click', function () {
         try {
-          Object.keys(data.values).forEach(function (k) { localStorage.setItem(k, data.values[k]); });
+          Object.keys(data.values).forEach(function (k) {
+            var key = window.opentvStorageKey ? window.opentvStorageKey(k) : k;
+            localStorage.setItem(key, data.values[k]);
+          });
           localStorage.setItem(PROFILES_KEY, JSON.stringify(data.profiles));
         } catch (eRestore) { /* storage full */ }
         location.reload();
@@ -9824,15 +10924,19 @@
   /* Start-up: restore offer on a fresh install, then the picker when there
      are several profiles (once per app start). */
   function installProfiles() {
-    if (!window.XUPER_DESKTOP) { return; }
+    if (!window.OPENTV_DESKTOP) { return; }
     refreshProfileChrome();
     document.addEventListener('keydown', function (event) {
-      if (!profilePickerOpen || (profileEditor && profileEditor.classList.contains('is-open'))) { return; }
-      if (event.key === 'Escape') {
+      /* Back on a TV remote arrives as Escape, GoBack or Back (core/navigation.js);
+         Backspace only outside a text field. */
+      var inField = event.target && event.target.tagName === 'INPUT';
+      var isBack = event.key === 'Escape' || event.key === 'GoBack' || event.key === 'Back' ||
+        event.keyCode === 27 || (event.keyCode === 8 && !inField);
+      /* (The editor's name field handles its own Escape.) */
+      if (!isBack || inField) { return; }
+      if (profileOverlayBack()) {
         event.preventDefault();
         event.stopPropagation();
-        if (profileEditing) { profileEditing = false; profilePicker.classList.remove('is-editing'); renderProfilePicker(); }
-        else { chooseProfile(activeProfileId); }
       }
     }, true);
     offerProfilesRestore(function (shown) {
@@ -10131,7 +11235,7 @@
 
   /* The "Historial" button and Ctrl+J open the side panel. */
   function openHistoryView() {
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       if (historyDrawerOpen) { closeHistoryDrawer(); } else { openHistoryDrawer(); }
       return;
     }
@@ -10248,12 +11352,12 @@
     /* (Desktop has no PIN lock and no menu entry for this panel.) */
     var p = el('div', 'settings-panel');
     p.appendChild(el('div', 'pl-title', 'Configuraciones del Control Parental'));
-    p.appendChild(el('div', 'pl-tip', window.XUPER_DESKTOP ? 'Control parental no disponible en esta versión. No se aplica ningún bloqueo por PIN.' : 'Ingrese la contraseña de cuatro dígitos e ingrese viendo el programa de bloqueo.'));
+    p.appendChild(el('div', 'pl-tip', window.OPENTV_DESKTOP ? 'Control parental no disponible en esta versión. No se aplica ningún bloqueo por PIN.' : 'Ingrese la contraseña de cuatro dígitos e ingrese viendo el programa de bloqueo.'));
     p.appendChild(el('div', 'pl-label', 'Contraseña inicial:'));
     var boxes = el('div', 'pl-boxes');
     for (var i = 0; i < 4; i++) {
       var b = el('div', 'pl-box focusable');
-      if (window.XUPER_DESKTOP) b.setAttribute('aria-disabled', 'true');
+      if (window.OPENTV_DESKTOP) b.setAttribute('aria-disabled', 'true');
       b._activate = function () { /* numeric capture not reconstructed */ };
       boxes.appendChild(b);
       if (i < 3) { boxes.appendChild(el('div', 'pl-sep')); }
@@ -10261,14 +11365,14 @@
     p.appendChild(boxes);
     p.appendChild(el('div', 'pl-note', ''));
     var ok = el('div', 'pl-ok focusable', 'OK');
-    if (window.XUPER_DESKTOP) ok.setAttribute('aria-disabled', 'true');
+    if (window.OPENTV_DESKTOP) ok.setAttribute('aria-disabled', 'true');
     ok._activate = function () { /* password validation not reconstructed */ };
     p.appendChild(ok);
     return p;
   }
 
   function buildFeedbackPanel() {
-    if (window.XUPER_DESKTOP) { return buildDesktopFeedbackPanel(); }
+    if (window.OPENTV_DESKTOP) { return buildDesktopFeedbackPanel(); }
     var p = el('div', 'settings-panel');
     p.appendChild(el('div', 'fb-title', 'Ayuda y Feedback'));
     p.appendChild(el('div', 'fb-hr'));
@@ -10281,7 +11385,7 @@
   }
 
   function buildAboutPanel() {
-    if (window.XUPER_DESKTOP) { return buildDesktopAboutPanel(); }
+    if (window.OPENTV_DESKTOP) { return buildDesktopAboutPanel(); }
     var p = el('div', 'settings-panel');
     p.appendChild(el('div', 'sp-title plain', 'Sobre nosotros'));
     p.appendChild(abs(el('div', 'sp-hr soft'), 0, 165, 1498, 1));
@@ -10302,11 +11406,11 @@
 
   /* One layout for every desktop settings page: a header (title + short
      description) and a column of cards. */
-  function desktopSettingsPage(cls, title, subtitle) {
+  function desktopSettingsPage(cls, title) {
+    /* Only the title: what each option does is in its ⓘ, not under the title. */
     var p = el('div', 'settings-panel sd-page ' + (cls || ''));
     var head = el('div', 'sd-head');
     head.appendChild(el('div', 'sd-title', title));
-    if (subtitle) { head.appendChild(el('div', 'sd-sub', subtitle)); }
     p.appendChild(head);
     var body = el('div', 'sd-body');
     p.appendChild(body);
@@ -10370,8 +11474,12 @@
     /* Keyboard shortcuts only where there is a keyboard (the PC app); TVs get
        what each key of the remote does instead. */
     var hasKeyboard = platformHas('window');
-    var page = desktopSettingsPage('sd-help', 'Ayuda', hasKeyboard ? 'Qué hacer si algo no funciona y los atajos de teclado.'
+    var page = desktopSettingsPage('sd-help sd-plain', 'Ayuda', hasKeyboard ? 'Qué hacer si algo no funciona y los atajos de teclado.'
       : 'Qué hacer si algo no funciona y cómo se usa el control remoto.');
+    /* The first-launch guide, any time. */
+    var guide = desktopSettingsCard(UI_ICONS.info, 'Guía de inicio', 'Cómo agregar addons para reproducir, listas de TV en vivo y elegir la mejor fuente.');
+    guide.appendChild(desktopSettingsButton('Ver la guía', UI_ICONS.info, openGuide));
+    page.body.appendChild(guide);
     if (window.desktop && window.desktop.openLogs) {
       var logs = desktopSettingsCard(UI_ICONS.info, 'Registro de errores',
         'La app anota en un archivo los errores y cierres inesperados (no se envía nada). Si algo falla, abre la carpeta y adjunta opentv.log al reportarlo.');
@@ -10404,7 +11512,6 @@
   function aboutPlatformLabel(arch) {
     var n = platformName();
     if (n === 'electron') { return 'Windows ' + (arch || 'x64'); }
-    if (n === 'webos') { return 'TV LG'; }
     if (n === 'android') { return platformIsTv() ? 'Android TV / Fire TV' : 'Android'; }
     return '';
   }
@@ -10412,7 +11519,7 @@
   /* Acerca de: who made it, the version, updates (PC), how your data is kept
      and, at the bottom, the credits. */
   function buildDesktopAboutPanel() {
-    var page = desktopSettingsPage('sd-about', 'Acerca de', null);
+    var page = desktopSettingsPage('sd-about sd-plain', 'Acerca de', null);
     var hero = el('div', 'sd-about-hero');
     var logo = el('img', 'sd-about-logo');
     logo.src = 'images/logo.svg';
@@ -10432,12 +11539,13 @@
       }).catch(function () {});
     }
     if (updatesApi()) { page.body.appendChild(buildUpdateCard()); }
+    else if (androidUpdatesOn()) { page.body.appendChild(buildAndroidUpdateCard()); }
     page.body.appendChild(desktopSettingsCard(UI_ICONS.lock, 'Sin cuentas ni contraseñas',
       'Tu lista, el historial y tus preferencias se guardan solo en este equipo; no se envían a ningún servidor.'));
 
     var credits = el('div', 'sd-credits');
     credits.appendChild(el('div', 'sd-credits-by', 'Hecho por TECHPOINT Software™'));
-    credits.appendChild(el('div', 'sd-credits-line', '© 2026 TECHPOINT Software™ · Licencia MIT'));
+    credits.appendChild(el('div', 'sd-credits-line', '© 2026 TECHPOINT Software™ · Todos los derechos reservados'));
     /* What this version really uses (the Android one has no Electron,
        FFmpeg or torrent-stream). */
     credits.appendChild(el('div', 'sd-credits-line', platformHas('window')
@@ -10448,6 +11556,328 @@
       'Tendencias con datos de TMDB. Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB.'));
     page.body.appendChild(credits);
     return page.panel;
+  }
+
+  /* ---- screens/settings-hub.js ----------------------------------------------- */
+  /* screens/settings-hub.js — Ajustes: una pestaña con tres subpestañas
+     (Apariencia, Reproducción, Preferencias de addons). Grupos con título y
+     filas anchas: el nombre a la izquierda (con ⓘ: la explicación al pasar el
+     ratón) y las opciones a la derecha.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  var SETTINGS_HUB_TABS = [
+    { id: 'look', label: 'Apariencia' },
+    { id: 'play', label: 'Reproducción' },
+    { id: 'addons', label: 'Preferencias de addons' }
+  ];
+  var settingsHubTab = 'look';
+  var SET_INFO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.5h.01"/></svg>';
+
+  /* ⓘ with the explanation as a tooltip (desktop/tooltip.js shows data-tip). */
+  function settingsInfo(hint) {
+    var i = el('span', 'set-info');
+    i.innerHTML = SET_INFO_SVG;
+    i.setAttribute('data-tip', hint);
+    i.setAttribute('aria-label', hint);
+    return i;
+  }
+
+  /* A titled block of rows. */
+  function settingsGroup(parent, title) {
+    var g = el('section', 'set-group');
+    g.appendChild(el('h3', 'set-group-title', title));
+    parent.appendChild(g);
+    return g;
+  }
+
+  /* One row: the name (and ⓘ) on the left, the choices on the right. */
+  function hubRow(parent, label, hint, options, current, pick) {
+    var r = el('div', 'set-row');
+    var name = el('div', 'set-row-name');
+    name.appendChild(el('span', null, label));
+    if (hint) { name.appendChild(settingsInfo(hint)); }
+    r.appendChild(name);
+    var seg = el('div', 'set-seg');
+    seg.setAttribute('role', 'radiogroup');
+    seg.setAttribute('aria-label', label);
+    options.forEach(function (text, i) {
+      var c = el('div', 'set-seg-btn focusable' + (i === current ? ' is-on' : ''), text);
+      c.setAttribute('role', 'radio');
+      c.setAttribute('aria-checked', i === current ? 'true' : 'false');
+      c._activate = function () {
+        pick(i);
+        var all = seg.querySelectorAll('.set-seg-btn');
+        for (var k = 0; k < all.length; k++) {
+          all[k].classList.toggle('is-on', all[k] === c);
+          all[k].setAttribute('aria-checked', all[k] === c ? 'true' : 'false');
+        }
+      };
+      seg.appendChild(c);
+    });
+    r.appendChild(seg);
+    parent.appendChild(r);
+    return r;
+  }
+
+  function buildAppearanceSettings() {
+    var box = el('div', 'set-page');
+    var home = settingsGroup(box, 'Inicio');
+    hubRow(home, 'Tamaño de los pósteres', 'Compacto muestra más títulos en cada fila.', ['Normal', 'Compacto'],
+      catalogCompact() ? 1 : 0, function (i) { setCatalogDensity(i === 1); });
+    hubRow(home, 'Idioma del catálogo', 'Títulos, sinopsis y episodios de películas y series. En español se toman de TMDB; si un título no está traducido, queda en inglés.',
+      ['Español', 'Inglés'], catalogLang() === 'en' ? 1 : 0, function (i) { setCatalogLang(i === 1 ? 'en' : 'es'); });
+    var perf = settingsGroup(box, 'Rendimiento');
+    hubRow(perf, 'Modo ligero', platformHas('mouse')
+      ? 'Quita desenfoques, animaciones y la tarjeta grande al pasar el ratón. Úsalo si los menús van lentos.'
+      : 'Quita desenfoques y animaciones. Úsalo si los menús van lentos.',
+      ['Apagado', 'Encendido'], liteMode() ? 1 : 0, function (i) { setLiteMode(i === 1); });
+    return box;
+  }
+
+  /* The global playback preferences (same values the old panel saved). */
+  function buildPlaybackSettings() {
+    var box = el('div', 'set-page');
+    function save() { applyGlobalPlaybackPreferences(); saveGlobalPlayback(); }
+    var video = settingsGroup(box, 'Vídeo');
+    hubRow(video, 'Calidad', 'Compatibilidad máxima convierte el vídeo: más estable, pero usa más CPU.',
+      ['Automática', 'Compatibilidad máxima'], state.playback.streamMode === 'smooth' ? 1 : 0, function (i) {
+        state.playback.streamMode = i === 1 ? 'smooth' : 'normal';
+        /* A deliberate global choice supersedes this session's per-title ones. */
+        smoothModeByTitle = {};
+        clearCompatTitles();
+        if (state.playerItem) { restoreSmoothMode(state.playerItem); }
+        save();
+      });
+    hubRow(video, 'Formato de pantalla', '', ['Llenar', 'Original', '16:9', '4:3'], state.playback.screen,
+      function (i) { state.playback.screen = i; save(); });
+    var audio = settingsGroup(box, 'Audio');
+    hubRow(audio, 'Idioma preferido', 'Si el archivo trae varios idiomas, empieza en este.', ['Español', 'Portugués', 'Inglés'], state.playback.audio,
+      function (i) { state.playback.audio = i; save(); });
+    var subs = settingsGroup(box, 'Subtítulos');
+    hubRow(subs, 'Mostrar', '', ['No', 'Sí'], state.playback.subtitle ? 1 : 0,
+      function (i) { state.playback.subtitle = i === 1; save(); });
+    hubRow(subs, 'Idioma', '', ['Español', 'Portugués', 'Inglés'], state.playback.subLang,
+      function (i) { state.playback.subLang = i; save(); });
+    hubRow(subs, 'Tamaño', '', ['Normal', 'Grande', 'Pequeño'], state.playback.size,
+      function (i) { state.playback.size = i; save(); });
+    hubRow(subs, 'Estilo', '', ['Blanco', 'Amarillo', 'Fondo negro'], Number(state.playback.style) || 0,
+      function (i) { state.playback.style = i; save(); });
+    return box;
+  }
+
+  function buildSettingsHubPanel() {
+    var page = desktopSettingsPage('sd-hub scrollable', 'Ajustes', '');
+    var tabs = el('div', 'sd-tabs');
+    tabs.setAttribute('role', 'tablist');
+    var body = el('div', 'sd-tab-body');
+    function show(id) {
+      settingsHubTab = id;
+      var all = tabs.querySelectorAll('.sd-tab');
+      for (var i = 0; i < all.length; i++) {
+        var on = all[i]._tab === id;
+        all[i].classList.toggle('is-on', on);
+        all[i].setAttribute('aria-selected', on ? 'true' : 'false');
+      }
+      clear(body);
+      body.appendChild(id === 'play' ? buildPlaybackSettings()
+        : (id === 'addons' ? buildSourcePrefsEditor(null) : buildAppearanceSettings()));
+    }
+    SETTINGS_HUB_TABS.forEach(function (t) {
+      var b = el('div', 'sd-tab focusable', t.label);
+      b.setAttribute('role', 'tab');
+      b._tab = t.id;
+      b._activate = function () { show(t.id); };
+      tabs.appendChild(b);
+    });
+    page.body.appendChild(tabs);
+    page.body.appendChild(body);
+    show(settingsHubTab);
+    return page.panel;
+  }
+
+  /* ---- screens/guide.js ------------------------------------------------------ */
+  /* screens/guide.js — Guía de inicio: cuatro pasos cortos la primera vez que se
+     abre la app (y siempre desde Ajustes → Ayuda). Usa la ventana de los paneles
+     de fuentes (player/stremio-sources.js), así funciona con ratón y control.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  var GUIDE_SEEN_KEY = 'opentv_guide_seen_v1';
+
+  function guideSteps() {
+    var steps = [
+      { title: 'Bienvenido a OpenTV', text: 'Películas, series y TV en vivo en un solo lugar. El catálogo ya viene listo para explorar.' },
+      { title: 'Para reproducir', text: 'Agrega un addon de fuentes en Ajustes → Addons. Pega la dirección que termina en manifest.json.',
+        action: 'Ir a Addons', run: function () { openSettingsAt('sources'); } },
+      { title: 'TV en vivo', text: 'Agrega tus listas M3U o IPTV en Ajustes → Addons → TV en vivo.' },
+      { title: 'La mejor fuente, sola', text: 'OpenTV elige el idioma, la calidad y la fuente más estable. Cámbialo en Ajustes → Preferencias de addons.' }
+    ];
+    if (platformHas('downloads')) {
+      steps[3].text += ' Y descarga para ver sin internet.';
+    }
+    return steps;
+  }
+
+  /* After the welcome screen, once per install. */
+  function maybeShowFirstRunGuide() {
+    var seen = false;
+    try { seen = localStorage.getItem(GUIDE_SEEN_KEY) === '1'; } catch (e) { seen = true; }
+    if (!seen) { setTimeout(function () { if (!sourcePickerOpen) { openGuide(); } }, 600); }
+  }
+
+  function openGuide() {
+    try { localStorage.setItem(GUIDE_SEEN_KEY, '1'); } catch (e) { /* ignore */ }
+    if (sourcePickerOpen) { closeSourcePicker(); }
+    sourcePickerOpen = true;
+    sourcePickerReturn = state.focus;
+    sourcePickerSeq++;
+    var steps = guideSteps();
+    var index = 0;
+    var root = el('div', 'source-picker');
+    root.id = 'dialog-guide';
+    var panel = el('div', 'srcp-panel is-notice guide-panel');
+    var head = el('div', 'srcp-head');
+    var title = el('div', 'srcp-title', '');
+    var count = el('div', 'srcp-sub', '');
+    head.appendChild(title);
+    head.appendChild(count);
+    panel.appendChild(head);
+    var body = el('div', 'srcp-body');
+    var text = el('p', 'guide-text', '');
+    var dots = el('div', 'guide-dots');
+    body.appendChild(text);
+    body.appendChild(dots);
+    panel.appendChild(body);
+    var foot = el('div', 'srcp-foot');
+    var skip = el('div', 'acc-seg-btn focusable', 'Omitir');
+    skip._activate = closeSourcePicker;
+    var right = el('div', 'srcp-foot-actions');
+    var back = el('div', 'acc-seg-btn focusable', 'Anterior');
+    var extra = el('div', 'acc-seg-btn focusable', '');
+    var next = el('div', 'acc-seg-btn focusable is-selected', '');
+    back._activate = function () { if (index > 0) { index--; paint(); } };
+    next._activate = function () { if (index < steps.length - 1) { index++; paint(); } else { closeSourcePicker(); } };
+    extra._activate = function () { var run = steps[index].run; closeSourcePicker(); if (run) { run(); } };
+    right.appendChild(back);
+    right.appendChild(extra);
+    right.appendChild(next);
+    foot.appendChild(skip);
+    foot.appendChild(right);
+    panel.appendChild(foot);
+    root.appendChild(panel);
+    root.addEventListener('click', function (ev) { if (ev.target === root) { closeSourcePicker(); } });
+    mountOverlay(root);
+    sourcePickerNode = root;
+
+    function paint() {
+      var s = steps[index];
+      title.textContent = s.title;
+      count.textContent = 'Paso ' + (index + 1) + ' de ' + steps.length;
+      text.textContent = s.text;
+      clear(dots);
+      for (var i = 0; i < steps.length; i++) { dots.appendChild(el('span', 'guide-dot' + (i === index ? ' is-on' : ''))); }
+      back.hidden = index === 0;
+      extra.hidden = !s.action;
+      extra.textContent = s.action || '';
+      next.textContent = index === steps.length - 1 ? 'Empezar' : 'Siguiente';
+      setFocus(next);
+    }
+    paint();
+  }
+
+  /* ---- screens/app-update.js ------------------------------------------------- */
+  /* screens/app-update.js — Actualizaciones en Android: el servicio busca la
+     última versión en GitHub, baja el APK y abre el instalador del sistema
+     (appUpdate en el servicio Java). En PC lo hace desktop/updates.js.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  var UPDATE_SKIP_KEY = 'opentv_update_skip_v1';
+  var androidUpdate = { info: null, timer: null };
+
+  function androidUpdatesOn() { return platformName() === 'android'; }
+
+  /* At start: a short notice when there is a version the viewer did not skip. */
+  function checkAndroidUpdateOnStart() {
+    if (!androidUpdatesOn()) { return; }
+    portalServiceCall('appUpdate', { action: 'check' }, function (err, info) {
+      if (err || !info || !info.available) { return; }
+      androidUpdate.info = info;
+      var skipped = '';
+      try { skipped = localStorage.getItem(UPDATE_SKIP_KEY) || ''; } catch (e) { skipped = ''; }
+      if (skipped === info.latest) { return; }
+      /* Never over a window that is already open (the guide, a source). */
+      setTimeout(function () {
+        if (sourcePickerOpen || state.screen === 'player') { return; }
+        showShortNotice('Hay una versión nueva', 'OpenTV ' + info.latest + ' está lista para instalar' +
+          (info.size ? ' (' + formatBytes(info.size) + ')' : '') + '.', 'Actualizar', function () {
+            openSettingsAt('about');
+            startAndroidUpdate(null);
+          });
+        try { localStorage.setItem(UPDATE_SKIP_KEY, info.latest); } catch (e) { /* ignore */ }
+      }, 4000);
+    }, 20000);
+  }
+
+  /* Download, then the system installer. paint(text, buttonLabel) shows the step. */
+  function startAndroidUpdate(paint) {
+    paint = paint || function () {};
+    portalServiceCall('appUpdate', { action: 'download' }, function (err) {
+      if (err) { paint('No se pudo descargar: ' + err, 'Reintentar'); return; }
+      if (androidUpdate.timer) { clearInterval(androidUpdate.timer); }
+      androidUpdate.timer = setInterval(function () {
+        portalServiceCall('appUpdate', { action: 'status' }, function (sErr, st) {
+          if (sErr || !st) { return; }
+          if (st.state === 'downloading') {
+            var pct = st.total ? Math.floor(st.bytes * 100 / st.total) : 0;
+            paint('Descargando… ' + pct + ' %', '');
+            return;
+          }
+          clearInterval(androidUpdate.timer);
+          androidUpdate.timer = null;
+          if (st.state === 'error') { paint('No se pudo descargar: ' + (st.error || 'error'), 'Reintentar'); return; }
+          if (st.state === 'ready') { installAndroidUpdate(paint); }
+        });
+      }, 1000);
+    });
+  }
+
+  function installAndroidUpdate(paint) {
+    portalServiceCall('appUpdate', { action: 'install' }, function (err, res) {
+      if (err) { paint(err, 'Reintentar'); return; }
+      if (res && res.state === 'needs-permission') {
+        paint(res.errorText || 'Permite que OpenTV instale apps (se abrió la pantalla del sistema) y vuelve a tocar Instalar.', 'Instalar');
+        return;
+      }
+      paint('Sigue los pasos del instalador.', 'Instalar');
+    });
+  }
+
+  /* Acerca de (Android): the same plain section as on PC. */
+  function buildAndroidUpdateCard() {
+    var card = desktopSettingsCard(UI_ICONS.retry, 'Actualizaciones', 'Busca la última versión de OpenTV.');
+    var sub = card.querySelector('.sd-card-sub');
+    var btn = desktopSettingsButton('Buscar actualizaciones', UI_ICONS.retry, null);
+    var label = btn.querySelector('span:last-child');
+    function paint(text, button) {
+      if (sub) { sub.textContent = text; }
+      btn.hidden = !button;
+      if (button && label) { label.textContent = button; }
+    }
+    btn._activate = function () {
+      var info = androidUpdate.info;
+      if (info && info.available && label && /Actualizar|Reintentar/.test(label.textContent)) { return startAndroidUpdate(paint); }
+      if (label && label.textContent === 'Instalar') { return installAndroidUpdate(paint); }
+      paint('Buscando…', '');
+      portalServiceCall('appUpdate', { action: 'check' }, function (err, res) {
+        if (err || !res) { paint(err || 'No se pudo buscar actualizaciones.', 'Buscar actualizaciones'); return; }
+        androidUpdate.info = res;
+        if (!res.available) { paint('Tienes la última versión (' + (res.current || '') + ').', 'Buscar actualizaciones'); return; }
+        paint('Versión ' + res.latest + ' disponible' + (res.size ? ' · ' + formatBytes(res.size) : '') + '.', 'Actualizar');
+      }, 20000);
+    };
+    card.appendChild(btn);
+    /* A download already running (from the start-up notice): show it. */
+    if (androidUpdate.timer) { paint('Descargando…', ''); }
+    return card;
   }
 
   /* ---- player/infobar.js ----------------------------------------------------- */
@@ -10518,17 +11948,17 @@
   function updateVodProgress(current, duration) {
     if (!vodTimeCurrent || !vodTimeTotal || !vodSeekProgress) { return; }
     if (vodScrubbing) { current = vodScrubTime; }
-    var knownDuration = window.XUPER_DESKTOP ? vodPlaybackDuration() : durationToSeconds(duration);
-    if (!knownDuration && !window.XUPER_DESKTOP && state.playerEpisode && state.playerEpisode.duration) {
+    var knownDuration = window.OPENTV_DESKTOP ? vodPlaybackDuration() : durationToSeconds(duration);
+    if (!knownDuration && !window.OPENTV_DESKTOP && state.playerEpisode && state.playerEpisode.duration) {
       knownDuration = durationToSeconds(state.playerEpisode.duration);
     }
-    if (!knownDuration && !window.XUPER_DESKTOP && state.playerItem && state.playerItem.duration) {
+    if (!knownDuration && !window.OPENTV_DESKTOP && state.playerItem && state.playerItem.duration) {
       knownDuration = durationToSeconds(state.playerItem.duration);
     }
-    if (!knownDuration && !window.XUPER_DESKTOP && playerVideo && isFinite(playerVideo.duration) && playerVideo.duration > 0) {
+    if (!knownDuration && !window.OPENTV_DESKTOP && playerVideo && isFinite(playerVideo.duration) && playerVideo.duration > 0) {
       knownDuration = playerVideo.duration;
     }
-    if (!knownDuration && !window.XUPER_DESKTOP && activeSubtitleCues && activeSubtitleCues.length) {
+    if (!knownDuration && !window.OPENTV_DESKTOP && activeSubtitleCues && activeSubtitleCues.length) {
       var lastCue = activeSubtitleCues[activeSubtitleCues.length - 1];
       if (lastCue && lastCue.end > 0) {
         knownDuration = Math.round(lastCue.end + 60);
@@ -10545,7 +11975,7 @@
       durationNote.textContent = durationTarget && durationTarget._durationPending ?
         'Obteniendo duración… Puedes usar −10 s y +10 s.' : 'Duración no disponible. Puedes usar −10 s y +10 s.';
     }
-    if (window.XUPER_DESKTOP && !knownDuration) {
+    if (window.OPENTV_DESKTOP && !knownDuration) {
       vodTimeTotal.textContent = '--:--:--';
       vodSeekProgress.style.width = '0%';
       if (vodSeekThumb) vodSeekThumb.style.left = '0%';
@@ -10568,7 +11998,7 @@
     vodTimeTotal.textContent = formatTime(knownDuration);
     var pct = Math.min(100, Math.max(0, (current / knownDuration) * 100));
     vodSeekProgress.style.width = pct.toFixed(2) + '%';
-    if (window.XUPER_DESKTOP && vodSeekbar) {
+    if (window.OPENTV_DESKTOP && vodSeekbar) {
       vodSeekbar.setAttribute('aria-valuemax', String(Math.floor(vodPlaybackDuration())));
       vodSeekbar.setAttribute('aria-valuenow', String(Math.floor(current)));
       vodSeekbar.setAttribute('aria-valuetext', formatTime(current) + ' de ' + formatTime(knownDuration));
@@ -10591,7 +12021,7 @@
     if (!playerOsdIcon) { playerOsdIcon = $('player-osd-icon'); }
     if (!playerOsdIcon) { return; }
     if (osdHideTimer) { clearTimeout(osdHideTimer); osdHideTimer = null; }
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       var osdIcons = { pause: UI_ICONS.pause, forward: UI_ICONS.forward, backward: UI_ICONS.rewind };
       if (!osdIcons[type]) { playerOsdIcon.classList.remove('is-active'); return; }
       playerOsdIcon.style.backgroundImage = 'none';
@@ -10626,7 +12056,7 @@
   }
 
   function togglePlayerPlayPause() {
-    if (window.XUPER_DESKTOP && state.playerMode === 'live' && state.screen === 'player') { toggleLivePlayPause(); return; }
+    if (window.OPENTV_DESKTOP && state.playerMode === 'live' && state.screen === 'player') { toggleLivePlayPause(); return; }
     if (!playerVideo) { return; }
     if (playerVideo.paused) {
       resumePlayerPlayback();
@@ -10646,7 +12076,7 @@
     state.infoTimer = setTimeout(function () {
       state.infoTimer = null;
       if (state.screen !== 'player' || state.channelsOpen) { return; }
-      if (window.XUPER_DESKTOP && (vodScrubbing || (playerVodInfo && playerVodInfo.matches(':hover')) || (playerInfo && playerInfo.matches(':hover')))) { scheduleInfoHide(); return; }
+      if (window.OPENTV_DESKTOP && (vodScrubbing || (playerVodInfo && playerVodInfo.matches(':hover')) || (playerInfo && playerInfo.matches(':hover')))) { scheduleInfoHide(); return; }
       hideInfobar();
     }, INFO_HIDE_MS);
   }
@@ -10781,9 +12211,9 @@
   function rememberWatchProgress(current, duration, force) {
     var item = state.playerItem;
     if (!item || !item.id || current < 3) { return; }
-    if (window.XUPER_DESKTOP && resumePending(item)) { return; }
+    if (window.OPENTV_DESKTOP && resumePending(item)) { return; }
     var episode = state.playerEpisode;
-    if (window.XUPER_DESKTOP && !resumeRestarted) {
+    if (window.OPENTV_DESKTOP && !resumeRestarted) {
       var existing = historyRecordFor(item);
       if (existing && (existing.position || 0) >= RESUME_MIN_S && current < RESUME_MIN_S) {
         var sameTarget = !isSeriesItem(item) ||
@@ -10848,12 +12278,13 @@
       var mainPlayBtn = detailButtons.querySelector('.detail-btn[data-kind="fullscreen"] span');
       var nextLabel = resumeLabelFor(item);
       if (mainPlayBtn && nextLabel) { mainPlayBtn.textContent = nextLabel; }
+      syncStartOverButton(item);
     }
   }
 
   var pendingHistoryRecord = null;
   function applyPendingHistoryEpisode(item) {
-    var record = pendingHistoryRecord || (window.XUPER_DESKTOP ? historyRecordFor(item) : null);
+    var record = pendingHistoryRecord || (window.OPENTV_DESKTOP ? historyRecordFor(item) : null);
     if (!record || !item || !record.episodeId || !item.episodes || !item.episodes.length) { return; }
     var matchedRecord = historyRecordFor(item);
     if (String(record.id) !== String(item.id) && matchedRecord !== record) { return; }
@@ -10874,7 +12305,7 @@
         String(ep.number || ep.seriesNumber || (i + 1)) === String(record.episodeNumber);
       if (idMatch || numMatch) {
         /* Desktop: a finished episode moves on to the next one. */
-        var pickIndex = (window.XUPER_DESKTOP && recordFinished(record) && item.episodes[i + 1]) ? (i + 1) : i;
+        var pickIndex = (window.OPENTV_DESKTOP && recordFinished(record) && item.episodes[i + 1]) ? (i + 1) : i;
         var pick = item.episodes[pickIndex];
         state.detailEpisode = pick;
         state.playerEpisode = pick;
@@ -10930,6 +12361,10 @@
     openDetail(recovered);
   }
   var activeSubtitleCues = [];
+  /* Android: a text track inside the file shown by ExoPlayer (-1 = none) and
+     the line it is showing now (player/stremio-sources.js). */
+  var nativeSubIndex = -1;
+  var nativeCueText = '';
   /* mediaInfo payloads keyed by episode/movie content id. */
   var mediaInfoCache = {};
   var mediaInfoPending = {};
@@ -10937,10 +12372,13 @@
 
   function parseTimestamp(s) {
     if (!s) return 0;
-    var p = s.replace(',', '.').split(':');
+    /* "00:01:02,500" (SRT), "00:01:02.500" or "01:02.500" (WebVTT), and
+       "00:01:02.500 position:10%" (VTT cue settings after the time). */
+    var p = String(s).trim().split(/\s+/)[0].replace(',', '.').split(':');
     if (p.length === 3) {
       return (parseFloat(p[0]) * 3600) + (parseFloat(p[1]) * 60) + parseFloat(p[2]);
     }
+    if (p.length === 2) { return (parseFloat(p[0]) * 60) + parseFloat(p[1]); }
     return 0;
   }
 
@@ -10954,7 +12392,8 @@
   function parseSRT(data) {
     var cues = [];
     if (!data) return cues;
-    var blocks = data.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n\n');
+    /* Blank lines with spaces also separate cues (common in downloaded SRTs). */
+    var blocks = data.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split(/\n[ \t]*\n/);
     for (var i = 0; i < blocks.length; i++) {
       var lines = blocks[i].trim().split('\n');
       if (lines.length >= 2) {
@@ -11002,25 +12441,59 @@
     } catch (eTrack) { /* ignore */ }
   }
 
-  function loadSubtitleTrack(sub) {
-    subtitleSeq++;
+  function loadSubtitleTrack(sub, attempt) {
+    /* The same track of the file already on: nothing to restart. */
+    if (sub && embeddedSubtitleOn(sub)) { return; }
+    /* Android: a text track of the file, shown through ExoPlayer. */
+    var nat = sub && /^native:(\d+)$/.exec(sub.url || '');
+    if (nat) {
+      stopEmbeddedSubtitle();
+      activeSubtitleCues = [];
+      nativeSubIndex = Number(nat[1]);
+      nativeCueText = '';
+      if (window.__opentvNative && window.__opentvNative.selectText) { window.__opentvNative.selectText(nativeSubIndex); }
+      return;
+    }
+    if (nativeSubIndex >= 0) {
+      nativeSubIndex = -1;
+      nativeCueText = '';
+      if (window.__opentvNative && window.__opentvNative.selectText) { window.__opentvNative.selectText(-1); }
+    }
+    if (!attempt) { subtitleSeq++; }
     var mySeq = subtitleSeq;
+    /* A subtitle track inside the file (player/stremio-sources.js). */
+    if (sub && /^embedded:/.test(sub.url || '')) { startEmbeddedSubtitle(sub, mySeq); return; }
+    stopEmbeddedSubtitle();
+    /* A file the viewer imported: already in memory. */
+    if (sub && sub.cues) {
+      activeSubtitleCues = sub.cues;
+      syncNativeSubtitleTrack();
+      return;
+    }
     if (!sub || !sub.url) {
       activeSubtitleCues = [];
       if (playerSubtitles) playerSubtitles.innerHTML = '';
       syncNativeSubtitleTrack();
       return;
     }
+    /* A subtitle server that fails once (timeout, busy) is asked twice more. */
+    function retry() {
+      if (mySeq !== subtitleSeq || (attempt || 0) >= 2) { return; }
+      setTimeout(function () { if (mySeq === subtitleSeq) { loadSubtitleTrack(sub, (attempt || 0) + 1); } }, 1500);
+    }
     try {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', sub.url, true);
+      xhr.timeout = 25000;
       xhr.onload = function () {
         if (mySeq !== subtitleSeq) { return; }
-        if (xhr.status >= 200 && xhr.status < 300) {
-          activeSubtitleCues = parseSRT(xhr.responseText);
-          syncNativeSubtitleTrack();
-        }
+        var cues = (xhr.status >= 200 && xhr.status < 300) ? parseSRT(xhr.responseText) : [];
+        if (!cues.length) { return retry(); }
+        activeSubtitleCues = cues;
+        syncNativeSubtitleTrack();
       };
+      xhr.onerror = retry;
+      xhr.ontimeout = retry;
       xhr.send();
     } catch (eSub) { /* ignore */ }
   }
@@ -11039,6 +12512,13 @@
       var inPip = typeof document.pictureInPictureElement !== 'undefined' && document.pictureInPictureElement === playerVideo;
       var targetMode = (!vodSubActive || !activeSubtitleCues || !activeSubtitleCues.length) ? 'disabled' : (inPip ? 'showing' : 'hidden');
       if (nativeSubTrack.mode !== targetMode) { nativeSubTrack.mode = targetMode; }
+    }
+    /* Android: the line ExoPlayer is showing from the file's own track. */
+    if (nativeSubIndex >= 0) {
+      var line = vodSubActive && nativeCueText ? '<span class="player-subtitles-text">' +
+        escapeSubtitleText(nativeCueText).replace(/\n/g, '<br>') + '</span>' : '';
+      if (playerSubtitles.innerHTML !== line) { playerSubtitles.innerHTML = line; }
+      return;
     }
     if (!vodSubActive || !activeSubtitleCues || !activeSubtitleCues.length) {
       if (playerSubtitles.innerHTML !== '') playerSubtitles.innerHTML = '';
@@ -11126,7 +12606,7 @@
 
   function restoreSmoothMode(item) {
     var key = smoothModeKey(item);
-    var saved = window.XUPER_DESKTOP ? loadCompatTitles() : {};
+    var saved = window.OPENTV_DESKTOP ? loadCompatTitles() : {};
     if (key && !smoothModeByTitle.hasOwnProperty(key) &&
         (saved.hasOwnProperty(key) || saved.hasOwnProperty(compatEpisodeKey(item)))) {
       state.streamMode = 'smooth';
@@ -11141,7 +12621,7 @@
     var key = smoothModeKey(item);
     state.streamMode = on ? 'smooth' : 'normal';
     if (key) { smoothModeByTitle[key] = !!on; }
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       saveCompatTitle(key, on);
       if (!on) { saveCompatTitle(compatEpisodeKey(item), false); }
     }
@@ -11191,37 +12671,13 @@
       applySubtitleDefaults(mediaInfoCache[key]);
       return done(mediaInfoCache[key]);
     }
-    /* Stremio titles: the service has no info about them; subtitles come
-       from the addons when the video starts (player/stremio-sources.js). */
-    if (item._stremio) { return done({ audio: '', subtitles: item.subtitles || [], tracks: [] }); }
-    if (mediaInfoPending[key]) { mediaInfoPending[key].push(done); return; }
-    mediaInfoPending[key] = [done];
-
-    var ep = mediaInfoEpisode(item);
-    var params = { contentId: key };
-    var seriesRef = item.seasonId || item.id;
-    if (ep && ep.id && seriesRef && ep.id !== seriesRef) { params.seriesContentId = seriesRef; }
-    portalServiceCall('mediaInfo', params, function (error, payload) {
-      var waiters = mediaInfoPending[key] || [];
-      delete mediaInfoPending[key];
-      var info = (!error && payload && payload.returnValue !== false) ? payload : null;
-      if (info) {
-        mediaInfoCache[key] = info;
-        var infoDuration = durationToSeconds(info.duration);
-        if (infoDuration) {
-          (ep || item).duration = infoDuration;
-          document.dispatchEvent(new CustomEvent('xuper:duration'));
-        }
-        applySubtitleDefaults(info);
-      }
-      for (var i = 0; i < waiters.length; i++) {
-        try { waiters[i](info); } catch (eWaiter) { /* ignore */ }
-      }
-    });
+    /* Addon titles: nothing to ask beforehand; the audio tracks are read from
+       the file and subtitles come from the addons when the video starts
+       (player/stremio-sources.js). */
+    return done({ audio: '', subtitles: item.subtitles || [], tracks: [] });
   }
 
-  /* The portal lists audio PIDs in stream order ("por,spa,eng").  The real
-     app preselects Spanish when present, so do the same. */
+  /* The index of the preferred language in a list of audio codes. */
   function preferredAudioIndex(rawAudio) {
     var parts = (rawAudio || '').split(/[,\/]/);
     var preferred = preferredLanguageCode();
@@ -11233,6 +12689,14 @@
 
   function audioLanguageList(info) {
     var out = [];
+    /* Addon titles: the file's own tracks, read by the service (language,
+       title such as "Latino", channels), already labelled. */
+    if (info && info.audioTracks && info.audioTracks.length) {
+      for (var t = 0; t < info.audioTracks.length; t++) {
+        out.push({ index: info.audioTracks[t].index, code: info.audioTracks[t].code, label: info.audioTracks[t].label });
+      }
+      return out;
+    }
     var parts = ((info && info.audio) || '').split(/[,\/]/);
     for (var i = 0; i < parts.length; i++) {
       var code = parts[i].trim();
@@ -11246,15 +12710,16 @@
     var out = [];
     var subs = (info && info.subtitles) || [];
     for (var i = 0; i < subs.length; i++) {
-      out.push({ lang: subs[i].lang, url: subs[i].url, format: subs[i].format });
+      /* label: shown as is (the file's own tracks, an imported file). */
+      out.push({ lang: subs[i].lang, url: subs[i].url, format: subs[i].format, label: subs[i].label || '',
+        forced: !!subs[i].forced, cues: subs[i].cues || null });
     }
-    /* The real dialog lists Español before Inglés for this catalog. */
-    out.sort(function (a, b) {
-      var pa = /^(es|spa|esp|spn)$/i.test(a.lang || '') ? 0 : 1;
-      var pb = /^(es|spa|esp|spn)$/i.test(b.lang || '') ? 0 : 1;
-      return pa - pb;
-    });
-    return out;
+    /* The viewer's subtitle language first, keeping the order the list came in
+       (the file's own tracks before or after the addons', per Preferencias). */
+    var wanted = typeof preferredSubtitleCode === 'function' ? preferredSubtitleCode() : 'es';
+    var ranked = out.map(function (s, idx) { return { s: s, idx: idx, p: languageMatchesPreference(s.lang, wanted) ? 0 : 1 }; });
+    ranked.sort(function (a, b) { return a.p - b.p || a.idx - b.idx; });
+    return ranked.map(function (r) { return r.s; });
   }
 
   /* The real app opens with subtitles ON and Spanish selected when the portal
@@ -11404,7 +12869,7 @@
      row only appears when the current episode offers more than one height.
      The choice is a preferred height (e.g. 720) kept for later titles too;
      "Automática" lets the service pick the most compatible version. */
-  var QUALITY_PREF_KEY = 'xuper_quality_pref_v1';
+  var QUALITY_PREF_KEY = 'opentv_quality_pref_v1';
   function preferredQualityHeight() {
     return parseInt(safeLocalRead(QUALITY_PREF_KEY, 0), 10) || 0;
   }
@@ -11422,7 +12887,7 @@
   }
 
   function renderPlaySettingQuality() {
-    if (!window.XUPER_DESKTOP || !psvSecQuality || !psvQualityRow) { return; }
+    if (!window.OPENTV_DESKTOP || !psvSecQuality || !psvQualityRow) { return; }
     var info = currentTrackInfo();
     var heights = [];
     var tracks = (info && info.tracks) || [];
@@ -11506,7 +12971,7 @@
       (function (ep, idx) {
         var epNo = String(ep.number !== undefined && ep.number !== null ? ep.number : idx + 1);
         /* Desktop keeps the number visible and marks the current one by style. */
-        var label = (idx === currentIndex && !window.XUPER_DESKTOP) ? '▶' : epNo;
+        var label = (idx === currentIndex && !window.OPENTV_DESKTOP) ? '▶' : epNo;
         var btn = el('button', 'psv-ep-btn focusable' + (idx === currentIndex ? ' is-selected is-current' : ''), label);
         btn._activate = function () { chooseEpisode(ep); };
         numberRow.appendChild(btn);
@@ -11539,7 +13004,7 @@
      choices: "Automática" (adapts to the connection) or a fixed height. The
      choice is remembered for later videos and channels. */
   function hlsQualityApi() {
-    return window.XUPER_DESKTOP && window.__opentvHls ? window.__opentvHls : null;
+    return window.OPENTV_DESKTOP && window.__opentvHls ? window.__opentvHls : null;
   }
 
   function hlsQualityLabel(height) {
@@ -11742,12 +13207,12 @@
   }
 
   function installQualityControls() {
-    if (!window.XUPER_DESKTOP) { return; }
+    if (!window.OPENTV_DESKTOP) { return; }
     if (playerVideo) {
       playerVideo.addEventListener('loadedmetadata', applyPlaybackRate);
       playerVideo.addEventListener('playing', applyPlaybackRate);
     }
-    document.addEventListener('xuper:hls-levels', function () {
+    document.addEventListener('opentv:hls-levels', function () {
       updateLiveQualityButton();
       updateQualityButton();
       if (playSettingViewOpen) { renderPlaySettingQuality(); }
@@ -11762,9 +13227,11 @@
      When Windows volume control is available it moves the real system volume,
      exactly like the TV slider; otherwise it is the video's own volume. */
   var playerVolRange = null, playerMuteBtn = null, playerVolLabel = null;
+  /* (Movies and TV en vivo each have one: all of them show the same level.) */
+  var playerVolSets = [];
 
   function applyPlayerAudio() {
-    if (!window.XUPER_DESKTOP || !playerVideo || state.screen !== 'player') { return; }
+    if (!window.OPENTV_DESKTOP || !playerVideo || state.screen !== 'player') { return; }
     if (systemVolumeOn) {
       playerVideo.volume = 1;
       playerVideo.muted = false;
@@ -11776,17 +13243,19 @@
   }
 
   function syncPlayerVolumeUi() {
-    if (!playerVolRange) { return; }
     var off = liveAudio.muted || liveAudio.volume === 0;
     var pct = off ? 0 : Math.round(liveAudio.volume * 100);
-    if (String(playerVolRange.value) !== String(pct)) { playerVolRange.value = pct; }
-    playerVolRange.style.setProperty('--vol', pct + '%');
-    if (playerVolLabel) { playerVolLabel.textContent = off ? 'Sin sonido' : pct + '%'; }
-    if (playerMuteBtn) {
-      playerMuteBtn.innerHTML = off ? LIVE_DOCK_ICONS.mute : (liveAudio.volume < 0.5 ? LIVE_DOCK_ICONS.soundLow : LIVE_DOCK_ICONS.sound);
-      playerMuteBtn.setAttribute('data-tip', off ? 'Activar sonido (M)' : 'Silenciar (M)');
-      playerMuteBtn.setAttribute('aria-label', off ? 'Activar sonido' : 'Silenciar');
-      playerMuteBtn.classList.toggle('is-off', off);
+    for (var i = 0; i < playerVolSets.length; i++) {
+      var set = playerVolSets[i];
+      if (String(set.range.value) !== String(pct)) { set.range.value = pct; }
+      set.range.style.setProperty('--vol', pct + '%');
+      if (set.label) { set.label.textContent = off ? 'Sin sonido' : pct + '%'; }
+      if (set.mute) {
+        set.mute.innerHTML = off ? LIVE_DOCK_ICONS.mute : (liveAudio.volume < 0.5 ? LIVE_DOCK_ICONS.soundLow : LIVE_DOCK_ICONS.sound);
+        set.mute.setAttribute('data-tip', off ? 'Activar sonido (M)' : 'Silenciar (M)');
+        set.mute.setAttribute('aria-label', off ? 'Activar sonido' : 'Silenciar');
+        set.mute.classList.toggle('is-off', off);
+      }
     }
   }
 
@@ -11828,12 +13297,13 @@
     wrap.appendChild(playerVolLabel);
     wrap.setAttribute('data-tip', systemVolumeApi() ? 'Volumen de Windows · rueda del ratón' : 'Volumen · rueda del ratón');
     group.appendChild(wrap);
+    playerVolSets.push({ range: playerVolRange, mute: playerMuteBtn, label: playerVolLabel });
     syncPlayerVolumeUi();
   }
 
   /* Wheel over the picture changes the volume (Ctrl + wheel is left alone). */
   function installPlayerWheelVolume() {
-    if (!window.XUPER_DESKTOP || !playerStage || playerStage._wheelVolume) { return; }
+    if (!window.OPENTV_DESKTOP || !playerStage || playerStage._wheelVolume) { return; }
     playerStage._wheelVolume = true;
     $('screen-player').addEventListener('wheel', function (event) {
       if (event.ctrlKey || state.screen !== 'player') { return; }
@@ -11846,7 +13316,7 @@
 
   /* Hovering the seek bar shows the time under the pointer. */
   function installSeekHoverPreview() {
-    if (!window.XUPER_DESKTOP || !vodSeekbar || vodSeekbar._hoverPreview) { return; }
+    if (!window.OPENTV_DESKTOP || !vodSeekbar || vodSeekbar._hoverPreview) { return; }
     vodSeekbar._hoverPreview = true;
     var bubble = el('div', 'vod-seek-hover');
     var ghost = el('div', 'vod-seek-ghost');
@@ -11878,7 +13348,7 @@
   function installPlayerVolume() {
     /* TVs: the remote changes the TV's own volume; the slider, the wheel and
        the seek preview on hover are mouse controls. */
-    if (!window.XUPER_DESKTOP || platformIsTv()) { return; }
+    if (!window.OPENTV_DESKTOP || platformIsTv()) { return; }
     var left = document.querySelector('.vod-infobar-tips .vt-left');
     if (left && !left.querySelector('.vod-volume')) { buildPlayerVolume(left); }
     playerVideo.addEventListener('playing', applyPlayerAudio);
@@ -11907,25 +13377,8 @@
       season._episodes = item.episodes;
       return done(item.episodes);
     }
-    if (season._episodes) { return done(season._episodes); }
-    if (season._loading) {
-      season._wait = season._wait || [];
-      season._wait.push(done);
-      return;
-    }
-    season._loading = true;
-    season._wait = [done];
-    portalServiceCall('detail', { contentId: season.id }, function (error, payload) {
-      season._loading = false;
-      var eps = (!error && payload && payload.returnValue !== false && payload.episodes)
-        ? payload.episodes : [];
-      if (eps.length) { season._episodes = eps; }
-      var waiters = season._wait || [];
-      season._wait = [];
-      for (var i = 0; i < waiters.length; i++) {
-        try { waiters[i](eps); } catch (eWaiter) { /* ignore */ }
-      }
-    });
+    /* Addon series bring every season's episodes with the title. */
+    done(season._episodes || []);
   }
 
   function episodeDisplayTitle(item, ep, index) {
@@ -12077,7 +13530,7 @@
       ? item.episodes : (season._episodes || []);
 
     if (!cached.length) {
-      peEpisodes.appendChild(el('div', 'pe-loading', 'Cargando episodios…'));
+      peEpisodes.appendChild(makeLoader('Cargando episodios…', 'is-small pe-loading'));
       seasonEpisodes(item, season, function (eps) {
         if (!state.episodeBrowserOpen) { return; }
         var now = seriesSeasons(item)[state.browserSeason];
@@ -12098,7 +13551,7 @@
        season can contain dozens of poster images; decoding all of them while
        video is active can make the system kill the app for memory. */
     /* Desktop has no such memory limit and no artwork here: list them all. */
-    var visibleEpisodes = window.XUPER_DESKTOP ? cached.length : Math.min(cached.length, 24);
+    var visibleEpisodes = window.OPENTV_DESKTOP ? cached.length : Math.min(cached.length, 24);
     for (var i = 0; i < visibleEpisodes; i++) {
       (function (ep, idx) {
         var row = el('div', 'pe-ep focusable');
@@ -12118,7 +13571,7 @@
         var dur = episodeDurationLabel(ep);
         if (dur) { bits.push(dur); }
         if (ep.quality) { bits.push(String(ep.quality).split(',')[0].toUpperCase()); }
-        if (window.XUPER_DESKTOP && episodeLangTag(ep)) { bits.push(episodeLangTag(ep)); }
+        if (window.OPENTV_DESKTOP && episodeLangTag(ep)) { bits.push(episodeLangTag(ep)); }
         info.appendChild(el('div', 'pe-meta', bits.join('   ·   ')));
         if (ep.description) {
           info.appendChild(el('div', 'pe-desc', ep.description));
@@ -12226,6 +13679,15 @@
      the infobar and the resolver on the same episode. */
   function playEpisode(item, ep) {
     if (!item || !ep) { return; }
+    /* From the details screen: that episode, full screen (choosing its
+       source first when needed). The switch below only runs inside the
+       player; here it left "Cambiando capítulo…" on screen for good. */
+    if (state.screen !== 'player') {
+      state.detailEpisode = ep;
+      syncDetailEpisodeHighlight(item);
+      expandToFullscreen(item, ep);
+      return;
+    }
     state.playerItem = item;
     state.playerEpisode = ep;
     state.detailEpisode = ep;
@@ -12315,9 +13777,15 @@
 
   function syncDetailEpisodeHighlight(item) {
     if (!detailBottom) { return; }
+    /* TVs: only the episode in the history is marked "Viendo" (the first
+       one of a series never watched was marked too). */
+    var watched = platformIsTv() && item ? historyRecordFor(item) : null;
+    var watchedId = watched && watched.episodeId ? String(watched.episodeId) : '';
     var tiles = detailBottom.querySelectorAll('.detail-episode');
     for (var i = 0; i < tiles.length; i++) {
-      var on = !!(tiles[i]._ep && state.detailEpisode && tiles[i]._ep.id === state.detailEpisode.id);
+      var on = platformIsTv()
+        ? !!(tiles[i]._ep && watchedId && String(tiles[i]._ep.id) === watchedId)
+        : !!(tiles[i]._ep && state.detailEpisode && tiles[i]._ep.id === state.detailEpisode.id);
       tiles[i].classList.toggle('is-playing', on);
     }
   }
@@ -12411,16 +13879,41 @@
   }
 
   /* ---- player/resume.js ------------------------------------------------------ */
-  /* player/resume.js — Escritorio: seguir donde te quedaste (película o episodio) y barra de avance continua.
+  /* player/resume.js — Seguir donde te quedaste (película o episodio), ver desde el principio y barra de avance continua.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* The history already stores, per title, the episode and the second where
      playback stopped. Here it is used: opening a series selects that episode
-     (or the next one if it was finished), and playing always starts at that
-     second (there is no "start over" button: the viewer seeks back instead). */
+     (or the next one if it was finished), and Reanudar starts at that second.
+     "Ver desde el principio" (detail page) plays it from 0 instead: on a TV,
+     seeking back an hour with the remote is no option. Every platform: on
+     Android the native player gets the second as its start position. */
   var RESUME_MIN_S = 10;
   var resumePlan = null;
   var resumeRestarted = false;
+  /* item|episode key that the next planResume must start from 0. */
+  var resumeFromStartKey = '';
+
+  function resumeKeyFor(item, episode) {
+    return String(item.id) + '|' + (episode ? String(episode.id) : '');
+  }
+
+  /* Detail page: is there a second to resume at for what Reproducir plays? */
+  function canStartOver(item, episode) {
+    if (!item) { return false; }
+    if (isSeriesItem(item)) { return !!episode && resumePositionFor(item, episode) > 0; }
+    return resumePositionFor(item, null) > 0;
+  }
+
+  /* "Ver desde el principio": the same title or episode, from second 0. The
+     saved position is overwritten as it plays (resumeRestarted). */
+  function startOverTitle(item, episode) {
+    resetResumePlan();
+    resumeFromStartKey = resumeKeyFor(item, episode);
+    /* A video left loaded on the detail page would be reused where it was. */
+    if (playerVideo && playerVideo.src && state.playerItem === item) { stopPlayerVideo(); }
+    expandToFullscreen(item, episode);
+  }
 
   /* Accepts the title or its id. Grouped series may have been saved under a
      season id, so those and the title are tried too. */
@@ -12481,7 +13974,7 @@
   /* Detail page: pick the episode the viewer was on (the next one when it
      was finished). */
   function preferHistoryEpisode(item) {
-    if (!window.XUPER_DESKTOP || !item) { return; }
+    if (!window.OPENTV_DESKTOP || !item) { return; }
     var r = historyRecordFor(item);
     if (r && r.episodeId) { pendingHistoryRecord = r; }
   }
@@ -12502,6 +13995,7 @@
     resumePlannedKey = '';
     resumePlan = null;
     resumeRestarted = false;
+    resumeFromStartKey = '';
   }
   /* While a jump to the saved second is pending, the first seconds of the
      video must not overwrite that saved second. */
@@ -12516,8 +14010,19 @@
     return true;
   }
   function planResume(item, episode) {
-    if (!window.XUPER_DESKTOP || !item) { return; }
-    var key = String(item.id) + '|' + (episode ? String(episode.id) : '');
+    if (!window.OPENTV_DESKTOP || !item) { return; }
+    var key = resumeKeyFor(item, episode);
+    if (resumeFromStartKey) {
+      var fromStart = resumeFromStartKey === key;
+      resumeFromStartKey = '';
+      if (fromStart) {
+        if (resumeRetryTimer) { clearTimeout(resumeRetryTimer); resumeRetryTimer = null; }
+        resumePlannedKey = key;
+        resumePlan = null;
+        resumeRestarted = true;
+        return;
+      }
+    }
     /* Restarts of the same video (compatibility mode, retries) keep their own
        position if the resume plan was already satisfied. */
     if (key === resumePlannedKey && (!resumePlan || vodPlaybackPosition() >= resumePlan.pos - 5)) {
@@ -12659,7 +14164,7 @@
   }
 
   function installResume() {
-    if (!window.XUPER_DESKTOP || !playerVideo || playerVideo._resumeHooks) { return; }
+    if (!window.OPENTV_DESKTOP || !playerVideo || playerVideo._resumeHooks) { return; }
     playerVideo._resumeHooks = true;
     playerVideo.addEventListener('loadedmetadata', function () { if (resumePlan && !resumeRetryTimer) { applyResumePlan(); } });
     playerVideo.addEventListener('canplay', function () { if (resumePlan && !resumeRetryTimer) { applyResumePlan(); } });
@@ -12753,14 +14258,18 @@
     if (!dpsAudioOptions) return;
     clear(dpsAudioOptions);
 
-    var info = mediaInfoCache[mediaInfoKey(playSettingsItem())];
-    if (info && !vodAudioChosen) {
+    var item = playSettingsItem();
+    var info = mediaInfoCache[mediaInfoKey(item)];
+    /* Addon titles: the track playing is the one the relay was asked for,
+       never a guess from the language list. */
+    if (info && !vodAudioChosen && !(item && item._stremio)) {
       vodCurrentAudioTrack = preferredAudioIndex(info.audio);
     }
     var tracks = audioLanguageList(info);
     if (!tracks.length) {
-      /* mediaInfo has not answered yet: keep the current language visible. */
-      tracks = [{ index: vodCurrentAudioTrack || 0, label: 'Español' }];
+      /* Not known yet (the service reads an addon's file once it plays):
+         never claim a language the file may not have. */
+      tracks = [{ index: vodCurrentAudioTrack || 0, label: item && item._stremio ? 'Audio del archivo' : 'Español' }];
     }
     for (var t = 0; t < tracks.length; t++) {
       (function (track) {
@@ -12781,10 +14290,37 @@
     var info = mediaInfoCache[mediaInfoKey(playSettingsItem())];
     var list = subtitleLanguageList(info);
 
+    var subItem = playSettingsItem();
+    var canImport = !!(subItem && subItem._stremio) && typeof importSubtitleFile === 'function';
     if (dpsSubSwitch) {
-      /* Without subtitle files there is nothing to switch on. */
+      /* Without subtitle files there is nothing to switch on (addon titles
+         still show the row: the viewer can import a file). */
       var switchRow = dpsSubSwitch.parentNode;
-      if (switchRow) { switchRow.classList.toggle('is-hidden', !list.length); }
+      if (switchRow) { switchRow.classList.toggle('is-hidden', !list.length && !canImport); }
+      dpsSubSwitch.classList.toggle('is-hidden', !list.length);
+      var importBtn = $('dps-sub-import');
+      if (canImport && switchRow && !importBtn) {
+        importBtn = el('button', 'dps-btn focusable dps-import', 'Importar…');
+        importBtn.id = 'dps-sub-import';
+        importBtn.title = 'Usar un archivo .srt o .vtt de tu equipo';
+        switchRow.appendChild(importBtn);
+      }
+      if (importBtn) {
+        importBtn.classList.toggle('is-hidden', !canImport);
+        importBtn._activate = function () {
+          importSubtitleFile(function (err, sub) {
+            if (err) { setPlayerStatus(err); return; }
+            var info2 = stremioMediaInfo(subItem);
+            info2._importedSubs = [sub].concat((info2._importedSubs || []).filter(function (s) { return s.label !== sub.label; }));
+            composeStremioSubtitles(subItem, info2);
+            vodCurrentSubtitle = sub;
+            vodSubActive = true;
+            vodSubChosen = true;
+            loadSubtitleTrack(sub);
+            renderDialogSubtitle();
+          });
+        };
+      }
       dpsSubSwitch.classList.toggle('is-on', vodSubActive);
       var dotText = dpsSubSwitch.querySelector('.dps-switch-text');
       if (dotText) dotText.textContent = vodSubActive ? 'ON' : 'OFF';
@@ -12803,7 +14339,7 @@
       for (var s = 0; s < list.length; s++) {
         (function (sub) {
           var btn = el('button', 'dps-btn focusable');
-          btn.textContent = formatAudioLang(sub.lang || 'Sub');
+          btn.textContent = sub.label || formatAudioLang(sub.lang || 'Sub');
           if (vodCurrentSubtitle && vodCurrentSubtitle.url === sub.url) {
             btn.classList.add('is-selected');
           }
@@ -12852,10 +14388,13 @@
   }
 
   function formatAudioLang(code) {
-    var c = (code || '').toLowerCase().trim().split(/[-_]/)[0];
-    if (/^(spa|esp|es|castellano|latino|lat|latam)$/.test(c)) return 'Español';
-    /* OpenSubtitles: 'spn' / 'ea' are its Latin American Spanish. */
-    if (/^(spn|ea|spl)$/.test(c)) return 'Español (Latino)';
+    var full = (code || '').toLowerCase().trim();
+    /* Latino and Castellano are different dubs: never show both as "Español".
+       OpenSubtitles: 'spn' / 'ea' are its Latin American Spanish. */
+    if (/^(es[-_](419|mx|la|us|ar|co|cl|pe|ve)|latino|lat|latam|spn|ea|spl)$/.test(full)) return 'Español (Latino)';
+    if (/^(es[-_]es|castellano)$/.test(full)) return 'Español (Castellano)';
+    var c = full.split(/[-_]/)[0];
+    if (/^(spa|esp|es)$/.test(c)) return 'Español';
     if (/^(eng|ing|en)$/.test(c)) return 'Inglés';
     if (/^(jpn|jap|ja)$/.test(c)) return 'Japonés';
     if (/^(kor|cor|ko)$/.test(c)) return 'Coreano';
@@ -12899,7 +14438,7 @@
 
   function switchAudioTrack(trackIndex) {
     /* On the detail screen the choice is only remembered for the next play. */
-    if ((state.screen !== 'player' && !(window.XUPER_DESKTOP && state.screen === 'detail' && playerVideo && playerVideo.currentSrc)) || !playerVideo) {
+    if ((state.screen !== 'player' && !(window.OPENTV_DESKTOP && state.screen === 'detail' && playerVideo && playerVideo.currentSrc)) || !playerVideo) {
       vodCurrentAudioTrack = trackIndex;
       vodAudioChosen = true;
       return;
@@ -12908,7 +14447,9 @@
        the audio selector.  Use the native track list when webOS provides it.
        A TV without that API keeps its playing source and clearly tells the
        viewer that a remux is required for per-track selection. */
-    if (state.streamMode !== 'relay' && state.streamMode !== 'smooth') {
+    /* An addon's MKV plays through the relay even in Directo: the relay can
+       pick any track, so use it whenever it is the one playing. */
+    if (state.streamMode !== 'relay' && state.streamMode !== 'smooth' && !relayBaseUrl) {
       if (selectNativeAudioTrack(trackIndex)) {
         vodCurrentAudioTrack = trackIndex;
         vodAudioChosen = true;
@@ -12934,7 +14475,7 @@
   function restartCurrentPlayback() {
     if (!playerVideo) return;
     var curSec = relayBaseUrl ? (relayStartOffset + (playerVideo.currentTime || 0)) : (playerVideo.currentTime || 0);
-    if (window.XUPER_DESKTOP && resumePlan && state.playerItem &&
+    if (window.OPENTV_DESKTOP && resumePlan && state.playerItem &&
         (resumePlan.item === state.playerItem || String(resumePlan.itemId) === String(state.playerItem.id)) &&
         resumePlan.pos > curSec) {
       curSec = resumePlan.pos;
@@ -13076,7 +14617,7 @@
     playerSubtitles = $('player-subtitles');
     /* Desktop: subtitles go inside the video box, so the small player of the
        detail page shows them in it instead of across the whole window. */
-    if (window.XUPER_DESKTOP && playerSubtitles && playerStage && playerSubtitles.parentNode !== playerStage) {
+    if (window.OPENTV_DESKTOP && playerSubtitles && playerStage && playerSubtitles.parentNode !== playerStage) {
       playerStage.appendChild(playerSubtitles);
     }
 
@@ -13185,7 +14726,7 @@
       return false;
     };
     playerStage._activate = function () {
-      if (window.XUPER_DESKTOP && state.screen === 'detail') {
+      if (window.OPENTV_DESKTOP && state.screen === 'detail') {
         expandToFullscreen(state.detail, state.detailEpisode);
         return;
       }
@@ -13194,7 +14735,7 @@
         return;
       }
       /* TVs: OK shows the channel banner; with it on screen, pauses/resumes. */
-      if (platformIsTv() && window.XUPER_DESKTOP) {
+      if (platformIsTv() && window.OPENTV_DESKTOP) {
         if (state.infobar) { toggleLivePlayPause(); } else { showInfobar(); }
         return;
       }
@@ -13202,7 +14743,7 @@
       else { showInfobar(); }
     };
 
-    if (window.XUPER_DESKTOP) bindDesktopPlayback();
+    if (window.OPENTV_DESKTOP) bindDesktopPlayback();
 
     /* --- infobar (layout_live_infobar, 160dp = 240px) --- */
     playerInfo.appendChild(el('div', 'pi-logo'));
@@ -13240,10 +14781,12 @@
     /* Desktop: no PIN lock (it never existed on Windows), so no dead button. */
     /* Formato is not used on Windows either (the picture always fits). */
     /* Play/pause is placed prominently in the exact center of the capsule. */
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       actDefs = [
         { label: 'Canales', right: 0, w: 90 },
         { label: 'Anterior', right: 333, w: 67 },
+        { label: 'Siguiente', right: 0, w: 67 },
+        { label: 'Guía', right: 0, w: 67 },
         { label: 'Favorito', right: 219, w: 67 },
         { label: 'HD', right: 389, w: 67 },
         { label: 'Reproducir', right: 0, w: 67 },
@@ -13260,7 +14803,7 @@
       b.style.width = (d.w * 1.5) + 'px';
       b.style.left = (1920 - d.right * 1.5 - d.w * 1.5) + 'px';
       b._kind = d.label;
-      if (window.XUPER_DESKTOP) {
+      if (window.OPENTV_DESKTOP) {
         if (d.label === 'HD' || d.label === 'Bloquear') {
           b.setAttribute('aria-disabled', 'true');
           b.title = d.label === 'HD' ? 'La calidad de esta señal es automática' : 'Bloqueo por PIN no disponible';
@@ -13270,11 +14813,13 @@
         var piIcons = { 'HD': UI_ICONS.quality, 'Anterior': UI_ICONS.prev, 'Formato': UI_ICONS.aspect,
           'Favorito': UI_ICONS.star, 'Reproductor 1': UI_ICONS.retry, 'Bloquear': UI_ICONS.lock,
           'Feedback': UI_ICONS.diagnostics, 'Canales': UI_ICONS.channels, 'Ventana flotante': UI_ICONS.pip,
-          'Reproducir': UI_ICONS.pause, 'Pantalla completa': UI_ICONS.fullscreen };
+          'Reproducir': UI_ICONS.pause, 'Pantalla completa': UI_ICONS.fullscreen,
+          'Siguiente': LIVE_DOCK_ICONS.next, 'Guía': LIVE_DOCK_ICONS.guide };
         var piTips = { 'HD': 'Calidad automática', 'Anterior': 'Canal anterior', 'Formato': 'Formato de pantalla',
           'Favorito': 'Añadir a favoritos', 'Reproductor 1': 'Reintentar señal', 'Bloquear': 'Bloqueo (no disponible)',
           'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)',
-          'Reproducir': 'Pausa (Espacio)', 'Pantalla completa': 'Pantalla completa (F)' };
+          'Reproducir': 'Pausa (Espacio)', 'Pantalla completa': 'Pantalla completa (F)',
+          'Siguiente': 'Canal siguiente', 'Guía': 'Guía de canales (G)' };
         iconizeButton(b, piIcons[d.label], piTips[d.label]);
         if (d.label === 'HD') { b.classList.add('pi-quality-btn'); }
         if (d.label === 'Reproducir') { b.classList.add('pi-play'); }
@@ -13283,21 +14828,22 @@
       b._activate = (function (label) {
         return function () {
           if (label === 'Anterior') { setChannel(state.channel - 1); }
+          else if (label === 'Siguiente') { setChannel(state.channel + 1); }
+          else if (label === 'Guía') { openLiveGuide(); }
           else if (label === 'Formato') {
             var sc = playerInfo.querySelector('.pi-scale');
             sc.textContent = sc.textContent === 'Normal' ? '16:9' : (sc.textContent === '16:9' ? '4:3' : 'Normal');
-            if (window.XUPER_DESKTOP) setPlayerAspect(sc.textContent === 'Normal' ? 'contain' : (sc.textContent === '16:9' ? '16-9' : '4-3'));
+            if (window.OPENTV_DESKTOP) setPlayerAspect(sc.textContent === 'Normal' ? 'contain' : (sc.textContent === '16:9' ? '16-9' : '4-3'));
             layoutInfoTexts();
           } else if (label === 'Favorito') {
             var ch = CHANNELS[state.channel];
             if (ch) {
-              if (window.XUPER_DESKTOP) { toggleLiveFavorite(ch); }
-              else { ch.fav = toggleFavorite({ id: 'live:' + (ch.channelCode || ch.id || ch.name) }); }
+              toggleLiveFavorite(ch);
               this.classList.toggle('is-selected', ch.fav);
               setButtonText(this, ch.fav ? (this._iconized ? 'Quitar de favoritos' : 'En favoritos')
                 : (this._iconized ? 'Añadir a favoritos' : 'Favorito'));
             }
-          } else if (label === 'HD' && window.XUPER_DESKTOP) { cycleHlsQuality(this); }
+          } else if (label === 'HD' && window.OPENTV_DESKTOP) { cycleHlsQuality(this); }
           else if (label === 'Canales') { openChannelPanel(); }
           else if (label === 'Reproducir') { toggleLivePlayPause(); }
           else if (label === 'Pantalla completa') { setWindowFullscreen(!isWindowFullscreen()); liveAutoFullscreen = false; }
@@ -13308,9 +14854,38 @@
       actions.appendChild(b);
     }
     playerInfo.appendChild(actions);
+    /* PC: laid out like the movie player and the TV en vivo page. On top,
+       the channel and "EN VIVO"; at the bottom the logo, name and category, a
+       red "live" line, and the buttons in three groups: volume | previous,
+       pause, next | favourite, guide, channels, quality, retry, PiP, full
+       screen. */
+    if (window.OPENTV_DESKTOP && !platformIsTv()) {
+      playerInfo.classList.add('pi-v2');
+      var top = el('div', 'pi-top');
+      top.appendChild(el('span', 'pi-top-title'));
+      top.appendChild(el('span', 'pi-live-badge', 'EN VIVO'));
+      playerInfo.appendChild(top);
+      nameRow.appendChild(el('div', 'pi-sub'));
+      var liveLine = el('div', 'pi-liveline');
+      liveLine.appendChild(el('i', 'pi-liveline-bar'));
+      liveLine.appendChild(el('span', 'pi-liveline-text', 'En directo'));
+      playerInfo.appendChild(liveLine);
+      var gLeft = el('div', 'pi-group is-left');
+      var gCenter = el('div', 'pi-group is-center');
+      var gRight = el('div', 'pi-group is-right');
+      buildPlayerVolume(gLeft);
+      var byKind = {};
+      var acts = actions.querySelectorAll('.pi-act');
+      for (var ak = 0; ak < acts.length; ak++) { byKind[acts[ak]._kind] = acts[ak]; }
+      ['Anterior', 'Reproducir', 'Siguiente'].forEach(function (k) { if (byKind[k]) { gCenter.appendChild(byKind[k]); } });
+      ['Favorito', 'Guía', 'Canales', 'HD', 'Reproductor 1', 'Ventana flotante', 'Pantalla completa'].forEach(function (k) { if (byKind[k]) { gRight.appendChild(byKind[k]); } });
+      actions.appendChild(gLeft);
+      actions.appendChild(gCenter);
+      actions.appendChild(gRight);
+    }
     /* TVs: the live player shows a channel banner with what each key of the
        remote does instead of the buttons (navigation.js handles the keys). */
-    if (window.XUPER_DESKTOP && platformIsTv()) {
+    if (window.OPENTV_DESKTOP && platformIsTv()) {
       var hints = el('div', 'pi-hints');
       [['▲', 'Canal siguiente'], ['▼', 'Canal anterior'], ['▶', 'Lista de canales'], ['◀', 'Último canal'], ['OK', 'Pausa']].forEach(function (h) {
         var chip = el('div', 'pi-hint');
@@ -13324,7 +14899,7 @@
     /* --- channel panel (frag_live_channel) with category bar and addons --- */
     var pcHeader = el('div', 'pc-header');
     pcHeader.appendChild(el('div', 'pc-title', 'Canales de TV'));
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       /* Desktop: refresh the list and close the panel, like on a TV remote. */
       var tools = el('div', 'pc-tools');
       var refresh = el('button', 'pc-tool focusable');
@@ -13347,13 +14922,13 @@
     pcCategories.id = 'pc-categories';
     playerChannels.appendChild(pcCategories);
 
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       playerChannels.appendChild(createChannelSearchBox('is-player', 'Buscar canal por nombre o número…'));
     }
 
     playerChannels.appendChild(el('div', 'pc-div'));
     var list = el('div', 'pc-list scrollable');
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       var pcUp = el('button', 'pc-scroll-arrow is-up focusable');
       pcUp.type = 'button';
       pcUp.title = 'Desplazar canales hacia arriba';
@@ -13365,7 +14940,7 @@
       playerChannels.appendChild(pcUp);
     }
     playerChannels.appendChild(list);
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       var pcDown = el('button', 'pc-scroll-arrow is-down focusable');
       pcDown.type = 'button';
       pcDown.title = 'Desplazar canales hacia abajo';
@@ -13391,21 +14966,16 @@
     if (!playerChannels) { return; }
     var bar = playerChannels.querySelector('.pc-categories');
     if (!bar) { return; }
-    var cats = liveCategories && liveCategories.length ? liveCategories : [
-      { id: 76182, name: 'Todos' },
-      { id: 76206, name: 'Deportes' },
-      { id: 76205, name: 'Cine y Series' },
-      { id: 76188, name: 'Colombia' },
-      { id: 76191, name: 'España' },
-      { id: 76197, name: 'México' },
-      { id: 'addons', name: '➕ Addons M3U', isAddon: true }
-    ];
+    /* Todos, the categories of the viewer's M3U lists (group-title), then
+       Favoritos and Recientes. */
+    var cats = (liveCategories && liveCategories.length ? liveCategories : [LIVE_ALL_CATEGORY])
+      .concat([LIVE_SAVED_CATS.favs, LIVE_SAVED_CATS.recent]);
 
-    /* The portal returns 38 columns.  Rebuilding all 39 pills on every filter
-       detached the focused node mid-keypress, so the rail looked alive but the
-       d-pad had nowhere to go ("no puedo navegar hacia las categorías").
-       The bar is now rebuilt only when the column list itself changes;
-       selecting a category just swaps the is-selected class. */
+    /* A list can bring dozens of categories. Rebuilding every pill on each
+       filter detached the focused node mid-keypress, so the rail looked alive
+       but the d-pad had nowhere to go ("no puedo navegar hacia las
+       categorías"). The bar is rebuilt only when the category list itself
+       changes; selecting a category just swaps the is-selected class. */
     var key = '';
     for (var kk = 0; kk < cats.length; kk++) { key += cats[kk].id + '|'; }
     var focusedCat = (state.focus && state.focus._cat) ? state.focus._cat : null;
@@ -13440,7 +15010,7 @@
               return true;
             }
             if (dir === 'up') {
-              /* All portal columns do not fit in the rail, so Up opens the
+              /* Many categories do not fit in the rail, so Up opens the
                  full-screen category grid (the reference app's "all columns"). */
               openCategoryPicker();
               return true;
@@ -13489,8 +15059,8 @@
   }
 
   /* Full-screen column picker.  The reference APK opens a separate "all
-     columns" screen from the live home (mIvAllColumn); 38 portal categories
-     cannot fit in the 453dp in-player rail, so Up on the rail opens this grid. */
+     columns" screen from the live home (mIvAllColumn); a list's categories
+     may not fit in the 453dp in-player rail, so Up on the rail opens this grid. */
   function openCategoryPicker() {
     if (!categoryPicker) {
       categoryPicker = $('player-categories');
@@ -13518,7 +15088,7 @@
 
   function renderCategoryPicker() {
     if (!pcatGrid) { return; }
-    var cats = liveCategories && liveCategories.length ? liveCategories : [];
+    var cats = liveCategoriesLoaded ? liveCategories.concat([LIVE_SAVED_CATS.favs, LIVE_SAVED_CATS.recent]) : [];
     clear(pcatGrid);
     if (pcatSub) {
       pcatSub.textContent = cats.length
@@ -13567,13 +15137,13 @@
     clear(list);
     playerChannelRows = {};
 
-    /* If in Addons category, display manage promo header at top */
-    if (currentLiveCategory && currentLiveCategory.isAddon) {
+    /* No lists (or none could be read): a row to add the recommended ones. */
+    if (liveNeedsLists() && !(currentLiveCategory && currentLiveCategory.isSaved)) {
       var promo = el('div', 'pc-row-addon-promo focusable');
       promo.appendChild(el('div', 'promo-icon', '⚙️'));
       var promoInfo = el('div', 'promo-info');
-      promoInfo.appendChild(el('div', 'promo-text', '➕ Administrar Addons y Listas M3U'));
-      promoInfo.appendChild(el('div', 'promo-sub', 'Instala listas recomendadas o agrega tu enlace'));
+      promoInfo.appendChild(el('div', 'promo-text', '➕ Agregar listas M3U'));
+      promoInfo.appendChild(el('div', 'promo-sub', 'Instala listas recomendadas o agrega tu enlace en Ajustes → Addons → TV en vivo'));
       promo.appendChild(promoInfo);
       promo._activate = function () { openAddonsDialog(); };
       promo._onMove = function (dir) {
@@ -13593,7 +15163,7 @@
     }
 
     if (!CHANNELS.length) {
-      var emptyRow = el('div', 'pc-empty-channels', 'No hay canales disponibles en esta categoría');
+      var emptyRow = el('div', 'pc-empty-channels', liveEmptyMessage());
       emptyRow.style.padding = '30px';
       emptyRow.style.color = '#888';
       emptyRow.style.fontSize = '20px';
@@ -13601,7 +15171,7 @@
       return;
     }
 
-    var hasQuery = !!(window.XUPER_DESKTOP && typeof liveChannelQuery === 'string' && norm(liveChannelQuery));
+    var hasQuery = !!(window.OPENTV_DESKTOP && typeof liveChannelQuery === 'string' && norm(liveChannelQuery));
     var indicesToRender = [];
     if (hasQuery) {
       for (var qi = 0; qi < CHANNELS.length; qi++) {
@@ -13800,7 +15370,7 @@
     var dur = vodPlaybackDuration();
     if (t < 0) { t = 0; }
     if (dur > 0 && t > dur - 1) { t = dur - 1; }
-    if (window.XUPER_DESKTOP && state.playerMode === 'vod' && state.playerItem && state.playerItem._relayUrl &&
+    if (window.OPENTV_DESKTOP && state.playerMode === 'vod' && state.playerItem && state.playerItem._relayUrl &&
         /\/media\/[^/]+\/stream\.ts$/i.test(lastPlayingUrl || '')) {
       var seekEnd = (playerVideo.seekable && playerVideo.seekable.length) ? playerVideo.seekable.end(playerVideo.seekable.length - 1) : 0;
       if (t > seekEnd + 10) {
@@ -13819,7 +15389,7 @@
     if (!playerVideo) { return; }
     seekPending += delta;
     if (seekTimer) { clearTimeout(seekTimer); }
-    seekTimer = setTimeout(flushSeek, window.XUPER_DESKTOP ? 150 : 800);
+    seekTimer = setTimeout(flushSeek, window.OPENTV_DESKTOP ? 150 : 800);
     showInfobar();
     /* OSD feedback while seeking */
     showOsdIcon(delta > 0 ? 'forward' : 'backward');
@@ -13835,7 +15405,7 @@
     var target = state.playerEpisode || state.playerItem;
     var verified = durationToSeconds(target && target._sourceDuration);
     var metadata = durationToSeconds(target && target.duration);
-    var timeline = playerVideo && playerVideo._xuperTimeline;
+    var timeline = playerVideo && playerVideo._opentvTimeline;
     var completeHls = timeline && timeline.kind === 'hls' && timeline.complete ? durationToSeconds(timeline.duration) : 0;
     // Native MediaSource.duration may only describe the HLS fragments indexed
     // so far. It is never a title total until the manifest is complete.
@@ -13857,13 +15427,17 @@
       if (target._durationProbe !== payload.durationId) return;
       target._durationPending = false;
       var duration = !error && answer && answer.returnValue !== false ? durationToSeconds(answer.duration) : 0;
+      /* The same probe lists the file's audio tracks (language and title). */
+      if (!error && answer && ((answer.audio && answer.audio.length) || (answer.subtitles && answer.subtitles.length))) {
+        onSourceTracks(item, episode, answer);
+      }
       if (duration) {
         if (answer.verified) target._sourceDuration = duration;
         if (answer.verified || !durationToSeconds(target.duration)) target.duration = duration;
       }
       if ((state.playerEpisode || state.playerItem) === target) {
         updateVodProgress(vodPlaybackPosition(), vodPlaybackDuration());
-        document.dispatchEvent(new CustomEvent('xuper:duration'));
+        document.dispatchEvent(new CustomEvent('opentv:duration'));
       }
     }, 10000);
   }
@@ -14007,7 +15581,7 @@
     while (playerVideo.firstChild) {
       playerVideo.removeChild(playerVideo.firstChild);
     }
-    if (window.XUPER_DESKTOP && typeof playerVideo._xuperResetTimeline === 'function') playerVideo._xuperResetTimeline();
+    if (window.OPENTV_DESKTOP && typeof playerVideo._opentvResetTimeline === 'function') playerVideo._opentvResetTimeline();
     /* NOTE: do NOT call playerVideo.load() here.
        A bare load() with no <source> briefly creates a WebMediaPlayerUMS
        pipeline in Starfish (AID=N) that gets destroyed milliseconds later
@@ -14017,8 +15591,8 @@
   }
 
   function setPlayerStatus(text) {
-    if (window.XUPER_DESKTOP) {
-      document.dispatchEvent(new CustomEvent('xuper:player-status', { detail: {
+    if (window.OPENTV_DESKTOP) {
+      document.dispatchEvent(new CustomEvent('opentv:player-status', { detail: {
         text: text || '', error: !!state.streamError, mode: state.playerMode,
         loading: /^(Preparando|Cargando|Conectando|Reintentando|Reanudando|Cambiando|Ajustando)/i.test(text || '')
       } }));
@@ -14038,7 +15612,7 @@
     if (!playerVideo || !url) { return; }
     playOptions = playOptions || {};
     var useNativeHlsFallback = !!playOptions.nativeHls;
-    if (window.XUPER_DESKTOP && state.playerMode === 'vod' && !/[?&]start=\d+/.test(url)) {
+    if (window.OPENTV_DESKTOP && state.playerMode === 'vod' && !/[?&]start=\d+/.test(url)) {
       var planMatches = resumePlan && state.playerItem &&
         (resumePlan.item === state.playerItem || String(resumePlan.itemId) === String(state.playerItem.id)) &&
         (!resumePlan.episodeId || (state.playerEpisode && String(state.playerEpisode.id) === String(resumePlan.episodeId)));
@@ -14053,7 +15627,7 @@
           playOptions.startPosition = 0;
         } else {
           playOptions.startPosition = targetStart;
-          playerVideo._xuperStartPos = targetStart;
+          playerVideo._opentvStartPos = targetStart;
         }
       }
     }
@@ -14095,7 +15669,7 @@
          VOD and the FFmpeg Modo Fluido path are intentionally untouched. */
       if (code === 4 && state.playerMode === 'live' && isHls && !useNativeHlsFallback) {
         var failedChannelSeq = liveChannelSeq;
-        setPlayerStatus('Reintentando señal con compatibilidad webOS…');
+        setPlayerStatus('Reintentando la señal…');
         setTimeout(function () {
           if (state.playerMode === 'live' && liveChannelSeq === failedChannelSeq) {
             playUrl(url, { nativeHls: true });
@@ -14134,7 +15708,7 @@
        A silent frozen picture looked paused and invited a click that
        really paused it. */
     function clearStatusWhenRunning() {
-      if (window.XUPER_DESKTOP && !playerVideo.paused && playerVideo.readyState < 3) {
+      if (window.OPENTV_DESKTOP && !playerVideo.paused && playerVideo.readyState < 3) {
         if (!state.streamError) { setPlayerStatus('Cargando vídeo…'); }
         return;
       }
@@ -14169,7 +15743,7 @@
         var target = playOptions.startPosition;
         try { playerVideo.currentTime = target; } catch (eStart) { /* not seekable yet */ }
         playOptions.startPosition = 0;
-        if (window.XUPER_DESKTOP && !relayBaseUrl) {
+        if (window.OPENTV_DESKTOP && !relayBaseUrl) {
           stopPendingStart();
           pendingStart = target;
           pendingStartTimer = setInterval(tryPendingStart, 500);
@@ -14206,7 +15780,7 @@
     };
     playerVideo.onended = function () {
       if (state.playerMode !== 'vod') { return; }
-      if (window.XUPER_DESKTOP) { offerNextEpisode(); } else { advanceToNextEpisode(); }
+      if (window.OPENTV_DESKTOP) { offerNextEpisode(); } else { advanceToNextEpisode(); }
     };
     playerVideo.ontimeupdate = function () {
       if (playerVideo.currentTime > 0) { clearStatusWhenRunning(); }
@@ -14303,115 +15877,14 @@
     }
   }
 
-  /* Portal titles need a license + CDN auth that <video> cannot send: the
-     service resolves them and exposes a loopback proxy URL.
-     We capture the current resolveSeq at call time; if it changes before
-     the async response arrives (user navigated away), we discard the result. */
+  /* The playable URL of a title (async: the addon source may need the
+     service first). Callers check resolveSeq to drop a late answer. */
   function resolvePlayerStream(item, done) {
-    /* Stremio mode (PC): the source the viewer chose (player/stremio-sources.js). */
+    /* Addon titles: the source the viewer chose (player/stremio-sources.js). */
     if (item && item._stremio) { return resolveStremioPlayback(item, done); }
-    var mySeq = resolveSeq;
-    function resolveNow() {
-      var params = { contentId: item.id };
-      params.playbackMode = state.streamMode;
-      params.forceRelay = state.streamMode === 'smooth' || state.streamMode === 'relay';
-      if (params.forceRelay && compatVideoCopy(item)) { params.videoCopy = true; }
-      params.trackIndex = state.trackIndex || 0;
-      if (window.XUPER_DESKTOP) { params.preferHeight = preferredQualityHeight(); }
-      /* Prefer the Spanish PID like the real app when mediaInfo already
-         answered; the relay maps it with ffmpeg -map 0:a:<n>. */
-      var ep = state.playerEpisode;
-      var epKey = (ep && ep.id) || (item && item.id) || '';
-      var cachedInfo = mediaInfoCache[epKey] || mediaInfoCache[mediaInfoKey(item)];
-      /* Spanish is the default for every episode.  Index 0 is NOT Spanish:
-         the portal lists the PIDs in stream order ("por,spa,eng"), so sending
-         0 after an episode change made playback start in Portuguese (and the
-         FFmpeg relay map the Portuguese PID). */
-      var audioList = (cachedInfo && cachedInfo.audio) || (ep && ep.streamAudioInfo) || item.streamAudioInfo || '';
-      if (vodAudioChosen) {
-        vodCurrentAudioTrack = Math.max(0, Number(vodCurrentAudioTrack) || 0);
-      } else {
-        vodCurrentAudioTrack = preferredAudioIndex(audioList);
-      }
-      params.audioTrack = vodCurrentAudioTrack || 0;
-      if (isSeriesItem(item)) {
-        var epSeries = state.playerEpisode;
-        var seriesRef = item.seasonId || item.id;
-        if (epSeries && epSeries.id) {
-          params.contentId = epSeries.id;
-          params.seriesContentId = seriesRef;
-        } else {
-          if (!item.episodes || !item.episodes.length) {
-            vodFailure('los capítulos', item._detailError || 'El servidor no devolvió capítulos reproducibles');
-            return done('');
-          }
-          state.playerEpisode = item.episodes[0];
-          params.contentId = item.episodes[0].id;
-          params.seriesContentId = seriesRef;
-        }
-      }
-      params.duration = durationToSeconds((state.playerEpisode || item).duration);
-      var resolveMethod = params.forceRelay ? 'resolveSmooth' : 'resolve';
-      lastVodAttempt = { phase: 'enlace de vídeo', status: 'cargando', error: '' };
-      portalServiceCall(resolveMethod, params, function (error, payload) {
-        /* Stale response: user already navigated to something else */
-        if (mySeq !== resolveSeq) { return; }
-        if (error || !payload || payload.returnValue === false || !(payload.proxyPath || payload.url)) {
-          vodFailure('el enlace de vídeo', error || (payload && payload.errorText) || 'Respuesta vacía del servicio');
-          return done('');
-        }
-        lastVodAttempt = { phase: 'enlace de vídeo', status: 'recibido', error: '' };
-        item.streamMime = payload.mime || '';
-        item.streamCodec = payload.codec || '';
-        item._relayUrl = payload.relayUrl || (/^https?:\/\/127\.0\.0\.1:\d+\/s\//i.test(payload.proxyPath || '') ? payload.proxyPath.split('?')[0] : '');
-        if (state.playerEpisode) { state.playerEpisode._relayUrl = item._relayUrl; }
-        if (durationToSeconds(payload.duration) > 0) {
-          item.duration = durationToSeconds(payload.duration);
-          if (state.playerEpisode) { state.playerEpisode.duration = payload.duration; }
-        } else {
-          item.duration = item.duration || 0;
-        }
-        item.subtitles = payload.subtitles || [];
-        item.streamAudioInfo = payload.audio || item.streamAudioInfo || '';
-        if (state.playerEpisode) { state.playerEpisode.streamAudioInfo = payload.audio || ''; }
-        item.isHls = !!payload.isHls;
-        if (!vodAudioChosen && payload.audio) {
-          vodCurrentAudioTrack = preferredAudioIndex(payload.audio);
-        }
-        /* resolve already completed startPlayVOD.  Reuse its audio/subtitle
-           metadata in the panel instead of requesting the same episode a
-           second time when the viewer changes chapters. */
-        var resolvedInfo = {
-          audio: payload.audio || item.streamAudioInfo,
-          subtitles: item.subtitles,
-          tracks: payload.availableTracks || [],
-          selected: payload.selectedTrack || {},
-          duration: payload.duration || 0
-        };
-        mediaInfoCache[mediaInfoKey(item)] = resolvedInfo;
-        applySubtitleDefaults(resolvedInfo);
-        /* Read-only local diagnostics for the webOS inspector.  Do not place
-           the stream URL, licence or headers here. */
-        try {
-          window.__xuperStreamInfo = {
-            selectedTrack: payload.selectedTrack || {},
-            availableTracks: payload.availableTracks || []
-          };
-        } catch (eDiag) { /* ignore */ }
-        done(payload.proxyPath || payload.url || '');
-        requestVideoDuration(item, state.playerEpisode, payload);
-      });
-    }
-    if (isSeriesItem(item) && !state.playerEpisode && (!item.episodes || !item.episodes.length) && !item._detailsLoaded) {
-      setPlayerStatus('Cargando capítulos…');
-      loadVodDetail(item, function (loaded) {
-        if (mySeq !== resolveSeq) { return; }
-        if (!loaded) { return done(''); }
-        resolveNow();
-      });
-      return;
-    }
-    resolveNow();
+    /* Anything else carries its own link. */
+    var ep = state.playerEpisode;
+    done((ep && ep.streamUrl) || (item && item.streamUrl) || '');
   }
 
   function startPlayerVideo(item, episode) {
@@ -14421,58 +15894,19 @@
       state.playerSeasonIndex = state.detailSeason || 0;
     }
     if (item) { state.playerItem = item; }
-    try { document.dispatchEvent(new CustomEvent('xuper:player-item')); } catch (eEv) { /* old webOS */ }
-    if (window.XUPER_DESKTOP) { installResume(); planResume(state.playerItem, state.playerEpisode); }
+    try { document.dispatchEvent(new CustomEvent('opentv:player-item')); } catch (eEv) { /* old webOS */ }
+    if (window.OPENTV_DESKTOP) { installResume(); planResume(state.playerItem, state.playerEpisode); }
     var it = item || state.playerItem;
     if (it) { restoreSmoothMode(it); }
     stopPlayerVideo();
     if (!it) { return; }
     /* PC: the title's still until the first frame (not the previous title's). */
-    if (window.XUPER_DESKTOP && !platformIsTv()) {
+    if (window.OPENTV_DESKTOP && !platformIsTv()) {
       var still = heroArt(it) || it.poster || '';
       if (still) { playerVideo.poster = sizedImageUrl(still, 1280); } else { playerVideo.removeAttribute('poster'); }
     }
     vodAudioChosen = false;
     vodCurrentAudioTrack = 0;
-    /* resolvePlayerStream returns the same audio/subtitle metadata needed by
-       the dialog.  Do not issue mediaInfo in parallel here: on every episode
-       change that duplicated startPlayVOD and delayed the next chapter.  It is
-       only requested while the audio PID order is still unknown, because the
-       portal lists it in stream order (index 0 is not Spanish) and Modo Fluido
-       maps that index inside FFmpeg. */
-    var currentEp = episode || state.playerEpisode;
-    var epKey = (currentEp && currentEp.id) || (it && it.id) || '';
-    var epInfo = epKey ? mediaInfoCache[epKey] : null;
-    var knownAudio = (epInfo && epInfo.audio) || (currentEp && currentEp.streamAudioInfo) || '';
-    if (it._portal && !vodAudioChosen && !knownAudio) {
-      var started = false;
-      var startSeq = resolveSeq;
-      var proceed = function () {
-        if (started || startSeq !== resolveSeq) { return; }
-        started = true;
-        var epNum = episode ? (episode.number || episode.seriesNumber || '') : '';
-        setPlayerStatus(epNum ? ('Cargando capítulo ' + epNum + '…') : (isSeriesItem(it) ? 'Cargando capítulo…' : 'Cargando película…'));
-        resolvePlayerStream(it, function (url) {
-          if (url) { playUrl(url); }
-          else if (!state.streamError) { setPlayerStatus('Sin fuente de reproducción'); }
-        });
-      };
-      /* Never hold playback on the metadata call: after 2.5 s resolve anyway. */
-      setTimeout(proceed, 2500);
-      ensureMediaInfo(it, function (info) {
-        proceed();
-      });
-      return;
-    }
-    if (it._portal) {
-      var epNum = episode ? (episode.number || episode.seriesNumber || '') : '';
-      setPlayerStatus(epNum ? ('Cargando capítulo ' + epNum + '…') : (isSeriesItem(it) ? 'Cargando capítulo…' : 'Cargando película…'));
-      resolvePlayerStream(it, function (url) {
-        if (url) { playUrl(url); }
-        else if (!state.streamError) { setPlayerStatus('Sin fuente de reproducción'); }
-      });
-      return;
-    }
     if (it._stremio) {
       resolvePlayerStream(it, function (url) {
         if (url) { playUrl(url); }
@@ -14500,7 +15934,7 @@
     if (item && state.playerItem !== item) { resetMediaSelection(); }
     if (item) { state.playerItem = item; }
     if (episode) { state.playerEpisode = episode; }
-    try { document.dispatchEvent(new CustomEvent('xuper:player-item')); } catch (eEv) { /* old webOS */ }
+    try { document.dispatchEvent(new CustomEvent('opentv:player-item')); } catch (eEv) { /* old webOS */ }
     if (item) { restoreSmoothMode(item); }
     state.playerReturn = { screen: 'detail', focus: state.focus };
 
@@ -14531,7 +15965,7 @@
     }
     if (!playerStage) { buildPlayer(); }
     /* Desktop TV: real full screen, like a TV (left again with the player). */
-    if (window.XUPER_DESKTOP && mode === 'live') { installLiveControls(); enterLiveFullscreen(); }
+    if (window.OPENTV_DESKTOP && mode === 'live') { installLiveControls(); enterLiveFullscreen(); }
     /* Desktop: reuse the video that is already playing this channel. */
     var handedOver = false;
     if (mode === 'live' && liveHandoff && liveHandoff.type === 'player') {
@@ -14569,6 +16003,474 @@
     }
   }
 
+  /* ---- player/source-rank.js ------------------------------------------------- */
+  /* player/source-rank.js — Modo Addons (solo PC): qué es cada fuente (idiomas,
+     calidad, CAM, códec, sitio), las preferencias de fuentes del usuario (como
+     la página "configure" de Torrentio, pero aplicadas por OpenTV a todos los
+     addons) y la elección de la mejor fuente para este usuario y su internet.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  var SOURCE_PREFS_KEY = 'opentv_source_prefs_v1';
+  var NET_SPEED_KEY = 'opentv_net_speed_v1';
+
+  /* Languages a source can be tagged with, in the order the chips show them. */
+  var SOURCE_LANG_LABELS = {
+    latino: 'Latino', castellano: 'Castellano', es: 'Español', en: 'Inglés', pt: 'Portugués',
+    fr: 'Francés', it: 'Italiano', de: 'Alemán', ru: 'Ruso', ja: 'Japonés', ko: 'Coreano', multi: 'Multi'
+  };
+  /* The languages the viewer can put first (Ajustes → Preferencias de addons). */
+  var SOURCE_PREF_LANGS = ['latino', 'castellano', 'en', 'pt'];
+
+  /* Flags as the addons write them (Torrentio: 🇲🇽 = latino, 🇪🇸 = España). */
+  var SOURCE_FLAGS = [
+    ['🇲🇽', 'latino'], ['🇦🇷', 'latino'], ['🇨🇴', 'latino'], ['🇨🇱', 'latino'], ['🇵🇪', 'latino'], ['🇻🇪', 'latino'],
+    ['🇪🇸', 'castellano'], ['🇬🇧', 'en'], ['🇺🇸', 'en'], ['🇵🇹', 'pt'], ['🇧🇷', 'pt'], ['🇫🇷', 'fr'],
+    ['🇮🇹', 'it'], ['🇩🇪', 'de'], ['🇷🇺', 'ru'], ['🇯🇵', 'ja'], ['🇰🇷', 'ko'], ['🌎', 'multi'], ['🌐', 'multi'], ['🌍', 'multi']
+  ];
+
+  /* "Subtítulos en español" is not Spanish audio. */
+  var SUBS_ES_RE = /\b(vose|v\.o\.s\.e|subtitulad[oa]s?|subs?[\s._-]*(esp|spa|español|espanol|latino|lat|es))\b/gi;
+  var LATINO_RE = /\b(latino|latina|latam|lat|latinoamerican[oa]|espa[ñn]ol[\s._-]*latino|dual[\s._-]*lat(ino)?)\b/i;
+  var CASTELLANO_RE = /\b(castellano|castilian|es[-_]es|espa[ñn]ol[\s._-]*(de[\s._-]*)?espa[ñn]a)\b/i;
+  var SPANISH_RE = /\b(spanish|espa[ñn]ol|esp|spa)\b/i;
+  var ENGLISH_RE = /\b(english|eng|ingl[eé]s)\b/i;
+  var MULTI_RE = /\b(multi([\s._-]?(audio|lang|language|sub))?|dual([\s._-]?audio)?)\b/i;
+  var CAM_RE = /\b((hd)?cam(rip)?|hd-?ts|telesync|tele-?cine|hd-?tc|(dvd|bd)?scr(eener)?|pre-?dvd)\b/i;
+
+  /* What a source is, from what the addon wrote about it (name, title, file). */
+  function sourceTags(name, title, filename) {
+    var raw = String(name || '') + '\n' + String(title || '') + '\n' + String(filename || '');
+    var text = raw.replace(/[\[\]()]/g, ' ');
+    var subsEs = false;
+    var audioText = text.replace(SUBS_ES_RE, function () { subsEs = true; return ' '; });
+    var langs = [];
+    function add(l) { if (langs.indexOf(l) === -1) { langs.push(l); } }
+    for (var i = 0; i < SOURCE_FLAGS.length; i++) {
+      if (raw.indexOf(SOURCE_FLAGS[i][0]) !== -1) { add(SOURCE_FLAGS[i][1]); }
+    }
+    if (LATINO_RE.test(audioText)) { add('latino'); }
+    if (CASTELLANO_RE.test(audioText)) { add('castellano'); }
+    if (langs.indexOf('latino') === -1 && langs.indexOf('castellano') === -1 && SPANISH_RE.test(audioText)) { add('es'); }
+    if (ENGLISH_RE.test(audioText)) { add('en'); }
+    if (/\b(portugu[eê]s|portuguese|dublado)\b/i.test(audioText)) { add('pt'); }
+    if (/\b(french|fran[cç]ais|vff|truefrench)\b/i.test(audioText)) { add('fr'); }
+    if (/\b(italian|ita)\b/i.test(audioText)) { add('it'); }
+    if (/\b(german|deutsch|ger)\b/i.test(audioText)) { add('de'); }
+    if (/\b(russian|rus)\b/i.test(audioText)) { add('ru'); }
+    var multi = MULTI_RE.test(audioText) || langs.indexOf('multi') !== -1;
+    if (multi && langs.indexOf('multi') === -1) { add('multi'); }
+    /* "Dual" and multi-audio releases keep the original (almost always English) track. */
+    if (multi && langs.indexOf('en') === -1) { add('en'); }
+    var only = langs.filter(function (l) { return l !== 'multi'; });
+    var hdr = /\b(hdr(10)?\+?|dv|dovi|dolby[\s._-]?vision)\b/i.test(text);
+    /* Torrentio and most scrapers: "⚙️ ThePirateBay" after the size. */
+    var site = /⚙️?\s*([^\n👤💾⚙]+)/.exec(String(title || ''));
+    return {
+      langs: only,
+      /* Nothing said about the language: the original audio (usually English). */
+      original: !only.length,
+      multi: multi,
+      subsEs: subsEs,
+      cam: CAM_RE.test(text) || /(^|[\s.\-])TS($|[\s.\-])/.test(raw.replace(/\.ts$/i, '')),
+      hevc: /\b(x\.?265|h\.?265|hevc)\b/i.test(text),
+      tenBit: /\b10[\s._-]?bits?\b/i.test(text),
+      hdr: hdr,
+      remux: /\bremux\b/i.test(text),
+      /* Audio and video codecs some devices cannot decode (Fire TV: DTS, TrueHD). */
+      audioDts: /\bdts([\s._-]?(hd|ma|x|es))*\b/i.test(text),
+      audioTrueHd: /\btrue[\s._-]?hd\b/i.test(text),
+      audioEac3: /\b(e-?ac-?3|ddp|dd\+)([\s._-]?[257]\.[01])?\b/i.test(text),
+      av1: /\bav1\b/i.test(text),
+      threeD: /\b(3d|h-?sbs|half-?sbs|h-?ou)\b/i.test(text),
+      mp4: /\.(mp4|m4v)\b/i.test(String(filename || '') + ' ' + String(title || '')),
+      provider: site ? site[1].trim().slice(0, 40) : ''
+    };
+  }
+
+  function sourceHasLang(src, lang) {
+    if (lang === 'en') { return src.langs.indexOf('en') !== -1 || src.original; }
+    return src.langs.indexOf(lang) !== -1;
+  }
+
+  /* "Latino · Inglés", "Subs ES", "CAM"… for the source list. */
+  function sourceLangText(src) {
+    var out = [];
+    src.langs.forEach(function (l) { if (SOURCE_LANG_LABELS[l]) { out.push(SOURCE_LANG_LABELS[l]); } });
+    if (src.multi && out.length < 2) { out.push('Multi'); }
+    if (src.subsEs) { out.push('Subs ES'); }
+    return out.join(' · ');
+  }
+
+  /* ------------------------------------------------ preferences */
+  function defaultSourcePrefs() {
+    var audio = typeof preferredLanguageCode === 'function' ? preferredLanguageCode() : 'es';
+    return {
+      langs: audio === 'en' ? ['en'] : (audio === 'pt' ? ['pt'] : ['latino', 'castellano']),
+      quality: 'auto',        /* auto (by the connection) | 4K | 1080p | 720p | SD */
+      exclude: [],            /* 4K 1080p 720p SD CAM unknown */
+      minSeeds: 0,
+      maxMovieGB: 0,
+      maxEpisodeGB: 0,
+      perQuality: 0,          /* at most N per quality and addon (0 = all) */
+      hiddenProviders: [],
+      providers: [],          /* sites seen, to offer them in the editor */
+      autoPlay: true,
+      subsFrom: 'file'        /* file | addons | fileOnly | addonsOnly: where subtitles come from first */
+    };
+  }
+
+  function loadSourcePrefs() {
+    var p = defaultSourcePrefs();
+    try {
+      var s = JSON.parse(localStorage.getItem(SOURCE_PREFS_KEY) || 'null');
+      if (s && typeof s === 'object') {
+        if (Object.prototype.toString.call(s.langs) === '[object Array]') {
+          p.langs = s.langs.filter(function (l) { return SOURCE_PREF_LANGS.indexOf(l) !== -1; });
+        }
+        if (/^(auto|4K|1080p|720p|SD)$/.test(s.quality)) { p.quality = s.quality; }
+        if (Object.prototype.toString.call(s.exclude) === '[object Array]') {
+          p.exclude = s.exclude.filter(function (q) { return /^(4K|1080p|720p|SD|CAM|unknown)$/.test(q); });
+        }
+        ['minSeeds', 'maxMovieGB', 'maxEpisodeGB', 'perQuality'].forEach(function (k) {
+          var n = Number(s[k]);
+          if (n >= 0 && n < 10000) { p[k] = n; }
+        });
+        ['hiddenProviders', 'providers'].forEach(function (k) {
+          if (Object.prototype.toString.call(s[k]) === '[object Array]') {
+            p[k] = s[k].filter(function (x) { return typeof x === 'string' && x; }).slice(0, 60);
+          }
+        });
+        if (typeof s.autoPlay === 'boolean') { p.autoPlay = s.autoPlay; }
+        if (/^(file|addons|fileOnly|addonsOnly)$/.test(s.subsFrom)) { p.subsFrom = s.subsFrom; }
+      }
+    } catch (e) { /* defaults */ }
+    return p;
+  }
+
+  function saveSourcePrefs(p) {
+    try { localStorage.setItem(SOURCE_PREFS_KEY, JSON.stringify(p)); } catch (e) { /* full */ }
+  }
+
+  /* Sites seen in the results, so the editor can offer to hide them. */
+  function noteSourceProviders(list) {
+    var p = loadSourcePrefs();
+    var changed = false;
+    list.forEach(function (s) {
+      if (s.provider && p.providers.indexOf(s.provider) === -1) { p.providers.push(s.provider); changed = true; }
+    });
+    if (changed) { p.providers = p.providers.slice(-60); saveSourcePrefs(p); }
+  }
+
+  /* Why a source is hidden by the preferences ('' = it is shown). */
+  function sourcePrefsBlock(src, prefs, isEpisode) {
+    var q = src.cam ? 'CAM' : (src.quality || 'unknown');
+    if (prefs.exclude.indexOf(q) !== -1) { return 'calidad'; }
+    if (src.kind === 'torrent' && prefs.minSeeds > 0 && src.seeds !== null && src.seeds < prefs.minSeeds) { return 'semillas'; }
+    var maxGB = isEpisode ? prefs.maxEpisodeGB : prefs.maxMovieGB;
+    if (maxGB > 0 && src.sizeBytes > maxGB * 1073741824) { return 'tamaño'; }
+    if (src.provider && prefs.hiddenProviders.indexOf(src.provider) !== -1) { return 'sitio'; }
+    return '';
+  }
+
+  /* ------------------------------------------------ the connection */
+  /* Mbps the viewer's internet is known to reach (0 = not known yet): the
+     fastest real download seen (torrents, downloads). Chromium's own estimate
+     (navigator.connection) is not used: with little traffic it said ~1 Mbps on
+     a fast line, which would have picked SD sources. */
+  function knownNetSpeed() {
+    try {
+      var s = JSON.parse(localStorage.getItem(NET_SPEED_KEY) || 'null');
+      /* A peak older than two weeks may be another network. */
+      if (s && s.mbps > 0 && Date.now() - (s.at || 0) < 14 * 86400000) { return Number(s.mbps) || 0; }
+    } catch (e) { /* none */ }
+    return 0;
+  }
+
+  /* bytesPerSec measured on a real download (only ever raises the peak). */
+  function noteNetSpeed(bytesPerSec) {
+    var mbps = (Number(bytesPerSec) || 0) * 8 / 1000000;
+    if (!(mbps > 0.2)) { return; }
+    try {
+      var s = JSON.parse(localStorage.getItem(NET_SPEED_KEY) || 'null') || {};
+      var old = (s.mbps > 0 && Date.now() - (s.at || 0) < 14 * 86400000) ? Number(s.mbps) : 0;
+      if (mbps > old) { localStorage.setItem(NET_SPEED_KEY, JSON.stringify({ mbps: Math.round(mbps * 10) / 10, at: Date.now() })); }
+    } catch (e) { /* ignore */ }
+  }
+
+  /* ------------------------------------------------ this device */
+  /* Android: what the device decodes and shows, and its free space (the
+     service's ping). null on PC: there the relay converts any audio and
+     Chromium decodes HEVC, so nothing is ruled out. */
+  var deviceProfile = null;
+  function setDeviceProfile(media, storage) {
+    deviceProfile = { media: media || null, storage: storage || null };
+  }
+
+  /* How bad a source is for this device: 0 = fine. A file whose audio or
+     video the device cannot decode would play silent or not at all. */
+  function sourceDevicePenalty(src, isTorrent) {
+    var d = deviceProfile;
+    if (!d) { return 0; }
+    var p = 0, m = d.media;
+    if (m) {
+      if (src.audioDts && m.dts === false) { p += 2500; }
+      if (src.audioTrueHd && m.truehd === false) { p += 2500; }
+      if (src.audioEac3 && m.eac3 === false) { p += 1500; }
+      if (src.hevc && m.hevc === false) { p += 3000; }
+      else if (src.hevc && src.tenBit && m.hevc10 === false) { p += 2000; }
+      if (src.av1 && m.av1 === false) { p += 3000; }
+      if (src.quality === '4K' && m.uhd === false) { p += 900; }
+      if (src.hdr && m.hdr === false) { p += 500; }
+    }
+    /* A torrent bigger than the free space: it cannot be watched to the end. */
+    var free = d.storage && d.storage.free;
+    if (isTorrent && free > 0 && src.sizeBytes > free * 0.9) { p += 2000; }
+    return p;
+  }
+
+  /* "Sin sonido en este aparato (DTS)": why the device avoids a source. */
+  function sourceDeviceNote(src) {
+    var d = deviceProfile, m = d && d.media;
+    if (!d) { return ''; }
+    if (m && ((src.audioDts && m.dts === false) || (src.audioTrueHd && m.truehd === false))) { return 'Audio no compatible con este aparato'; }
+    if (m && ((src.hevc && m.hevc === false) || (src.av1 && m.av1 === false))) { return 'Vídeo no compatible con este aparato'; }
+    var free = d.storage && d.storage.free;
+    if (src.kind === 'torrent' && free > 0 && src.sizeBytes > free * 0.9) { return 'No cabe en este aparato'; }
+    return '';
+  }
+
+  var SOURCE_Q_RANK = { '4K': 4, '1080p': 3, '720p': 2, 'SD': 1 };
+
+  /* Full HD unless the connection is known to be slower. */
+  function sourceTargetQuality(prefs, mbps) {
+    if (prefs.quality !== 'auto') { return prefs.quality; }
+    if (!mbps || mbps >= 8) { return '1080p'; }
+    if (mbps >= 3.5) { return '720p'; }
+    return 'SD';
+  }
+
+  /* ------------------------------------------------ the score */
+  /* ctx: { prefs, mbps, duration (s), episode }. Higher is better. Language
+     first, then a playable quality for this connection, then a healthy
+     torrent, then files that play without heavy conversion. A CAM only wins
+     when everything else is CAM too (new releases). */
+  function scoreSource(src, ctx) {
+    var prefs = ctx.prefs;
+    var score = 0;
+    var n = prefs.langs.length;
+    var langScore = 0;
+    for (var i = 0; i < n; i++) {
+      var l = prefs.langs[i];
+      var w = (n - i) * 1000;
+      if (src.langs.indexOf(l) !== -1) { langScore = Math.max(langScore, w); }
+      else if (l === 'en' && src.original) { langScore = Math.max(langScore, w - 250); }
+      else if ((l === 'latino' || l === 'castellano') && src.langs.indexOf('es') !== -1) { langScore = Math.max(langScore, w - 500); }
+    }
+    score += langScore;
+    /* Dubbed into a language the viewer did not ask for. */
+    if (n && !langScore && src.langs.length && !src.multi) { score -= 400; }
+
+    var target = SOURCE_Q_RANK[sourceTargetQuality(prefs, ctx.mbps)];
+    var rank = SOURCE_Q_RANK[src.quality] || 1.5;
+    score += rank === target ? 600 : (rank < target ? 600 - 220 * (target - rank) : 600 - 150 * (rank - target));
+    if (src.cam) { score -= 6000; }
+
+    var secs = ctx.duration > 0 ? ctx.duration : (ctx.episode ? 2700 : 6600);
+    var mbpsNeeded = src.sizeBytes ? src.sizeBytes * 8 / secs / 1000000 : 0;
+    if (ctx.mbps > 0 && mbpsNeeded > ctx.mbps * 0.85) { score -= 300 + Math.min(500, 100 * mbpsNeeded / ctx.mbps); }
+    if (mbpsNeeded > 30 || src.remux) { score -= 250; }
+    if (src.quality === '1080p' && mbpsNeeded > 0 && mbpsNeeded < 1) { score -= 120; }
+
+    if (src.kind === 'torrent') {
+      if (src.seeds !== null) {
+        score += src.seeds < 3 ? -350 : Math.min(260, 90 * Math.log(src.seeds + 1) / Math.LN10);
+      }
+    } else {
+      score += 200;   /* starts at once, no peers needed */
+    }
+    if (src.hevc) { score -= 80; }
+    if (src.tenBit) { score -= 60; }
+    if (src.hdr) { score -= 140; }
+    if (src.threeD) { score -= 500; }
+    if (src.mp4) { score += 30; }
+    /* Android: what this device cannot decode, show or store. */
+    score -= sourceDevicePenalty(src, src.kind === 'torrent');
+    /* The addon's own order breaks ties. */
+    return score - (src._i || 0) * 0.5;
+  }
+
+  function sourceRankContext(item, episode) {
+    var target = episode || item || {};
+    return {
+      prefs: loadSourcePrefs(),
+      mbps: knownNetSpeed(),
+      duration: typeof durationToSeconds === 'function' ? durationToSeconds(target.duration || (item && item.duration)) : 0,
+      episode: !!episode
+    };
+  }
+
+  /* The best of `list` for ctx, among the ones the preferences show (or among
+     all of them when the preferences hide every source). */
+  function bestSource(list, ctx) {
+    var best = null, bestScore = -Infinity, shown = 0;
+    for (var pass = 0; pass < 2 && !best; pass++) {
+      for (var i = 0; i < list.length; i++) {
+        if (pass === 0 && sourcePrefsBlock(list[i], ctx.prefs, ctx.episode)) { continue; }
+        shown++;
+        var s = scoreSource(list[i], ctx);
+        if (s > bestScore) { bestScore = s; best = list[i]; }
+      }
+      if (pass === 0 && shown) { break; }
+    }
+    return best;
+  }
+
+  /* "Latino · Full HD · 85 semillas · 2,1 GB": why it was chosen. */
+  function sourceReason(src) {
+    var q = { '4K': '4K', '1080p': 'Full HD', '720p': 'HD', 'SD': 'SD' }[src.quality] || '';
+    var parts = [];
+    var langs = sourceLangText(src);
+    if (langs) { parts.push(langs); }
+    if (src.cam) { parts.push('CAM'); }
+    if (q) { parts.push(q); }
+    if (src.kind === 'torrent') { if (src.seeds !== null) { parts.push(src.seeds + (src.seeds === 1 ? ' semilla' : ' semillas')); } }
+    else { parts.push('Directo'); }
+    if (src.size) { parts.push(src.size.replace('.', ',')); }
+    return parts.join(' · ');
+  }
+
+  /* ------------------------------------------------ preferences editor */
+  /* The options of Torrentio's configure page, applied by OpenTV to every
+     addon; in Ajustes → Preferencias de addons and inside "Elegir fuente".
+     Same rows as the rest of Ajustes (screens/settings-hub.js): grouped, the
+     name and ⓘ on the left, the choices on the right. onChange runs after
+     each change (already saved). */
+  function buildSourcePrefsEditor(onChange) {
+    var root = el('div', 'set-page srcpref');
+    var group = root;
+    function changed() { if (onChange) { onChange(); } }
+    function section(title) { group = settingsGroup(root, title); }
+    function row(label, hint) {
+      var r = el('div', 'set-row');
+      var name = el('div', 'set-row-name');
+      name.appendChild(el('span', null, label));
+      if (hint) { name.appendChild(settingsInfo(hint)); }
+      r.appendChild(name);
+      var seg = el('div', 'set-seg is-wrap');
+      r.appendChild(seg);
+      group.appendChild(r);
+      return seg;
+    }
+    function chip(parent, text, on, run) {
+      var c = el('div', 'set-seg-btn focusable' + (on ? ' is-on' : ''), text);
+      c.setAttribute('role', 'button');
+      c._activate = function () { run(); paint(); changed(); };
+      parent.appendChild(c);
+      return c;
+    }
+    function paint() {
+      var keep = state.focus && state.focus.classList && state.focus.classList.contains('set-seg-btn') ? state.focus.textContent : '';
+      var keepRow = keep && state.focus.parentNode ? Array.prototype.indexOf.call(root.querySelectorAll('.set-seg'), state.focus.parentNode) : -1;
+      clear(root);
+      group = root;
+      var p = loadSourcePrefs();
+      function save() { saveSourcePrefs(p); }
+
+      section('Idioma');
+      var langs = row('Idiomas preferidos', 'Toca en orden: el 1 va primero. Sin bandera de idioma = inglés (original).');
+      SOURCE_PREF_LANGS.forEach(function (l) {
+        var pos = p.langs.indexOf(l);
+        chip(langs, (pos !== -1 ? (pos + 1) + ' · ' : '') + SOURCE_LANG_LABELS[l], pos !== -1, function () {
+          if (pos !== -1) { p.langs.splice(pos, 1); } else { p.langs.push(l); }
+          save();
+        });
+      });
+      var subs = row('Subtítulos', 'Los del archivo vienen con el vídeo y van sincronizados. Si no hay, se usan los de tus addons.');
+      [['file', 'Archivo primero'], ['addons', 'Addons primero'], ['fileOnly', 'Solo archivo'], ['addonsOnly', 'Solo addons']].forEach(function (o) {
+        chip(subs, o[1], p.subsFrom === o[0], function () { p.subsFrom = o[0]; save(); });
+      });
+
+      section('Calidad');
+      var mbps = knownNetSpeed();
+      var quality = row('Calidad', mbps ? 'Tu internet: ~' + Math.round(mbps) + ' Mbps. Automática elige la mejor que alcanza.'
+        : 'Automática busca Full HD y baja si tu internet no alcanza.');
+      [['auto', 'Automática'], ['4K', '4K'], ['1080p', 'Full HD'], ['720p', 'HD'], ['SD', 'SD']].forEach(function (o) {
+        chip(quality, o[1], p.quality === o[0], function () { p.quality = o[0]; save(); });
+      });
+      var exclude = row('Ocultar', 'Calidades que nunca se muestran. CAM: grabadas en el cine.');
+      [['4K', '4K'], ['1080p', 'Full HD'], ['720p', 'HD'], ['SD', 'SD'], ['CAM', 'CAM'], ['unknown', 'Sin calidad']].forEach(function (o) {
+        var on = p.exclude.indexOf(o[0]) !== -1;
+        chip(exclude, o[1], on, function () {
+          if (on) { p.exclude.splice(p.exclude.indexOf(o[0]), 1); } else { p.exclude.push(o[0]); }
+          save();
+        });
+      });
+      var per = row('Máximo por calidad', 'Cuántas fuentes de cada calidad muestra cada addon.');
+      [[0, 'Todas'], [3, '3'], [5, '5'], [10, '10']].forEach(function (o) {
+        chip(per, o[1], p.perQuality === o[0], function () { p.perQuality = o[0]; save(); });
+      });
+
+      section('Torrents');
+      var seeds = row('Mínimo de semillas', 'Se ocultan los torrents con menos personas compartiendo.');
+      [[0, 'Cualquiera'], [2, '2'], [5, '5'], [10, '10'], [25, '25']].forEach(function (o) {
+        chip(seeds, o[1], p.minSeeds === o[0], function () { p.minSeeds = o[0]; save(); });
+      });
+      var movie = row('Tamaño máximo · Películas');
+      [[0, 'Sin límite'], [2, '2 GB'], [4, '4 GB'], [8, '8 GB'], [15, '15 GB']].forEach(function (o) {
+        chip(movie, o[1], p.maxMovieGB === o[0], function () { p.maxMovieGB = o[0]; save(); });
+      });
+      var ep = row('Tamaño máximo · Capítulos');
+      [[0, 'Sin límite'], [0.5, '500 MB'], [1, '1 GB'], [2, '2 GB'], [4, '4 GB']].forEach(function (o) {
+        chip(ep, o[1], p.maxEpisodeGB === o[0], function () { p.maxEpisodeGB = o[0]; save(); });
+      });
+      if (p.providers.length || p.hiddenProviders.length) {
+        var sites = row('Sitios', 'Toca un sitio para ocultar sus fuentes (tachado = oculto).');
+        var all = p.providers.slice();
+        p.hiddenProviders.forEach(function (h) { if (all.indexOf(h) === -1) { all.push(h); } });
+        all.sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
+        all.forEach(function (name) {
+          var hidden = p.hiddenProviders.indexOf(name) !== -1;
+          var c = chip(sites, name, !hidden, function () {
+            if (hidden) { p.hiddenProviders.splice(p.hiddenProviders.indexOf(name), 1); } else { p.hiddenProviders.push(name); }
+            save();
+          });
+          if (hidden) { c.classList.add('is-struck'); }
+        });
+      }
+
+      section('Al reproducir');
+      var auto = row('Fuente', 'La recomendada se elige por idioma, calidad, semillas y lo que tu aparato reproduce.');
+      chip(auto, 'Usar la recomendada', p.autoPlay, function () { p.autoPlay = true; save(); });
+      chip(auto, 'Preguntarme', !p.autoPlay, function () { p.autoPlay = false; save(); });
+
+      var reset = el('div', 'set-reset');
+      var rb = el('div', 'set-seg-btn focusable', 'Restablecer');
+      rb._activate = function () {
+        var keepSites = loadSourcePrefs().providers;
+        var d = defaultSourcePrefs();
+        d.providers = keepSites;
+        saveSourcePrefs(d);
+        paint();
+        changed();
+      };
+      reset.appendChild(rb);
+      root.appendChild(reset);
+
+      /* Keep the focus on the choice that was pressed (the rows are redrawn). */
+      if (keep && keepRow !== -1) {
+        var rows = root.querySelectorAll('.set-seg');
+        var target = rows[keepRow] && rows[keepRow].querySelectorAll('.set-seg-btn');
+        var pick = null;
+        for (var i = 0; target && i < target.length && !pick; i++) {
+          if (target[i].textContent.replace(/^\d+ · /, '') === keep.replace(/^\d+ · /, '')) { pick = target[i]; }
+        }
+        if (pick) { setFocus(pick); }
+      }
+    }
+    paint();
+    return root;
+  }
+
   /* ---- player/stremio-sources.js --------------------------------------------- */
   /* player/stremio-sources.js — Modo manual (Stremio, solo PC): elegir la fuente
      de una película o capítulo (enlace directo o torrent) y reproducirla.
@@ -14576,7 +16478,7 @@
 
      Flujo: Reproducir → (fuente guardada de ese título, o panel "Elegir
      fuente") → servicio resolveExternal (y torrentStart para torrents) → el
-     mismo reproductor y modo compatible que el catálogo integrado. */
+     mismo reproductor y modo compatible para todo lo que dan los addons. */
 
   var STREMIO_PICKS_KEY = 'opentv_stremio_picks_v1';
   var TORRENT_NOTICE_KEY = 'opentv_torrent_notice_v1';
@@ -14605,7 +16507,8 @@
     picks[id] = {
       addon: src.addon, url: src.url || '', infoHash: src.infoHash || '', fileIdx: src.fileIdx,
       sources: src.sources || null, headers: src.headers || null, notWebReady: !!src.notWebReady,
-      filename: src.filename || '', label: src.label || '', quality: src.quality || '', at: Date.now()
+      filename: src.filename || '', label: src.label || '', quality: src.quality || '',
+      langs: src.langs || [], original: !!src.original, at: Date.now()
     };
     var keys = Object.keys(picks);
     if (keys.length > STREMIO_PICKS_MAX) {
@@ -14644,6 +16547,7 @@
     /* Size and peers have their own place in the row: drop them from the text. */
     var lines = title.replace(/👤\s*\d+/g, '').replace(/💾\s*[\d.,]+\s*[KMGT]i?B/gi, '').split(/\n+/);
     var hints = s.behaviorHints || {};
+    var tags = sourceTags(name, title, hints.filename);
     return {
       addon: addonName,
       kind: s.infoHash ? 'torrent' : (s.url ? 'direct' : 'other'),
@@ -14658,8 +16562,25 @@
       size: size ? size[1] : '',
       sizeBytes: size ? sizeToBytes(size[1]) : 0,
       seeds: seeds ? Number(seeds[1]) : null,
-      /* Spanish audio or subtitles, as the addons write it (flags or words). */
-      spanish: /🇪🇸|🇲🇽|🇦🇷|🇨🇴|\b(latino|lat|castellano|spanish|español|espanol|esp|spa)\b/i.test(text),
+      /* Languages as the addons write them (flags or words): latino,
+         castellano, es (Spanish, variant not said), en… (source-rank.js). */
+      langs: tags.langs,
+      original: tags.original,
+      multi: tags.multi,
+      subsEs: tags.subsEs,
+      spanish: tags.langs.indexOf('latino') !== -1 || tags.langs.indexOf('castellano') !== -1 || tags.langs.indexOf('es') !== -1,
+      cam: tags.cam,
+      hevc: tags.hevc,
+      tenBit: tags.tenBit,
+      hdr: tags.hdr,
+      remux: tags.remux,
+      audioDts: tags.audioDts,
+      audioTrueHd: tags.audioTrueHd,
+      audioEac3: tags.audioEac3,
+      av1: tags.av1,
+      threeD: tags.threeD,
+      mp4: tags.mp4,
+      provider: tags.provider,
       label: (lines[0] || name || 'Fuente').trim(),
       detail: lines.slice(1).join(' ').replace(/\s+/g, ' ').trim(),
       name: name
@@ -14681,7 +16602,40 @@
 
   /* Asks every addon with "stream" at once; onUpdate(groups, pending) runs as
      each one answers, so the list fills in while the slow ones search. */
+  /* What the addons answered for a title or episode, kept 10 minutes: an
+     episode picked on the details screen has its sources ready when the
+     viewer presses Reproducir. Also one lookup at a time per episode. */
+  var STREAMS_CACHE_MS = 10 * 60 * 1000;
+  var streamsCache = {};      /* key → { at, groups } */
+  var streamsInFlight = {};   /* key → [onUpdate…] */
+
+  function copyStreamGroups(groups) {
+    return groups.map(function (g) {
+      var c = {};
+      for (var k in g) { if (Object.prototype.hasOwnProperty.call(g, k)) { c[k] = g[k]; } }
+      c.sources = g.sources.slice();
+      return c;
+    });
+  }
+
   function fetchStremioStreams(item, episode, onUpdate) {
+    var type = item._stremioType || (isSeriesItem(item) ? 'series' : 'movie');
+    var key = type + '|' + stremioStreamId(item, episode) + '|' + getVodSourcesConfig().addons.length;
+    var hit = streamsCache[key];
+    if (hit && Date.now() - hit.at < STREAMS_CACHE_MS) { onUpdate(copyStreamGroups(hit.groups), 0); return; }
+    if (streamsInFlight[key]) { streamsInFlight[key].push(onUpdate); return; }
+    var listeners = streamsInFlight[key] = [onUpdate];
+    fetchStremioStreamsNow(item, episode, function (groups, pending) {
+      if (!pending) {
+        delete streamsInFlight[key];
+        /* (Nothing kept when every addon failed: try again next time.) */
+        if (groups.some(function (g) { return g.state === 'done'; })) { streamsCache[key] = { at: Date.now(), groups: copyStreamGroups(groups) }; }
+      }
+      for (var i = 0; i < listeners.length; i++) { listeners[i](pending ? groups : copyStreamGroups(groups), pending); }
+    });
+  }
+
+  function fetchStremioStreamsNow(item, episode, onUpdate) {
     var cfg = getVodSourcesConfig();
     var type = item._stremioType || (isSeriesItem(item) ? 'series' : 'movie');
     var rawId = isSeriesItem(item) ? (episode && episode.id) : (item._stremioId || '');
@@ -14698,18 +16652,21 @@
         var streams = (!err && payload && payload.streams) ? payload.streams : [];
         for (var s = 0; s < streams.length; s++) {
           var src = describeStremioStream(streams[s], g.name);
+          src._i = g.sources.length;   /* the addon's own order, a tie-breaker */
           /* A torrent nobody is sharing (0 peers) would never start: left out. */
           if (src.kind === 'torrent' && src.seeds === 0) { g.dead++; }
           else if (stremioSourcePlayable(src)) { g.sources.push(src); } else { g.hidden++; }
         }
         g.state = err ? 'error' : 'done';
         g.error = err || '';
+        noteSourceProviders(g.sources);
         onUpdate(groups, --pending);
       }, 25000);
     });
   }
 
-  /* Next episode with no source chosen: same addon and quality as before. */
+  /* Next episode with no source chosen: the best one from the same addon,
+     quality and type as before, or else the best of all. */
   function autoPickStremioSource(item, episode, previous, done) {
     var finished = false;
     fetchStremioStreams(item, episode, function (groups, pending) {
@@ -14717,14 +16674,14 @@
       finished = true;
       var all = [];
       groups.forEach(function (g) { all = all.concat(g.sources); });
+      var ctx = sourceRankContext(item, episode);
       var best = null;
       if (previous) {
-        for (var i = 0; i < all.length && !best; i++) {
-          if (all[i].addon === previous.addon && all[i].quality === previous.quality && all[i].kind === previous.kind) { best = all[i]; }
-        }
-        for (var j = 0; j < all.length && !best; j++) { if (all[j].addon === previous.addon) { best = all[j]; } }
+        best = bestSource(all.filter(function (s) {
+          return s.addon === previous.addon && s.quality === previous.quality && s.kind === previous.kind;
+        }), ctx);
       }
-      done(best || all[0] || null);
+      done(best || bestSource(all, ctx) || null);
     });
   }
 
@@ -14733,10 +16690,12 @@
   var sourcePickerNode = null;
   var sourcePickerReturn = null;
   var sourcePickerSeq = 0;
+  var sourcePickerCleanup = null;
 
   function closeSourcePicker() {
     sourcePickerOpen = false;
     sourcePickerSeq++;
+    if (sourcePickerCleanup) { sourcePickerCleanup(); sourcePickerCleanup = null; }
     if (sourcePickerNode && sourcePickerNode.parentNode) { sourcePickerNode.parentNode.removeChild(sourcePickerNode); }
     sourcePickerNode = null;
     if (sourcePickerReturn && isVisible(sourcePickerReturn)) { setFocus(sourcePickerReturn); }
@@ -14746,14 +16705,14 @@
   /* "Elegir fuente" filters, kept for the next title. */
   var SOURCE_FILTERS_KEY = 'opentv_source_filters_v1';
   function loadSourceFilters() {
-    var f = { quality: 'all', kind: 'all', spanish: false, sort: 'rec' };
+    var f = { quality: 'all', kind: 'all', lang: 'all', sort: 'rec' };
     try {
       var saved = JSON.parse(localStorage.getItem(SOURCE_FILTERS_KEY) || 'null');
       if (saved && typeof saved === 'object') {
-        if (/^(all|4K|1080p|720p|SD)$/.test(saved.quality)) { f.quality = saved.quality; }
+        if (/^(all|4K|1080p|720p|SD|CAM)$/.test(saved.quality)) { f.quality = saved.quality; }
         if (/^(all|direct|torrent)$/.test(saved.kind)) { f.kind = saved.kind; }
         if (/^(rec|big|small|seeds)$/.test(saved.sort)) { f.sort = saved.sort; }
-        f.spanish = saved.spanish === true;
+        if (/^(all|latino|castellano|es|en)$/.test(saved.lang)) { f.lang = saved.lang; }
       }
     } catch (e) { /* defaults */ }
     return f;
@@ -14762,26 +16721,43 @@
     try { localStorage.setItem(SOURCE_FILTERS_KEY, JSON.stringify(f)); } catch (e) { /* ignore */ }
   }
 
-  function torrentNoticeSeen() {
-    try { return localStorage.getItem(TORRENT_NOTICE_KEY) === '1'; } catch (e) { return false; }
+  /* The quick filters of the panel (the preferences hide sources before). */
+  function sourcePassesFilters(src, filters) {
+    if (filters.quality === 'CAM') { if (!src.cam) { return false; } }
+    else if (filters.quality !== 'all' && (src.quality !== filters.quality || src.cam)) { return false; }
+    if (filters.kind !== 'all' && src.kind !== filters.kind) { return false; }
+    if (filters.lang !== 'all' && !sourceHasLang(src, filters.lang)) { return false; }
+    return true;
   }
 
-  function openSourcePicker(item, episode, onPick) {
+  function torrentNoticeSeen(key) {
+    try { return localStorage.getItem(key || TORRENT_NOTICE_KEY) === '1'; } catch (e) { return false; }
+  }
+
+  var DOWNLOAD_NOTICE_KEY = 'opentv_download_notice_v1';
+
+  /* opts.auto: play the recommended source when the search ends, unless the
+     viewer presses a key or clicks first. opts.download: pick what to
+     download (never automatic). */
+  function openSourcePicker(item, episode, onPick, opts) {
+    opts = opts || {};
     if (sourcePickerOpen) { closeSourcePicker(); }
     sourcePickerOpen = true;
     sourcePickerReturn = state.focus;
     var seq = ++sourcePickerSeq;
+    var ctx = sourceRankContext(item, episode);
     var root = el('div', 'source-picker');
     root.id = 'dialog-sources';
     var panel = el('div', 'srcp-panel');
     var head = el('div', 'srcp-head');
-    head.appendChild(el('div', 'srcp-title', 'Elegir fuente'));
+    head.appendChild(el('div', 'srcp-title', opts.download ? 'Descargar' : 'Elegir fuente'));
     var what = item.title || '';
     if (episode) { what += ' · ' + (episode.number ? 'Capítulo ' + episode.number : (episode.title || '')); }
     head.appendChild(el('div', 'srcp-sub', what));
     panel.appendChild(head);
-    /* Filters: quality, type, Spanish, and the order (kept for next time). */
+    /* Filters: quality, type, language, and the order (kept for next time). */
     var filters = loadSourceFilters();
+    var showHidden = false;
     var bar = el('div', 'srcp-filters');
     panel.appendChild(bar);
     var body = el('div', 'srcp-body scrollable');
@@ -14795,28 +16771,50 @@
     panel.appendChild(foot);
     root.appendChild(panel);
     root.addEventListener('click', function (ev) { if (ev.target === root) { closeSourcePicker(); } });
-    ($('app') || document.body).appendChild(root);
+    mountOverlay(root);
     sourcePickerNode = root;
     setFocus(cancel);
 
+    /* Automatic choice: off as soon as the viewer does anything here. */
+    var waiting = !!opts.auto && !opts.download && ctx.prefs.autoPlay;
+    var autoTimer = null;
+    function stopWaiting() {
+      if (!waiting) { return; }
+      waiting = false;
+      if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+      if (seq === sourcePickerSeq && sourcePickerOpen) { render(lastGroups, lastPending); }
+    }
+    function onKey() { stopWaiting(); }
+    document.addEventListener('keydown', onKey, true);
+    root.addEventListener('mousedown', stopWaiting);
+    root.addEventListener('wheel', stopWaiting);
+    sourcePickerCleanup = function () {
+      document.removeEventListener('keydown', onKey, true);
+      if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+    };
+
     function choose(src) {
-      if (src.kind === 'torrent' && !torrentNoticeSeen()) { return showTorrentNotice(src); }
+      var key = opts.download ? DOWNLOAD_NOTICE_KEY : TORRENT_NOTICE_KEY;
+      if (src.kind === 'torrent' && !torrentNoticeSeen(key)) { return showTorrentNotice(src, key); }
       closeSourcePicker();
       onPick(src);
     }
 
-    /* First torrent: a short, calm note (once). */
-    function showTorrentNotice(src) {
+    /* First torrent (and first torrent download): a short, calm note, once. */
+    function showTorrentNotice(src, key) {
+      waiting = false;
       clear(body);
       bar.hidden = true;
       var box = el('div', 'srcp-notice');
-      box.appendChild(el('b', null, 'Reproducir con torrent'));
-      box.appendChild(el('p', null, 'El vídeo llega de otras personas que lo comparten, y mientras lo ves tu equipo también comparte lo que ya bajó. Al terminar, se borra.'));
-      box.appendChild(el('p', 'srcp-notice-small', 'Usa solo contenido que tengas derecho a ver.'));
+      box.appendChild(el('b', null, opts.download ? 'Descargar con torrent' : 'Reproducir con torrent'));
+      box.appendChild(el('p', null, opts.download
+        ? 'El archivo llega de otras personas que lo comparten, y mientras se descarga tu equipo también comparte las partes que ya tiene. Al terminar queda en tu carpeta Videos\\OpenTV.'
+        : 'El vídeo llega de otras personas que lo comparten, y mientras lo ves tu equipo también comparte lo que ya bajó. Al terminar, se borra.'));
+      box.appendChild(el('p', 'srcp-notice-small', opts.download ? 'Descarga solo contenido que tengas derecho a guardar.' : 'Usa solo contenido que tengas derecho a ver.'));
       var row = el('div', 'srcp-notice-actions');
-      var ok = el('div', 'acc-seg-btn focusable is-selected', 'Reproducir');
+      var ok = el('div', 'acc-seg-btn focusable is-selected', opts.download ? 'Descargar' : 'Reproducir');
       ok._activate = function () {
-        try { localStorage.setItem(TORRENT_NOTICE_KEY, '1'); } catch (e) { /* ignore */ }
+        try { localStorage.setItem(key, '1'); } catch (e) { /* ignore */ }
         closeSourcePicker();
         onPick(src);
       };
@@ -14827,6 +16825,18 @@
       box.appendChild(row);
       body.appendChild(box);
       setFocus(ok);
+    }
+
+    /* Ajustes de fuentes inside the panel (Torrentio-style preferences). */
+    function showPrefs() {
+      waiting = false;
+      clear(body);
+      bar.hidden = true;
+      var back = el('div', 'srcp-chip focusable is-on srcpref-back', '← Volver a las fuentes');
+      back._activate = function () { bar.hidden = false; render(lastGroups, lastPending); body.scrollTop = 0; };
+      body.appendChild(back);
+      body.appendChild(buildSourcePrefsEditor(function () { ctx = sourceRankContext(item, episode); }));
+      setFocus(back);
     }
 
     /* Chip rows of the filter bar, with how many sources each would show. */
@@ -14840,7 +16850,7 @@
           label + (typeof n === 'number' && value !== 'all' ? ' · ' + n : ''));
         c._chipKey = group + ':' + value;
         c._activate = function () {
-          filters[group] = (group === 'spanish') ? !filters.spanish : value;
+          filters[group] = value;
           saveSourceFilters(filters);
           render(lastGroups, lastPending);
           body.scrollTop = 0;   /* the new list starts at its top */
@@ -14850,22 +16860,35 @@
       var qRow = el('div', 'srcp-chips');
       qRow.appendChild(chip('quality', 'all', 'Todas'));
       [['4K', '4K'], ['1080p', 'Full HD'], ['720p', 'HD'], ['SD', 'SD']].forEach(function (q) {
-        qRow.appendChild(chip('quality', q[0], q[1], count(function (s) { return s.quality === q[0]; })));
+        qRow.appendChild(chip('quality', q[0], q[1], count(function (s) { return s.quality === q[0] && !s.cam; })));
       });
+      var cams = count(function (s) { return s.cam; });
+      if (cams || filters.quality === 'CAM') { qRow.appendChild(chip('quality', 'CAM', 'CAM', cams)); }
       qRow.appendChild(el('span', 'srcp-chips-gap'));
       [['all', 'Todo'], ['direct', 'Directo'], ['torrent', 'Torrent']].forEach(function (k) {
         qRow.appendChild(chip('kind', k[0], k[1], count(function (s) { return s.kind === k[0]; })));
       });
-      var es = chip('spanish', true, 'En español', count(function (s) { return s.spanish; }));
-      es.classList.toggle('is-on', !!filters.spanish);
-      qRow.appendChild(el('span', 'srcp-chips-gap'));
-      qRow.appendChild(es);
       bar.appendChild(qRow);
+      var lRow = el('div', 'srcp-chips');
+      lRow.appendChild(el('span', 'srcp-chips-label', 'Idioma'));
+      lRow.appendChild(chip('lang', 'all', 'Todos'));
+      [['latino', 'Latino'], ['castellano', 'Castellano'], ['es', 'Español'], ['en', 'Inglés']].forEach(function (l) {
+        var n = count(function (s) { return sourceHasLang(s, l[0]); });
+        /* "Español" (variant not said) only when some source says just that. */
+        if (l[0] === 'es' && !n && filters.lang !== 'es') { return; }
+        lRow.appendChild(chip('lang', l[0], l[1], n));
+      });
+      bar.appendChild(lRow);
       var sRow = el('div', 'srcp-chips');
       sRow.appendChild(el('span', 'srcp-chips-label', 'Ordenar'));
-      [['rec', 'Recomendado'], ['big', 'Más pesadas'], ['small', 'Más ligeras'], ['seeds', 'Más fuentes']].forEach(function (o) {
+      [['rec', 'Recomendado'], ['big', 'Más pesadas'], ['small', 'Más ligeras'], ['seeds', 'Más semillas']].forEach(function (o) {
         sRow.appendChild(chip('sort', o[0], o[1]));
       });
+      sRow.appendChild(el('span', 'srcp-chips-gap'));
+      var prefsChip = el('div', 'srcp-chip focusable srcp-chip-prefs', 'Preferencias');
+      prefsChip._chipKey = 'prefs';
+      prefsChip._activate = showPrefs;
+      sRow.appendChild(prefsChip);
       bar.appendChild(sRow);
       if (keepChip) {
         var again = bar.querySelector('.srcp-chip.focusable');
@@ -14875,39 +16898,93 @@
       }
     }
 
-    function passes(src) {
-      if (filters.quality !== 'all' && src.quality !== filters.quality) { return false; }
-      if (filters.kind !== 'all' && src.kind !== filters.kind) { return false; }
-      if (filters.spanish && !src.spanish) { return false; }
-      return true;
-    }
-
     function ordered(list) {
       var out = list.slice();
       if (filters.sort === 'big') { out.sort(function (a, b) { return (b.sizeBytes || 0) - (a.sizeBytes || 0) || a._i - b._i; }); }
       else if (filters.sort === 'small') { out.sort(function (a, b) { return (a.sizeBytes || Infinity) - (b.sizeBytes || Infinity) || a._i - b._i; }); }
       else if (filters.sort === 'seeds') { out.sort(function (a, b) { return (b.seeds || 0) - (a.seeds || 0) || a._i - b._i; }); }
+      else { out.sort(function (a, b) { return b._score - a._score; }); }
       return out;
+    }
+
+    /* Like Torrentio's "max results per quality": the first N of each. */
+    function capPerQuality(list) {
+      var max = ctx.prefs.perQuality;
+      if (!max || showHidden) { return list; }
+      var seen = {};
+      return list.filter(function (s) {
+        var q = s.cam ? 'CAM' : (s.quality || '?');
+        seen[q] = (seen[q] || 0) + 1;
+        return seen[q] <= max;
+      });
+    }
+
+    function sourceRow(src, key, best) {
+      var row = el('div', 'srcp-item focusable' + (src === best ? ' is-best' : ''));
+      row._srcKey = key;
+      var q = el('span', 'srcp-q' + (src.quality || src.cam ? '' : ' is-empty') + (src.cam ? ' is-cam' : ''), src.cam ? 'CAM' : (src.quality || '—'));
+      var txt = el('div', 'srcp-text');
+      txt.appendChild(el('div', 'srcp-label', src.label));
+      var meta = [];
+      var langs = sourceLangText(src);
+      meta.push(langs || 'Idioma original');
+      meta.push(src.kind === 'torrent' ? 'Torrent' : 'Directo');
+      if (src.size) { meta.push(src.size); }
+      if (src.seeds !== null) { meta.push(src.seeds + (src.seeds === 1 ? ' semilla' : ' semillas')); }
+      if (src.hdr) { meta.push('HDR'); }
+      if (src.hevc) { meta.push('HEVC'); }
+      if (src.provider) { meta.push(src.provider); }
+      else if (src.detail) { meta.push(src.detail); }
+      txt.appendChild(el('div', 'srcp-meta', meta.join(' · ')));
+      /* Android: why this device avoids it (silent audio, no room…). */
+      var warn = sourceDeviceNote(src);
+      if (warn) { txt.appendChild(el('div', 'srcp-warn', warn)); }
+      row.appendChild(q);
+      row.appendChild(txt);
+      row.classList.toggle('is-torrent', src.kind === 'torrent');
+      row._activate = function () { choose(src); };
+      return row;
     }
 
     var lastGroups = [], lastPending = 0;
     function render(groups, pending) {
       lastGroups = groups;
       lastPending = pending;
+      if (bar.hidden) { return; }   /* the notice or the preferences are open */
       var keepFocus = state.focus && state.focus._srcKey;
       var all = [];
-      groups.forEach(function (g) { g.sources.forEach(function (s, i) { s._i = i; all.push(s); }); });
+      groups.forEach(function (g) {
+        g.sources.forEach(function (s, i) { s._i = i; s._score = scoreSource(s, ctx); all.push(s); });
+      });
+      var best = bestSource(all, ctx);
       renderFilters(all);
       clear(body);
       if (!groups.length) {
-        body.appendChild(el('div', 'srcp-empty', 'Ninguno de tus addons da fuentes de reproducción. Agrega en Ajustes → Fuentes un addon que ofrezca "Fuentes".'));
+        body.appendChild(el('div', 'srcp-empty', 'Ninguno de tus addons da fuentes para reproducir. Agrega un addon de fuentes en Ajustes → Addons.'));
       }
       var total = 0, shown = 0, first = null, again = null;
+      /* The recommended one first, with why. */
+      if (best && all.length > 1) {
+        var rec = el('div', 'srcp-group srcp-rec');
+        var rh = el('div', 'srcp-group-head');
+        rh.appendChild(el('span', 'srcp-group-name', 'Recomendada'));
+        rh.appendChild(el('span', 'srcp-group-state', best.addon));
+        rec.appendChild(rh);
+        var bestRow = sourceRow(best, 'best', best);
+        rec.appendChild(bestRow);
+        rec.appendChild(el('div', 'srcp-why', sourceReason(best)));
+        body.appendChild(rec);
+        first = bestRow;
+        if (keepFocus === 'best') { again = bestRow; }
+      }
+      var prefHidden = 0;
       groups.forEach(function (g) {
         var sec = el('div', 'srcp-group');
         var gh = el('div', 'srcp-group-head');
         gh.appendChild(el('span', 'srcp-group-name', g.name));
-        var visible = ordered(g.sources.filter(passes));
+        var allowed = g.sources.filter(function (s) { return showHidden || !sourcePrefsBlock(s, ctx.prefs, !!episode); });
+        prefHidden += g.sources.length - allowed.length;
+        var visible = capPerQuality(ordered(allowed.filter(function (s) { return sourcePassesFilters(s, filters); })));
         total += g.sources.length;
         gh.appendChild(el('span', 'srcp-group-state', g.state === 'loading' ? 'Buscando…'
           : (g.state === 'error' ? 'No respondió' : (visible.length === g.sources.length
@@ -14919,21 +16996,9 @@
         }
         visible.forEach(function (src) {
           shown++;
-          var i = src._i;
-          var row = el('div', 'srcp-item focusable');
-          row._srcKey = g.name + '#' + i;
-          var q = el('span', 'srcp-q' + (src.quality ? '' : ' is-empty'), src.quality || '—');
-          var txt = el('div', 'srcp-text');
-          txt.appendChild(el('div', 'srcp-label', src.label));
-          var meta = [src.kind === 'torrent' ? 'Torrent' : 'Directo'];
-          if (src.size) { meta.push(src.size); }
-          if (src.seeds !== null) { meta.push(src.seeds + (src.seeds === 1 ? ' fuente' : ' fuentes')); }
-          if (src.detail) { meta.push(src.detail); }
-          txt.appendChild(el('div', 'srcp-meta', meta.join(' · ')));
-          row.appendChild(q);
-          row.appendChild(txt);
-          row.classList.toggle('is-torrent', src.kind === 'torrent');
-          row._activate = function () { choose(src); };
+          /* Already at the top, under "Recomendada". */
+          if (src === best && all.length > 1) { return; }
+          var row = sourceRow(src, g.name + '#' + src._i, best);
           sec.appendChild(row);
           if (!first) { first = row; }
           if (keepFocus && keepFocus === row._srcKey) { again = row; }
@@ -14942,8 +17007,31 @@
         if (g.hidden) { sec.appendChild(el('div', 'srcp-hidden', g.hidden + ' no se pueden reproducir en OpenTV (YouTube o enlaces externos).')); }
         body.appendChild(sec);
       });
-      note.textContent = pending > 0 ? 'Buscando en ' + pending + (pending === 1 ? ' addon…' : ' addons…')
+      if (prefHidden || showHidden) {
+        var more = el('div', 'srcp-chip focusable srcp-showhidden', showHidden ? 'Aplicar mis preferencias otra vez'
+          : prefHidden + (prefHidden === 1 ? ' fuente oculta' : ' fuentes ocultas') + ' por tus preferencias · Mostrar');
+        more._srcKey = 'showhidden';
+        more._activate = function () { showHidden = !showHidden; render(lastGroups, lastPending); };
+        body.appendChild(more);
+        if (keepFocus === 'showhidden') { again = more; }
+      }
+      var count = pending > 0 ? 'Buscando en ' + pending + (pending === 1 ? ' addon…' : ' addons…')
         : (shown === total ? total + (total === 1 ? ' fuente' : ' fuentes') : shown + ' de ' + total + ' fuentes');
+      note.textContent = waiting && best ? count + ' · Se reproducirá la recomendada. Pulsa cualquier tecla para elegir otra.' : count;
+
+      /* Play the recommended one when every addon answered, or 8 s after the
+         first sources arrived (a slow addon must not hold the viewer). */
+      if (waiting && best) {
+        if (pending === 0) { return autoChoose(); }
+        if (!autoTimer) {
+          autoTimer = setTimeout(function () {
+            autoTimer = null;
+            if (waiting && seq === sourcePickerSeq && sourcePickerOpen) { autoChoose(); }
+          }, 8000);
+        }
+      }
+      if (waiting && pending === 0 && !best) { waiting = false; }
+
       /* Focus the first source as soon as one shows up, but never take the
          focus away from where the viewer already is (a filter chip, too). */
       if (state.focus && state.focus._chipKey && isVisible(state.focus)) { return; }
@@ -14951,9 +17039,16 @@
       else if (first && (!state.focus || state.focus === cancel || !isVisible(state.focus))) { setFocus(first); }
     }
 
+    function autoChoose() {
+      waiting = false;
+      var all = [];
+      lastGroups.forEach(function (g) { all = all.concat(g.sources); });
+      var best = bestSource(all, ctx);
+      if (best) { choose(best); }
+    }
+
     fetchStremioStreams(item, episode, function (groups, pending) {
       if (seq !== sourcePickerSeq || !sourcePickerOpen) { return; }
-      if (body.querySelector('.srcp-notice')) { lastGroups = groups; lastPending = pending; return; }
       render(groups, pending);
     });
   }
@@ -14976,14 +17071,74 @@
     }
     var target = episode || item;
     if (target._stremioSource) { return false; }
+    /* Downloaded: plays from the disk, no source to choose. */
+    if (item._downloadId || downloadedFileFor(item, episode)) { return false; }
+    /* No addon gives sources: say where to add one, play nothing. */
+    if (!hasSourceAddons()) { showNoSourcesNotice(); return true; }
     var saved = savedStremioPick(item, episode);
     if (saved) { target._stremioSource = saved; return false; }
     openSourcePicker(item, episode, function (src) {
       target._stremioSource = src;
       rememberStremioPick(item, episode, src);
       expandToFullscreen(item, episode);
-    });
+    }, { auto: true });
     return true;
+  }
+
+  /* "Reproducir" with no addon that gives sources (Cinemeta and Kitsu only
+     give the catalog): say so, and where to add one. */
+  function showNoSourcesNotice() {
+    showShortNotice('Agrega un addon para reproducir',
+      'Para ver este contenido necesitas un addon de fuentes. Agrégalo en Addons.',
+      'Ir a Addons', function () { openSettingsAt('sources'); });
+  }
+
+  /* Panels over the app (source picker, notices, the guide): inside the
+     1920×1080 canvas; on a phone, over its own layer instead (the canvas is
+     hidden there until a video plays). */
+  function mountOverlay(root) {
+    if (typeof isPhone === 'function' && isPhone()) {
+      root.classList.add('is-sheet');
+      document.body.appendChild(root);
+      return;
+    }
+    ($('app') || document.body).appendChild(root);
+  }
+
+  /* A short message in the panel window: title, one sentence, and an
+     optional action next to "Entendido". */
+  function showShortNotice(title, text, actionLabel, action) {
+    if (sourcePickerOpen) { closeSourcePicker(); }
+    sourcePickerOpen = true;
+    sourcePickerReturn = state.focus;
+    sourcePickerSeq++;
+    var root = el('div', 'source-picker');
+    var panel = el('div', 'srcp-panel is-notice');
+    var head = el('div', 'srcp-head');
+    head.appendChild(el('div', 'srcp-title', title));
+    panel.appendChild(head);
+    var body = el('div', 'srcp-body');
+    var box = el('div', 'srcp-notice');
+    box.appendChild(el('p', null, text));
+    body.appendChild(box);
+    panel.appendChild(body);
+    var foot = el('div', 'srcp-foot');
+    var ok = el('div', 'acc-seg-btn focusable' + (action ? '' : ' is-selected'), 'Entendido');
+    ok._activate = closeSourcePicker;
+    foot.appendChild(ok);
+    var first = ok;
+    if (action) {
+      var go = el('div', 'acc-seg-btn focusable is-selected', actionLabel);
+      go._activate = function () { closeSourcePicker(); action(); };
+      foot.appendChild(go);
+      first = go;
+    }
+    panel.appendChild(foot);
+    root.appendChild(panel);
+    root.addEventListener('click', function (ev) { if (ev.target === root) { closeSourcePicker(); } });
+    mountOverlay(root);
+    sourcePickerNode = root;
+    setFocus(first);
   }
 
   /* Detail page "Cambiar fuente". */
@@ -15038,6 +17193,8 @@
       if (playerVideo && playerVideo.readyState >= 3 && !playerVideo.paused) { return stopTorrentPoll(); }
       portalServiceCall('torrentStats', {}, function (err, st) {
         if (!torrentPoll || err || !st || !st.active || state.playerItem !== item) { return; }
+        /* The fastest download seen tells how good this connection is. */
+        noteNetSpeed(st.speed);
         if (playerVideo && playerVideo.readyState >= 3) { return; }
         setPlayerStatus((st.ready ? 'Cargando torrent' : 'Buscando el torrent') + ' · ' +
           st.peers + (st.peers === 1 ? ' conexión' : ' conexiones') + ' · ' + formatSpeed(st.speed));
@@ -15066,6 +17223,22 @@
     }
     if (ep && !state.playerEpisode) { state.playerEpisode = ep; }
     var target = ep || item;
+    /* Downloaded: the file on disk, through the downloads' local server. */
+    var local = item._downloadId ? { id: item._downloadId, fileName: '' }
+      : (target._stremioSource ? null : downloadedFileFor(item, ep));
+    if (local) {
+      stremioTorrentRelease();
+      setPlayerStatus('Abriendo la descarga…');
+      portalServiceCall('downloadOpen', { id: local.id }, function (err, info) {
+        if (mySeq !== resolveSeq) { return; }
+        if (err || !info || info.returnValue === false || !info.url) {
+          vodFailure('la descarga', err || (info && info.errorText) || 'No se encontró el archivo descargado');
+          return done('');
+        }
+        resolveExternal(info.url, info.name || local.fileName, null, false);
+      });
+      return;
+    }
     var src = target._stremioSource || savedStremioPick(item, ep);
     if (src) { return go(src); }
     var previous = null;
@@ -15074,15 +17247,15 @@
         if (item.episodes[i] !== ep && item.episodes[i]._stremioSource) { previous = item.episodes[i]._stremioSource; }
       }
     }
-    /* Nothing chosen and no earlier episode to copy: the viewer picks (a
-       source is never chosen for them, it could be a torrent). */
+    /* Nothing chosen and no earlier episode to copy: the panel opens and plays
+       the recommended source unless the viewer picks another one. */
     if (!previous) {
-      setPlayerStatus('Elige una fuente para reproducir');
+      setPlayerStatus('Buscando la mejor fuente…');
       openSourcePicker(item, ep, function (picked) {
         target._stremioSource = picked;
         rememberStremioPick(item, ep, picked);
         if (mySeq === resolveSeq) { go(picked); }
-      });
+      }, { auto: true });
       return;
     }
     /* Next episode played on its own: same addon and quality as the last one. */
@@ -15097,7 +17270,7 @@
     function go(chosen) {
       target._stremioSource = chosen;
       if (chosen.infoHash) {
-        if (!platformHas('torrents')) { vodFailure('la fuente', 'Los torrents solo funcionan en la app de PC'); return done(''); }
+        if (!platformHas('torrents')) { vodFailure('la fuente', 'Los torrents no funcionan en este aparato'); return done(''); }
         setPlayerStatus('Buscando el torrent…');
         torrentInUse = true;
         startTorrentPoll(item);
@@ -15108,6 +17281,8 @@
             vodFailure('el torrent', err || (info && info.errorText) || 'No se pudo abrir el torrent');
             return done('');
           }
+          /* Android: plays, but the whole file will not fit on this device. */
+          if (info.fits === false) { setPlayerStatus('Este torrent no cabe completo en el aparato: se verá mientras haya espacio.'); }
           resolveExternal(info.url, info.name || chosen.filename, null, false);
         }, 75000);
         return;
@@ -15140,11 +17315,21 @@
         item._relayUrl = payload.relayUrl || '';
         if (ep) { ep._relayUrl = item._relayUrl; }
         target._stremioRelayCopy = !!payload.isRelay && params.videoCopy;
-        var info = { audio: '', subtitles: item.subtitles || [], tracks: [], selected: {}, duration: 0 };
+        /* A new file: its own tracks and the addons' are read again; what the
+           viewer imported stays with the title. */
+        var old = mediaInfoCache[mediaInfoKey(item)];
+        var info = { audio: '', subtitles: [], tracks: [], selected: {}, duration: 0, _importedSubs: (old && old._importedSubs) || [] };
+        info.subtitles = info._importedSubs.slice();
+        item.subtitles = info.subtitles;
+        stopEmbeddedSubtitle();
+        /* Android: ExoPlayer starts each file with its own tracks off. */
+        nativeSubIndex = -1;
+        nativeCueText = '';
         mediaInfoCache[mediaInfoKey(item)] = info;
         done(payload.proxyPath || payload.url);
         requestVideoDuration(item, ep, payload);
-        loadStremioSubtitles(item, ep);
+        loadStremioSubtitles(item, ep, { url: url, headers: headers, name: name });
+        bindNativeTextTracks();
       }, 30000);
     }
   }
@@ -15173,6 +17358,230 @@
     return true;
   }
 
+  /* ------------------------------------------------ the file's audio tracks */
+  /* One track as the settings dialog shows it. The track's own title says the
+     dub ("Latino", "Castellano"); when it says nothing, the source's tags do
+     (a "Latino" release with one Spanish track is Latino). */
+  function audioTrackLabel(t, src) {
+    var title = String(t.title || '');
+    var low = title.toLowerCase();
+    var label;
+    if (/latin|latam|\blat\b|m[eé]xic|hispanoam/.test(low)) { label = 'Español (Latino)'; }
+    else if (/castell|espa[ñn]a\b|\bspain\b|europe|\bcast\b/.test(low)) { label = 'Español (Castellano)'; }
+    else {
+      var code = String(t.lang || '').toLowerCase();
+      var known = code && !/^(und|unk|mis|zxx|mul)$/.test(code);
+      label = known ? formatAudioLang(code) : '';
+      if (!label && title) {
+        label = /english|ingl[eé]s/.test(low) ? 'Inglés' : (/spanish|espa[ñn]ol/.test(low) ? 'Español'
+          : (/portug/.test(low) ? 'Portugués' : (/fran[cç]|french/.test(low) ? 'Francés'
+          : (/ital/.test(low) ? 'Italiano' : (/german|deutsch/.test(low) ? 'Alemán'
+          : (/japan|jap[oó]n/.test(low) ? 'Japonés' : title.charAt(0).toUpperCase() + title.slice(1)))))));
+      }
+      if (!label) { label = 'Pista'; }
+      if (label === 'Español' && src && src.langs) {
+        var lat = src.langs.indexOf('latino') !== -1, cas = src.langs.indexOf('castellano') !== -1;
+        if (lat && !cas) { label = 'Español (Latino)'; } else if (cas && !lat) { label = 'Español (Castellano)'; }
+      }
+    }
+    if (/comment|comentario/.test(low)) { label += ' · Comentarios'; }
+    return label;
+  }
+
+  /* The tracks the service read from the file → [{index, code, label}],
+     telling apart two tracks with the same name by title or channels. */
+  function stremioAudioList(tracks, src) {
+    var out = tracks.map(function (t, i) {
+      return { index: i, code: String(t.lang || 'und'), label: audioTrackLabel(t, src), title: String(t.title || ''), channels: String(t.channels || '') };
+    });
+    var counts = {};
+    out.forEach(function (t) { counts[t.label] = (counts[t.label] || 0) + 1; });
+    out.forEach(function (t) {
+      if (counts[t.label] < 2) { return; }
+      var extra = t.title && t.title.toLowerCase() !== t.label.toLowerCase() ? t.title : (t.channels || ('pista ' + (t.index + 1)));
+      t.label += ' · ' + extra;
+    });
+    return out;
+  }
+
+  /* Which track the viewer's languages want (Ajustes → Preferencias de addons), -1 = none. */
+  function preferredSourceAudioIndex(list) {
+    var langs = loadSourcePrefs().langs;
+    var tests = {
+      latino: [/Latino/, /^Español$/], castellano: [/Castellano/, /^Español$/],
+      en: [/^Inglés/], pt: [/^Portugués/]
+    };
+    for (var i = 0; i < langs.length; i++) {
+      var rules = tests[langs[i]] || [];
+      for (var r = 0; r < rules.length; r++) {
+        for (var t = 0; t < list.length; t++) { if (rules[r].test(list[t].label)) { return list[t].index; } }
+      }
+    }
+    return -1;
+  }
+
+  function stremioMediaInfo(item) {
+    var key = mediaInfoKey(item);
+    var info = mediaInfoCache[key] || { audio: '', subtitles: item.subtitles || [], tracks: [], selected: {}, duration: 0 };
+    mediaInfoCache[key] = info;
+    return info;
+  }
+
+  /* playback.js requestVideoDuration: the service read the file's tracks.
+     Audio: shown with its real language, and a file that starts on another
+     dub switches to the viewer's language once. Subtitles: the text ones
+     inside the file join the addons' (Preferencias decides the order). */
+  function onSourceTracks(item, episode, answer) {
+    if (!item || !item._stremio) { return; }
+    var target = episode || item;
+    var info = stremioMediaInfo(item);
+    var tracks = answer.audio || [];
+    if (tracks.length) {
+      var list = stremioAudioList(tracks, target._stremioSource || null);
+      info.audioTracks = list;
+      info.audio = list.map(function (t) { return t.code; }).join(',');
+      if (state.playerItem === item && list.length > 1 && !vodAudioChosen && relayBaseUrl) {
+        var want = preferredSourceAudioIndex(list);
+        if (want >= 0 && want !== (vodCurrentAudioTrack || 0)) { switchAudioTrack(want); }
+      }
+      if (dialogPlaySettingsOpen) { renderDialogAudio(); }
+    }
+    /* Only through the relay (it writes them while playing), and only text
+       ones: picture subtitles (PGS, VobSub) cannot become text. */
+    var fileSubs = [];
+    (answer.subtitles || []).forEach(function (s, idx) {
+      if (!s.text) { return; }
+      fileSubs.push({ lang: s.lang || 'und', url: 'embedded:' + idx, format: 'vtt', forced: !!s.forced,
+        label: audioTrackLabel({ lang: s.lang, title: s.title }, null) + (s.forced ? ' · forzados' : '') + ' · del archivo' });
+    });
+    /* (Android: ExoPlayer lists the file's own tracks, see bindNativeTextTracks.) */
+    if (relayBaseUrl) { info._fileSubs = fileSubs; }
+    composeStremioSubtitles(item, info);
+  }
+
+  /* The subtitle list of the title: the file's own tracks and the addons',
+     in the order (or only the ones) Preferencias says. */
+  function composeStremioSubtitles(item, info) {
+    var from = loadSourcePrefs().subsFrom;
+    var file = from === 'addonsOnly' ? [] : (info._fileSubs || []);
+    var addons = from === 'fileOnly' ? [] : (info._addonSubs || []);
+    var imported = info._importedSubs || [];
+    /* Forced tracks (only the foreign lines) go after the full ones. */
+    file = file.filter(function (s) { return !s.forced; }).concat(file.filter(function (s) { return s.forced; }));
+    var list = (from === 'addons' || from === 'addonsOnly') ? addons.concat(file) : file.concat(addons);
+    info.subtitles = imported.concat(list);
+    item.subtitles = info.subtitles;
+    if (state.playerItem === item) { applySubtitleDefaults(info); }
+    if (dialogPlaySettingsOpen) { renderDialogSubtitle(); }
+  }
+
+  /* ------------------------------------------------ subtitles inside the file */
+  /* Android: ExoPlayer reads the file's own text tracks (MKV, MP4) and sends
+     the line on screen; the page draws it with the viewer's style
+     (ui/js/native-player.js: window.__opentvNative). */
+  var nativeTextBound = false;
+  function bindNativeTextTracks() {
+    var n = window.__opentvNative;
+    if (nativeTextBound || !n || typeof n.onTextTracks !== 'function') { return; }
+    nativeTextBound = true;
+    n.onTextTracks(function (tracks) {
+      var item = state.playerItem;
+      if (!item || !item._stremio) { return; }
+      var info = stremioMediaInfo(item);
+      info._fileSubs = (tracks || []).map(function (t) {
+        return { lang: t.lang || 'und', url: 'native:' + t.index, format: 'native', forced: !!t.forced,
+          label: audioTrackLabel({ lang: t.lang, title: t.label }, null) + (t.forced ? ' · forzados' : '') + ' · del archivo' };
+      });
+      composeStremioSubtitles(item, info);
+    });
+    n.onCues(function (text) {
+      nativeCueText = text || '';
+      if (nativeSubIndex >= 0) { updateSubtitleDisplay(vodPlaybackPosition()); }
+    });
+  }
+
+  var embeddedSub = null;   /* { n, base, timer } */
+
+  function embeddedSubtitleOn(sub) {
+    return !!(embeddedSub && relayBaseUrl === embeddedSub.base && sub.url === 'embedded:' + embeddedSub.n);
+  }
+
+  function stopEmbeddedSubtitle() {
+    if (!embeddedSub) { return; }
+    if (embeddedSub.timer) { clearInterval(embeddedSub.timer); }
+    var base = embeddedSub.base;
+    embeddedSub = null;
+    /* The next relay runs stop writing them (the current one may finish). */
+    try { var x = new XMLHttpRequest(); x.open('GET', base + '?setsub=-1', true); x.send(null); } catch (e) { /* ignore */ }
+  }
+
+  /* Asks the relay to write that track while it plays (one restart at the
+     same second), then reads what it wrote every 2 s. */
+  function startEmbeddedSubtitle(sub, seq) {
+    stopEmbeddedSubtitle();
+    activeSubtitleCues = [];
+    if (!relayBaseUrl || !playerVideo) { return; }
+    var n = parseInt(String(sub.url).split(':')[1], 10) || 0;
+    var base = relayBaseUrl;
+    embeddedSub = { n: n, base: base, timer: null };
+    var mine = embeddedSub;
+    function read() {
+      if (embeddedSub !== mine || seq !== subtitleSeq) { return; }
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', base + '?vtt=1', true);
+      xhr.onload = function () {
+        if (embeddedSub !== mine || seq !== subtitleSeq) { return; }
+        var data = null;
+        try { data = JSON.parse(xhr.responseText); } catch (e) { return; }
+        if (!data || !data.text) { return; }
+        var shift = Number(data.base) || 0;
+        var cues = parseSRT(data.text).map(function (c) { return { start: c.start + shift, end: c.end + shift, text: c.text }; });
+        if (cues.length !== activeSubtitleCues.length) { activeSubtitleCues = cues; syncNativeSubtitleTrack(); }
+      };
+      try { xhr.send(null); } catch (e) { /* ignore */ }
+    }
+    var set = new XMLHttpRequest();
+    set.open('GET', base + '?setsub=' + n, true);
+    set.onload = function () {
+      if (embeddedSub !== mine) { return; }
+      var cur = Math.floor(relayStartOffset + (playerVideo.currentTime || 0));
+      playUrl(base + '?start=' + cur + '&a=' + (vodCurrentAudioTrack || 0), { remainPaused: playerVideo.paused });
+      mine.timer = setInterval(read, 2000);
+    };
+    try { set.send(null); } catch (e) { /* ignore */ }
+  }
+
+  /* "Importar subtítulos": a .srt / .vtt file of the viewer, read here. */
+  function importSubtitleFile(done) {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.srt,.vtt,.sub,.txt';
+    input.onchange = function () {
+      var f = input.files && input.files[0];
+      if (!f) { return; }
+      function use(text) {
+        var cues = parseSRT(text);
+        if (!cues.length) { return done('El archivo no tiene subtítulos que se puedan leer (usa .srt o .vtt).'); }
+        done(null, { lang: 'imp', url: 'imported:' + Date.now(), format: 'srt', label: f.name.replace(/\.[^.]+$/, '').slice(0, 40), cues: cues });
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var text = String(reader.result || '');
+        /* Most Spanish .srt files are Windows-1252: read again if UTF-8 broke the accents. */
+        if (text.indexOf('�') !== -1) {
+          var again = new FileReader();
+          again.onload = function () { use(String(again.result || '')); };
+          again.readAsText(f, 'windows-1252');
+          return;
+        }
+        use(text);
+      };
+      reader.onerror = function () { done('No se pudo leer el archivo.'); };
+      reader.readAsText(f, 'utf-8');
+    };
+    input.click();
+  }
+
   /* OpenSubtitles answers dozens of files (six Dutch, four Spanish…). The
      dialog shows one button per language, so keep the first file of each
      language: Spanish, English and Portuguese first, then the rest, at most
@@ -15195,15 +17604,33 @@
 
   /* Subtitles from the addons that offer them (for example OpenSubtitles),
      through the local service like the catalog's own subtitles. */
-  function loadStremioSubtitles(item, episode) {
+  /* file: { url, headers, name } of the video playing. Like Stremio, the
+     addon is told the file's OpenSubtitles hash, size and name: it then
+     answers the subtitles made for this release first (same cut and frame
+     rate), the ones that stay in sync. */
+  function loadStremioSubtitles(item, episode, file) {
     var cfg = getVodSourcesConfig();
     var type = item._stremioType || (isSeriesItem(item) ? 'series' : 'movie');
     var rawId = isSeriesItem(item) ? (episode && episode.id) : item._stremioId;
     var addons = cfg.addons.filter(function (ad) { return addonSupports(ad, 'subtitles', type, rawId); });
     if (!addons.length || !rawId) { return; }
+    if (file && file.url && !file._hashed) {
+      var asked = false;
+      var go = function (extra) { if (!asked) { asked = true; loadStremioSubtitles(item, episode, { _hashed: true, extra: extra }); } };
+      setTimeout(function () { go(''); }, 9000);   /* no hash in time: ask without it */
+      portalServiceCall('videoHash', { url: file.url, headers: file.headers || {} }, function (err, info) {
+        var name = String(file.name || '').split(/[\/\\]/).pop();
+        var extra = [];
+        if (!err && info && /^[0-9a-f]{16}$/.test(info.hash || '')) { extra.push('videoHash=' + info.hash, 'videoSize=' + info.size); }
+        if (name) { extra.push('filename=' + encodeURIComponent(name)); }
+        go(extra.join('&'));
+      }, 9000);
+      return;
+    }
+    var extraPath = file && file.extra ? '/' + file.extra : '';
     var all = [], left = addons.length;
     addons.forEach(function (ad) {
-      addonRequest(ad.baseUrl + '/subtitles/' + encodeURIComponent(type) + '/' + stremioStreamId(item, episode) + '.json', function (err, payload) {
+      addonRequest(ad.baseUrl + '/subtitles/' + encodeURIComponent(type) + '/' + stremioStreamId(item, episode) + extraPath + '.json', function (err, payload) {
         var subs = (!err && payload && payload.subtitles) ? payload.subtitles : [];
         for (var i = 0; i < subs.length; i++) {
           if (subs[i] && /^https?:\/\//i.test(subs[i].url || '')) { all.push({ lang: subs[i].lang || '', url: subs[i].url }); }
@@ -15217,61 +17644,319 @@
              resolveSeq, so check that the same title/episode is still on. */
           if (state.playerItem !== item || (episode && state.playerEpisode !== episode)) { return; }
           if (pErr || !answer || !answer.subtitles) { return; }
-          item.subtitles = answer.subtitles;
-          var info = mediaInfoCache[mediaInfoKey(item)] || { audio: '', tracks: [] };
-          info.subtitles = item.subtitles;
-          mediaInfoCache[mediaInfoKey(item)] = info;
-          applySubtitleDefaults(info);
+          var info = stremioMediaInfo(item);
+          info._addonSubs = answer.subtitles;
+          composeStremioSubtitles(item, info);
         });
       }, 15000);
     });
   }
 
-  /* Ajustes → Fuentes, choosing "Stremio": what this mode depends on, before
-     switching. Uses the same window as "Elegir fuente" (one at a time). */
-  function openStremioModeNotice(addons, onAccept) {
+  /* ---- player/downloads.js --------------------------------------------------- */
+  /* player/downloads.js — Descargas (Modo Addons, solo PC por ahora): guardar
+     una película o un capítulo para verlo sin internet. El servicio descarga en
+     segundo plano (service/downloads.js); aquí se pide, se avisa y se muestra
+     el panel Ajustes → Descargas (en curso y completadas).
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  var downloadsList = [];
+  var downloadsDir = '';
+  var downloadsLoaded = false;
+  var downloadsFree = 0;
+
+  /* Asks the service for the list (also at start, so "Reproducir" finds the
+     downloaded files without waiting). */
+  function refreshDownloads(done) {
+    if (!platformHas('downloads')) { if (done) { done([]); } return; }
+    portalServiceCall('downloadList', {}, function (err, answer) {
+      if (!err && answer && answer.items) {
+        downloadsList = answer.items;
+        downloadsDir = answer.dir || downloadsDir;
+        /* Android: free space where the downloads go (the PC service omits it). */
+        downloadsFree = answer.free > 0 ? answer.free : 0;
+        downloadsLoaded = true;
+      }
+      updateDownloadsIndicator();
+      if (done) { done(downloadsList); }
+    });
+  }
+
+  function downloadRunning(d) { return d.status === 'downloading' || d.status === 'queued'; }
+
+  /* Title bar: how far the running downloads are, in one number. While any
+     runs, the list is read every 2 s; then the watch stops. */
+  var downloadsWatchTimer = null;
+  var DOWNLOAD_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg>';
+  function updateDownloadsIndicator() {
+    var running = downloadsList.filter(downloadRunning);
+    if (running.length) { watchDownloads(); }
+    var btn = $('atb-downloads');
+    if (!btn) { return; }
+    if (!running.length) { btn.hidden = true; return; }
+    var bytes = 0, total = 0, speed = 0;
+    running.forEach(function (d) { bytes += d.bytes || 0; total += d.total || 0; speed += d.speed || 0; });
+    var pct = total > 0 ? Math.min(99, Math.floor(bytes * 100 / total)) : 0;
+    btn.hidden = false;
+    btn.innerHTML = DOWNLOAD_ICON + '<span>' + pct + ' %</span>';
+    var tip = running.length + (running.length === 1 ? ' descarga' : ' descargas') + (speed ? ' · ' + formatSpeed(speed) : '') + ' · Ver descargas';
+    btn.setAttribute('data-tip', tip);
+    btn.setAttribute('aria-label', tip);
+  }
+
+  function watchDownloads() {
+    if (downloadsWatchTimer) { return; }
+    downloadsWatchTimer = setInterval(function () {
+      refreshDownloads(function (list) {
+        if (!list.some(downloadRunning)) { clearInterval(downloadsWatchTimer); downloadsWatchTimer = null; }
+      });
+    }, 2000);
+  }
+
+  /* The finished download of this movie or episode, or null. */
+  function downloadedFileFor(item, episode) {
+    if (!platformHas('downloads') || !item || !item._stremio) { return null; }
+    if (!downloadsLoaded) { refreshDownloads(); return null; }
+    var id = stremioTargetId(item, isSeriesItem(item) ? (episode || state.playerEpisode || state.detailEpisode) : null);
+    if (!id) { return null; }
+    for (var i = 0; i < downloadsList.length; i++) {
+      if (downloadsList[i].targetId === id && downloadsList[i].status === 'done') { return downloadsList[i]; }
+    }
+    return null;
+  }
+
+  function downloadFor(item, episode) {
+    var id = stremioTargetId(item, episode);
+    for (var i = 0; i < downloadsList.length; i++) { if (downloadsList[i].targetId === id) { return downloadsList[i]; } }
+    return null;
+  }
+
+  /* Detail page "Descargar": choose the source (the recommended one first),
+     the service starts it in the background and a short notice says so. */
+  function startTitleDownload(item, episode) {
+    if (isSeriesItem(item) && !episode) { episode = state.detailEpisode || (item.episodes && item.episodes[0]) || null; }
+    if (isSeriesItem(item) && !episode) { return; }
+    var existing = downloadFor(item, episode);
+    if (existing && existing.status !== 'error' && existing.status !== 'missing') { return openSettingsAt('downloads'); }
+    openSourcePicker(item, episode, function (src) {
+      var target = episode || item;
+      portalServiceCall('downloadStart', {
+        title: item.title || '',
+        subtitle: episode ? ((episode.season ? 'T' + episode.season + ' ' : '') + (episode.number ? 'Capítulo ' + episode.number : (episode.title || ''))) : '',
+        targetId: stremioTargetId(item, episode),
+        itemId: String(item.id || ''),
+        poster: item.poster || item.cover || '',
+        url: src.url || '', headers: src.headers || null,
+        infoHash: src.infoHash || '', fileIdx: src.fileIdx, sources: src.sources || null,
+        filename: src.filename || '',
+        duration: durationToSeconds(target.duration || item.duration)
+      }, function (err, answer) {
+        var failed = err || !answer || answer.returnValue === false;
+        refreshDownloads();
+        showDownloadNotice(failed ? ('No se pudo descargar: ' + (err || (answer && answer.errorText) || 'error desconocido')) : '');
+      });
+    }, { download: true });
+  }
+
+  /* "Se está descargando": continue using the app, or go see it. */
+  function showDownloadNotice(error) {
     if (sourcePickerOpen) { closeSourcePicker(); }
     sourcePickerOpen = true;
     sourcePickerReturn = state.focus;
     sourcePickerSeq++;
     var root = el('div', 'source-picker');
-    root.id = 'dialog-sources';
+    root.id = 'dialog-download-started';
     var panel = el('div', 'srcp-panel is-notice');
     var head = el('div', 'srcp-head');
-    head.appendChild(el('div', 'srcp-title', 'Modo Addons'));
-    head.appendChild(el('div', 'srcp-sub', 'Películas y series de addons de terceros, no de OpenTV.'));
+    head.appendChild(el('div', 'srcp-title', error ? 'No se pudo descargar' : 'Se está descargando'));
     panel.appendChild(head);
     var body = el('div', 'srcp-body');
     var box = el('div', 'srcp-notice');
-    box.appendChild(el('p', null, 'Este modo depende de:'));
-    var list = el('ul', 'srcp-deps');
-    var hasStream = false;
-    (addons || []).forEach(function (ad) {
-      var offers = typeof addonOffers === 'function' ? addonOffers(ad) : '';
-      if (addonSupports(ad, 'stream')) { hasStream = true; }
-      var li = el('li');
-      li.appendChild(el('b', null, ad.name || 'Addon'));
-      if (offers) { li.appendChild(document.createTextNode(' — ' + offers)); }
-      list.appendChild(li);
-    });
-    box.appendChild(list);
-    box.appendChild(el('p', null, (hasStream ? '' : 'Para reproducir necesitas además un addon con Fuentes (por ejemplo, Torrentio). ') +
-      'Si un addon deja de funcionar, el contenido que da también. Puedes volver al modo Automático cuando quieras.'));
+    box.appendChild(el('p', null, error ||
+      'Puedes seguir usando la app mientras se descarga. Si cierras OpenTV, la descarga se detiene y sigue cuando lo vuelvas a abrir.'));
     body.appendChild(box);
     panel.appendChild(body);
     var foot = el('div', 'srcp-foot');
-    var cancel = el('div', 'acc-seg-btn focusable', 'Cancelar');
-    cancel._activate = closeSourcePicker;
-    var ok = el('div', 'acc-seg-btn focusable is-selected', 'Activar modo Addons');
-    ok._activate = function () { closeSourcePicker(); onAccept(); };
-    foot.appendChild(cancel);
+    var ok = el('div', 'acc-seg-btn focusable', 'Entendido');
+    ok._activate = closeSourcePicker;
+    var go = el('div', 'acc-seg-btn focusable is-selected', 'Ver mis descargas');
+    go._activate = function () { closeSourcePicker(); openSettingsAt('downloads'); };
     foot.appendChild(ok);
+    foot.appendChild(go);
     panel.appendChild(foot);
     root.appendChild(panel);
     root.addEventListener('click', function (ev) { if (ev.target === root) { closeSourcePicker(); } });
-    ($('app') || document.body).appendChild(root);
-    sourcePickerNode = root;   /* so closeSourcePicker() removes it */
-    setFocus(ok);
+    mountOverlay(root);
+    sourcePickerNode = root;
+    setFocus(go);
+  }
+
+  function formatBytes(n) {
+    if (!(n > 0)) { return '0 MB'; }
+    if (n >= 1073741824) { return (n / 1073741824).toFixed(2).replace('.', ',') + ' GB'; }
+    /* Small files: "450 KB" / "3,2 MB", never "0 MB". */
+    if (n < 1048576) { return Math.max(1, Math.round(n / 1024)) + ' KB'; }
+    if (n < 10485760) { return (n / 1048576).toFixed(1).replace('.', ',') + ' MB'; }
+    return Math.round(n / 1048576) + ' MB';
+  }
+
+  /* Plays a finished download as its own title (the file goes through the
+     same relay as any addon source: MKV, other audio…). */
+  function watchDownload(d) {
+    expandToFullscreen({ id: 'download:' + d.id, title: d.title + (d.subtitle ? ' · ' + d.subtitle : ''),
+      _stremio: true, _downloadId: d.id, kind: 'pelicula', type: 'movie', poster: d.poster || '', cover: d.poster || '' }, null);
+  }
+
+  /* ------------------------------------------------ Ajustes → Descargas */
+  /* Same look as Mi lista: two tabs (En curso / Completadas) and a grid of
+     posters with the progress bar on them. While it is shown it refreshes
+     every 1.5 s, touching only what changed (no flicker, hover kept). */
+  var downloadsTab = 'running';
+  var downloadsPanel = null;
+  var downloadsCards = {};      /* id -> { card, fill, sub, status } */
+  var downloadsPanelTimer = null;
+  var DL_PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>';
+  var DL_PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
+
+  function downloadIsRunning(d) { return d.status !== 'done' && d.status !== 'missing'; }
+
+  function downloadPct(d) { return d.total > 0 ? Math.min(100, Math.floor(d.bytes * 100 / d.total)) : 0; }
+
+  function downloadSubText(d) {
+    if (d.status === 'downloading') { return downloadPct(d) + ' %' + (d.speed ? ' · ' + formatSpeed(d.speed) : ''); }
+    if (d.status === 'queued') { return 'En espera'; }
+    if (d.status === 'paused') { return 'En pausa · ' + downloadPct(d) + ' %'; }
+    if (d.status === 'error') { return 'Error · toca para reintentar'; }
+    if (d.status === 'missing') { return 'El archivo ya no está'; }
+    return formatBytes(d.total || d.bytes);
+  }
+
+  function buildDownloadsPanel() {
+    downloadsPanel = el('div', 'settings-panel history-panel is-library downloads-panel');
+    paintDownloadsPanel(true);
+    return downloadsPanel;
+  }
+
+  /* While the panel is shown: refresh every 1.5 s (progress and speed). */
+  function setDownloadsPanelLive(on) {
+    if (downloadsPanelTimer) { clearInterval(downloadsPanelTimer); downloadsPanelTimer = null; }
+    if (!on) { return; }
+    refreshDownloads(function () {
+      /* Nothing downloading but some ready: open on Completadas. */
+      var running = downloadsList.some(downloadIsRunning);
+      var ready = downloadsList.some(function (d) { return !downloadIsRunning(d); });
+      if (!running && ready && downloadsTab !== 'done') { downloadsTab = 'done'; return paintDownloadsPanel(true); }
+      paintDownloadsPanel(false);
+    });
+    downloadsPanelTimer = setInterval(function () {
+      if (state.screen !== 'settings') { clearInterval(downloadsPanelTimer); downloadsPanelTimer = null; return; }
+      refreshDownloads(function () { paintDownloadsPanel(false); });
+    }, 1500);
+  }
+
+  function downloadAct(d, what) {
+    portalServiceCall('downloadAction', { id: d.id, action: what }, function () {
+      refreshDownloads(function () { paintDownloadsPanel(true); });
+    });
+  }
+
+  /* full: rebuild everything; otherwise only bars and texts are updated while
+     the same downloads are on screen in the same states. */
+  function paintDownloadsPanel(full) {
+    var p = downloadsPanel;
+    if (!p) { return; }
+    var list = downloadsList.filter(function (d) { return downloadsTab === 'running' ? downloadIsRunning(d) : !downloadIsRunning(d); });
+    var speed = 0;
+    downloadsList.forEach(function (d) { if (d.status === 'downloading') { speed += d.speed || 0; } });
+    if (speed) { noteNetSpeed(speed); }
+    var same = !full && list.length === Object.keys(downloadsCards).length && list.every(function (d) {
+      return downloadsCards[d.id] && downloadsCards[d.id].status === d.status;
+    });
+    if (same) {
+      list.forEach(function (d) {
+        var c = downloadsCards[d.id];
+        c.sub.textContent = downloadSubText(d);
+        if (c.fill) { c.fill.style.width = Math.max(2, downloadPct(d)) + '%'; }
+      });
+      return;
+    }
+    var keep = state.focus && state.focus._dlKey;
+    var again = null;
+    clear(p);
+    downloadsCards = {};
+    var tabs = el('div', 'history-tabs');
+    [['running', 'En curso'], ['done', 'Completadas']].forEach(function (t) {
+      var tab = el('div', 'history-tab focusable' + (downloadsTab === t[0] ? ' is-selected' : ''), t[1]);
+      tab._dlKey = 'tab:' + t[0];
+      tab._activate = function () { downloadsTab = t[0]; paintDownloadsPanel(true); };
+      if (keep === tab._dlKey) { again = tab; }
+      tabs.appendChild(tab);
+    });
+    p.appendChild(tabs);
+    p.appendChild(el('div', 'history-rule'));
+    var total = el('div', 'history-total', downloadsTab === 'running' ? 'Descargando · ' : 'Para ver sin internet · ');
+    total.appendChild(el('span', null, String(list.length)));
+    if (downloadsFree) { total.appendChild(document.createTextNode(' · ' + formatBytes(downloadsFree) + ' libres')); }
+    if (window.desktop && window.desktop.openDownloads) {
+      var folder = el('div', 'history-clear focusable', 'Abrir carpeta');
+      folder._dlKey = 'folder';
+      folder._activate = function () { window.desktop.openDownloads(); };
+      total.appendChild(folder);
+    }
+    p.appendChild(total);
+    var grid = el('div', 'history-grid library-grid scrollable');
+    if (!list.length) {
+      grid.appendChild(el('div', 'history-grid-empty', downloadsTab === 'running'
+        ? 'Nada descargándose. En la ficha de una película o capítulo, toca el botón de descarga.'
+        : 'Aún no hay descargas completas.'));
+    }
+    list.forEach(function (d) {
+      var running = d.status === 'downloading' || d.status === 'queued';
+      var card = el('div', 'history-card library-card focusable' + (d.status === 'paused' ? ' is-paused' : ''));
+      card._dlKey = 'card:' + d.id;
+      var art = el('div', 'library-art');
+      var img = document.createElement('img');
+      img.className = 'history-poster';
+      img.alt = '';
+      img.loading = 'lazy';
+      img.src = d.poster || 'assets/original/common/bg_placehoder_vertical.png';
+      img.onerror = function () { this.style.visibility = 'hidden'; };
+      art.appendChild(img);
+      var fill = null;
+      if (downloadIsRunning(d)) {
+        var bar = el('div', 'history-bar library-bar');
+        fill = el('i');
+        fill.style.width = Math.max(2, downloadPct(d)) + '%';
+        bar.appendChild(fill);
+        art.appendChild(bar);
+      }
+      /* The big icon: play a finished one, pause / resume a running one. */
+      var ico = el('i', 'history-play');
+      ico.innerHTML = running ? DL_PAUSE_SVG : DL_PLAY_SVG;
+      art.appendChild(ico);
+      if (platformHas('mouse')) {
+        var remove = el('button', 'library-remove desktop-native-control');
+        remove.type = 'button';
+        remove.title = d.status === 'done' ? 'Borrar descarga' : 'Cancelar descarga';
+        remove.innerHTML = REMOVE_SVG;
+        remove.addEventListener('click', function (event) { event.stopPropagation(); downloadAct(d, 'delete'); });
+        art.appendChild(remove);
+      }
+      card.appendChild(art);
+      card.appendChild(el('div', 'history-card-title', d.title + (d.subtitle ? ' · ' + d.subtitle : '')));
+      var sub = el('div', 'history-sub', downloadSubText(d));
+      card.appendChild(sub);
+      card.title = d.status === 'done' ? 'Ver ' + d.title : (running ? 'Pausar' : 'Reanudar');
+      card._activate = function () {
+        if (d.status === 'done') { return watchDownload(d); }
+        if (d.status === 'missing') { return downloadAct(d, 'remove'); }
+        downloadAct(d, running ? 'pause' : 'resume');
+      };
+      if (keep === card._dlKey) { again = card; }
+      downloadsCards[d.id] = { card: card, fill: fill, sub: sub, status: d.status };
+      grid.appendChild(card);
+    });
+    p.appendChild(grid);
+    if (again) { setFocus(again); }
   }
 
   /* ---- player/live.js -------------------------------------------------------- */
@@ -15288,36 +17973,29 @@
       liveChannelDebounceTimer = null;
     }
     if (!ch) { ch = CHANNELS[state.channel]; }
-    if (!ch) { return; }
-    if (!ch.channelCode && !ch.streamUrl) { return; }
+    if (!ch) {
+      /* No channels (no lists yet, or none could be read): say why. */
+      if (state.screen === 'player' && state.playerMode === 'live') { setPlayerStatus(liveEmptyMessage()); }
+      return;
+    }
+    if (!ch.streamUrl) {
+      state.streamError = 'Señal no disponible';
+      setPlayerStatus(state.streamError);
+      return;
+    }
     noteLivePlaying(ch);
 
     var doStart = function () {
-      var mySeq = ++liveChannelSeq;
-      setPlayerStatus('Cargando señal ' + (ch.name || '') + '…');
-      var resolveParams = ch.streamUrl ? { streamUrl: ch.streamUrl } : { channelCode: ch.channelCode };
-      portalServiceCall('resolveLive', resolveParams, function (err, payload) {
-        if (mySeq !== liveChannelSeq) { return; }
-        /* The viewer left the player while the signal was resolving (TV and
-           desktop): starting it now would play it hidden, with sound. */
-        if (state.screen !== 'player' || state.playerMode !== 'live') { return; }
-        if (err || !payload || payload.returnValue === false) {
-          state.streamError = 'No se pudo conectar con la señal' + (err ? ': ' + err : '');
-          setPlayerStatus(state.streamError);
-          return;
-        }
-        var streamUrl = payload.proxyPath || payload.url;
-        if (!streamUrl) {
-          state.streamError = 'Señal no disponible';
-          setPlayerStatus(state.streamError);
-          return;
-        }
-        setPlayerStatus('');
-        showInfobar();
-        /* (A title's still from the details screen does not belong to a channel.) */
-        if (playerVideo) { playerVideo.removeAttribute('poster'); }
-        playUrl(streamUrl);
-      });
+      ++liveChannelSeq;
+      /* The viewer left the player while the channel was waiting to start (TV
+         and desktop): starting it now would play it hidden, with sound. */
+      if (state.screen !== 'player' || state.playerMode !== 'live') { return; }
+      setPlayerStatus('');
+      showInfobar();
+      /* (A title's still from the details screen does not belong to a channel.) */
+      if (playerVideo) { playerVideo.removeAttribute('poster'); }
+      /* An M3U channel plays its own link (no service round trip). */
+      playUrl(ch.streamUrl);
     };
 
     if (immediate) {
@@ -15358,6 +18036,10 @@
       idx.style.display = 'block';
       idx.textContent = pad2(ch.index || (state.channel + 1));
       name.textContent = ch.name || '';
+      var piSub = playerInfo.querySelector('.pi-sub');
+      if (piSub) { piSub.textContent = 'Canal ' + (ch.index || (state.channel + 1)) + '  ·  ' + liveChannelGroups(ch).join(', '); }
+      var piTop = playerInfo.querySelector('.pi-top-title');
+      if (piTop) { piTop.textContent = ch.name || ''; }
       nameRowPosition();
       /* "Hoy" only makes sense next to a programme time. */
       date.textContent = ch.time ? 'Hoy' : '';
@@ -15383,7 +18065,7 @@
           var epTitle = state.playerEpisode.title || state.playerEpisode.name;
           var epNum = state.playerEpisode.number || state.playerEpisode.seriesNumber;
           var epLabel = epTitle || (epNum ? ('Capítulo ' + epNum) : '');
-          if (window.XUPER_DESKTOP) {
+          if (window.OPENTV_DESKTOP) {
             /* "Serie  E3 · Nombre", without repeating the series name. */
             var named = epTitle && norm(epTitle).indexOf(norm(item.title)) === -1 && !/^(episodio|capítulo|cap\.?)\s*\d+$/i.test(epTitle) ? ' · ' + epTitle : '';
             vodInfobarTitle.textContent = item.title + (epNum ? '  E' + epNum : '') + named;
@@ -15454,8 +18136,8 @@
     playerChannels.classList.add('is-active');
     renderPlayerCategories();
     renderPlayerChannels(state.channel);
-    /* Bring the active column into view: with 38 portal categories the rail
-       is 5000px wide and the selected pill is usually off-screen. */
+    /* Bring the active category into view: with dozens of categories the
+       rail is very wide and the selected pill is usually off-screen. */
     scrollSelectedCategoryPill();
     var row = playerChannelRows[state.channel];
     if (row) {
@@ -15481,9 +18163,9 @@
     if (ret && ret.screen === 'detail') {
       var scrPlayer = $('screen-player');
       var scrDetail = $('screen-detail');
-      if (scrPlayer && platformIsTv()) {
-        /* TVs: back on the details screen the video stops (no small player
-           there, only the title's picture). */
+      if (scrPlayer && detailShowsArt()) {
+        /* PC and TVs: back on the details screen the video stops (no small
+           player there, only the title's picture). */
         stopPlayerVideo();
         scrPlayer.classList.remove('is-mini');
         scrPlayer.classList.remove('is-active');
@@ -15521,7 +18203,7 @@
     } else {
       /* Desktop: a TV channel goes on playing in the home preview. */
       var toHome = !(ret && ret.screen === 'search');
-      var handed = window.XUPER_DESKTOP && toHome && borrowPlayerIntoHome();
+      var handed = window.OPENTV_DESKTOP && toHome && borrowPlayerIntoHome();
       if (!handed && !keepFloatingVideo()) {
         /* Also cancel a channel that is still resolving or waiting to start. */
         liveChannelSeq++;
@@ -15561,7 +18243,7 @@
   }
 
   function enterLiveFullscreen() {
-    if (!window.XUPER_DESKTOP || isWindowFullscreen()) { return; }
+    if (!window.OPENTV_DESKTOP || isWindowFullscreen()) { return; }
     liveAutoFullscreen = true;
     setWindowFullscreen(true);
   }
@@ -15604,14 +18286,17 @@
     setButtonText(b, full ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa (F)', full ? UI_ICONS.exitFullscreen : UI_ICONS.fullscreen);
   }
 
-  /* Reloads the channels of the current category and keeps the channel that
-     is playing selected. */
+  /* Reads the viewer's M3U lists again and keeps the channel that is playing
+     selected. */
   function refreshLiveChannels(btn) {
     if (!currentLiveCategory) { return; }
     var keep = liveChannelKey(CHANNELS[state.channel]);
     if (btn) { btn.classList.add('is-spinning'); }
     setPlayerStatus('Actualizando canales…');
-    switchLiveCategory(currentLiveCategory, function () {
+    var reload = currentLiveCategory.isSaved
+      ? function (done) { switchLiveCategory(currentLiveCategory, done); }
+      : reloadLiveLists;
+    reload(function () {
       for (var i = 0; i < CHANNELS.length; i++) {
         if (liveChannelKey(CHANNELS[i]) === keep) { state.channel = i; break; }
       }
@@ -15624,7 +18309,7 @@
 
   var liveControlsWatching = false;
   function installLiveControls() {
-    if (!window.XUPER_DESKTOP) { return; }
+    if (!window.OPENTV_DESKTOP) { return; }
     [playerVideo, livePreviewVideo].forEach(function (v) {
       if (!v || v._liveControls) { return; }
       v._liveControls = true;
@@ -15651,7 +18336,7 @@
      ------------------------------------------------------------------ */
   var liveNowPlaying = null;
   function noteLivePlaying(ch) {
-    if (!window.XUPER_DESKTOP) { return; }
+    if (!window.OPENTV_DESKTOP) { return; }
     /* The channel watched before this one, for "Último canal" (TV remote ←). */
     if (liveNowPlaying && ch && liveChannelKey(liveNowPlaying) !== liveChannelKey(ch)) { liveRecallChannel = liveNowPlaying; }
     liveNowPlaying = ch || null;
@@ -15672,7 +18357,7 @@
   }
 
   function livePlayingToKeep() {
-    if (!window.XUPER_DESKTOP || !liveNowPlaying) { return null; }
+    if (!window.OPENTV_DESKTOP || !liveNowPlaying) { return null; }
     var key = liveChannelKey(liveNowPlaying);
     if (!key) { return null; }
     if (state.screen === 'player' && state.playerMode === 'live') { return liveNowPlaying; }
@@ -15711,7 +18396,7 @@
   }
 
   function installTitleBar() {
-    var info = window.XUPER_DESKTOP && window.desktop && window.desktop.titleBar;
+    var info = window.OPENTV_DESKTOP && window.desktop && window.desktop.titleBar;
     if (!info || titleBarEl) { return; }
     titleBarEl = el('div', 'app-titlebar');
     titleBarEl.id = 'app-titlebar';
@@ -15724,6 +18409,20 @@
     brand.appendChild(el('span', 'atb-name', 'OpenTV'));
     titleBarEl.appendChild(brand);
     titleBarEl.appendChild(el('div', 'atb-section', ''));
+    /* Downloads in progress: icon + percentage, opens Ajustes → Descargas
+       (player/downloads.js keeps it up to date; hidden when nothing runs). */
+    if (platformHas('downloads')) {
+      var dlBtn = el('button', 'atb-dl');
+      dlBtn.type = 'button';
+      dlBtn.id = 'atb-downloads';
+      dlBtn.hidden = true;
+      dlBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        openSettingsAt('downloads');
+      });
+      titleBarEl.appendChild(dlBtn);
+    }
     if (window.desktop && window.desktop.pin) {
       var pinBtn = el('button', 'atb-pin');
       pinBtn.type = 'button';
@@ -15818,7 +18517,7 @@
   function showBootSplash() {
     /* index.html already has it from the first frame; built here only if not. */
     var splash = $('boot-splash');
-    if (!window.XUPER_DESKTOP) {
+    if (!window.OPENTV_DESKTOP) {
       if (splash && splash.parentNode) { splash.parentNode.removeChild(splash); }
       return;
     }
@@ -15829,6 +18528,9 @@
       splash.id = 'boot-splash';
       splash.appendChild(el('div', 'bs-name', 'OpenTV'));
       splash.appendChild(el('div', 'bs-sub', 'Preparando tu catálogo…'));
+      /* The same breathing dots as the screen loader (core/loader.js). */
+      var dots = makeLoader('', '').firstChild;
+      splash.appendChild(dots);
       document.body.appendChild(splash);
     }
     splash._running = true;
@@ -15858,7 +18560,7 @@
   var updateNoticeDismissed = '';
 
   function updatesApi() {
-    return window.XUPER_DESKTOP && window.desktop && window.desktop.updates ? window.desktop.updates : null;
+    return window.OPENTV_DESKTOP && window.desktop && window.desktop.updates ? window.desktop.updates : null;
   }
 
   function updateStatusText(s) {
@@ -15957,11 +18659,11 @@
 
   /* ---------------------------------------------------------------- display */
   /* The reference UI is authored at 1920×1080. Older sets expose that exact
-     logical viewport, whereas some UHD webOS 22/25 sets expose 3840×2160.
+     logical viewport, whereas some UHD sets expose 3840×2160.
      Without this fit pass only the left half of the fixed canvas is painted
      and the right half of the TV remains black. */
   function viewportSize() {
-    /* Most webOS builds report the CSS viewport here. Some 2K/4K firmware
+    /* Most devices report the CSS viewport here. Some 2K/4K firmware
        reports a legacy 1280×720 inner viewport while compositing to its full
        physical 1920/3840 panel; using that value alone paints the left part
        of the TV and leaves the right side black. */
@@ -15991,7 +18693,7 @@
     var vw = size.w;
     var vh = size.h;
     /* Desktop: the window's own title bar strip sits above the canvas. */
-    var titleInset = window.XUPER_DESKTOP ? titleBarHeight() : 0;
+    var titleInset = window.OPENTV_DESKTOP ? titleBarHeight() : 0;
     vh = Math.max(1, vh - titleInset);
     var scale = Math.min(vw / 1920, vh / 1080);
     if (!isFinite(scale) || scale <= 0) { scale = 1; }
@@ -15999,7 +18701,7 @@
     /* Keep a non-16:9 display letterboxed instead of stretching the design. */
     var left = Math.max(0, Math.round((vw - (1920 * scale)) / 2));
     var top = Math.max(0, Math.round((vh - (1080 * scale)) / 2));
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       /* Desktop windows have any shape. Instead of letterboxing the 1920×1080
          design, the canvas grows to fill the whole window and every screen
          keeps its layout centred inside it (see desktop/theme.css). The
@@ -16073,7 +18775,7 @@
 
   function autoPreviewAllowed(item) {
     /* TVs show the title's picture on the details screen, not a preview. */
-    if (platformIsTv()) { return false; }
+    if (platformIsTv() || detailShowsArt()) { return false; }
     /* Stremio mode: nothing plays until the viewer picks a source (a preview
        could start a torrent just by opening the page). */
     if (item && item._stremio) { return false; }
@@ -16201,7 +18903,7 @@
   var tooltipTimer = null;
 
   function installTooltips() {
-    if (tooltipEl || !window.XUPER_DESKTOP || !platformHas('mouse')) { return; }
+    if (tooltipEl || !window.OPENTV_DESKTOP || !platformHas('mouse')) { return; }
     tooltipEl = el('div', 'ui-tooltip');
     tooltipEl.setAttribute('role', 'tooltip');
     document.body.appendChild(tooltipEl);
@@ -16247,10 +18949,18 @@
     var left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2));
     tooltipEl.style.left = Math.round(left) + 'px';
     tooltipEl.style.top = Math.round(Math.max(6, top)) + 'px';
+    /* The element can vanish under the mouse (a panel redrawn, another page
+       opened) without any pointerout: then the tooltip goes too. */
+    if (tooltipWatch) { clearInterval(tooltipWatch); }
+    tooltipWatch = setInterval(function () {
+      if (!tooltipTarget || !tooltipTarget.isConnected || !isVisible(tooltipTarget)) { hideTooltip(); }
+    }, 300);
   }
 
+  var tooltipWatch = null;
   function hideTooltip() {
     if (tooltipTimer) { clearTimeout(tooltipTimer); tooltipTimer = null; }
+    if (tooltipWatch) { clearInterval(tooltipWatch); tooltipWatch = null; }
     tooltipTarget = null;
     if (tooltipEl) { tooltipEl.classList.remove('is-visible'); }
   }
@@ -16272,12 +18982,13 @@
   function hoverPosterFrom(target) {
     if (!target || !target.closest) { return null; }
     var poster = target.closest('.poster');
-    if (!poster || !poster._item || !poster.closest('#screen-home .home-page.is-current')) { return null; }
+    /* Home rows, and "Recomendaciones" on the details screen. */
+    if (!poster || !poster._item || !(poster.closest('#screen-home .home-page.is-current') || poster.closest('#screen-detail .dd-related'))) { return null; }
     return poster;
   }
 
   function installHoverCards() {
-    if (!window.XUPER_DESKTOP || !platformHas('mouse')) { return; }
+    if (!window.OPENTV_DESKTOP || !platformHas('mouse')) { return; }
     document.addEventListener('mouseover', function (event) {
       if (hoverCard && hoverCard.contains(event.target)) { cancelHoverHide(); return; }
       var poster = hoverPosterFrom(event.target);
@@ -16288,7 +18999,7 @@
       if (hoverTimer) { clearTimeout(hoverTimer); }
       hoverTimer = setTimeout(function () {
         hoverTimer = null;
-        if (poster.matches(':hover') && state.screen === 'home') { openHoverCard(poster); }
+        if (poster.matches(':hover') && (state.screen === 'home' || state.screen === 'detail')) { openHoverCard(poster); }
       }, HOVER_DELAY_MS);
     }, true);
     document.addEventListener('mouseout', function (event) {
@@ -16570,14 +19281,14 @@
     var item = state.playerItem;
     var key = compatEpisodeKey(item);
     if (autoSmoothFallbackKey === key) {
-      if (window.XUPER_DESKTOP) { showCompatSuggestion(item); }
+      if (window.OPENTV_DESKTOP) { showCompatSuggestion(item); }
       return false;
     }
     autoSmoothFallbackKey = key;
     compatAuto = { item: item, key: key, reason: reason };
     if (compatWatch) { compatWatch.item = null; }
     state.streamMode = 'smooth';
-    setPlayerStatus(window.XUPER_DESKTOP ? 'Ajustando la reproducción…' : 'Reintentando película en modo compatible…');
+    setPlayerStatus(window.OPENTV_DESKTOP ? 'Ajustando la reproducción…' : 'Reintentando película en modo compatible…');
     setTimeout(function () {
       if (state.playerMode === 'vod' && state.playerItem === item && state.streamMode === 'smooth') {
         restartCurrentPlayback();
@@ -16587,11 +19298,11 @@
   }
 
   function compatWatchBegin() {
-    if (!window.XUPER_DESKTOP || !playerVideo) { return; }
+    if (!window.OPENTV_DESKTOP || !playerVideo) { return; }
     hideCompatSuggestion();
     compatWatch = { item: state.playerItem, began: Date.now(), played: false, stalls: [],
                     waitingSince: 0, playSecs: 0, audioChecked: false };
-    if (playerVideo) { playerVideo._xuperNoAudio = false; }
+    if (playerVideo) { playerVideo._opentvNoAudio = false; }
     if (compatTimer) { return; }
     playerVideo.addEventListener('waiting', function () {
       if (compatWatch && compatWatch.played && !compatWatch.waitingSince) { compatWatch.waitingSince = Date.now(); }
@@ -16613,7 +19324,7 @@
       /* A wait caused by the viewer seeking is not a freeze. */
       if (compatWatch) { compatWatch.waitingSince = 0; }
     });
-    document.addEventListener('xuper:hls-fatal', function () { tryCompatFallback('hls'); });
+    document.addEventListener('opentv:hls-fatal', function () { tryCompatFallback('hls'); });
     compatTimer = setInterval(compatWatchTick, 1000);
   }
 
@@ -16650,7 +19361,7 @@
         var videoBytes = playerVideo.webkitVideoDecodedByteCount;
         /* A few seconds of picture are enough: supported audio is decoded
            alongside the first frames, so zero bytes here means Dolby. */
-        var silent = playerVideo._xuperNoAudio === true ||
+        var silent = playerVideo._opentvNoAudio === true ||
           (typeof audioBytes === 'number' && audioBytes === 0 && videoBytes > 300000);
         if (silent) { tryCompatFallback('audio'); }
       }
@@ -16658,7 +19369,7 @@
   }
 
   function showCompatSuggestion(item) {
-    if (!window.XUPER_DESKTOP || (state.screen !== 'player' && state.screen !== 'detail')) { return; }
+    if (!window.OPENTV_DESKTOP || (state.screen !== 'player' && state.screen !== 'detail')) { return; }
     if (!compatSuggest) {
       compatSuggest = el('div', 'compat-suggest');
       compatSuggest.setAttribute('role', 'status');
@@ -16958,11 +19669,11 @@
     playerVideo.addEventListener('pause', updateButtons);
     playerVideo.addEventListener('loadedmetadata', updateButtons);
     playerVideo.addEventListener('durationchange', updateButtons);
-    document.addEventListener('xuper:duration', updateButtons);
+    document.addEventListener('opentv:duration', updateButtons);
     /* A new title in the player: right away, not when its video starts (a
        torrent can take a while), or a movie shows the series buttons. */
-    document.addEventListener('xuper:player-item', updateButtons);
-    document.addEventListener('xuper:timeline', function () {
+    document.addEventListener('opentv:player-item', updateButtons);
+    document.addEventListener('opentv:timeline', function () {
       updateButtons();
       if (state.playerMode === 'vod') updateVodProgress(vodPlaybackPosition(), vodPlaybackDuration());
     });
@@ -16991,7 +19702,7 @@
   }
 
   function installMiniControls() {
-    if (!window.XUPER_DESKTOP || !playerStage || !playerVideo || miniControls) { return; }
+    if (!window.OPENTV_DESKTOP || !playerStage || !playerVideo || miniControls) { return; }
     miniControls = el('div', 'mini-controls');
     miniControls.setAttribute('data-no-gesture', '');
 
@@ -17102,7 +19813,7 @@
     if (!url) { return ''; }
     if (!nativeImageSizer || !/^https?:\/\//i.test(url)) { return url; }
     var px = Math.round(cssWidth * (window.devicePixelRatio || 1));
-    return 'https://opentv-img.local/i?w=' + px + '&u=' + encodeURIComponent(url);
+    return nativeImageSizer + '?w=' + px + '&u=' + encodeURIComponent(url);
   }
 
   function mPicture(url, cssWidth, cls) {
@@ -17256,7 +19967,8 @@
 
     var all = allVodFor(category) || [];
     if (!all.length) {
-      mob.main.appendChild(el('p', 'm-empty', VOD.length ? 'No hay títulos en esta sección todavía.' : 'Cargando el catálogo…'));
+      mob.main.appendChild(VOD.length ? el('p', 'm-empty', 'No hay títulos en esta sección todavía.')
+        : makeLoader('Cargando el catálogo…', 'is-page'));
       return;
     }
     /* Top of the section: this week's TMDB trends that the catalogue has, then
@@ -17408,6 +20120,7 @@
       a.appendChild(el('span', 'm-continue-sub', continueSubtitle(r)));
       a.addEventListener('click', function (event) {
         event.preventDefault();
+        if (mobileRecordBlocked(r)) { return; }
         mobileWillPlay();
         openHistoryRecord(r);
       });
@@ -17498,9 +20211,17 @@
     var resume = rec && (rec.position || 0) > 5 && !(rec.duration && rec.position / rec.duration > 0.95);
     var play = mButton('m-play', '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6a.8.8 0 0 0 1.2.7l11-6.8a.8.8 0 0 0 0-1.4l-11-6.8a.8.8 0 0 0-1.2.7z"/></svg>' +
       '<span>' + (resume ? 'Reanudar' : 'Reproducir') + '</span>', null, function () {
-      if (resume) { mobileWillPlay(); openHistoryRecord(rec); } else { mobilePlay(item, null); }
+      if (resume) {
+        if (mobileCannotPlay(item, null)) { return; }
+        mobileWillPlay();
+        openHistoryRecord(rec);
+      } else { mobilePlay(item, null); }
     });
     body.appendChild(play);
+    if (resume) {
+      body.appendChild(mButton('m-play is-secondary', mSvg('<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/>', 18) +
+        '<span>Ver desde el principio</span>', null, function () { mobileStartOver(item); }));
+    }
 
     /* Two icon-only toggles: Favorito and Mi lista (always resumes where it was left). */
     var actions = el('div', 'm-actions is-icons');
@@ -17532,7 +20253,7 @@
 
     if (isSeriesItem(item)) { page.appendChild(mobileEpisodes(item)); }
     var related = allVodFor(norm(item.category || '').split(',')[0] || 'destacado').filter(function (v) { return v.id !== item.id; }).slice(0, 18);
-    if (related.length) { page.appendChild(mobilePosterRow('Quizás te guste', related)); }
+    if (related.length) { page.appendChild(mobilePosterRow('Recomendaciones', related)); }
     mob.main.appendChild(page);
   }
 
@@ -17624,7 +20345,23 @@
     }, 120);
   }
 
+  /* Nothing to play with (no addon gives sources, not downloaded): the
+     notice, without turning the phone sideways first. */
+  function mobileCannotPlay(item, episode) {
+    if (!item || !item._stremio || item._plain || item._downloadId || hasSourceAddons()) { return false; }
+    if (typeof downloadedFileFor === 'function' && downloadedFileFor(item, episode || null)) { return false; }
+    showNoSourcesNotice();
+    return true;
+  }
+
+  /* The same for a "Seguir viendo" / history record. */
+  function mobileRecordBlocked(r) {
+    if (!r || !/^stremio:/.test(String(r.id)) || hasSourceAddons()) { return false; }
+    return mobileCannotPlay(stremioItemFromHistory(r), null);
+  }
+
   function mobilePlay(item, episode) {
+    if (mobileCannotPlay(item, episode)) { return; }
     mobileWillPlay();
     openDetail(item);
     loadVodDetail(item, function (loaded) {
@@ -17633,13 +20370,26 @@
     });
   }
 
+  /* "Ver desde el principio": the movie, or the episode the viewer was on
+     (the detail page selects it from the history), from second 0. */
+  function mobileStartOver(item) {
+    if (mobileCannotPlay(item, null)) { return; }
+    mobileWillPlay();
+    openDetail(item);
+    loadVodDetail(item, function (loaded) {
+      if (!loaded || state.detail !== item) { return; }
+      startOverTitle(item, isSeriesItem(item) ? state.detailEpisode : null);
+    });
+  }
+
   /* ---------------------------------------------------------- TV en vivo */
   var M_LIVE_BATCH = 80;
   function renderMobileLive() {
     mob.main.appendChild(mobileHeader('TV en vivo'));
     if (!CHANNELS.length) {
-      mob.main.appendChild(el('p', 'm-empty', liveChannelsLoaded ? 'No se encontraron canales.' : 'Cargando canales…'));
-      if (!liveChannelsLoaded && typeof loadLiveChannels === 'function') { loadLiveChannels(); }
+      mob.main.appendChild(liveChannelsPending() ? makeLoader('Cargando canales…', 'is-page')
+        : el('p', 'm-empty', liveEmptyMessage()));
+      if (!liveChannelsLoaded) { loadLiveChannels(); }
       return;
     }
     var cur = CHANNELS[state.channel] || CHANNELS[0];
@@ -17702,18 +20452,18 @@
       clear(results);
       if (q.length < 2) { return; }
       results.appendChild(el('p', 'm-empty', 'Buscando…'));
-      portalServiceCall('search', { value: q, pageNum: 1, pageSize: 30 }, function (error, payload) {
+      /* The loaded titles first, then what the addons that can search find. */
+      var nq = norm(q);
+      var local = VOD.filter(function (v) { return itemNorm(v, 'title').indexOf(nq) !== -1; });
+      /* As each addon answers, best match first. */
+      searchTitles(q, function (found, finished) {
         if (input.value.trim() !== q) { return; }
+        var items = rankSearchResults(q, local.concat(found));
+        if (!items.length && !finished) { return; }
         clear(results);
-        var items = [];
-        var list = (payload && payload.items) || [];
-        for (var i = 0; i < list.length; i++) {
-          var v = normalizeVod(list[i], i + 1);
-          v._portal = true;
-          items.push(vodById(v.id) || v);
-        }
-        if (error || !items.length) { results.appendChild(el('p', 'm-empty', 'Sin resultados para «' + q + '».')); return; }
+        if (!items.length) { results.appendChild(el('p', 'm-empty', 'Sin resultados para «' + q + '».')); return; }
         results.appendChild(mobileGrid('', items));
+        if (!finished) { results.appendChild(el('p', 'm-empty is-small', 'Buscando en más addons…')); }
       });
     }
     input.addEventListener('input', function () {
@@ -17725,8 +20475,9 @@
 
   /* ---------------------------------------------------------- account */
   /* Sub-screens of Mi cuenta and where Back goes from each. */
-  var M_PARENT = { profiles: 'home', profileEdit: 'profiles', playback: 'home', history: 'home', mylist: 'home', about: 'home' };
+  var M_PARENT = { profiles: 'home', profileEdit: 'profiles', playback: 'home', history: 'home', mylist: 'home', about: 'home', addons: 'home' };
   var M_SCREENS = {
+    addons: function () { renderMobileAddons(); },
     picker: function () { renderMobilePicker(); },
     profiles: function () { renderMobileProfiles(); },
     profileEdit: function () { renderMobileProfileEdit(); },
@@ -17837,6 +20588,8 @@
       if (Object.prototype.hasOwnProperty.call(state.mylist, key)) { titles++; }
     }
     var list = el('section', 'm-list');
+    list.appendChild(mobileListItem('<path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5 12 21l9-4.5"/>', 'Addons y listas',
+      'Catálogo, fuentes, subtítulos y TV en vivo', function () { mobileOpen('addons'); }));
     list.appendChild(mobileListItem('<path d="M6 3.5h12v17l-6-4-6 4z"/>', 'Mi lista', 'Historial, Mi lista y favoritos' + (titles ? ' · ' + titles + (titles === 1 ? ' guardado' : ' guardados') : ''), function () { mobileOpen('mylist'); }));
     list.appendChild(mobileListItem('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>', 'Historial', 'Sigue donde lo dejaste', function () { mobileOpen('history'); }));
     list.appendChild(mobileListItem('<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>', 'Reproducción y subtítulos', 'Formato, idioma y subtítulos', function () { mobileOpen('playback'); }));
@@ -17850,6 +20603,152 @@
     var more = el('section', 'm-list');
     more.appendChild(mobileListItem('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>', 'Acerca de OpenTV', 'Versión, privacidad y créditos', function () { mobileOpen('about'); }));
     mob.main.appendChild(more);
+  }
+
+  /* ---------------------------------------------------------- addons */
+  /* Phone: the same as Ajustes → Addons on PC: the addons (catalog, sources,
+     subtitles) and the TV en vivo lists (M3U / IPTV), add and remove. */
+  function renderMobileAddons() {
+    mob.main.appendChild(mobileSubHeader('Addons y listas'));
+
+    function addForm(placeholder, run) {
+      var form = el('form', 'm-add');
+      var input = document.createElement('input');
+      input.type = 'url';
+      input.className = 'm-search m-add-input';
+      input.placeholder = placeholder;
+      input.autocapitalize = 'off';
+      input.spellcheck = false;
+      var btn = el('button', 'm-add-btn', 'Agregar');
+      btn.type = 'submit';
+      var msg = el('p', 'm-add-msg', '');
+      form.appendChild(input);
+      form.appendChild(btn);
+      form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var url = (input.value || '').trim();
+        if (!/^(https?|stremio):\/\//i.test(url)) { msg.textContent = 'Pega una dirección que empiece con https://'; msg.className = 'm-add-msg is-err'; return; }
+        btn.disabled = true;
+        btn.textContent = 'Agregando…';
+        run(url, function (err, text) {
+          btn.disabled = false;
+          btn.textContent = 'Agregar';
+          msg.textContent = err ? 'No se pudo agregar: ' + err : text;
+          msg.className = 'm-add-msg ' + (err ? 'is-err' : 'is-ok');
+          if (!err) { input.value = ''; setTimeout(function () { renderMobile(true); }, 900); }
+        });
+      });
+      var wrap = el('div', 'm-add-wrap');
+      wrap.appendChild(form);
+      wrap.appendChild(msg);
+      return wrap;
+    }
+
+    function row(title, sub, onRemove) {
+      var r = el('div', 'm-item m-addon');
+      var tx = el('span', 'm-item-text');
+      tx.appendChild(el('span', 'm-item-title', title));
+      if (sub) { tx.appendChild(el('span', 'm-item-sub', sub)); }
+      r.appendChild(tx);
+      /* (No onRemove: one of the app's own addons, which stays.) */
+      if (onRemove) {
+        r.appendChild(mButton('m-round m-remove', mSvg('<path d="M6 6l12 12M18 6 6 18"/>', 18), 'Quitar', onRemove));
+      } else {
+        r.appendChild(el('span', 'm-tag-fixed', 'Incluido'));
+      }
+      return r;
+    }
+
+    /* A recommended addon or list: name, what it gives and Agregar. */
+    function recRow(title, sub, on, run) {
+      var r = el('div', 'm-item m-addon');
+      var tx = el('span', 'm-item-text');
+      tx.appendChild(el('span', 'm-item-title', title));
+      tx.appendChild(el('span', 'm-item-sub', sub));
+      r.appendChild(tx);
+      if (on) { r.appendChild(el('span', 'm-tag-fixed', 'Agregado')); return r; }
+      var btn = el('button', 'm-add-btn m-rec-btn', 'Agregar');
+      btn.type = 'button';
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        btn.textContent = 'Agregando…';
+        run(function (err) {
+          if (err) { btn.disabled = false; btn.textContent = 'No cargó'; return; }
+          renderMobile(true);
+        });
+      });
+      r.appendChild(btn);
+      return r;
+    }
+
+    /* Películas y series */
+    var cfg = getVodSourcesConfig();
+    var vod = el('section', 'm-section');
+    vod.appendChild(el('h2', 'm-h2', 'Películas y series'));
+    var vodList = el('div', 'm-list');
+    cfg.addons.forEach(function (ad, idx) {
+      vodList.appendChild(row(ad.name || 'Addon', addonOffers(ad), isBuiltinVodAddon(ad) ? null : function () {
+        var c = getVodSourcesConfig();
+        c.addons.splice(idx, 1);
+        saveVodSourcesConfig(c);
+        syncExternalVodCatalogs(function () {});
+        renderMobile(true);
+      }));
+    });
+    vod.appendChild(vodList);
+    if (!hasSourceAddons()) { vod.appendChild(el('p', 'm-note', 'Sin addon de fuentes: puedes ver la información, pero no reproducir.')); }
+    vod.appendChild(addForm('https://…/manifest.json', function (url, done) {
+      installVodAddon({ url: url }, function (err, count, info) { done(err, '✔ ' + (info ? info.name : 'Addon') + (count ? ' · ' + count + ' títulos' : '')); });
+    }));
+    vod.appendChild(el('h3', 'm-h3', 'Recomendados'));
+    var vodRec = el('div', 'm-list');
+    RECOMMENDED_VOD_ADDONS.forEach(function (rec) {
+      vodRec.appendChild(recRow(rec.name, rec.desc, isVodAddonInstalled(rec.url), function (done) {
+        installVodAddon({ url: rec.url }, function (err) { done(err); });
+      }));
+    });
+    vod.appendChild(vodRec);
+    mob.main.appendChild(vod);
+
+    /* TV en vivo */
+    var live = el('section', 'm-section');
+    live.appendChild(el('h2', 'm-h2', 'TV en vivo'));
+    var liveList = el('div', 'm-list');
+    getSavedAddons().forEach(function (ad, idx) {
+      liveList.appendChild(row(ad.name || 'Lista M3U', ad.count ? ad.count + ' canales' : 'Lista M3U / IPTV', function () {
+        var current = getSavedAddons();
+        current.splice(idx, 1);
+        saveSavedAddons(current);
+        reloadLiveLists();
+        renderMobile(true);
+      }));
+    });
+    live.appendChild(liveList);
+    if (!getSavedAddons().length) { live.appendChild(el('p', 'm-note', 'Agrega una lista M3U o IPTV para ver canales en vivo.')); }
+    live.appendChild(addForm('https://…/lista.m3u', function (url, done) {
+      installAddon({ id: 'custom_' + Date.now(), name: 'Lista M3U', url: url }, function (err, count) {
+        if (!err) { reloadLiveLists(); }
+        done(err, '✔ ' + count + ' canales');
+      });
+    }));
+    /* Recomendadas: the free-channel lists at the top of PRESET_ADDONS (the
+       ones before the iptv-org block, which starts at España TDT). */
+    live.appendChild(el('h3', 'm-h3', 'Recomendadas'));
+    var liveRec = el('div', 'm-list');
+    var savedUrls = {};
+    getSavedAddons().forEach(function (ad) { savedUrls[ad.url] = true; });
+    for (var p = 0; p < PRESET_ADDONS.length && PRESET_ADDONS[p].id !== 'es_tdt'; p++) {
+      (function (preset) {
+        liveRec.appendChild(recRow(preset.name, preset.desc, !!savedUrls[preset.url], function (done) {
+          installAddon(preset, function (err) {
+            if (!err) { reloadLiveLists(); }
+            done(err);
+          });
+        }));
+      })(PRESET_ADDONS[p]);
+    }
+    live.appendChild(liveRec);
+    mob.main.appendChild(live);
   }
 
   /* ---------------------------------------------------------- profiles */
@@ -18021,7 +20920,7 @@
       t.appendChild(el('span', 'm-ep-title', r.title || (item && item.title) || 'Contenido'));
       t.appendChild(el('span', 'm-ep-meta', continueSubtitle(r)));
       a.appendChild(t);
-      a.addEventListener('click', function (event) { event.preventDefault(); mobileWillPlay(); openHistoryRecord(r); });
+      a.addEventListener('click', function (event) { event.preventDefault(); if (mobileRecordBlocked(r)) { return; } mobileWillPlay(); openHistoryRecord(r); });
       sec.appendChild(a);
     });
     mob.main.appendChild(sec);
@@ -18045,6 +20944,31 @@
     brand.appendChild(el('span', 'm-about-name', 'OpenTV'));
     brand.appendChild(el('span', 'm-item-sub', 'Versión ' + String(((document.querySelector('.welcome-version') || {}).textContent || '1.1.0')).replace(/^v/, '')));
     box.appendChild(brand);
+    /* Updates: look for a new APK, download it and open the installer. */
+    var upd = el('div', 'm-about-card');
+    upd.appendChild(el('span', 'm-item-title', 'Actualizaciones'));
+    var updText = el('span', 'm-item-sub', 'Busca la última versión de OpenTV.');
+    upd.appendChild(updText);
+    var updBtn = el('button', 'm-add-btn m-update-btn', 'Buscar actualizaciones');
+    updBtn.type = 'button';
+    function paintUpdate(text, button) {
+      updText.textContent = text;
+      updBtn.hidden = !button;
+      if (button) { updBtn.textContent = button; }
+    }
+    updBtn.addEventListener('click', function () {
+      if (updBtn.textContent === 'Instalar') { return installAndroidUpdate(paintUpdate); }
+      if (/Actualizar|Reintentar/.test(updBtn.textContent) && androidUpdate.info && androidUpdate.info.available) { return startAndroidUpdate(paintUpdate); }
+      paintUpdate('Buscando…', '');
+      portalServiceCall('appUpdate', { action: 'check' }, function (err, res) {
+        if (err || !res) { paintUpdate(err || 'No se pudo buscar actualizaciones.', 'Buscar actualizaciones'); return; }
+        androidUpdate.info = res;
+        if (!res.available) { paintUpdate('Tienes la última versión (' + (res.current || '') + ').', 'Buscar actualizaciones'); return; }
+        paintUpdate('Versión ' + res.latest + ' disponible' + (res.size ? ' · ' + formatBytes(res.size) : '') + '.', 'Actualizar');
+      }, 20000);
+    });
+    upd.appendChild(updBtn);
+    box.appendChild(upd);
     [
       ['Sin registro ni contraseña', 'Tu lista, el historial y tus preferencias se guardan solo en este celular; no se envían a ningún servidor.'],
       ['Tendencias', 'Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB.'],
@@ -18060,25 +20984,49 @@
   }
 
   /* ---- main.js --------------------------------------------------------------- */
-  /* main.js — Arranque: eventos globales, API de depuración window.__xuper y enlaces profundos.
+  /* main.js — Arranque: eventos globales, API de depuración window.__opentv y enlaces profundos.
      Parte del módulo único de la app (ver ui/js/src/README.md). */
 
   /* ------------------------------------------------------------------ boot */
   function boot() {
-    if (window.XUPER_DESKTOP) { installTitleBar(); showBootSplash(); }
+    if (window.OPENTV_DESKTOP) { installTitleBar(); showBootSplash(); }
     fitDesignViewport();
     window.addEventListener('resize', fitDesignViewport, false);
     window.addEventListener('orientationchange', fitDesignViewport, false);
     document.addEventListener('visibilitychange', fitDesignViewport, false);
-    /* Some webOS builds only report the final window size after the splash
-       animation, and 720p / 2K sets take longer than 1080p ones. */
+    /* Some TVs only report the final window size after the splash animation. */
     setTimeout(fitDesignViewport, 250);
     setTimeout(fitDesignViewport, 1200);
     setTimeout(fitDesignViewport, 3000);
     document.addEventListener('keydown', handleKey, false);
+    /* PC: the downloads list, so "Reproducir" finds a downloaded title at once. */
+    if (platformHas('downloads')) { refreshDownloads(); }
+    /* Android: what this device can do, from the service: torrents (Android
+       9+ on ARM), downloads, its decoders and screen, and free space. */
+    if (platformName() === 'android' && window.OPENTV_PLATFORM && window.OPENTV_PLATFORM.enable) {
+      portalServiceCall('ping', {}, function (err, info) {
+        if (err || !info) { return; }
+        if (info.torrents === true) { window.OPENTV_PLATFORM.enable('torrents'); }
+        if (info.downloads === true) { window.OPENTV_PLATFORM.enable('downloads'); refreshDownloads(); }
+        setDeviceProfile(info.media, info.storage);
+      });
+      /* A new APK on GitHub: a short notice (Acerca de has the button too). */
+      setTimeout(checkAndroidUpdateOnStart, 8000);
+      /* The "Descargando" notification was tapped: show the downloads. On a
+         cold start the app may say so before this listener exists, so the
+         flag it leaves is checked too. */
+      var openDownloadsFromNotice = function () {
+        window.__opentvOpenDownloads = false;
+        if (isPhone()) { return; }
+        finishWelcome();
+        openSettingsAt('downloads');
+      };
+      window.addEventListener('opentv:open-downloads', openDownloadsFromNotice);
+      if (window.__opentvOpenDownloads) { setTimeout(openDownloadsFromNotice, 1500); }
+    }
     document.addEventListener('keyup', function (e) {
       var code = e.keyCode || e.which;
-      if (code === 461 || e.key === 'Back' || e.key === 'GoBack') {
+      if (e.key === 'Back' || e.key === 'GoBack') {
         handleKey(e);
       }
     }, false);
@@ -18092,7 +21040,7 @@
       setFocus(f, true);
       if (f._activate) { f._activate(); }
     });
-    if (window.XUPER_DESKTOP) {
+    if (window.OPENTV_DESKTOP) {
       document.addEventListener('scroll', schedulePosterMemoryPass, { capture: true, passive: true });
       /* A page slides in when its tab opens: posters that were still off
          screen at that moment are loaded once the slide ends. */
@@ -18101,29 +21049,27 @@
       }, true);
       window.addEventListener('resize', schedulePosterMemoryPass);
     }
-    if (window.XUPER_DESKTOP) document.addEventListener('focusin', function (e) {
+    if (window.OPENTV_DESKTOP) document.addEventListener('focusin', function (e) {
       var f = closest(e.target, '.focusable');
       if (f && isVisible(f)) setFocus(f, true);
     });
     forgetPrivateContent();
     applyLiteMode();
     buildSearch();
-    startServiceKeepAlive();
-    portalServiceCall('prewarm', {}, function () {});
     startWelcome();
-    paintStremioModeMark();
+    /* Movies and series: the viewer's addons. */
     loadVodCatalog();
+    /* TV en vivo: the viewer's own M3U lists. */
     loadLiveChannels();
 
-    window.__xuper = {
-      version: '4.34.4',
+    window.__opentv = {
       state: state,
       vod: VOD,
       channels: CHANNELS,
+      /* TV en vivo (tests): reload the M3U lists or show a given channel list. */
+      live: { reload: reloadLiveLists, use: useLiveChannels, categories: function () { return liveCategories; } },
       api: vodApiState,
-      portal: portalState,
       service: portalServiceCall,
-      refreshPortal: refreshPortalCatalog,
       reloadVod: loadVodCatalog,
       skipWelcome: finishWelcome,
       show: function (name) {
@@ -18151,17 +21097,28 @@
       settingsPanel: function (i) { openSettings(); showSettingsPanel(i, true); },
       settingsIndexOf: settingsIndexOf,
       openItem: function (item) { openDetail(item); },
+      /* The catalogue as it is now (`vod` above is the one at start). */
+      currentVod: function () { return VOD; },
+      avatarSvg: function (i) { return avatarSvg(i); },
       leavePlayer: restorePlayerReturn,
-      /* Stremio mode (PC): used by the tests. */
-      stremioOn: stremioModeOn,
       /* Seguir viendo / Historial: forget a title (tests). */
       forgetWatched: forgetWatchedTitle,
       history: function () { return localProfile.history; },
-      stremio: { install: installVodAddon, setMode: applyVodSourceMode, search: searchStremioAddons,
-        savedPick: savedStremioPick, offers: addonOffers }
+      /* Reanudar / Ver desde el principio (tests): the plan playing would make. */
+      resumePlanFor: function (item, episode, fromStart) {
+        resetResumePlan();
+        if (fromStart) { resumeFromStartKey = resumeKeyFor(item, episode || null); }
+        planResume(item, episode || null);
+        var out = { pos: resumePlan ? resumePlan.pos : 0, restarted: resumeRestarted };
+        resetResumePlan();
+        return out;
+      },
+      /* Addons (tests): install one, search, the saved source, what it offers. */
+      stremio: { install: installVodAddon, sync: syncExternalVodCatalogs, search: searchStremioAddons,
+        savedPick: savedStremioPick, offers: addonOffers, hasSources: hasSourceAddons }
     };
 
-    if (window.XUPER_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); installTrending(); installProfiles(); startCatalogAutoRefresh(); }
+    if (window.OPENTV_DESKTOP) { installDesktopNavigation(); installTooltips(); installFocusRingMode(); installQualityControls(); installLiveGuide(); installUpdates(); installHoverCards(); installTrending(); installProfiles(); startCatalogAutoRefresh(); }
 
     /* Android / Fire TV (Capacitor): the remote's Back reaches the page only
        through the App plugin. Without this listener Android handled it itself
@@ -18205,7 +21162,7 @@
     finishWelcome();
     if (map.tab !== undefined) {
       selectTab(parseInt(map.tab, 10) || 0, true);
-    } else if (!window.XUPER_DESKTOP) {
+    } else if (!window.OPENTV_DESKTOP) {
       selectTab(0, false);
       setFocus(liveFocus);
     }
@@ -18238,7 +21195,7 @@
   window.addEventListener('beforeunload', purgeMemoryCache);
   window.addEventListener('unload', purgeMemoryCache);
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden && !window.XUPER_DESKTOP) {
+    if (document.hidden && !window.OPENTV_DESKTOP) {
       purgeMemoryCache();
     }
   });
