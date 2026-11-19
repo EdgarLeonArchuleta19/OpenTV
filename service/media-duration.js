@@ -7,7 +7,7 @@ var path = require('path');
 var urlmod = require('url');
 var dnsx = require('./dnsx');
 var spawn = require('child_process').spawn;
-var FFMPEG = process.env.XUPER_FFMPEG_PATH ||
+var FFMPEG = process.env.OPENTV_FFMPEG_PATH ||
   (process.platform === 'win32' ? path.join(__dirname, '..', 'bin', 'ffmpeg.exe') : '/usr/bin/ffmpeg');
 var MAX_ENTRIES = 100;
 var MAX_PROBES = 2;
@@ -44,7 +44,68 @@ function seconds(value) {
 }
 
 function value(entry) {
-  return { duration: entry.duration || 0, available: !!entry.duration, verified: !!(entry.duration && entry.verified) };
+  return { duration: entry.duration || 0, available: !!entry.duration, verified: !!(entry.duration && entry.verified),
+    audio: entry.audio || [], subtitles: entry.subtitles || [] };
+}
+
+// Text subtitle codecs FFmpeg can turn into WebVTT; picture ones (PGS,
+// VobSub, DVB) cannot become text and are listed as not usable.
+var TEXT_SUBS = /^(subrip|srt|ass|ssa|webvtt|mov_text|text|microdvd|subviewer|tx3g)$/i;
+
+// The subtitle tracks inside the file, in -map 0:s:<n> order.
+function subtitleTracks(output) {
+  var lines = String(output || '').split(/\r?\n/);
+  var tracks = [], last = null, inInput = false;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (/^Input #0/.test(line)) { inInput = true; continue; }
+    if (/^(Input #[1-9]|Output #|Stream mapping)/.test(line)) { inInput = false; }
+    if (!inInput) { continue; }
+    var stream = /^\s*Stream #0:\d+(?:\[[^\]]*\])?(?:\(([A-Za-z-]{2,8})\))?(?:\[[^\]]*\])?:\s*(\w+):\s*(.*)$/.exec(line);
+    if (stream) {
+      last = null;
+      if (stream[2] !== 'Subtitle') { continue; }
+      var codec = (/^([\w-]+)/.exec(stream[3]) || [])[1] || '';
+      last = { lang: (stream[1] || '').toLowerCase(), title: '', codec: codec, text: TEXT_SUBS.test(codec),
+        forced: /\(forced\)/.test(stream[3]), default: /\(default\)/.test(stream[3]) };
+      tracks.push(last);
+      continue;
+    }
+    var title = /^\s+title\s*:\s*(.+?)\s*$/.exec(line);
+    if (title && last && !last.title) { last.title = title[1].slice(0, 80); }
+  }
+  return tracks.slice(0, 30);
+}
+
+// The audio tracks FFmpeg lists for the input, in the order -map 0:a:<n>
+// numbers them: language tag, the track's own title ("Latino", "Castellano",
+// "Commentary"…), codec and channels.
+//   Stream #0:1(spa): Audio: ac3, 48000 Hz, 5.1(side), fltp, 640 kb/s (default)
+//     Metadata:
+//       title           : Latino
+function audioTracks(output) {
+  var lines = String(output || '').split(/\r?\n/);
+  var tracks = [], last = null, inInput = false;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (/^Input #0/.test(line)) { inInput = true; continue; }
+    if (/^(Input #[1-9]|Output #|Stream mapping)/.test(line)) { inInput = false; }
+    if (!inInput) { continue; }
+    var stream = /^\s*Stream #0:\d+(?:\[[^\]]*\])?(?:\(([A-Za-z-]{2,8})\))?(?:\[[^\]]*\])?:\s*(\w+):\s*(.*)$/.exec(line);
+    if (stream) {
+      last = null;
+      if (stream[2] !== 'Audio') { continue; }
+      var desc = stream[3];
+      var ch = /\b(mono|stereo|2\.1|quad|4\.0|5\.0|5\.1|6\.1|7\.1)\b/.exec(desc);
+      last = { lang: (stream[1] || '').toLowerCase(), title: '', codec: (/^([\w-]+)/.exec(desc) || [])[1] || '',
+        channels: ch ? ch[1] : '', default: /\(default\)/.test(desc) };
+      tracks.push(last);
+      continue;
+    }
+    var title = /^\s+title\s*:\s*(.+?)\s*$/.exec(line);
+    if (title && last && !last.title) { last.title = title[1].slice(0, 80); }
+  }
+  return tracks.slice(0, 16);
 }
 
 function register(stream) {
@@ -81,13 +142,16 @@ function get(id, done) {
   entry.waiters.push(done);
   if (entry.pending) return;
   entry.pending = true;
-  var child = null, output = '', active = false, finished = false;
-  var timer = setTimeout(function () { finish(0); }, DEADLINE_MS);
+  var child = null, output = '', active = false, finished = false, found = 0, grace = null;
+  var timer = setTimeout(function () { finish(found); }, DEADLINE_MS);
 
   function finish(duration) {
     if (finished) return;
     finished = true;
     clearTimeout(timer);
+    if (grace) clearTimeout(grace);
+    entry.audio = audioTracks(output);
+    entry.subtitles = subtitleTracks(output);
     entry.pending = false;
     entry.completed = true;
     var sourceDuration = seconds(duration);
@@ -144,14 +208,19 @@ function get(id, done) {
     args.push('-i', target);
     try { child = spawn(FFMPEG, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true }); }
     catch (_) { return finish(0); }
-    child.on('error', function () { finish(0); });
-    child.on('close', function () { finish(0); });
+    child.on('error', function () { finish(found); });
+    child.on('close', function () { finish(found); });
     child.stderr.on('data', function (chunk) {
       if (finished) return;
       output = (output + String(chunk)).slice(-65536);
-      var match = /Duration:\s*(\d+:\d{2}:\d{2}(?:[.,]\d+)?)/i.exec(output);
-      var duration = match && seconds(match[1]);
-      if (duration) finish(duration);
+      if (!found) {
+        var match = /Duration:\s*(\d+:\d{2}:\d{2}(?:[.,]\d+)?)/i.exec(output);
+        found = (match && seconds(match[1])) || 0;
+        // The stream list (audio languages) comes right after the Duration
+        // line; FFmpeg then exits on its own. Wait a moment for it.
+        if (found) grace = setTimeout(function () { finish(found); }, 1500);
+      }
+      if (found && /At least one output file|Output #0/.test(output)) finish(found);
     });
   };
   queue.push(entry);
@@ -166,4 +235,4 @@ function close() {
   Object.keys(old).forEach(function (id) { if (old[id].cancel) old[id].cancel(); });
 }
 
-module.exports = { register: register, get: get, seconds: seconds, close: close };
+module.exports = { register: register, get: get, seconds: seconds, close: close, audioTracks: audioTracks, subtitleTracks: subtitleTracks };

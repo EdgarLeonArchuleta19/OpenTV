@@ -1,5 +1,5 @@
 /*
- * Network diagnostics for the XuperTV webOS port.
+ * Network diagnostics for the OpenTV service.
  *
  * WHY
  * ---

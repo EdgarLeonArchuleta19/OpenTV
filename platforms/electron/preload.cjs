@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('desktop', {
   info: () => ipcRenderer.invoke('desktop:info'),
   // Shows opentv.log (page errors and crashes) in the file explorer.
   openLogs: () => ipcRenderer.invoke('desktop:open-logs'),
+  // Downloads (Modo Addons): opens Videos\OpenTV in the file explorer.
+  openDownloads: () => ipcRenderer.invoke('desktop:open-downloads'),
   // Stremio mode: opens an addon's https ".../configure" page in the browser.
   openAddonConfig: (url) => ipcRenderer.invoke('desktop:open-addon-config', url),
   // TMDB trending lists ('movie-week', 'tv-week', …); the key stays in main.
@@ -17,6 +19,8 @@ contextBridge.exposeInMainWorld('desktop', {
   backup: { read: () => ipcRenderer.invoke('desktop:backup', 'read'), write: (data) => ipcRenderer.invoke('desktop:backup', 'write', data) },
   // Height of the window's own title bar strip (the page draws it).
   titleBar: { height: 36 },
+  // Images at their display size: opentv-img://local/i?w=<px>&u=<url> (sized-images.cjs).
+  imageSizer: 'opentv-img://local/i',
   // Windows master volume: ('get') | ('set', 0..1) | ('mute', bool) -> { volume, muted } | { error }
   systemVolume: (command, value) => ipcRenderer.invoke('desktop:system-volume', command, value),
   // Automatic updates: status() / check() / install(), and live status events.

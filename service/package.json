@@ -1,5 +1,5 @@
 {
-  "name": "com.webosflux.xuptertv.fidelity.service",
+  "name": "com.techpoint.opentv.service",
   "version": "1.0.0",
   "description": "OpenTV portal catalog and playback resolver",
   "main": "index.js",

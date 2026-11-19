@@ -32,7 +32,6 @@ if (!process.env.GH_TOKEN) {
   fail('Falta GH_TOKEN. Crea un token en GitHub (Settings → Developer settings → Tokens) y en PowerShell:\n  $env:GH_TOKEN = "ghp_..."');
 }
 console.log('Publicando OpenTV ' + pkg.version + ' en github.com/' + publish.owner + '/' + publish.repo);
-if (!run('npm', ['run', 'snapshot'], true)) console.warn('(No se pudo actualizar el catálogo; se usa la copia anterior.)');
 run('npm', ['run', 'build']);
 run('npm', ['test']);
 run('npx', ['electron-builder', '--win', 'nsis', 'portable', '--publish', 'always']);

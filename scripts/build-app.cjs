@@ -8,8 +8,8 @@
  *
  * The modules are joined in the order of ui/js/src/modules.json inside one
  * function scope, exactly as the app ran before it was split, so they share
- * state without imports. The result stays plain ES5 in a single file: the LG
- * webOS TV build (Chromium 53) loads it as-is, with no bundler or transpiler.
+ * state without imports. The result stays plain ES5 in a single file: older
+ * TV WebViews load it as-is, with no bundler or transpiler.
  */
 const fs = require('fs');
 const path = require('path');
@@ -23,7 +23,7 @@ const indent = (text) => text.split('\n').map((l) => (l.trim() ? '  ' + l : ''))
 
 const parts = [
   '/* =============================================================================',
-  '   OpenTV — interfaz (TV LG webOS y escritorio Windows)',
+  '   OpenTV — interfaz (Windows, Android, Android TV y Fire TV)',
   '   ARCHIVO GENERADO por scripts/build-app.cjs: no lo edites a mano.',
   '   El código fuente está en ui/js/src/ (orden en ui/js/src/modules.json).',
   '   ============================================================================= */',

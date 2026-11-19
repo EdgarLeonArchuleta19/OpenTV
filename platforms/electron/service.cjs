@@ -51,6 +51,9 @@ function createService() {
       /* Only loaded when a torrent was played: stop it and delete its cache. */
       const torrentsPath = require.resolve('../../service/torrents.js');
       if (require.cache[torrentsPath]) require(torrentsPath).close();
+      /* Downloads in progress are paused and resume from where they were. */
+      const downloadsPath = require.resolve('../../service/downloads.js');
+      if (require.cache[downloadsPath]) require(downloadsPath).close();
     }
   };
 }

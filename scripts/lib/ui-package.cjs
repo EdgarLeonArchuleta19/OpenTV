@@ -1,12 +1,12 @@
 'use strict';
 /*
- * Shared by the TV/phone package builds (build-android.cjs, build-webos.cjs):
+ * Used by the Android package build (build-android.cjs):
  *
  *   copyUi(dest)       copies ui/ without what only development uses (module
  *                      sources, the Tailwind input, backups)
  *   copyTree(...)      the plain recursive copy behind it
  *   minifyUi(dir)      shrinks the copied interface in place:
- *                        .js  → terser, ES5 output (the LG TV runs Chromium 53),
+ *                        .js  → terser, ES5 output (old TV WebViews),
  *                               function names kept; *.min.js left as is
  *                        .css → comments and spacing removed only (no rule is
  *                               merged or reordered, so the cascade is the same)

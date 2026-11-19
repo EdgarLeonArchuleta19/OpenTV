@@ -146,7 +146,21 @@ function addSubtitle(target) {
   return baseUrl() + '/sub/' + token + '.srt';
 }
 
-function sendSubtitle(req, res, entry) {
+/* Subtitle bytes → UTF-8 text: gzip is opened, a BOM dropped, and files saved
+   in Windows-1252 / Latin-1 (most Spanish SRTs) converted, so accents show. */
+function subtitleText(body, encoding) {
+  if (/gzip/i.test(encoding || '') || (body[0] === 0x1f && body[1] === 0x8b)) {
+    try { body = require('zlib').gunzipSync(body); } catch (eGz) { /* not gzip after all */ }
+  }
+  var text = body.toString('utf8');
+  if (text.indexOf('�') !== -1) {
+    try { text = new TextDecoder('windows-1252').decode(body); } catch (eDec) { text = body.toString('latin1'); }
+  }
+  return text.replace(/^﻿/, '');
+}
+
+function sendSubtitle(req, res, entry, redirects) {
+  redirects = redirects || 0;
   resolveHostIp(entry, function (ip) {
     var parsed = urlmod.parse(entry.url || '');
     var secure = parsed.protocol === 'https:';
@@ -172,12 +186,22 @@ function sendSubtitle(req, res, entry) {
     };
     var failed = false;
     var upstream = (secure ? https : http).request(options, function (up) {
+      /* OpenSubtitles' links redirect to the real file: follow them (a 302
+         answered as an error was the "subtitles fail sometimes"). */
+      if (up.statusCode >= 300 && up.statusCode < 400 && up.headers.location && redirects < 5) {
+        up.resume();
+        failed = true;
+        return sendSubtitle(req, res, { url: urlmod.resolve(entry.url, up.headers.location), at: entry.at }, redirects + 1);
+      }
       var parts = [];
       up.on('data', function (chunk) { parts.push(chunk); });
       up.on('end', function () {
         if (failed) { return; }
-        var body = Buffer.concat(parts);
         var ok = up.statusCode >= 200 && up.statusCode < 300;
+        var raw = Buffer.concat(parts);
+        var text = ok ? subtitleText(raw, up.headers['content-encoding']) : '';
+        /* The TV's old Node has no Buffer.from. */
+        var body = !ok ? raw : (typeof Buffer.from === 'function' ? Buffer.from(text, 'utf8') : new Buffer(text, 'utf8'));
         res.writeHead(ok ? 200 : 502, {
           'Content-Type': 'text/plain; charset=utf-8',
           'Content-Length': body.length,

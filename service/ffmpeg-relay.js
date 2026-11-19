@@ -13,7 +13,7 @@ var dnsx = require('./dnsx');
 /* Services run in a restricted namespace where /media/developer may not be
  * visible even though it is visible through SSH. Keep the executable next to
  * this service so the spawned process sees the same filesystem. */
-var FFMPEG = process.env.XUPER_FFMPEG_PATH || (__dirname + '/ffmpeg');
+var FFMPEG = process.env.OPENTV_FFMPEG_PATH || (__dirname + '/ffmpeg');
 var HOST = '127.0.0.1';   // solo local: no es un relay abierto
 var PORT = 8787;
 
@@ -59,7 +59,7 @@ function splitHeaders(h) {
 }
 
 // Registra una sesion y devuelve la URL local para el <video>.
-// stream: { url, headers } tal como lo devuelve magis.resolve
+// stream: { url, headers } of the file to play (addon source, torrent on loopback)
 function register(stream, opts) {
   opts = opts || {};
   var token = crypto.randomBytes(8).toString('hex');
@@ -104,6 +104,13 @@ function inputArgs(s) {
  * nowhere: use the next keyframe instead (that probe reads one whole GOP,
  * so it only runs in that case).
  */
+/* A torrent served on loopback has to download the pieces at the new
+   position before the probe can read one packet: give it time, or the probe
+   gives up and the relay falls back to an unaligned start. */
+function probeDeadline(input) {
+  return /^http:\/\/127\.0\.0\.1:\d+\/t\//.test(input.url || '') ? 45000 : 8000;
+}
+
 function keyframeTimes(input, start, count, done) {
   var finished = false;
   var probe = null;
@@ -122,7 +129,7 @@ function keyframeTimes(input, start, count, done) {
   args.push('-frames:v', String(count), '-f', 'framecrc', 'pipe:1');
   try { probe = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }); }
   catch (eSpawn) { return done([]); }
-  timer = setTimeout(function () { finish([]); }, 8000);
+  timer = setTimeout(function () { finish([]); }, probeDeadline(input));
   var out = '';
   probe.on('error', function () { finish([]); });
   probe.stdout.on('data', function (d) { out += String(d); });
@@ -151,13 +158,27 @@ function probeKeyframe(input, start, from, done) {
   });
 }
 
-function buildArgs(s, start, audio) {
+/* -ss for a copied video must land just after the keyframe's timestamp: a
+   keyframe followed by B-frames is presented ~0.1-0.3 s after where the
+   probe sees it, and an -ss even slightly before that makes the demuxer go
+   back a whole keyframe interval (to second 0 in a test file). */
+var KEYFRAME_MARGIN = 0.5;
+
+function buildArgs(s, start, audio, seekAt) {
   var args = inputArgs(s);
   // Files from addons and torrents (MKV/AVI/TS with cuts) often lack or
   // repeat timestamps: regenerate the missing ones so audio and video keep
   // the same clock.
   args.push('-fflags', '+genpts');
-  if (start > 0) args.push('-ss', String(start));
+  if (start > 0) {
+    // A copied video can only start on a keyframe. With the default accurate
+    // seek FFmpeg still cut the converted audio at -ss, so after a jump the
+    // audio played up to a whole keyframe interval ahead of the picture
+    // (measured: picture from second 0, sound from second 7). Without it,
+    // both tracks start at the same keyframe and keep their timestamps.
+    if (s.videoCopy) args.push('-noaccurate_seek');
+    args.push('-ss', String(seekAt > 0 ? seekAt : start));
+  }
   args.push(
     '-i', s.url,
     '-map', '0:v:0', '-map', '0:a:' + audio + '?'
@@ -181,11 +202,62 @@ function buildArgs(s, start, audio) {
     '-bsf:a', 'aac_adtstoasc'
   );
   if (s.hevc && !s.videoCopy) args.push('-tag:v', 'avc1');
+  // A copied video starts on the keyframe before -ss (negative time) while
+  // the converted audio starts exactly at -ss (time 0). Chromium ignores the
+  // MP4 edit list that would line them up, so the audio played ahead of the
+  // picture after a jump whenever the keyframe probe failed (torrents still
+  // downloading). Shifting every track by the same amount keeps them in sync.
+  args.push('-avoid_negative_ts', 'make_zero');
   args.push(
     '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
     '-f', 'mp4', 'pipe:1'
   );
   return args;
+}
+
+/* Adds a second output to `args`: the first video packet and the audio before
+ * it, as framecrc lines, in a temp file. The earliest of them is where the
+ * main output's time 0 is in the source (make_zero shifts to it). Once read,
+ * s.starts[key] holds it for ?where=. Returns the temp file path. */
+function measureStart(args, audio, seekAt, key, s) {
+  var file = require('path').join(require('os').tmpdir(), 'opentv-relay-' + crypto.randomBytes(6).toString('hex') + '.crc');
+  args.push('-map', '0:v:0', '-map', '0:a:' + audio + '?', '-c', 'copy', '-frames:v', '1', '-f', 'framecrc', '-y', file);
+  s.measuring = s.measuring || {};
+  s.measuring[key] = true;
+  var tries = 0;
+  var timer = setInterval(function () {
+    var text = '';
+    try { text = fs.readFileSync(file, 'utf8'); } catch (eRead) { text = ''; }
+    var first = firstPacketTime(text);
+    if (first !== null || ++tries > 150) {
+      clearInterval(timer);
+      delete s.measuring[key];
+      if (first !== null) {
+        var real = Math.max(0, Math.round((seekAt + first) * 1000) / 1000);
+        s.starts = s.starts || {};
+        if (Math.abs(real - s.starts[key]) > 0.3) { log('el salto empezó en ' + real + 's (sonda: ' + s.starts[key] + 's)'); }
+        s.starts[key] = real;
+      }
+      try { fs.unlinkSync(file); } catch (eRm) { /* not there */ }
+    }
+  }, 200);
+  return file;
+}
+
+/* framecrc text → seconds of the earliest packet (relative to -ss), or null
+ * while the video packet has not been written yet. */
+function firstPacketTime(text) {
+  var tb = {};
+  var re = /^#tb (\d+): (\d+)\/(\d+)/mg, m;
+  while ((m = re.exec(text))) { tb[m[1]] = Number(m[2]) / Number(m[3]); }
+  var line = /^(\d+),\s*(-?\d+),\s*(-?\d+),/mg, min = null, sawVideo = false;
+  while ((m = line.exec(text))) {
+    if (!tb[m[1]]) { continue; }
+    if (m[1] === '0') { sawVideo = true; }
+    var t = Number(m[2]) * tb[m[1]];
+    if (min === null || t < min) { min = t; }
+  }
+  return sawVideo ? min : null;
 }
 
 /*
@@ -295,9 +367,33 @@ var server = http.createServer(function (req, res) {
   // player lines up its clock and the subtitles with it).
   if (u.query.where != null) {
     var asked = Math.max(0, Number(u.query.where) || 0);
-    var real = s.starts && s.starts[String(asked)];
+    var waited = 0;
+    // The measured start is usually ready before the player asks; if not,
+    // wait for it a little (the player gives this request 4 s).
+    var answer = function () {
+      if (s.measuring && s.measuring[String(asked)] && waited < 3000) { waited += 100; return setTimeout(answer, 100); }
+      var real = s.starts && s.starts[String(asked)];
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ start: real != null ? real : asked }));
+    };
+    return answer();
+  }
+
+  // Subtitles inside the file: ?setsub=<n> picks the text subtitle track the
+  // next runs also write (-1 = none); ?vtt=1 answers what was written so far.
+  // They come out while the video is read, so a torrent never has to be
+  // downloaded whole to get them.
+  if (u.query.setsub != null) {
+    var n = parseInt(u.query.setsub, 10);
+    s.subIndex = n >= 0 && n < 100 ? n : -1;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({ sub: s.subIndex }));
+  }
+  if (u.query.vtt != null) {
+    var text = '';
+    if (s.vttFile) { try { text = fs.readFileSync(s.vttFile, 'utf8'); } catch (eVtt) { text = ''; } }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*' });
-    return res.end(JSON.stringify({ start: real != null ? real : asked }));
+    return res.end(JSON.stringify({ sub: s.subIndex >= 0 ? s.subIndex : -1, base: s.vttBase || 0, text: text }));
   }
 
   var start = Math.max(0, Number(u.query.start) || 0);
@@ -319,7 +415,24 @@ var server = http.createServer(function (req, res) {
     s.starts = s.starts || {};
     s.starts[String(start)] = realStart;
     if (realStart !== start) { log('inicio en el keyframe ' + realStart + 's (pedido ' + start + 's)'); }
-    var ff = spawn(FFMPEG, buildArgs(input, realStart, audio), { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    // On a keyframe found by the probe: ask a little past it so the demuxer
+    // lands on that keyframe and not on the one before.
+    var seekAt = (s.videoCopy && realStart > 0 && realStart !== start) ? realStart + KEYFRAME_MARGIN : realStart;
+    var args = buildArgs(input, realStart, audio, seekAt);
+    // A copied video starts on a keyframe, wherever the probe said: measure
+    // where this stream really begins (first packets of a tiny second output)
+    // so the player's clock and the subtitles line up even when the probe
+    // gave up (torrent pieces still downloading).
+    var crcFile = (s.videoCopy && start > 0) ? measureStart(args, audio, seekAt, String(start), s) : '';
+    // The chosen subtitle track of the file, as WebVTT written while playing.
+    // Its times count from -ss (seekAt): the page adds vttBase.
+    if (s.vttFile) { try { fs.unlinkSync(s.vttFile); } catch (eOld) { /* gone */ } s.vttFile = ''; }
+    if (s.subIndex >= 0) {
+      s.vttFile = require('path').join(require('os').tmpdir(), 'opentv-subs-' + crypto.randomBytes(6).toString('hex') + '.vtt');
+      s.vttBase = start > 0 ? seekAt : 0;
+      args.push('-map', '0:s:' + s.subIndex, '-c:s', 'webvtt', '-flush_packets', '1', '-f', 'webvtt', '-y', s.vttFile);
+    }
+    var ff = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     current = { ff: ff };
     var started = false;
 
@@ -353,6 +466,7 @@ var server = http.createServer(function (req, res) {
   });
 
   ff.on('close', function (code) {
+    if (crcFile) { try { fs.unlinkSync(crcFile); } catch (eRm) { /* read and removed already */ } }
     if (current && current.ff === ff) current = null;
     if (!started) {
       res.writeHead(502, { 'Access-Control-Allow-Origin': '*' });

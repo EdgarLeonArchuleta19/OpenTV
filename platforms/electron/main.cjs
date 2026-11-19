@@ -5,8 +5,17 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const fs = require('node:fs');
 
-protocol.registerSchemesAsPrivileged([{ scheme: 'xuper', privileges: {
+/* The page's own origin is opentv://app. Versions before the rename used
+   LEGACY_SCHEME://app, and the browser keeps localStorage per origin: the
+   legacy scheme is still registered (same privileges) only so
+   migrateLegacyOrigin() can read that data once. Do not remove. */
+const LEGACY_SCHEME = 'xuper';
+protocol.registerSchemesAsPrivileged([{ scheme: 'opentv', privileges: {
   standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true
+} }, { scheme: LEGACY_SCHEME, privileges: {
+  standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true
+} }, { scheme: 'opentv-img', privileges: {
+  standard: true, secure: true, supportFetchAPI: true, corsEnabled: true
 } }]);
 
 const info = require('../../package.json');
@@ -16,6 +25,7 @@ const updates = require('./updater.cjs');
 const logger = require('./logger.cjs');
 const tmdb = require('../../service/tmdb.js');
 const backup = require('./backup.cjs');
+const sizedImages = require('./sized-images.cjs');
 let windowRef;
 let shortcutFor = () => null;
 let service;
@@ -87,16 +97,56 @@ else {
   });
 }
 
+/* Copies the localStorage of the legacy origin (favourites, history,
+   profiles, lists, preferences) into opentv://app, once, before the app's
+   page loads. Keys already present under the new origin are kept. The
+   page then renames the old key prefix itself (ui/js/migrate-storage.js). */
+const BLANK_PAGE = '/__blank__';
+async function migrateLegacyOrigin() {
+  const marker = path.join(app.getPath('userData'), 'origin-opentv.done');
+  if (fs.existsSync(marker)) return;
+  const blank = () => new Response('<!doctype html><title></title>', { headers: { 'content-type': 'text/html' } });
+  const hidden = () => new BrowserWindow({ show: false, webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false } });
+  let reader = null;
+  let writer = null;
+  try {
+    protocol.handle(LEGACY_SCHEME, blank);
+    reader = hidden();
+    await reader.loadURL(LEGACY_SCHEME + '://app' + BLANK_PAGE);
+    const json = await reader.webContents.executeJavaScript(
+      '(function(){var o={};for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);o[k]=localStorage.getItem(k);}return JSON.stringify(o);})()', true);
+    const values = JSON.parse(json || '{}');
+    const count = Object.keys(values).length;
+    if (count) {
+      writer = hidden();
+      await writer.loadURL('opentv://app' + BLANK_PAGE);
+      await writer.webContents.executeJavaScript('(function(v){for(var k in v){if(localStorage.getItem(k)===null){localStorage.setItem(k,v[k]);}}return true;})(' +
+        JSON.stringify(values) + ')', true);
+    }
+    fs.writeFileSync(marker, new Date().toISOString() + ' ' + count + ' keys\n');
+    console.log('[storage] datos de la versión anterior: ' + count + ' claves copiadas');
+  } catch (error) {
+    /* No marker: tried again on the next start. The app still opens. */
+    console.error('[storage] no se pudieron copiar los datos de la versión anterior:', error && error.message);
+  } finally {
+    try { reader?.destroy(); } catch { /* closing */ }
+    try { writer?.destroy(); } catch { /* closing */ }
+    try { protocol.unhandle(LEGACY_SCHEME); } catch { /* not handled */ }
+  }
+}
+
 async function start() {
-  process.env.XUPER_FFMPEG_PATH = process.platform === 'win32'
+  process.env.OPENTV_FFMPEG_PATH = process.platform === 'win32'
     ? path.join(app.getAppPath(), 'bin', 'ffmpeg.exe')
-    : (process.env.XUPER_FFMPEG_PATH || '/usr/bin/ffmpeg');
-  process.env.XUPER_DESKTOP_TRANSCODE = '1';
+    : (process.env.OPENTV_FFMPEG_PATH || '/usr/bin/ffmpeg');
+  process.env.OPENTV_DESKTOP_TRANSCODE = '1';
 
   const root = path.resolve(app.getAppPath(), 'ui');
-  protocol.handle('xuper', (request) => {
+  protocol.handle('opentv', (request) => {
     const url = new URL(request.url);
     if (url.hostname !== 'app') return new Response('Not found', { status: 404 });
+    /* Empty page on this origin (migrateLegacyOrigin writes storage there). */
+    if (url.pathname === BLANK_PAGE) return new Response('<!doctype html><title></title>', { headers: { 'content-type': 'text/html' } });
     let file;
     try { file = path.resolve(root, '.' + decodeURIComponent(url.pathname || '/index.html')); }
     catch { return new Response('Bad path', { status: 400 }); }
@@ -115,11 +165,14 @@ async function start() {
     });
   });
 
+  sizedImages.install(protocol, net, path.join(app.getPath('userData'), 'sized-images'));
+  await migrateLegacyOrigin();
+
   // Dark native title bar and dialogs on Windows 10/11, matching the app.
   nativeTheme.themeSource = 'dark';
   service = createService();
   const trusted = (event) => event.sender === windowRef?.webContents &&
-    event.senderFrame?.url?.startsWith('xuper://app/');
+    event.senderFrame?.url?.startsWith('opentv://app/');
 
   ipcMain.handle('desktop:service', (event, method, parameters) => {
     if (!trusted(event) || typeof method !== 'string' || !service.methods.includes(method)) {
@@ -164,6 +217,14 @@ async function start() {
     try { parsed = new URL(url); } catch { return false; }
     if (parsed.protocol !== 'https:' || !/\/configure\/?$/.test(parsed.pathname)) return false;
     shell.openExternal(parsed.href);
+    return true;
+  });
+  /* Downloads: opens Videos\OpenTV (fixed path, nothing from the page). */
+  ipcMain.handle('desktop:open-downloads', (event) => {
+    if (!trusted(event)) return false;
+    const dir = require('../../service/downloads.js').DIR;
+    fs.mkdirSync(dir, { recursive: true });
+    shell.openPath(dir);
     return true;
   });
   ipcMain.handle('desktop:open-logs', (event) => {
@@ -212,7 +273,7 @@ async function start() {
   windowRef.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   logger.attach(app, windowRef.webContents);
   windowRef.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith('xuper://app/')) event.preventDefault();
+    if (!url.startsWith('opentv://app/')) event.preventDefault();
   });
   windowRef.on('enter-full-screen', () => {
     fullscreenRequested = true;
@@ -267,7 +328,7 @@ async function start() {
     'F11': () => toggleFullscreen(),
     'F1': () => action('help'),
     // The floating window needs a user gesture; run it as one.
-    'Ctrl+P': () => windowRef?.webContents.executeJavaScript('window.__xuper && window.__xuper.show("pip")', true).catch(() => {}),
+    'Ctrl+P': () => windowRef?.webContents.executeJavaScript('window.__opentv && window.__opentv.show("pip")', true).catch(() => {}),
     'Alt+ArrowLeft': () => action('back'),
     'Ctrl+R': () => windowRef?.reload(),
     'F5': () => windowRef?.reload()
@@ -282,7 +343,7 @@ async function start() {
   Menu.setApplicationMenu(null);
 
   try {
-    await windowRef.loadURL('xuper://app/index.html?screen=home');
+    await windowRef.loadURL('opentv://app/index.html?screen=home');
   } catch (error) {
     // A user reload can replace the first navigation before its load completes.
     if (error.code !== 'ERR_ABORTED' && error.errno !== -3) throw error;
