@@ -18,15 +18,23 @@ final class M3u {
 
     private static final Pattern TVG_LOGO = Pattern.compile("tvg-logo=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
     private static final Pattern GROUP_TITLE = Pattern.compile("group-title=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TVG_ID = Pattern.compile("tvg-id=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
+    /* The list's programme guide: #EXTM3U url-tvg="…" (or x-tvg-url; the first link). */
+    private static final Pattern EPG_URL = Pattern.compile("(?:url-tvg|x-tvg-url)=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
     private static final Pattern HTTP_URL = Pattern.compile("^https?://", Pattern.CASE_INSENSITIVE);
 
     static JSONArray parseM3u(String content) {
         String[] lines = (content == null ? "" : content).split("\\r?\\n", -1);
         JSONArray channels = new JSONArray();
         JSONObject cur = null;
+        String epg = "";
         for (String raw : lines) {
             String line = Js.trim(raw);
-            if (line.startsWith("#EXTINF:")) {
+            if (line.startsWith("#EXTM3U")) {
+                Matcher em = EPG_URL.matcher(line);
+                String first = em.find() ? Js.trim(em.group(1).split(",")[0]) : "";
+                epg = first.matches("(?i)^https?://.*") ? first : "";
+            } else if (line.startsWith("#EXTINF:")) {
                 int comma = line.indexOf(',');
                 String meta = comma > 0 ? line.substring(Math.min(8, comma), comma) : line.substring(8);
                 String title = comma > 0 ? Js.trim(line.substring(comma + 1)) : "Canal";
@@ -34,6 +42,10 @@ final class M3u {
                 Matcher group = GROUP_TITLE.matcher(meta);
                 cur = Js.o("name", title, "logo", logo.find() ? logo.group(1) : "", "group", group.find() ? group.group(1) : "Addon",
                     "isAddon", true, "now", "En vivo", "fav", false);
+                // For the programme guide (Epg.java).
+                Matcher id = TVG_ID.matcher(meta);
+                if (id.find()) Js.put(cur, "tvgId", id.group(1));
+                if (!epg.isEmpty()) Js.put(cur, "epg", epg);
             } else if (!line.isEmpty() && !line.startsWith("#") && cur != null) {
                 Js.put(cur, "url", line);
                 Js.put(cur, "streamUrl", line);

@@ -42,6 +42,7 @@ function syncLiveUnder() {
   var ch = CHANNELS[state.channel];
   var logo = liveUnder._logo, name = liveUnder._name, meta = liveUnder._meta;
   clear(logo);
+  if (liveUnder._prog) { liveUnder._prog.textContent = ch ? liveProgrammeLine(ch) : ''; }
   if (!ch) {
     name.textContent = '';
     meta.textContent = '';
@@ -133,8 +134,11 @@ function buildLivePage(page) {
     var text = el('div', 'live-under-text');
     liveUnder._name = el('div', 'live-under-name');
     liveUnder._meta = el('div', 'live-under-meta');
+    /* "Ahora: … · 22:00 – 23:00 · Después: …" (live/epg.js). */
+    liveUnder._prog = el('div', 'live-under-prog');
     text.appendChild(liveUnder._name);
     text.appendChild(liveUnder._meta);
+    text.appendChild(liveUnder._prog);
     liveUnder.appendChild(liveUnder._logo);
     liveUnder.appendChild(text);
   }

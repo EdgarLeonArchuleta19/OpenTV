@@ -9,18 +9,30 @@ var http = require('http');
 var url = require('url');
 var dnsx = require('./dnsx');
 
+/* The list's programme guide (XMLTV) from its header:
+   #EXTM3U url-tvg="…" (or x-tvg-url; several links: the first one). */
+function m3uEpgUrl(line) {
+  var m = /(?:url-tvg|x-tvg-url)="([^"]+)"/i.exec(line || '');
+  var first = m ? m[1].split(',')[0].trim() : '';
+  return /^https?:\/\//i.test(first) ? first : '';
+}
+
 function parseM3u(content) {
   var lines = (content || '').split(/\r?\n/);
   var channels = [];
   var cur = null;
+  var epg = '';
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim();
-    if (line.indexOf('#EXTINF:') === 0) {
+    if (line.indexOf('#EXTM3U') === 0) {
+      epg = m3uEpgUrl(line);
+    } else if (line.indexOf('#EXTINF:') === 0) {
       var commaIdx = line.indexOf(',');
       var meta = line.slice(8, commaIdx > 0 ? commaIdx : undefined);
       var title = commaIdx > 0 ? line.slice(commaIdx + 1).trim() : 'Canal';
       var logoMatch = /tvg-logo="([^"]+)"/i.exec(meta);
       var groupMatch = /group-title="([^"]+)"/i.exec(meta);
+      var idMatch = /tvg-id="([^"]+)"/i.exec(meta);
       cur = {
         name: title,
         logo: logoMatch ? logoMatch[1] : '',
@@ -29,6 +41,9 @@ function parseM3u(content) {
         now: 'En vivo',
         fav: false
       };
+      /* For the programme guide (service/epg.js). */
+      if (idMatch) { cur.tvgId = idMatch[1]; }
+      if (epg) { cur.epg = epg; }
     } else if (line && line.indexOf('#') !== 0 && cur) {
       cur.url = line;
       cur.streamUrl = line;
@@ -96,4 +111,4 @@ function fetchM3u(urlStr, callback, redirects) {
   });
 }
 
-module.exports = { parseM3u: parseM3u, fetchM3u: fetchM3u };
+module.exports = { parseM3u: parseM3u, fetchM3u: fetchM3u, m3uEpgUrl: m3uEpgUrl };

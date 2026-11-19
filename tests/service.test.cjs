@@ -69,3 +69,34 @@ test('the OpenSubtitles hash matches the reference algorithm', () => {
   const ref = (sum & 0xffffffffffffffffn).toString(16).padStart(16, '0');
   assert.equal(vh.compute(head, tail, size), ref);
 });
+
+test('torrents: tracker lists are read safely and race candidates are unique, valid and capped', () => {
+  const t = require('../service/torrents.js');
+  assert.deepEqual(t._parseTrackers('udp://a.org:1/announce\n\nnot a tracker\nhttp://b.org/announce\r\nudp://a.org:1/announce\nfile:///etc/passwd'),
+    ['udp://a.org:1/announce', 'http://b.org/announce']);
+  const h = (c) => c.repeat(40);
+  const c = t._candidatesFrom({ infoHash: h('a'), alternatives: [{ infoHash: h('a') }, { infoHash: 'xyz' }, { infoHash: h('b') }, { infoHash: h('c') }, { infoHash: h('d') }, { infoHash: h('e') }] });
+  assert.deepEqual(c.map((x) => x.hash[0]), ['a', 'b', 'c', 'd']);
+});
+
+test('epg: XMLTV times, the guide link of a list and what is on now and next', () => {
+  const epg = require('../service/epg.js');
+  const m3u = require('../service/m3u.js');
+  assert.equal(epg._xmltvTime('20261119050428 +0000'), Date.UTC(2026, 10, 19, 5, 4, 28));
+  assert.equal(epg._xmltvTime('20261119050000 -0600'), Date.UTC(2026, 10, 19, 11, 0, 0));
+  assert.equal(epg._unescapeXml('Tom &amp; Jerry &#233;  <![CDATA[x]]>'), 'Tom & Jerry é x');
+  const list = m3u.parseM3u('#EXTM3U url-tvg="https://g.example/mx.xml.gz,https://other/x.xml"\n#EXTINF:-1 tvg-id="c1" group-title="Cine",Canal 1\nhttp://s/1.m3u8\n');
+  assert.equal(list[0].epg, 'https://g.example/mx.xml.gz');
+  assert.equal(list[0].tvgId, 'c1');
+  const t = (ms) => { const d = new Date(ms); const p = (n) => String(n).padStart(2, '0'); return d.getUTCFullYear() + p(d.getUTCMonth() + 1) + p(d.getUTCDate()) + p(d.getUTCHours()) + p(d.getUTCMinutes()) + '00 +0000'; };
+  const now = Date.now();
+  const byId = {};
+  const r = epg._makeReader(byId);
+  const xml = '<tv><programme channel="c1" start="' + t(now - 3600e3) + '" stop="' + t(now - 1800e3) + '"><title>Ya pasó</title></programme>' +
+    '<programme channel="c1" start="' + t(now - 600e3) + '" stop="' + t(now + 1800e3) + '"><title lang="es">Ahora &amp; aquí</title><desc>Algo</desc></programme>' +
+    '<programme channel="c1" start="' + t(now + 1800e3) + '" stop="' + t(now + 3600e3) + '"><title>Después</title></programme></tv>';
+  /* Split in odd places: blocks across pieces still parse. */
+  r.write(xml.slice(0, 77)); r.write(xml.slice(77, 300)); r.write(xml.slice(300)); r.end();
+  assert.deepEqual(byId.c1.map((p) => p.t), ['Ahora & aquí', 'Después']);
+  assert.equal(byId.c1[0].d, 'Algo');
+});

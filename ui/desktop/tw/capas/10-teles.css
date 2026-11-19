@@ -506,6 +506,8 @@
 /* Debajo del vídeo: solo el nombre del canal, grande. */
 .desktop.is-tv #screen-home .live-bar3a .live-under-meta { display: none !important; }
 .desktop.is-tv #screen-home .live-bar3a .live-under-name { font-size: 32px; }
+.desktop.is-tv #screen-home .live-bar3a .live-under-prog { font-size: 24px; }
+.desktop.is-tv .lg-prog { font-size: 21px; line-height: 26px; }
 /* Botones bajo el vídeo: el enfocado se pone blanco (la regla de la tele
    de arriba perdía contra la del diseño 3A, que lleva un id). */
 .desktop.is-tv #screen-home .live-bar3a .live-dock-btn.is-focused {

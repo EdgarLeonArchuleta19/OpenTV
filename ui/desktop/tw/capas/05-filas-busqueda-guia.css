@@ -234,6 +234,11 @@
 .desktop .lg-live { display: inline-flex; align-items: center; gap: 8px; font-size: 19px; color: rgba(255, 255, 255, .55); }
 .desktop .lg-live::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #ff4d4f; box-shadow: 0 0 0 3px rgba(255, 77, 79, .18); }
 .desktop .lg-card.is-current .lg-live { color: #fff; }
+/* What is on now (from the list's guide, live/epg.js). */
+.desktop .lg-prog {
+  margin-top: 4px; font-size: 18px; line-height: 23px; color: rgba(255, 255, 255, .78);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .desktop .lg-badge { padding: 2px 8px; border-radius: 6px; background: rgba(255, 255, 255, .14); font-size: 16px; font-weight: 700; color: #fff; }
 .desktop .lg-fav,
 .desktop .lg-open {

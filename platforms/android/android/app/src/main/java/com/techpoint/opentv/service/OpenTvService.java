@@ -225,6 +225,7 @@ public final class OpenTvService {
                     if (!Js.truthy(p.opt("url"))) throw new PortalException("url requerida");
                     return ok(Js.o("channels", M3u.fetchM3u(Js.text(p.opt("url")))));
                 }
+                case "epg": return ok(Js.o("programmes", Epg.get(Js.text(p.opt("url")), p.opt("ids"))));
                 case "resolveLive": {
                     if (!Js.truthy(p.opt("streamUrl"))) throw new PortalException("El canal no tiene enlace");
                     return ok(Js.o("url", p.opt("streamUrl"), "proxyPath", p.opt("streamUrl"), "isHls", true));

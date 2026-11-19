@@ -81,7 +81,8 @@ function boot() {
     vod: VOD,
     channels: CHANNELS,
     /* TV en vivo (tests): reload the M3U lists or show a given channel list. */
-    live: { reload: reloadLiveLists, use: useLiveChannels, categories: function () { return liveCategories; } },
+    live: { reload: reloadLiveLists, use: useLiveChannels, categories: function () { return liveCategories; },
+      channels: function () { return liveAllChannels; } },
     api: vodApiState,
     service: portalServiceCall,
     reloadVod: loadVodCatalog,

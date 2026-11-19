@@ -153,6 +153,34 @@ app.whenReady().then(async () => {
       return { ok: rows === 2 && cards >= 2 && cats === 'Todos,Deportes,Noticias' && catBtns === 5,
         detail: 'rows=' + rows + ' cards=' + cards + ' cats=' + cats + ' buttons=' + catBtns };
     })()`, 300);
+  /* Programme guide: a real FAST list (its header names an XMLTV guide)
+     through the real service. Without internet it is reported, not failed. */
+  await check('TV en vivo shows what is on now from the list guide', `(function(){
+      var X = window.__opentv;
+      var LIST = 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_mx.m3u';
+      return new Promise(function (done) {
+        X.service('fetchM3u', { url: LIST }, function (err, payload) {
+          var chs = payload && payload.channels ? payload.channels.slice(0, 40) : [];
+          if (err || !chs.length) { return done({ ok: true, detail: 'sin red: ' + (err || 'lista vacía') }); }
+          X.live.use(chs);
+          var tries = 0;
+          (function wait() {
+            var withProg = X.live.channels().filter(function (c) { return c.now && c.now !== 'En vivo'; });
+            if (!withProg.length && ++tries < 60) { return setTimeout(wait, 500); }
+            document.querySelector('.live-dock-btn.is-guide').click();
+            var progs = document.querySelectorAll('.live-guide .lg-card .lg-prog').length;
+            var under = (document.querySelector('.live-under-prog') || {}).textContent || '';
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            var c0 = withProg[0];
+            /* (The channel under the video may be one kept playing from before, without a guide.) */
+            var sel = X.channels[X.state.channel];
+            var underOk = !(sel && sel.now && sel.now !== 'En vivo') || /Ahora:/.test(under);
+            done({ ok: withProg.length > 0 && progs > 0 && underOk,
+              detail: withProg.length + '/' + chs.length + ' con programa · tarjetas ' + progs + (c0 ? ' · ' + c0.name + ': ' + c0.now + ' ' + c0.time : '') });
+          })();
+        }, 30000);
+      });
+    })()`, 300);
   await check('TV en vivo without lists says how to add one', `(function(){
       window.__opentv.live.use([]);
       var s = document.querySelector('.live-list .live-list-status');

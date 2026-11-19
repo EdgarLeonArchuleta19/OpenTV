@@ -77,6 +77,8 @@ function loadSavedChannels(kind, done) {
     ch.fav = !!(favUrls[ch.streamUrl] || state.favs[liveFavKey(ch)]);
     CHANNELS.push(ch);
   }
+  /* The copies keep only the link: their programme comes from the loaded list. */
+  applyLiveEpgAll();
   state.channel = 0;
   if (keepPlaying && CHANNELS.length) { keepLivePlayingChannel(keepPlaying); }
   renderLiveRows(false);
@@ -348,6 +350,7 @@ function renderLiveGuideGrid() {
 function makeGuideCard(ch, idx) {
   var card = el('div', 'lg-card focusable' + (idx === state.channel ? ' is-current' : ''));
   card._guideKey = liveChannelKey(ch) || ('i' + idx);
+  card._ch = ch;
   card.setAttribute('data-key', String(card._guideKey).replace(/"/g, ''));
   var logo = el('div', 'lg-logo');
   if (ch.logo) { logo.style.backgroundImage = 'url("' + String(ch.logo).replace(/"/g, '%22') + '")'; }
@@ -360,6 +363,8 @@ function makeGuideCard(ch, idx) {
   if (ch.uhd) { meta.appendChild(el('span', 'lg-badge', '4K')); }
   info.appendChild(meta);
   card.appendChild(info);
+  /* "Noticias de la noche · 22:00 – 23:00" from the list's guide. */
+  setGuideCardProgramme(card, ch);
 
   var fav = el('button', 'lg-fav' + (ch.fav ? ' is-on' : ''));
   fav.type = 'button';

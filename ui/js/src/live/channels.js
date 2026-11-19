@@ -496,6 +496,8 @@ function finishLiveLists(seq, channels, status) {
   var firstLoad = !liveChannelsLoaded;
   liveAllChannels = channels;
   liveListsStatus = status;
+  /* Now and next on each channel, from the lists' guides (live/epg.js). */
+  loadLiveEpg(channels);
   liveCategories = buildLiveCategories(channels);
   liveCategoriesLoaded = true;
   liveChannelsLoading = false;

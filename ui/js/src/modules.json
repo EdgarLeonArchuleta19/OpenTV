@@ -22,6 +22,7 @@
   "live/channels.js",
   "live/addons-dialog.js",
   "live/guide.js",
+  "live/epg.js",
   "live/adult-filter.js",
   "home/catalog-pages.js",
   "home/rows.js",

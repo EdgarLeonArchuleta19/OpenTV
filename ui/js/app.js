@@ -1745,7 +1745,12 @@
   var parts = [];
   for (var k in params) {
     if (Object.prototype.hasOwnProperty.call(params, k)) {
-      parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+      var v = params[k];
+      /* Arrays and objects go as JSON: the Android service reads a value that
+         starts with [ or { as JSON (String() turned them into "a,b" or
+         "[object Object]", so headers, sources and ids never arrived). */
+      if (v !== null && typeof v === 'object') { v = JSON.stringify(v); }
+      parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
     }
   }
   return parts.join('&');
@@ -4213,6 +4218,7 @@
     var ch = CHANNELS[state.channel];
     var logo = liveUnder._logo, name = liveUnder._name, meta = liveUnder._meta;
     clear(logo);
+    if (liveUnder._prog) { liveUnder._prog.textContent = ch ? liveProgrammeLine(ch) : ''; }
     if (!ch) {
       name.textContent = '';
       meta.textContent = '';
@@ -4304,8 +4310,11 @@
       var text = el('div', 'live-under-text');
       liveUnder._name = el('div', 'live-under-name');
       liveUnder._meta = el('div', 'live-under-meta');
+      /* "Ahora: … · 22:00 – 23:00 · Después: …" (live/epg.js). */
+      liveUnder._prog = el('div', 'live-under-prog');
       text.appendChild(liveUnder._name);
       text.appendChild(liveUnder._meta);
+      text.appendChild(liveUnder._prog);
       liveUnder.appendChild(liveUnder._logo);
       liveUnder.appendChild(text);
     }
@@ -5397,6 +5406,8 @@
     var firstLoad = !liveChannelsLoaded;
     liveAllChannels = channels;
     liveListsStatus = status;
+    /* Now and next on each channel, from the lists' guides (live/epg.js). */
+    loadLiveEpg(channels);
     liveCategories = buildLiveCategories(channels);
     liveCategoriesLoaded = true;
     liveChannelsLoading = false;
@@ -6028,6 +6039,8 @@
       ch.fav = !!(favUrls[ch.streamUrl] || state.favs[liveFavKey(ch)]);
       CHANNELS.push(ch);
     }
+    /* The copies keep only the link: their programme comes from the loaded list. */
+    applyLiveEpgAll();
     state.channel = 0;
     if (keepPlaying && CHANNELS.length) { keepLivePlayingChannel(keepPlaying); }
     renderLiveRows(false);
@@ -6299,6 +6312,7 @@
   function makeGuideCard(ch, idx) {
     var card = el('div', 'lg-card focusable' + (idx === state.channel ? ' is-current' : ''));
     card._guideKey = liveChannelKey(ch) || ('i' + idx);
+    card._ch = ch;
     card.setAttribute('data-key', String(card._guideKey).replace(/"/g, ''));
     var logo = el('div', 'lg-logo');
     if (ch.logo) { logo.style.backgroundImage = 'url("' + String(ch.logo).replace(/"/g, '%22') + '")'; }
@@ -6311,6 +6325,8 @@
     if (ch.uhd) { meta.appendChild(el('span', 'lg-badge', '4K')); }
     info.appendChild(meta);
     card.appendChild(info);
+    /* "Noticias de la noche · 22:00 – 23:00" from the list's guide. */
+    setGuideCardProgramme(card, ch);
 
     var fav = el('button', 'lg-fav' + (ch.fav ? ' is-on' : ''));
     fav.type = 'button';
@@ -6372,6 +6388,143 @@
         closeLiveGuide();
       }
     }, true);
+  }
+
+  /* ---- live/epg.js ----------------------------------------------------------- */
+  /* live/epg.js — Guía de horarios de TV en vivo: qué hay ahora y qué sigue en cada canal, de la guía (XMLTV) de cada lista M3U.
+     Parte del módulo único de la app (ver ui/js/src/README.md). */
+
+  /* A list whose header names a guide (#EXTM3U url-tvg="…") gives each of its
+     channels `epg` (that link) and `tvgId`. The service reads the guide
+     (service/epg.js, Epg.java) and answers now and next for the ids asked.
+     Here: ch.now (title), ch.time ("22:00 – 23:00"), ch.next and ch._epgDesc,
+     which the guide, the channel list and the player's channel bar show.
+     A minute timer moves each channel to its next programme; the guide is
+     asked again every LIVE_EPG_REFRESH_MS (the service keeps its own copy). */
+  var LIVE_EPG_REFRESH_MS = 15 * 60 * 1000;
+  var LIVE_EPG_BATCH = 400;
+  var liveEpgData = {};      /* epg link + '|' + tvgId -> [ { s, e, t, d } ] */
+  var liveEpgAskedAt = {};   /* epg link -> when it was last asked */
+  var liveEpgTicker = null;
+
+  function liveEpgKey(ch) {
+    return ch && ch.epg && ch.tvgId ? ch.epg + '|' + ch.tvgId : '';
+  }
+
+  function liveEpgClock(ms) {
+    var d = new Date(ms);
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+
+  /* Now and next of one channel, or null when its guide has nothing. */
+  function liveEpgFor(ch) {
+    var list = liveEpgData[liveEpgKey(ch)];
+    if (!list || !list.length) { return null; }
+    var now = Date.now();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].e <= now) { continue; }
+      if (list[i].s > now) { return { now: null, next: list[i] }; }
+      return { now: list[i], next: list[i + 1] || null };
+    }
+    return null;
+  }
+
+  function applyLiveEpg(ch, from) {
+    var g = liveEpgFor(from || ch);
+    if (g && g.now) {
+      ch.now = g.now.t;
+      ch.time = liveEpgClock(g.now.s) + ' – ' + liveEpgClock(g.now.e);
+      ch.next = g.next ? g.next.t + ' · ' + liveEpgClock(g.next.s) : '';
+      ch._epgDesc = g.now.d || '';
+    } else {
+      ch.now = 'En vivo';
+      ch.time = '';
+      ch.next = g && g.next ? g.next.t + ' · ' + liveEpgClock(g.next.s) : '';
+      ch._epgDesc = '';
+    }
+  }
+
+  /* Every loaded channel, and the copies shown from Favoritos / Recientes
+     (they keep only the link: matched by it). */
+  function applyLiveEpgAll() {
+    var byUrl = {};
+    for (var i = 0; i < liveAllChannels.length; i++) {
+      applyLiveEpg(liveAllChannels[i]);
+      if (liveAllChannels[i].streamUrl) { byUrl[liveAllChannels[i].streamUrl] = liveAllChannels[i]; }
+    }
+    for (var c = 0; c < CHANNELS.length; c++) {
+      var src = CHANNELS[c].streamUrl && byUrl[CHANNELS[c].streamUrl];
+      if (src && src !== CHANNELS[c]) { applyLiveEpg(CHANNELS[c], src); }
+    }
+    refreshGuideCardsEpg();
+    syncLiveUnder();
+  }
+
+  /* "Ahora: Noticias · 22:00 – 23:00 · Después: Deportes · 23:00". */
+  function liveProgrammeLine(ch) {
+    var parts = [];
+    if (ch.now && ch.now !== 'En vivo') { parts.push('Ahora: ' + ch.now + (ch.time ? ' · ' + ch.time : '')); }
+    if (ch.next) { parts.push('Después: ' + ch.next); }
+    return parts.join('  ·  ');
+  }
+
+  /* Asks the guide of every list that has one, for its channels. */
+  function loadLiveEpg(channels) {
+    var byLink = {};
+    for (var i = 0; i < channels.length; i++) {
+      var ch = channels[i];
+      if (!ch.epg || !ch.tvgId) { continue; }
+      (byLink[ch.epg] = byLink[ch.epg] || []).push(ch.tvgId);
+    }
+    applyLiveEpgAll();
+    Object.keys(byLink).forEach(function (link) {
+      if (Date.now() - (liveEpgAskedAt[link] || 0) < LIVE_EPG_REFRESH_MS) { return; }
+      liveEpgAskedAt[link] = Date.now();
+      /* In batches: on Android the ids travel in the request's address. The
+         first batch makes the service read the guide; the others reuse it. */
+      var ids = byLink[link];
+      (function ask(from) {
+        portalServiceCall('epg', { url: link, ids: ids.slice(from, from + LIVE_EPG_BATCH) }, function (err, payload) {
+          if (err || !payload || !payload.programmes) {
+            /* Try again sooner than a full refresh. */
+            liveEpgAskedAt[link] = Date.now() - LIVE_EPG_REFRESH_MS + 2 * 60 * 1000;
+            return;
+          }
+          var progs = payload.programmes;
+          for (var id in progs) {
+            if (Object.prototype.hasOwnProperty.call(progs, id)) { liveEpgData[link + '|' + id] = progs[id]; }
+          }
+          applyLiveEpgAll();
+          if (from + LIVE_EPG_BATCH < ids.length) { ask(from + LIVE_EPG_BATCH); }
+        }, 45000);
+      })(0);
+    });
+    if (!liveEpgTicker && Object.keys(byLink).length) {
+      liveEpgTicker = setInterval(function () {
+        if (!liveAllChannels.length) { return; }
+        loadLiveEpg(liveAllChannels);
+      }, 60000);
+    }
+  }
+
+  /* The guide's cards already drawn: their programme line, in place. */
+  function refreshGuideCardsEpg() {
+    if (!liveGuideGrid) { return; }
+    var cards = liveGuideGrid.querySelectorAll('.lg-card');
+    for (var i = 0; i < cards.length; i++) {
+      if (cards[i]._ch) { setGuideCardProgramme(cards[i], cards[i]._ch); }
+    }
+  }
+
+  function setGuideCardProgramme(card, ch) {
+    var info = card.querySelector('.lg-info');
+    if (!info) { return; }
+    var line = info.querySelector('.lg-prog');
+    /* The time first: a long title is what gets cut ("23:30 – 00:30 · Hechos…"). */
+    var text = ch.now && ch.now !== 'En vivo' ? (ch.time ? ch.time + ' · ' : '') + ch.now : '';
+    if (!text) { if (line) { line.parentNode.removeChild(line); } return; }
+    if (!line) { line = el('div', 'lg-prog'); info.appendChild(line); }
+    if (line.textContent !== text) { line.textContent = text; }
   }
 
   /* ---- live/adult-filter.js -------------------------------------------------- */
@@ -16341,6 +16494,37 @@
     return best;
   }
 
+  /* Source race: other torrents of the same title that may start together
+     with `chosen` (the service keeps the one that works). Only close ones:
+     the same audio language when chosen has one, no CAM unless chosen is a
+     CAM, shown by the preferences and not far below it in the ranking, so a
+     race never trades a Latino Full HD for an English 720p. Best first. */
+  var RACE_SCORE_GAP = 450;
+  function torrentRaceAlternatives(chosen, list, ctx, max) {
+    if (!chosen || chosen.kind !== 'torrent' || !(max > 0)) { return []; }
+    var base = scoreSource(chosen, ctx);
+    var langs = chosen.langs || [];
+    var picked = [];
+    for (var i = 0; i < list.length; i++) {
+      var s = list[i];
+      if (!s || s.kind !== 'torrent' || !s.infoHash || s.infoHash === chosen.infoHash) { continue; }
+      if (s.cam && !chosen.cam) { continue; }
+      if (sourcePrefsBlock(s, ctx.prefs, ctx.episode)) { continue; }
+      if (langs.length && !langs.some(function (l) { return (s.langs || []).indexOf(l) !== -1; })) { continue; }
+      var sc = scoreSource(s, ctx);
+      if (sc < base - RACE_SCORE_GAP) { continue; }
+      picked.push({ src: s, score: sc });
+    }
+    picked.sort(function (a, b) { return b.score - a.score; });
+    var out = [], seen = {};
+    for (var p = 0; p < picked.length && out.length < max; p++) {
+      if (seen[picked[p].src.infoHash]) { continue; }
+      seen[picked[p].src.infoHash] = true;
+      out.push(picked[p].src);
+    }
+    return out;
+  }
+
   /* "Latino · Full HD · 85 semillas · 2,1 GB": why it was chosen. */
   function sourceReason(src) {
     var q = { '4K': '4K', '1080p': 'Full HD', '720p': 'HD', 'SD': 'SD' }[src.quality] || '';
@@ -16701,6 +16885,19 @@
     });
   }
 
+  /* What torrentProbe found, for a few minutes: hash -> { at, peers, available }. */
+  var TORRENT_PROBE_TTL_MS = 3 * 60 * 1000;
+  var torrentProbeCache = {};
+  function torrentProbeFor(hash) {
+    var r = hash && torrentProbeCache[hash];
+    return r && Date.now() - r.at < TORRENT_PROBE_TTL_MS ? r : null;
+  }
+  /* "12 conectadas ahora · completo" / "nadie lo comparte ahora". */
+  function torrentProbeText(r) {
+    if (r.available < 0 || !r.peers) { return 'nadie lo comparte ahora'; }
+    return r.peers + (r.peers === 1 ? ' conectada' : ' conectadas') + ' ahora · ' + (r.available >= 100 ? 'completo' : r.available + ' % disponible');
+  }
+
   /* ------------------------------------------------ "Elegir fuente" panel */
   var sourcePickerOpen = false;
   var sourcePickerNode = null;
@@ -16946,7 +17143,9 @@
       meta.push(langs || 'Idioma original');
       meta.push(src.kind === 'torrent' ? 'Torrent' : 'Directo');
       if (src.size) { meta.push(src.size); }
-      if (src.seeds !== null) { meta.push(src.seeds + (src.seeds === 1 ? ' semilla' : ' semillas')); }
+      var live = src.kind === 'torrent' ? torrentProbeFor(src.infoHash) : null;
+      if (live) { meta.push(torrentProbeText(live)); }
+      else if (src.seeds !== null) { meta.push(src.seeds + (src.seeds === 1 ? ' semilla' : ' semillas') + (probeRunning && src.kind === 'torrent' ? ' · comprobando…' : '')); }
       if (src.hdr) { meta.push('HDR'); }
       if (src.hevc) { meta.push('HEVC'); }
       if (src.provider) { meta.push(src.provider); }
@@ -16963,6 +17162,24 @@
     }
 
     var lastGroups = [], lastPending = 0;
+    /* PC, when the viewer opened the panel (not while it plays the
+       recommended one by itself): ask how many people the best torrents
+       really have now (service torrentProbe), then show it on their rows. */
+    var probeAsked = false, probeRunning = false;
+    function maybeProbe(all) {
+      if (probeAsked || waiting || !platformHas('window') || !platformHas('torrents')) { return; }
+      var torrents = all.filter(function (x) { return x.kind === 'torrent' && x.infoHash && !torrentProbeFor(x.infoHash); })
+        .sort(function (a, b) { return b._score - a._score; }).slice(0, 6);
+      probeAsked = true;
+      if (!torrents.length) { return; }
+      probeRunning = true;
+      portalServiceCall('torrentProbe', { torrents: torrents.map(function (t) { return { infoHash: t.infoHash, fileIdx: t.fileIdx, sources: t.sources }; }) }, function (err, out) {
+        probeRunning = false;
+        var res = (!err && out && out.results) || {};
+        for (var h in res) { if (Object.prototype.hasOwnProperty.call(res, h)) { torrentProbeCache[h] = { at: Date.now(), peers: res[h].peers, available: res[h].available }; } }
+        if (seq === sourcePickerSeq && sourcePickerOpen) { render(lastGroups, lastPending); }
+      }, 20000);
+    }
     function render(groups, pending) {
       lastGroups = groups;
       lastPending = pending;
@@ -16973,6 +17190,7 @@
         g.sources.forEach(function (s, i) { s._i = i; s._score = scoreSource(s, ctx); all.push(s); });
       });
       var best = bestSource(all, ctx);
+      if (pending === 0) { maybeProbe(all); }
       renderFilters(all);
       clear(body);
       if (!groups.length) {
@@ -17201,6 +17419,25 @@
     return Math.max(0, Math.round(bytes / 1024)) + ' KB/s';
   }
 
+  /* "Probando 3 fuentes · 12 conexiones · 100 % disponible · 2,1 MB/s". */
+  function torrentStatusText(st) {
+    var head = st.racing > 1 ? 'Probando ' + st.racing + ' fuentes' : (st.ready ? 'Cargando torrent' : 'Buscando el torrent');
+    var parts = [head, st.peers + (st.peers === 1 ? ' conexión' : ' conexiones')];
+    if (st.peers > 0 && typeof st.available === 'number') { parts.push(st.available + ' % disponible'); }
+    parts.push(formatSpeed(st.speed));
+    return parts.join(' · ');
+  }
+
+  /* The sources already fetched for this title or episode (none when they
+     were not asked for: a source remembered from before plays directly). */
+  function cachedStremioSources(item, episode) {
+    var type = item._stremioType || (isSeriesItem(item) ? 'series' : 'movie');
+    var hit = streamsCache[type + '|' + stremioStreamId(item, episode) + '|' + getVodSourcesConfig().addons.length];
+    var all = [];
+    if (hit && Date.now() - hit.at < STREAMS_CACHE_MS) { hit.groups.forEach(function (g) { all = all.concat(g.sources); }); }
+    return all;
+  }
+
   /* While the torrent starts: how many people it found and how fast it goes. */
   function startTorrentPoll(item) {
     stopTorrentPoll();
@@ -17212,8 +17449,7 @@
         /* The fastest download seen tells how good this connection is. */
         noteNetSpeed(st.speed);
         if (playerVideo && playerVideo.readyState >= 3) { return; }
-        setPlayerStatus((st.ready ? 'Cargando torrent' : 'Buscando el torrent') + ' · ' +
-          st.peers + (st.peers === 1 ? ' conexión' : ' conexiones') + ' · ' + formatSpeed(st.speed));
+        setPlayerStatus(torrentStatusText(st));
       }, 5000);
     }, 1000);
   }
@@ -17290,21 +17526,51 @@
         setPlayerStatus('Buscando el torrent…');
         torrentInUse = true;
         startTorrentPoll(item);
-        portalServiceCall('torrentStart', { infoHash: chosen.infoHash, fileIdx: chosen.fileIdx, sources: chosen.sources }, function (err, info) {
-          if (mySeq !== resolveSeq) { return; }
-          if (err || !info || info.returnValue === false || !info.url) {
-            stopTorrentPoll();
-            vodFailure('el torrent', err || (info && info.errorText) || 'No se pudo abrir el torrent');
-            return done('');
-          }
-          /* Android: plays, but the whole file will not fit on this device. */
-          if (info.fits === false) { setPlayerStatus('Este torrent no cabe completo en el aparato: se verá mientras haya espacio.'); }
-          resolveExternal(info.url, info.name || chosen.filename, null, false);
-        }, 75000);
+        /* Source race: a few close alternatives start at the same time; the
+           service plays the chosen one if it works, else the first that does.
+           A source remembered from before plays without the list: it is asked
+           for now, waiting 2.5 s at most. */
+        var raceMax = platformHas('window') ? 3 : 1;
+        if (cachedStremioSources(item, ep).length) { return startTorrent(chosen, raceMax); }
+        var waited = false;
+        var waitTimer = setTimeout(function () { if (!waited) { waited = true; startTorrent(chosen, raceMax); } }, 2500);
+        fetchStremioStreams(item, ep, function (groups, pending) {
+          if (pending > 0 || waited) { return; }
+          waited = true;
+          clearTimeout(waitTimer);
+          startTorrent(chosen, raceMax);
+        });
         return;
       }
       stremioTorrentRelease();
       resolveExternal(chosen.url, chosen.filename, chosen.headers, chosen.notWebReady);
+    }
+
+    function startTorrent(chosen, raceMax) {
+      if (mySeq !== resolveSeq) { return; }
+      var alts = torrentRaceAlternatives(chosen, cachedStremioSources(item, ep), sourceRankContext(item, ep), raceMax);
+      portalServiceCall('torrentStart', {
+        infoHash: chosen.infoHash, fileIdx: chosen.fileIdx, sources: chosen.sources,
+        alternatives: alts.map(function (a) { return { infoHash: a.infoHash, fileIdx: a.fileIdx, sources: a.sources }; })
+      }, function (err, info) {
+        if (mySeq !== resolveSeq) { return; }
+        if (err || !info || info.returnValue === false || !info.url) {
+          stopTorrentPoll();
+          vodFailure('el torrent', err || (info && info.errorText) || 'No se pudo abrir el torrent');
+          return done('');
+        }
+        var won = info.infoHash && info.infoHash !== chosen.infoHash ? alts.filter(function (a) { return a.infoHash === info.infoHash; })[0] : null;
+        if (won) {
+          /* The chosen torrent had nobody sharing it: this one plays (and is
+             what the title remembers). */
+          target._stremioSource = won;
+          rememberStremioPick(item, ep, won);
+          setPlayerStatus('La fuente elegida no tenía gente compartiendo: se usa otra · ' + sourceReason(won));
+        }
+        /* Android: plays, but the whole file will not fit on this device. */
+        if (info.fits === false) { setPlayerStatus('Este torrent no cabe completo en el aparato: se verá mientras haya espacio.'); }
+        resolveExternal(info.url, info.name || chosen.filename, null, false);
+      }, 75000);
     }
 
     function resolveExternal(url, name, headers, notWebReady) {
@@ -21083,7 +21349,8 @@
       vod: VOD,
       channels: CHANNELS,
       /* TV en vivo (tests): reload the M3U lists or show a given channel list. */
-      live: { reload: reloadLiveLists, use: useLiveChannels, categories: function () { return liveCategories; } },
+      live: { reload: reloadLiveLists, use: useLiveChannels, categories: function () { return liveCategories; },
+        channels: function () { return liveAllChannels; } },
       api: vodApiState,
       service: portalServiceCall,
       reloadVod: loadVodCatalog,
