@@ -13,7 +13,12 @@ function queryString(params) {
 var parts = [];
 for (var k in params) {
   if (Object.prototype.hasOwnProperty.call(params, k)) {
-    parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+    var v = params[k];
+    /* Arrays and objects go as JSON: the Android service reads a value that
+       starts with [ or { as JSON (String() turned them into "a,b" or
+       "[object Object]", so headers, sources and ids never arrived). */
+    if (v !== null && typeof v === 'object') { v = JSON.stringify(v); }
+    parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
   }
 }
 return parts.join('&');
