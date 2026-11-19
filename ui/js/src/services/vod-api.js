@@ -594,6 +594,9 @@ function hasAnimeCatalog(addons) {
 function stremioMetaToVodRecord(meta, baseUrl, rowName, anime) {
   if (!meta || !meta.id) { return null; }
   var isSeries = meta.type === 'series' || meta.type === 'tv' || (meta.type === 'anime' && !/movie/i.test(String(meta.subtype || '')));
+  /* An open run of years ("2022–", "2019–2023") is a series even in a movie
+     catalogue (see the series/movie note in syncExternalVodCatalogs). */
+  if (!isSeries && meta.type === 'movie' && /^\s*\d{4}\s*[–—-]/.test(String(meta.releaseInfo || meta.year || ''))) { isSeries = true; }
   var genres = meta.genres || meta.genre || [];
   if (Object.prototype.toString.call(genres) !== '[object Array]') { genres = [String(genres)]; }
   var catParts = anime ? ['anime'] : ['destacado', isSeries ? 'serie' : 'pelicula'];
@@ -705,6 +708,8 @@ function fetchAddonCatalogs(ad, taken, done) {
         var metas = (!err && payload && payload.metas) ? payload.metas : [];
         for (var m = 0; m < metas.length; m++) {
           var rec = stremioMetaToVodRecord(metas[m], ad.baseUrl, rowName, cat.type === 'anime');
+          /* A series found in a movie list stays out of that movie row. */
+          if (rec && cat.type === 'movie' && rec._stremioType === 'series') { rec.row = ''; rec._rows = []; }
           if (rec) { buckets[jobIndex].push(rec); }
         }
         got += metas.length;
@@ -821,6 +826,17 @@ function syncExternalVodCatalogs(done) {
         var it = items[j];
         var prev = byId[it.id];
         if (!prev) { byId[it.id] = it; all.push(it); continue; }
+        /* Cinemeta also lists some series in its movie catalogues (same IMDb
+           id, type movie), and asked for that id as a movie it answers with
+           another film's details (tt12590266 is "I See Ice"). The series
+           record wins, without the movie rows. */
+        if (prev._stremioType !== it._stremioType && (prev._stremioType === 'series' || it._stremioType === 'series')) {
+          if (it._stremioType === 'series') {
+            all[all.indexOf(prev)] = it;
+            byId[it.id] = it;
+          }
+          continue;
+        }
         /* The same title in two rows: keep one record, in both rows. */
         for (var r = 0; r < it._rows.length; r++) {
           if (prev._rows.indexOf(it._rows[r]) === -1) { prev._rows.push(it._rows[r]); }

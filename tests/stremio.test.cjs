@@ -317,3 +317,53 @@ test('on a device that cannot decode DTS or HEVC, or has no room, those sources 
   const huge = src(ctx, 'Peli.2024.1080p.x264.AAC.mkv\n👤 50 💾 7 GB ⚙️ D\n🇲🇽');
   assert.equal(ctx.sourceDeviceNote(huge), 'No cabe en este aparato');
 });
+
+/* Cinemeta lists some series in its movie catalogues too (tt12590266,
+   Cyberpunk: Edgerunners); asked for that id as a movie it answers with
+   another film ("I See Ice"). The series record must win. */
+test('a series also listed in a movie catalogue stays a series, out of the movie rows', () => {
+  const answers = {
+    'https://cm.example/catalog/movie/top.json': { metas: [
+      { id: 'tt12590266', type: 'movie', name: 'Cyberpunk: Edgerunners', releaseInfo: '2022–' },
+      { id: 'tt0000001', type: 'movie', name: 'Película', releaseInfo: '2020' }] },
+    'https://cm.example/catalog/series/top.json': { metas: [
+      { id: 'tt12590266', type: 'series', name: 'Cyberpunk: Edgerunners', releaseInfo: '2022–' }] }
+  };
+  function FakeXhr() {}
+  FakeXhr.prototype.open = function (m, url) { this.url = url.replace(/\/skip=\d+/, ''); };
+  FakeXhr.prototype.send = function () {
+    /* The app's own three addons (seeded): a manifest with nothing to list. */
+    const body = /manifest.json$/.test(this.url) ? { id: this.url, name: 'Incluido', resources: ['subtitles'], catalogs: [] }
+      : (answers[this.url] || { metas: [] });
+    this.readyState = 4; this.status = 200; this.responseText = JSON.stringify(body);
+    this.onreadystatechange();
+  };
+  const vod = [];
+  const ctx = loadModules(['core/utils.js', 'core/platform.js', 'services/vod-api.js'], {
+    window: { OPENTV_DESKTOP: true, location: { search: '', hash: '', href: '' }, OPENTV_PLATFORM: { name: 'electron', tv: false, has: () => true } },
+    location: { search: '', hash: '' },
+    isSeriesItem, vodApi: {}, state: {},
+    XMLHttpRequest: FakeXhr,
+    trackedCallback: (done) => done,
+    VOD: vod,
+    /* Other modules' helpers the catalogue refresh touches. */
+    durationToSeconds: () => 0,
+    keepKidsSafe: () => {},
+    homeBuilt: false
+  });
+  const info = ctx.stremioAddonInfo({ id: 'cm', name: 'Cinemeta', types: ['movie', 'series'], idPrefixes: ['tt'],
+    resources: ['catalog', 'meta'], catalogs: [{ type: 'movie', id: 'top', name: 'Popular' }, { type: 'series', id: 'top', name: 'Popular' }] },
+  'https://cm.example/manifest.json');
+  ctx.saveVodSourcesConfig({ mode: 'external', addons: [info] });
+  ctx.syncExternalVodCatalogs(() => {});
+  const show = plain(vod.filter((it) => it._stremioId === 'tt12590266'));
+  assert.equal(show.length, 1);
+  assert.equal(show[0]._stremioType, 'series');
+  assert.ok(show[0]._rows.every((r) => !/Películas/.test(r)), 'no movie row: ' + show[0]._rows.join(', '));
+  /* An open run of years is a series even when only a movie list has it. */
+  const lone = plain(ctx.stremioMetaToVodRecord({ id: 'tt9', type: 'movie', name: 'Serie', releaseInfo: '2019–2023' }, 'https://a', 'Popular · Películas'));
+  assert.equal(lone._stremioType, 'series');
+  assert.equal(plain(ctx.stremioMetaToVodRecord({ id: 'tt8', type: 'movie', name: 'Película', releaseInfo: '2019' }, 'https://a', ''))._stremioType, 'movie');
+  /* Both titles are in the catalogue, the movie in its own row. */
+  assert.deepEqual(plain(vod.map((it) => it._stremioId)).sort(), ['tt0000001', 'tt12590266']);
+});
