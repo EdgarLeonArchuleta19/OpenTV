@@ -4,16 +4,14 @@
 
 # OpenTV
 
-**TV en vivo, películas y series en una sola app para Windows, Fire TV, Android TV, celulares Android y TV LG.**
-Interfaz moderna estilo streaming, rápida con ratón, teclado, pantalla táctil o control remoto.
+**Películas, series, anime y TV en vivo en una sola app, con tus addons y tus listas.**
+Para Windows, Fire TV, Android TV y celulares Android. Compatible con los addons de Stremio y con listas M3U.
 
 [![Descargar](https://img.shields.io/github/v/release/EdgarLeonArchuleta19/OpenTV?label=Descargar&style=for-the-badge&color=ffffff&labelColor=0e0e11)](https://github.com/EdgarLeonArchuleta19/OpenTV/releases/latest)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0e0e11?style=for-the-badge&logo=windows&logoColor=white)
 ![Fire TV y Android TV](https://img.shields.io/badge/Fire%20TV%20%C2%B7%20Android%20TV-0e0e11?style=for-the-badge&logo=amazonfiretv&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-5.1%2B-0e0e11?style=for-the-badge&logo=android&logoColor=white)
-![TV LG](https://img.shields.io/badge/TV%20LG-webOS-0e0e11?style=for-the-badge&logo=lg&logoColor=white)
-![Electron](https://img.shields.io/badge/Electron-44-0e0e11?style=for-the-badge&logo=electron&logoColor=white)
-![Licencia](https://img.shields.io/badge/Licencia-MIT-0e0e11?style=for-the-badge)
+![Licencia](https://img.shields.io/badge/Licencia-Todos%20los%20derechos%20reservados-0e0e11?style=for-the-badge)
 
 <img src="docs/screenshots/inicio.jpg" alt="Inicio de OpenTV" width="100%">
 
@@ -21,46 +19,84 @@ Interfaz moderna estilo streaming, rápida con ratón, teclado, pantalla táctil
 
 ---
 
+## Qué es
+
+OpenTV es un **reproductor**: no trae contenido propio. Las películas, series y
+anime salen de los **addons** que tú eliges (los mismos que usa Stremio), y la
+TV en vivo de **listas M3U**. OpenTV les da una sola interfaz, tipo streaming,
+que funciona igual con ratón, teclado, pantalla táctil o control remoto.
+
+```
+Addons (compatibles con Stremio) ──► catálogo, fichas, fuentes y subtítulos ─┐
+Listas M3U / IPTV ─────────────────► canales en vivo ────────────────────────┼─► OpenTV
+TMDB (opcional) ───────────────────► tendencias y búsqueda en español ───────┘
+```
+
+### Addons que vienen instalados
+
+| Addon | Para qué sirve |
+|---|---|
+| **Cinemeta** | Catálogo de películas y series: pósteres, fichas, temporadas y capítulos |
+| **Anime Kitsu** | Catálogo de anime japonés para la sección **Anime**: en emisión, populares, mejor valorados |
+| **OpenSubtitles** | Subtítulos en varios idiomas |
+
+Vienen siempre y no se pueden quitar. Ninguno de ellos da vídeos. **Para reproducir hace falta un addon de fuentes**,
+que agrega cada usuario en **Ajustes → Addons** pegando la URL de su
+`manifest.json`. Sin él, la app funciona igual: muestras las fichas, tu lista y
+el historial, y al darle a *Reproducir* te dice dónde agregar uno.
+
 ## ✨ Qué tiene
 
 | | |
 |---|---|
-| 🎬 **Inicio estilo streaming** | Portada a todo el ancho que rota entre títulos, **Seguir viendo** con progreso, **Top 10** con números grandes y filas por temas. Al dejar el ratón sobre un póster aparece una tarjeta con reproducir, Mi lista y detalles. |
-| 📺 **TV en vivo** | Más de 1000 canales por país y tema, vista previa sin salir del inicio, **Guía de canales** (tecla `G`) con buscador, **Favoritos** y **Recientes**. |
-| 🔎 **Buscador** | Sugerencias del catálogo mientras escribes y búsquedas recientes. |
-| ▶️ **Reproductor** | Controles tipo Netflix, volumen (controla el de Windows), velocidad 0,5×–2×, calidad, audio y subtítulos, siguiente episodio automático, ventana flotante y pantalla completa. Si un vídeo falla, cambia solo a un modo compatible. |
-| 🗂️ **Episodios** | Panel lateral con temporadas y episodios mientras ves la serie. |
-| 👤 **Perfiles** | Hasta 6 perfiles con avatar, cada uno con su historial, Mi lista, búsquedas y canales favoritos. Perfil infantil (solo Kids). Con varios perfiles la app abre en *¿Quién está viendo?*. Copia automática en `Documentos\OpenTV` para recuperarlos al reinstalar. |
-| 📺 **En la tele** | En Fire TV, Android TV y TV LG: menú a la izquierda, todo se maneja con el control remoto y el vídeo va por el reproductor nativo (ExoPlayer en Android). Pensada para ir fluida incluso en un Fire TV Stick de 1 GB. |
-| 📱 **En el celular** | Diseño propio para pantallas táctiles: barra inferior (Inicio, Películas, Series, TV en vivo, Mi cuenta), filtros Kids, Anime y Mi lista, y vista horizontal. |
-| 🔒 **Privacidad** | Sin cuentas ni registro: tu lista, historial y preferencias se guardan solo en tu equipo. |
-| 🧩 **Modo Addons** · solo PC | En **Ajustes → Fuentes** eliges de dónde salen las películas y series: **Modo automático** (el catálogo integrado, recomendado) o **Modo Addons**, con tus addons (compatibles con Stremio) (vienen instalados Cinemeta para el catálogo y OpenSubtitles para los subtítulos; las fuentes, como Torrentio, las agregas tú). Filas, fichas, búsqueda y subtítulos salen de tus addons, y al reproducir eliges la fuente: enlace directo o **torrent**. TV en vivo no cambia: tiene sus propias listas M3U. |
-| 🔄 **Actualizaciones automáticas** | En Windows, la versión instalada se actualiza sola desde las releases de este repositorio. En Android y LG, se instala el paquete nuevo encima y se conservan los datos. |
-| ⚡ **Rápida** | 60 fps al navegar, carga diferida de pósteres y listas, y un registro de errores local para depurar. |
+| 🧩 **Addons** | Pega la URL de cualquier addon compatible con Stremio: sus catálogos se vuelven filas del inicio, sus fichas y capítulos se ven en OpenTV y sus fuentes aparecen al reproducir. Los que agregas se pueden quitar y reordenar; los tres que trae la app se quedan. |
+| 🎯 **Elegir fuente** | Panel con las fuentes de todos tus addons, con calidad, tamaño, idioma y semillas. OpenTV marca una **Recomendada** (primero tu idioma, luego la calidad, luego la salud del torrent; CAM solo si no hay otra) y puede elegirla sola. Filtros por idioma (Latino, Castellano, Inglés) y calidad. |
+| ⚙️ **Preferencias de addons** | Como la página *configure* de Torrentio, pero dentro de la app: idiomas preferidos, calidades que nunca quieres ver (4K, SD, CAM…), semillas mínimas, tamaño máximo y proveedores. |
+| 🧲 **Torrents** | En PC y en Android 9+ (incluida la Fire TV). Se ven mientras se descargan y se borran al salir. La app lo avisa la primera vez. |
+| ⬇️ **Descargas** | Guarda una película o un capítulo para verlo sin internet (PC y Android, con notificación de progreso). Se reanudan si se cortan. |
+| 💬 **Subtítulos** | Los que trae el archivo, los de tus addons (OpenSubtitles) o un `.srt`/`.vtt` tuyo. Tamaño, color y desfase ajustables. |
+| 🔊 **Audio** | Cambia de pista viendo el idioma real (Latino, Castellano, Inglés…). |
+| 🌸 **Anime** | Sección propia con el catálogo de Kitsu: anime japonés de verdad, no caricaturas. |
+| 🔎 **Buscador** | Busca en todos tus addons a la vez, con el mejor resultado primero. Entiende títulos en español: *"el padrino"* encuentra *The Godfather*. |
+| 📺 **TV en vivo** | Tus listas M3U/IPTV. Viene con una lista pública de prueba y un buscador de más de 15 listas públicas de [iptv-org](https://github.com/iptv-org/iptv) por país y tema. **Guía de canales** (tecla `G`), favoritos y recientes. |
+| 🎬 **Inicio estilo streaming** | Portada que rota entre títulos, **Seguir viendo** con progreso, tendencias de la semana y filas de tus addons. |
+| ▶️ **Reproductor** | Controles tipo Netflix, velocidad 0,5×–2×, siguiente capítulo, panel de episodios, ventana flotante y pantalla completa. En PC, los MKV/AVI se reproducen con FFmpeg sin perder la sincronía de audio y vídeo; en Android, con ExoPlayer. |
+| 👤 **Perfiles** | Hasta 6, cada uno con su historial, Mi lista, búsquedas y canales favoritos. Perfil infantil (solo Kids). |
+| 📺 **En la tele** | En Fire TV y Android TV se maneja con el control remoto y el vídeo va por el reproductor nativo. Pensada para ir fluida en un Fire TV Stick de 1 GB. |
+| 📱 **En el celular** | Diseño propio para pantalla táctil: barra inferior, filtros Kids / Anime / Mi lista y ventanas que suben desde abajo. Agrega addons y listas desde el teléfono. |
+| 🧭 **Guía de inicio** | La primera vez explica en cuatro pasos cómo funciona; luego está en **Ayuda**. |
+| 🔄 **Actualizaciones** | Windows se actualiza solo. En Android la app avisa de una versión nueva y la instala sin perder los datos. |
+| 🔒 **Privacidad** | Sin cuentas ni registro: todo se guarda en tu equipo. El servicio local solo escucha en `127.0.0.1`. |
 
 ## 📸 Capturas
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/top10.jpg" alt="Seguir viendo y Top 10"></td>
-    <td><img src="docs/screenshots/peliculas.jpg" alt="Películas"></td>
+    <td><img src="docs/screenshots/anime.jpg" alt="Sección Anime"><br><sub>Anime (Kitsu)</sub></td>
+    <td><img src="docs/screenshots/peliculas.jpg" alt="Películas"><br><sub>Películas</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/guia.jpg" alt="Guía de canales"></td>
-    <td><img src="docs/screenshots/buscador.jpg" alt="Buscador con sugerencias"></td>
+    <td><img src="docs/screenshots/ficha.jpg" alt="Ficha de un título"><br><sub>Ficha de un título</sub></td>
+    <td><img src="docs/screenshots/fuentes.jpg" alt="Elegir fuente"><br><sub>Elegir fuente</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/reproductor.jpg" alt="Reproductor"></td>
-    <td><img src="docs/screenshots/episodios.jpg" alt="Panel de episodios"></td>
+    <td><img src="docs/screenshots/buscador.jpg" alt="Buscador"><br><sub>Buscador</sub></td>
+    <td><img src="docs/screenshots/guia.jpg" alt="TV en vivo"><br><sub>TV en vivo</sub></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/screenshots/ficha.jpg" alt="Ficha de una serie"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/tv.jpg" alt="OpenTV en Fire TV, Android TV y TV LG"><br><sub>En la tele (Fire TV, Android TV, TV LG)</sub></td>
+    <td><img src="docs/screenshots/tv.jpg" alt="OpenTV en Fire TV y Android TV"><br><sub>En la tele (Fire TV, Android TV)</sub></td>
     <td align="center"><img src="docs/screenshots/celular.jpg" alt="OpenTV en el celular" width="260"><br><sub>En el celular Android</sub></td>
   </tr>
 </table>
+
+## 🚀 Primeros pasos
+
+1. **Instala** OpenTV (abajo).
+2. **Agrega un addon de fuentes** en **Ajustes → Addons → Películas y series**: pega la URL de su `manifest.json`.
+3. **Ajusta tus preferencias** en **Ajustes → Preferencias de addons** (idioma, calidad).
+4. **TV en vivo:** agrega tu lista M3U en **Ajustes → Addons → TV en vivo**, o busca una lista pública.
+
+En el celular, todo eso está en **Mi cuenta → Addons y listas**.
 
 ## ⬇️ Descargar e instalar
 
@@ -71,21 +107,20 @@ Todo está en **[Releases](https://github.com/EdgarLeonArchuleta19/OpenTV/releas
 | Windows 10/11 (instalador) | `OpenTV-Setup-x.y.z.zip` |
 | Windows sin instalar | `OpenTV-Portable-x.y.z.zip` |
 | Fire TV, Android TV y celulares Android | `OpenTV-x.y.z.apk` (el mismo archivo para los tres) |
-| TV LG (webOS) | `OpenTV-LG-x.y.z.ipk` |
 
 ### Windows
 
-1. Entra en **[Releases](https://github.com/EdgarLeonArchuleta19/OpenTV/releases/latest)** y descarga **`OpenTV-Setup-x.y.z.zip`**.
-2. Descomprime el `.zip` y abre **`OpenTV-Setup-x.y.z.exe`**.
+1. Descarga **`OpenTV-Setup-x.y.z.zip`** de [Releases](https://github.com/EdgarLeonArchuleta19/OpenTV/releases/latest).
+2. Descomprímelo y abre **`OpenTV-Setup-x.y.z.exe`**.
 3. Si Windows muestra *"Windows protegió su PC"*, pulsa **Más información → Ejecutar de todas formas** (la app no está firmada con un certificado de pago).
 
-¿Sin instalar? Descarga **`OpenTV-Portable-x.y.z.zip`**: es un solo `.exe` que se abre directamente y guarda tus datos en una carpeta a su lado.
+¿Sin instalar? **`OpenTV-Portable-x.y.z.zip`** es un solo `.exe` que guarda tus datos en una carpeta a su lado.
 
 > La versión instalada busca actualizaciones al abrirse y cada 6 horas, y las instala al cerrar la app. La portable avisa cuando hay una nueva.
 
 ### Fire TV y Android TV
 
-La app es un APK (`OpenTV-x.y.z.apk`, unos 5 MB) que se instala por fuera de la tienda. Dos formas:
+El APK se instala por fuera de la tienda. Dos formas:
 
 **Con la app Downloader (sin PC)**
 1. En la Fire TV: **Configuración → Mi Fire TV → Opciones para desarrolladores → Instalar apps desconocidas** y activa **Downloader** (instálala antes desde la tienda; si no ves *Opciones para desarrolladores*, entra en **Mi Fire TV → Acerca de** y pulsa 7 veces sobre el nombre del dispositivo).
@@ -100,28 +135,27 @@ La app es un APK (`OpenTV-x.y.z.apk`, unos 5 MB) que se instala por fuera de la 
    ```
 
 OpenTV aparece en **Tus apps y canales**; con el botón ☰ del control puedes moverla al inicio.
-Para actualizar, instala el APK nuevo encima: se conservan perfiles e historial.
 
 ### Celular Android
 
-1. Abre la página de [Releases](https://github.com/EdgarLeonArchuleta19/OpenTV/releases/latest) desde el celular y descarga `OpenTV-x.y.z.apk`.
-2. Ábrelo desde las descargas. La primera vez Android pide permiso para **instalar apps de origen desconocido** desde el navegador: actívalo y vuelve a abrir el archivo.
-3. Para actualizar, descarga e instala el APK nuevo encima.
+1. Abre [Releases](https://github.com/EdgarLeonArchuleta19/OpenTV/releases/latest) desde el celular y descarga `OpenTV-x.y.z.apk`.
+2. Ábrelo desde las descargas. La primera vez Android pide permiso para **instalar apps de origen desconocido**: actívalo y vuelve a abrir el archivo.
 
-### TV LG (webOS)
+En Android las actualizaciones llegan desde la propia app (**Acerca de → Buscar actualizaciones**, y un aviso al abrirla). También puedes instalar un APK nuevo encima: se conservan perfiles e historial.
 
-Las teles LG solo instalan apps de fuera de la tienda en **modo desarrollador**:
+### Qué funciona en cada dispositivo
 
-1. En la tele, instala **Developer Mode** desde la LG Content Store, inicia sesión con una cuenta de [LG Developer](https://webostv.developer.lge.com/) y activa **Dev Mode Status** y **Key Server** (la tele se reinicia).
-2. En el PC, instala el CLI de webOS (`npm i -g @webos-tools/cli`) y registra la tele con `ares-setup-device` (usa la IP y la frase que muestra la app Developer Mode).
-3. Instala el paquete:
-   ```bash
-   ares-install --device mitele OpenTV-LG-x.y.z.ipk
-   ```
+| | Windows | Fire TV / Android TV | Celular Android |
+|---|---|---|---|
+| Addons, fichas, búsqueda, Anime | ✅ | ✅ | ✅ |
+| Enlaces directos (HTTP / HLS) | ✅ | ✅ | ✅ |
+| Torrents | ✅ | ✅ Android 9+ (ARM) | ✅ Android 9+ (ARM) |
+| Descargas | ✅ | ✅ | ✅ |
+| Subtítulos del archivo, de addons e importados | ✅ | ✅ | ✅ |
+| TV en vivo (M3U) | ✅ | ✅ | ✅ |
+| Ventana flotante y barra de título | ✅ | — | — |
 
-> La sesión del modo desarrollador de LG caduca si no se renueva desde la app Developer Mode (botón **Extend**); si caduca, la tele quita las apps instaladas así.
-
-## ⌨️ Atajos
+## ⌨️ Atajos (PC)
 
 | Acción | Atajo |
 |---|---|
@@ -137,86 +171,111 @@ Las teles LG solo instalan apps de fuera de la tienda en **modo desarrollador**:
 
 ## 🛠️ Desarrollo
 
-Requisitos: **Node.js 22+** y Windows 10/11 x64.
+Requisitos: **Node.js 22+** y Windows 10/11 x64. Para Android, además JDK 17
+(`JAVA_HOME`) y el Android SDK (`ANDROID_HOME`).
 
 ```bash
-npm install          # dependencias
-npm run dev          # abrir la app en modo desarrollo
-npm run build        # regenerar ui/js/app.js y los estilos (Tailwind)
-npm test             # pruebas: bundle ES5 para TV, catálogo, búsqueda, guía, M3U…
-npm run test:e2e     # abre la interfaz real en Electron y recorre las pantallas
-npm run snapshot     # actualizar la copia del catálogo incluida (necesita internet)
-npm run dist         # instalador + portable en dist/
-npm run build:webos  # paquete de la TV LG en dist/webos (y .ipk si tienes ares-cli)
+npm install            # dependencias
+npm run dev            # abrir la app de PC en modo desarrollo
+npm run build          # regenerar ui/js/app.js y los estilos (Tailwind)
+npm test               # pruebas unitarias (addons, fuentes, subtítulos, M3U, servicio…)
+npm run test:e2e       # abre la interfaz real en Electron y recorre las pantallas
+npm run dist           # instalador + portable de Windows en dist/
 npm run build:android  # interfaz para Android en platforms/android/www + cap sync
-npm run build:apk    # APK de Fire TV / Android TV / Android en dist/ (R8 y firmado)
+npm run build:apk      # APK de release (R8 y firmado) en dist/
 ```
 
-**Android** necesita además JDK 17 (`JAVA_HOME`) y el Android SDK (`ANDROID_HOME`).
-El APK se firma con la clave que indique `platforms/android/android/keystore.properties`
-(ignorado por git; la clave `.jks` se guarda fuera del repositorio). Sin ese archivo se
-firma con la clave de depuración, que vale para probar. **Guarda una copia de la clave
-y su contraseña:** sin ellas no se puede actualizar la app ya instalada, habría que
-desinstalarla (y se pierden perfiles e historial).
+Para ver otra plataforma desde el PC, añade a la URL `?platform=android-tv`
+(diseño de tele) o `?platform=android` (diseño de celular).
 
-### Estructura
+**TMDB (opcional).** Las tendencias de la semana y la búsqueda por título en
+español usan TMDB. Pon tu clave en `config/tmdb.json` (está ignorado por git):
 
-Una sola interfaz y un solo servicio para todas las plataformas; cada
-plataforma solo añade su envoltorio (plan en [docs/PLATAFORMAS.md](docs/PLATAFORMAS.md)).
+```json
+{ "readAccessToken": "…" }
+```
+
+Sin ese archivo todo funciona, sin tendencias y buscando solo con el texto tal cual.
+
+**Firma de Android.** El APK se firma con la clave que indique
+`platforms/android/android/keystore.properties` (ignorado por git; el `.jks`
+vive fuera del repositorio). Sin ese archivo se firma con la clave de
+depuración, que vale para probar. **Guarda una copia de la clave y su
+contraseña:** sin ellas no se puede actualizar la app ya instalada.
+
+### Cómo está hecho
+
+Una sola interfaz y un solo servicio local para todas las plataformas; cada
+plataforma solo añade su envoltorio. Detalles en [docs/PLATAFORMAS.md](docs/PLATAFORMAS.md).
 
 ```
-ui/                 Interfaz compartida (PC, teles y celulares)
-  js/src/           Código en módulos ES5 → se une en ui/js/app.js (ver ui/js/src/README.md)
-    mobile/         Diseño de celular (Android; iOS después)
-  js/native-player.js  Android: el <video> pasa por ExoPlayer (no hace nada en otras plataformas)
-  css/style.css     Base heredada de la versión LG (medidas del lienzo de 1920×1080)
-  desktop/          Capas de estilo (desktop.css → modern.css → theme.css → tailwind.css),
-                    HLS.js y adaptadores de PC
-    tw/input.css    Fuente de tailwind.css: importa tw/capas/01…11 en orden
-                    (10-teles.css = todo lo exclusivo de LG, Android TV y Fire TV;
-                    11-fuentes-stremio.css = panel "Elegir fuente" del modo manual)
-  mobile/mobile.css Estilos del diseño de celular
-service/            Servicio local (Node): catálogo, proxy HLS, relay FFmpeg, DoH, TMDB
-  torrents.js       Solo PC: reproduce torrents del modo manual (torrent-stream) y los sirve
-                    en 127.0.0.1 con Range; la descarga se borra al salir de la película
+ui/                    Interfaz compartida (PC, teles y celulares), ES5
+  js/src/              Módulos que se unen en ui/js/app.js (ver ui/js/src/README.md)
+    services/          Addons: manifiestos, catálogos, fichas y búsqueda
+    player/            Reproductor, "Elegir fuente", subtítulos, audio, descargas
+    mobile/            Diseño de celular
+  js/platform.js       Qué dispositivo es y qué puede hacer (platformHas)
+  js/native-player.js  Android: el <video> pasa por ExoPlayer
+  desktop/tw/capas/    Estilos por capas (10-teles.css = diseño de tele)
+  mobile/mobile.css    Estilos del diseño de celular
+service/               Servicio local de PC (Node, solo en 127.0.0.1)
+  proxy.js             Proxy de vídeo y de subtítulos
+  ffmpeg-relay.js      MKV/AVI → fMP4 con FFmpeg, pistas de audio y subtítulos del archivo
+  torrents.js          Torrents (torrent-stream)
+  downloads.js         Descargas con reanudación
+  m3u.js · tmdb.js     Listas de TV en vivo · tendencias y búsqueda en TMDB
 platforms/
-  electron/         Windows: ventana y barra de título, atajos, actualizaciones, volumen,
-                    registro de errores, puente seguro e instalador (installer/)
-  android/          Capacitor: servicio nativo en Java, ExoPlayer, imágenes redimensionadas
-                    (release con R8: reglas en android/app/proguard-rules.pro)
-  webos/            TV LG: appinfo.json (el paquete lo arma scripts/build-webos.cjs)
-tests/              Pruebas unitarias (node --test) y de extremo a extremo (Electron)
-scripts/            Build del bundle y de cada plataforma, copia del catálogo, publicación
-  lib/ui-package.cjs  Copia y minifica la interfaz para los paquetes de LG y Android
-  build-apk.cjs     Compila el APK de release (R8) y lo copia a dist/
-bin/                ffmpeg.exe (Windows x64)
+  electron/            Windows: ventana, actualizaciones, volumen, registro, instalador
+  android/             Capacitor + el servicio portado a Java (torrents con
+                       libtorrent4j, descargas, actualizaciones) + ExoPlayer
+tests/                 Pruebas unitarias (node --test) y de extremo a extremo (Electron)
+scripts/               Build del bundle, de Android y publicación
+bin/                   ffmpeg.exe (Windows x64)
 ```
 
-Los paquetes de LG y Android llevan la interfaz **minificada** (JS con terser
-en ES5, CSS sin comentarios ni espacios, mismas reglas y en el mismo orden).
-`ui/` y la app de PC conservan los archivos legibles.
+Si trabajas con un agente de código (Claude Code, Codex…), las reglas del
+repositorio están en [AGENTS.md](AGENTS.md).
 
 ### Publicar una versión
 
-1. Sube `version` en `package.json` (por ejemplo `1.1.1`), en `platforms/webos/appinfo.json`, el texto `v…` de `ui/index.html` y, en `platforms/android/android/app/build.gradle`, `versionName` y `versionCode` (+1; si no sube, Android no instala la nueva encima).
-2. Compila y prueba:
-   ```bash
-   npm run build && npm test
-   npx electron-builder --win nsis portable
-   ```
-3. Compila Android y LG: `npm run build:apk` y `npm run build:webos` (el `.ipk` necesita `ares-package`).
-4. Crea la release `v1.1.1` y sube **el `.zip` del instalador** (para descargar) junto con
-   `OpenTV-Setup-1.1.1.exe`, su `.blockmap` y `latest.yml` (los usa el actualizador automático),
-   el portable, el `.apk` y el `.ipk`.
+1. Sube `version` en `package.json` (por ejemplo `1.2.0`), el texto `v…` de `ui/index.html` y, en `platforms/android/android/app/build.gradle`, `versionName` y `versionCode` (+1; si no sube, Android no instala la nueva encima).
+2. Compila y prueba: `npm run build && npm test && npm run test:e2e`.
+3. Windows: `npm run dist`. Android: `npm run build:apk`.
+4. Crea la release `v1.2.0` y sube el `.zip` del instalador, `OpenTV-Setup-1.2.0.exe` con su `.blockmap` y `latest.yml` (los usa el actualizador de Windows), el portable y el `.apk` (lo usa el actualizador de Android).
 
-También hay un workflow de GitHub Actions listo en [`scripts/ci/github-release.yml`](scripts/ci/github-release.yml): cópialo a `.github/workflows/` y cada etiqueta `v*` compilará y publicará sola.
+También hay un workflow de GitHub Actions en [`scripts/ci/github-release.yml`](scripts/ci/github-release.yml): cópialo a `.github/workflows/` y cada etiqueta `v*` compilará y publicará sola.
 
 ## ⚖️ Aviso
 
-OpenTV es un reproductor. **No aloja, sube ni distribuye contenido**: muestra catálogos y emisiones de servicios de terceros, y las listas M3U y addons que añada cada usuario. La app solo trae instalados Cinemeta (catálogo) y OpenSubtitles (subtítulos), que no dan vídeos; los addons de fuentes los agrega cada usuario, que es responsable de lo que reproduce. Al reproducir un torrent, la app comparte partes del archivo con otras personas mientras se ve (lo avisa antes de la primera vez). Los títulos, imágenes y marcas pertenecen a sus respectivos dueños. Úsala de acuerdo con las leyes de tu país.
+OpenTV es un reproductor. **No aloja, sube ni distribuye contenido** y no
+incluye ninguna fuente de vídeo: muestra lo que dan los addons y las listas M3U
+que agrega cada usuario. Solo trae instalados Cinemeta y Anime Kitsu
+(catálogos) y OpenSubtitles (subtítulos), que no dan vídeos. Cada usuario es
+responsable de los addons y listas que agrega y de lo que reproduce. Al
+reproducir o descargar un torrent, la app comparte partes del archivo con otras
+personas mientras lo hace (lo avisa antes de la primera vez). Los títulos,
+imágenes y marcas pertenecen a sus dueños; "Stremio" es una marca de otra
+empresa y OpenTV solo es compatible con sus addons. Úsala de acuerdo con las
+leyes de tu país.
 
-Componentes de código abierto: [Electron](https://www.electronjs.org/) (MIT), [HLS.js](https://github.com/video-dev/hls.js) (Apache 2.0), [Capacitor](https://capacitorjs.com/) (MIT), [AndroidX Media3 / ExoPlayer](https://github.com/androidx/media) (Apache 2.0), [FFmpeg](https://ffmpeg.org/) (GPL v3), [torrent-stream](https://github.com/mafintosh/torrent-stream) (MIT) y [Tailwind CSS](https://tailwindcss.com/) (MIT). Las licencias completas están en [`licenses/`](licenses).
+Este producto usa la API de TMDB, pero TMDB no lo respalda ni lo certifica.
+
+Componentes de código abierto: [Electron](https://www.electronjs.org/) (MIT),
+[HLS.js](https://github.com/video-dev/hls.js) (Apache 2.0),
+[Capacitor](https://capacitorjs.com/) (MIT),
+[AndroidX Media3 / ExoPlayer](https://github.com/androidx/media) (Apache 2.0),
+[FFmpeg](https://ffmpeg.org/) (GPL v3),
+[torrent-stream](https://github.com/mafintosh/torrent-stream) (MIT),
+[libtorrent4j](https://github.com/aldenml/libtorrent4j) (MIT) y
+[Tailwind CSS](https://tailwindcss.com/) (MIT). Las licencias y la procedencia
+de los recursos de terceros están en [`licenses/`](licenses).
 
 ## 📄 Licencia
 
-[MIT](LICENSE) · Desarrollado por **TECHPOINT Software™**
+© 2026 **TECHPOINT Software™**. Todos los derechos reservados.
+
+El código se publica para que se pueda ver, pero no se puede copiar, modificar,
+distribuir ni usar en otros productos sin permiso por escrito. Si se da
+permiso, el producto debe decir **"Basado en OpenTV de TECHPOINT Software™"**.
+Puedes instalar y usar las versiones oficiales. Detalles en [LICENSE](LICENSE);
+los componentes de terceros conservan sus propias licencias (ver [`licenses/`](licenses)).

@@ -5,16 +5,20 @@ este repositorio. Para personas, empieza por el [README](README.md).
 
 ## Qué es
 
-OpenTV: TV en vivo, películas y series con una sola interfaz (`ui/`) y un
+OpenTV es un reproductor tipo streaming sin contenido propio: películas,
+series y anime salen de **addons compatibles con Stremio** que agrega el
+usuario, y la TV en vivo de **listas M3U**. Una sola interfaz (`ui/`) y un
 solo servicio (`service/`) para todas las plataformas:
 
 | Plataforma | Envoltorio | Carpeta |
 |---|---|---|
 | Windows | Electron 44 | `platforms/electron/` |
 | Android, Android TV, Fire TV | Capacitor 6 + servicio nativo en Java + ExoPlayer | `platforms/android/` |
-| TV LG | webOS | `platforms/webos/` |
 
-Plan y estado por plataforma: [docs/PLATAFORMAS.md](docs/PLATAFORMAS.md).
+Cómo funciona por dentro y qué hay en cada plataforma:
+[docs/PLATAFORMAS.md](docs/PLATAFORMAS.md). (Empezó como un port de la
+interfaz de otra app de IPTV; de eso solo quedan algunos recursos gráficos en
+`ui/assets/original/`, ver `licenses/upstream-THIRD_PARTY.md`.)
 
 ## Prioridad: fluidez en la tele
 
@@ -32,7 +36,6 @@ npm run build          # ui/js/app.js + ui/desktop/tailwind.css
 npm test               # pruebas unitarias (node --test tests/*.test.cjs)
 npm run test:e2e       # abre la interfaz real en Electron y recorre las pantallas
 npm run check:js       # falla si ui/js/app.js no está al día
-npm run build:webos    # paquete de la TV LG (dist/webos)
 npm run build:android  # interfaz para Android + cap sync
 npm run build:apk      # APK de release con R8 → dist/OpenTV-<versión>.apk
 ```
@@ -51,50 +54,75 @@ toca la tele, una prueba en el aparato.
   flechas, clases, plantillas con comillas invertidas ni `async`. Las teles
   viejas lo necesitan, y `tests/bundle.test.cjs` lo comprueba.
 - **Las funciones no son globales.** Para depurar o probar desde fuera usa
-  `window.__xuper` (definido en `ui/js/src/main.js`).
+  `window.__opentv` (definido en `ui/js/src/main.js`).
 - **Plataformas:** no compares nombres de plataforma, pregunta capacidades:
   `platformHas('window' | 'pip' | 'mouse' | 'native-player' | 'addons' | 'torrents' …)`
   y `platformIsTv()`. La lista está en `ui/js/platform.js`. Para simular otra
-  plataforma en PC: `?platform=webos` o `?platform=android-tv`.
+  plataforma en PC: `?platform=android-tv` o `?platform=android`.
 - **Estilos:** `ui/desktop/tw/input.css` solo importa las capas de
   `ui/desktop/tw/capas/` en orden. Lo exclusivo de tele va en `10-teles.css`
   (bajo `.desktop.is-tv`, lienzo de 1920×1080). Antes de crear una clase nueva,
   busca que no exista ya en `ui/css/style.css` (la base heredada usa prefijos
   cortos como `.sp-`).
+- **Ventanas sobre la app** (paneles, avisos): móntalas con
+  `mountOverlay(root)`. En el celular el lienzo está oculto hasta que se
+  reproduce algo; si van dentro de `#app` no se ven.
 - **Textos visibles en español.** Los comentarios del código, en inglés.
 
 ## Servicio (`service/`)
 
-- Corre dentro de Electron (`platforms/electron/service.cjs`) y en la TV LG.
-  En Android lo sustituye el port en Java
+- Corre dentro de Electron (`platforms/electron/service.cjs`). En Android lo
+  sustituye el port en Java
   (`platforms/android/android/app/src/main/java/com/techpoint/opentv/service`).
   Si añades un método al servicio de Node que también necesita Android, hay que
   portarlo a Java.
 - `service/torrents.js` (torrent-stream) **solo se carga en Electron**.
 - Todo escucha en **127.0.0.1**. No abras puertos a la red local.
 
-## Modos de películas y series (solo PC)
+## Películas, series y anime: addons
 
-Dos modos: **Modo automático** (catálogo integrado de `service/magis.js`) y
-**Modo Addons** (compatible con Stremio; solo los addons que agrega el usuario; fuentes
-directas o torrents). Reglas:
+Películas, series y anime salen **solo de los addons** del usuario
+(compatibles con Stremio), en todas las plataformas. No hay catálogo
+integrado ni portal.
+Reglas:
 
-- Solo vienen instalados **Cinemeta** y **OpenSubtitles** (como en Stremio;
-  se instalan una vez y el usuario puede quitarlos). No añadas addons de
-  fuentes (Torrentio y similares) preinstalados: los agrega cada usuario.
-- En textos visibles el modo se llama **Addons**. "Stremio" es una marca de
-  otra empresa: solo se menciona como compatibilidad ("compatible con
-  Stremio"), nunca como nombre de un modo, botón o etiqueta.
-- Teles y Android usan siempre el modo automático (capacidades `addons` y
-  `torrents` solo en Electron).
-- TV en vivo es independiente: tiene sus propias listas M3U.
+- Solo vienen instalados **Cinemeta** (catálogo), **Anime Kitsu** (catálogo
+  de anime, llena la sección Anime) y **OpenSubtitles** (subtítulos); **no se
+  pueden quitar**: si faltan, `seedDefaultVodAddons()` los vuelve a poner, y
+  la interfaz muestra "Incluido" en lugar de Quitar (`isBuiltinVodAddon()`).
+  No añadas addons de fuentes (Torrentio y similares) preinstalados: los
+  agrega cada usuario.
+- Las listas de tipo `anime` de un addon solo van a la sección Anime
+  (`_animeCat`), no a Inicio, Películas ni Series. El género "Animation" no
+  es Anime ni Kids (tiene series para adultos); a Kids solo va "Family".
+- Sin un addon de fuentes la app funciona: la ficha muestra la información y
+  dice dónde agregar uno (`hasSourceAddons()`), sin botones de reproducir;
+  cualquier otro "Reproducir" abre `showNoSourcesNotice()`.
+- "Stremio" es una marca de otra empresa: solo se menciona como
+  compatibilidad ("compatible con Stremio"), nunca como nombre de un modo,
+  botón o etiqueta. En Ajustes la sección se llama **Addons**.
+- Torrents: PC y Android 9+ con ARM (en Android la capacidad `torrents` se
+  activa si el `ping` del servicio dice `torrents: true`; motor libtorrent4j
+  en `Torrents.java`). Descargas (`downloads`): PC y Android (en Android se
+  activa igual, con `downloads: true` en el `ping`).
+- La elección de fuente (idioma, calidad, semillas, preferencias tipo
+  Torrentio) está en `ui/js/src/player/source-rank.js`.
+- Búsqueda: `searchTitles()` (todos los addons, resultados según llegan,
+  ordenados por `rankSearchResults()`); con clave de TMDB traduce títulos en
+  español al original (`tmdb.list('search:<texto>')`, también en `Tmdb.java`).
+- TV en vivo es independiente: solo las listas M3U del usuario
+  (`service/m3u.js`).
 
-Cómo funciona: [docs/PLATAFORMAS.md](docs/PLATAFORMAS.md#modo-addons-cómo-funciona).
+Cómo funciona: [docs/PLATAFORMAS.md](docs/PLATAFORMAS.md#películas-series-y-anime-addons).
 
 ## No cambiar
 
-- El protocolo `xuper://` y las claves de `localStorage` existentes
-  (`xuper_*`, `opentv_*`): borrarían los datos guardados de los usuarios.
+- El protocolo `opentv://` y las claves de `localStorage` existentes
+  (`opentv_*`): borrarían los datos guardados de los usuarios. Las
+  instalaciones viejas usaban `xuper://` y claves `xuper_*`; se pasan solas
+  a los nombres nuevos al arrancar (`ui/js/migrate-storage.js` y
+  `migrateLegacyOrigin()` en `platforms/electron/main.cjs`). No quites esa
+  migración.
 - Los ids `stremio:<id>` de los títulos de addons.
 
 ## Secretos

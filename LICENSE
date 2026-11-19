@@ -1,25 +1,74 @@
-MIT License
+OpenTV
+Copyright (c) 2026 TECHPOINT Software™. Todos los derechos reservados.
+All rights reserved.
 
-Copyright (c) 2026 TECHPOINT Software™ and contributors
+ESPAÑOL
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Este software, su código fuente, su diseño, sus textos y sus imágenes propias
+(el "Software") son propiedad de TECHPOINT Software™.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+El código se publica para que se pueda ver y revisar. Publicarlo no da ningún
+permiso para usarlo. Sin permiso previo y por escrito de TECHPOINT Software™,
+no se puede:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+  1. copiar, modificar, adaptar ni traducir el Software, en todo o en parte;
+  2. distribuirlo, publicarlo, venderlo, alquilarlo ni sublicenciarlo;
+  3. usarlo, ni usar partes de él, en otro producto o servicio, sea gratuito
+     o de pago;
+  4. quitar o cambiar los avisos de autoría y copyright.
 
-This licence covers the new desktop integration code only. Upstream code,
-artwork, Electron/Chromium, HLS.js and FFmpeg retain their respective licences
-and notices; see README.md and licenses/.
+Sí se permite descargar e instalar las versiones oficiales publicadas por
+TECHPOINT Software™ para uso personal, y ver el código fuente en este
+repositorio.
+
+Créditos obligatorios: cuando TECHPOINT Software™ dé permiso para usar el
+Software o una parte de él, el producto resultante debe mostrar de forma
+visible (en su pantalla "Acerca de" o equivalente, y en su documentación) el
+texto: "Basado en OpenTV de TECHPOINT Software™", salvo que el permiso diga
+otra cosa.
+
+Para pedir permiso: abre un issue en el repositorio de OpenTV.
+
+EL SOFTWARE SE ENTREGA "TAL CUAL", SIN GARANTÍAS DE NINGÚN TIPO. TECHPOINT
+SOFTWARE™ NO RESPONDE DE NINGÚN DAÑO DERIVADO DE SU USO.
+
+ENGLISH
+
+This software, its source code, design, texts and original artwork (the
+"Software") are the property of TECHPOINT Software™.
+
+The source code is published so it can be viewed and reviewed. Publishing it
+grants no permission to use it. Without prior written permission from
+TECHPOINT Software™, you may not:
+
+  1. copy, modify, adapt or translate the Software, in whole or in part;
+  2. distribute, publish, sell, rent or sublicense it;
+  3. use the Software or any part of it in another product or service,
+     whether free or paid;
+  4. remove or alter the authorship and copyright notices.
+
+You may download and install the official releases published by TECHPOINT
+Software™ for personal use, and view the source code in this repository.
+
+Mandatory attribution: whenever TECHPOINT Software™ grants permission to use
+the Software or any part of it, the resulting product must visibly show (in
+its "About" screen or equivalent, and in its documentation) the text "Based on
+OpenTV by TECHPOINT Software™", unless the permission states otherwise.
+
+To ask for permission, open an issue in the OpenTV repository.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. TECHPOINT
+SOFTWARE™ SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING FROM ITS USE.
+
+THIRD-PARTY MATERIAL
+
+This licence covers only TECHPOINT Software™'s own work. It does not cover:
+
+  - code from the project OpenTV was forked from, which stays under its MIT
+    licence; its notice is kept in licenses/upstream-LICENSE, as that licence
+    requires;
+  - the third-party components and resources listed in licenses/ (Electron,
+    HLS.js, FFmpeg, torrent-stream, libtorrent4j, Capacitor, Media3 and
+    others), each under its own licence;
+  - versions released before this change under the MIT licence, which remain
+    under the MIT licence for whoever already received them.

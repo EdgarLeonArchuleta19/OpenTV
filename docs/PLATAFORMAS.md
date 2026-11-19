@@ -1,90 +1,136 @@
-# OpenTV en varias plataformas — plan por fases
+# OpenTV por dentro: plataformas y cómo funciona
 
 Una sola base de código (`ui/` + `service/`) y un envoltorio por plataforma:
 
 | Plataforma | Envoltorio | Carpeta |
 |---|---|---|
-| Windows (después macOS y Linux) | Electron | `platforms/electron/` |
-| Android TV, Fire TV, Android | Capacitor | `platforms/android/` |
-| TV LG | webOS | `platforms/webos/` |
+| Windows | Electron 44 | `platforms/electron/` |
+| Android, Android TV, Fire TV | Capacitor 6 + servicio nativo en Java + ExoPlayer | `platforms/android/` |
+
+Regla: si algo se puede hacer en `ui/` o `service/`, va ahí; las carpetas de
+`platforms/` solo tienen lo que de verdad es distinto.
 
 ## Estructura
 
 ```
 ui/                  interfaz compartida (HTML, CSS, JS ES5)
-  js/platform.js     qué dispositivo es y qué puede hacer
-  js/src/mobile/     diseño de celular
+  js/platform.js     qué dispositivo es y qué puede hacer (platformHas)
+  js/src/            módulos de la interfaz (ver ui/js/src/README.md)
   desktop/tw/capas/  estilos por capas; 10-teles.css = diseño de tele
-service/             servicio Node compartido (portal, proxy, relay, TMDB; torrents.js solo en PC)
+  mobile/mobile.css  diseño de celular
+service/             servicio local de PC (Node, en 127.0.0.1)
 platforms/
-  electron/          main.cjs, preload, instalador de Windows
-  android/           proyecto Capacitor: servicio nativo en Java + plugin ExoPlayer
-  webos/             appinfo.json y empaquetado para la TV LG
-scripts/             build y empaquetado por plataforma (lib/ui-package.cjs: copia y minifica)
+  electron/          main.cjs, preload, actualizador e instalador de Windows
+  android/           proyecto Capacitor: el servicio portado a Java + ExoPlayer
+scripts/             build y empaquetado por plataforma
 tests/               pruebas compartidas
 ```
 
-Regla: si algo se puede hacer en `ui/` o `service/`, va ahí; las carpetas de
-`platforms/` solo tienen lo que de verdad es distinto.
-
 ## Qué hay en cada plataforma
 
-| Función | PC (Electron) | Android TV / Fire TV / Android | TV LG |
-|---|---|---|---|
-| Catálogo integrado (películas, series, TV en vivo) | ✅ | ✅ | ✅ |
-| Listas M3U propias para TV en vivo | ✅ | ✅ | ✅ |
-| Modos de películas y series: automático / Addons (compatible con Stremio) | ✅ | — (siempre automático) | — (siempre automático) |
-| Torrents en el modo manual | ✅ | — | — |
+| Función | PC (Electron) | Android TV / Fire TV / Android |
+|---|---|---|
+| Películas, series y anime de addons (compatibles con Stremio) | ✅ | ✅ |
+| Fuentes con enlace directo (HTTP / HLS) | ✅ | ✅ |
+| Torrents | ✅ torrent-stream | ✅ Android 9+ con ARM, libtorrent4j |
+| Descargas | ✅ | ✅ (con notificación) |
+| Subtítulos del archivo | ✅ relay FFmpeg | ✅ ExoPlayer |
+| Subtítulos de addons e importados | ✅ | ✅ |
+| TV en vivo (listas M3U) | ✅ | ✅ |
+| Búsqueda en español (TMDB) y tendencias | ✅ | ✅ |
+| Actualizaciones | ✅ automáticas | ✅ desde la app |
+| Ventana flotante, barra de título, ratón | ✅ | — |
 
-Los modos dependen de la capacidad `'addons'` y los torrents de `'torrents'`
-(`ui/js/platform.js`); solo Electron las tiene. En las demás plataformas la
-sección no aparece en Ajustes y, si quedara guardado el modo manual, se usa
-el automático. El servicio de PC es el único que carga el motor de torrents
-(`service/torrents.js`, con `torrent-stream`); el de la TV LG responde que no
-está disponible y el de Android (Java) no tiene esos métodos.
+La interfaz no compara nombres de plataforma: pregunta capacidades con
+`platformHas('addons' | 'torrents' | 'downloads' | 'native-player' | 'mouse' | 'pip' …)`
+y `platformIsTv()`. En Android, `torrents` y `downloads` se activan solo si el
+`ping` del servicio responde `torrents: true` / `downloads: true` (en
+`ui/js/src/main.js`). Para probar otra plataforma en el PC:
+`?platform=android-tv` (tele) o `?platform=android` (celular).
 
-### Modo Addons, cómo funciona
+## Películas, series y anime: addons
 
-1. **Ajustes → Fuentes**: el usuario pega la URL del `manifest.json` de un
-   addon. Se guarda lo que ofrece (catálogos, fichas, fuentes, subtítulos).
-   Vienen instalados, una sola vez y se pueden quitar, Cinemeta (catálogo) y
-   OpenSubtitles (subtítulos), como en Stremio. Ningún addon de fuentes.
-   Al elegir el modo Addons, un aviso dice de qué addons depende.
-   En la interfaz el modo se llama "Addons" (con una línea "compatible con
-   Stremio"): "Stremio" es una marca de otra empresa y no se usa como nombre
-   de nada de OpenTV.
-2. **Inicio**: una fila por catálogo del addon, con su nombre ("Popular ·
-   Películas"). Los títulos llevan id `stremio:<id>` para no mezclarse con el
-   catálogo integrado en el historial y Mi lista.
-3. **Reproducir**: panel "Elegir fuente" con las fuentes de todos los addons
-   (calidad, tamaño, número de fuentes del torrent). La elección se recuerda por
-   película o capítulo; "Cambiar fuente" en la ficha la cambia. El siguiente
-   capítulo usa el mismo addon y calidad.
-4. **Servicio** (`resolveExternal`): HLS tal cual; MP4/WebM tal cual; MKV/AVI
-   y lo que el addon marca como no apto para navegador, por el relay FFmpeg
-   (copia el vídeo y convierte solo el audio; si aun así falla, convierte todo).
-   Torrents: `torrentStart` → URL local → el mismo camino.
-5. **Torrents**: aviso la primera vez; uno a la vez; la descarga está en la
-   carpeta temporal y se borra al salir de las películas, al cambiar de fuente
-   o al cerrar la app (y tras 10 min sin leerse).
+No hay catálogo integrado: todo sale de los addons del usuario (compatibles
+con Stremio: `manifest.json` → `catalog` / `meta` / `stream` / `subtitles`).
+Código en `ui/js/src/services/vod-api.js` y `ui/js/src/player/stremio-sources.js`.
 
-## Fases
+1. **Addons instalados.** Vienen siempre y no se pueden quitar
+   **Cinemeta** (catálogo), **Anime Kitsu** (catálogo de anime) y
+   **OpenSubtitles** (subtítulos). Ninguno da vídeos y no se preinstala ningún
+   addon de fuentes; si alguno falta, la app lo vuelve a poner. El usuario
+   agrega más en **Ajustes →
+   Addons** pegando la URL del `manifest.json`; se guarda lo que ofrece cada
+   uno (catálogos, géneros, recursos, prefijos de id).
+2. **Inicio y secciones.** Una fila por catálogo, en el orden del addon
+   ("Popular · Películas"). Kids pide además las listas por género "Family".
+   Las listas de tipo `anime` (Kitsu: Tendencias, En emisión, Más
+   populares, Mejor valorados) solo van a **Anime**; el género "Animation"
+   no cuenta como anime ni como Kids. Los títulos llevan id `stremio:<id>`.
+3. **Ficha.** Los datos y capítulos los da el primer addon con `meta` para
+   ese id. Sin addon de fuentes (`hasSourceAddons()`) la ficha muestra solo la
+   información y un botón **Ir a Addons**; *Reproducir* desde otro sitio abre
+   el aviso "Agrega un addon para reproducir".
+4. **Elegir fuente.** Las fuentes de todos los addons, agrupadas, con una
+   **Recomendada** (`player/source-rank.js`: idioma > calidad > salud del
+   torrent; CAM solo si no hay otra; penaliza lo que el aparato no decodifica
+   o no cabe). Las **Preferencias de addons** (Ajustes) imitan la página
+   *configure* de Torrentio. La elección se recuerda por película o capítulo.
+5. **Reproducir** (`resolveExternal` en el servicio). HLS, MP4 y WebM tal cual.
+   En PC, MKV/AVI pasan por el relay FFmpeg (`service/ffmpeg-relay.js`): copia
+   el vídeo desde el keyframe, convierte el audio, mide dónde empezó de verdad
+   para no desfasar audio y vídeo, y escribe los subtítulos del archivo como
+   WebVTT. En Android todo lo reproduce ExoPlayer.
+6. **Torrents.** Aviso la primera vez; uno a la vez; se sirven en `127.0.0.1`
+   con Range y se borran al salir, al cambiar de fuente o al cerrar la app.
+7. **Subtítulos.** Primero los del archivo, luego los de los addons (con el
+   hash de OpenSubtitles del vídeo para que coincidan), o un archivo propio.
+   El proxy sigue redirecciones, descomprime y corrige la codificación.
+8. **Búsqueda.** En todos los addons a la vez; los resultados salen según
+   contesta cada uno, ordenados por parecido y sin duplicados. Si hay clave de
+   TMDB, el título en español se traduce a su título original
+   (`tmdb.list('search:<texto>')`) y ese título se busca en los addons.
 
-| # | Fase | Resultado | Estado |
-|---|---|---|---|
-| 1 | **Carpetas** | `desktop/` → `platforms/electron/`, `appinfo.json` → `platforms/webos/`, `npm run build:webos` arma el paquete de la TV. Nada cambia para el usuario. | hecha |
-| 2 | **Capa `platform`** | `ui/js/platform.js` detecta Electron / webOS / Android y sus capacidades (`platformHas('window')`, `'pip'`, `'mouse'`…). El diseño nuevo se usa en todas; lo exclusivo de PC (ventana, PiP, barra de título) se oculta en TV. Probar otra plataforma en el PC: `?platform=webos` o `?platform=android-tv`. | hecha |
-| 3 | **Modo ligero en TV** | Ya se enciende solo en TV (fase 2). Falta: compatibilidad con el navegador de webOS 5 (Chromium 68: sin `gap` en flex, `inset`, `:has`…), imágenes más ligeras y listas largas en TV. | siguiente |
-| 4 | **Proyecto Capacitor** | `platforms/android/`: abre la app en el Fire Stick, aparece en el menú de la tele (leanback + banner), control remoto y botón Atrás. Diseño de celular en `ui/js/src/mobile/`. | hecha |
-| 5 | **Servicio en Android** | En lugar de nodejs-mobile (pesado para 1 GB de RAM), `service/` se portó a Java (`android/app/src/main/java/com/techpoint/opentv/service`): servidor local en `127.0.0.1:8910` con portal, proxy HLS, DoH y TMDB; la interfaz lo usa por HTTP (`vodApi.devServiceUrl`, lo pone `build-android.cjs`). | hecha |
-| 6 | **Reproductor ExoPlayer** | `NativePlayerPlugin.java` (Media3 1.4.1, una SurfaceView detrás del WebView transparente) y `ui/js/native-player.js`, que hace que los `<video>` del reproductor y de la vista previa de TV en vivo hablen con él (capacidad `'native-player'`; sin hls.js). Películas MPEG-TS como archivo (todas las pistas de audio, búsqueda nativa), canales HLS, subtítulos de la página, calidad HLS. Volver a hls.js para comparar: `localStorage.opentv_player = 'web'`. | hecha |
-| 7 | **Prueba en Fire Stick** | Probado en el aparato real (Fire TV Stick 3ª gen., 1 GB): con ExoPlayer la CPU al reproducir bajó de ~300 % a ~77 %. APK de release con R8 (11,3 → 3,6 MB) y firmado: `npm run build:apk`. Falta: medir memoria con uso largo, probar en un celular y en Android TV de otra marca. | casi |
-| 8 | **macOS y Linux** (opcional) | Builds de Electron (dmg, AppImage) con FFmpeg de cada sistema. | pendiente |
+"Stremio" es una marca de otra empresa: en la interfaz solo aparece como
+"compatible con Stremio"; la sección se llama **Addons**.
 
-Cada fase termina con: build, `npm test`, `npm run test:e2e`, prueba en la
-app y commit propio.
+## TV en vivo
 
-## Android: compilar, firmar e instalar
+Independiente de los addons: solo listas M3U (`service/m3u.js`,
+`M3u.java`). La app empieza con una lista pública de
+[iptv-org](https://github.com/iptv-org/iptv) y ofrece más en "Buscar listas";
+el usuario agrega las suyas en **Ajustes → Addons → TV en vivo** (o en el
+celular, **Mi cuenta → Addons y listas**).
+
+## Celular
+
+`ui/js/src/mobile/` dibuja su propia capa táctil encima del lienzo de
+1920×1080, que se oculta hasta que se abre el reproductor. Por eso las
+ventanas de la app (elegir fuente, avisos, guía, descargas) se montan con
+`mountOverlay()`: en PC y tele dentro del lienzo, en el celular sobre el
+`body`, como una hoja que sube desde abajo (`mobile.css`).
+
+## Android
+
+El servicio de Node se portó a Java en lugar de usar nodejs-mobile (pesado
+para 1 GB de RAM): `android/app/src/main/java/com/techpoint/opentv/service`,
+un servidor local en `127.0.0.1:8910` con listas M3U, fuentes de addons,
+proxy de vídeo y subtítulos, hash de vídeo, DoH, TMDB, torrents
+(`Torrents.java`, libtorrent4j, ventana de 8 MB y lectura anticipada),
+descargas (`Downloads.java` + servicio en primer plano con notificación) y
+actualizaciones (`AppUpdate.java`, descarga el APK de la release e instala).
+Si un método nuevo del servicio de Node también hace falta en Android, hay que
+portarlo a Java.
+
+El reproductor es `NativePlayerPlugin.java` (Media3, una SurfaceView detrás
+del WebView transparente) con `ui/js/native-player.js`, que hace que los
+`<video>` hablen con él (capacidad `'native-player'`). Volver a hls.js para
+comparar: `localStorage.opentv_player = 'web'`.
+
+Medido en un Fire TV Stick 3.ª gen. (1 GB): con ExoPlayer la CPU al
+reproducir bajó de ~300 % a ~77 %. La navegación del inicio se queda en unos
+18 ms por fotograma; no baja con zoom, capas ni render a 720p.
+
+### Compilar, firmar e instalar
 
 ```bash
 npm run build:apk     # interfaz + cap sync + APK de release → dist/OpenTV-<versión>.apk
@@ -92,20 +138,26 @@ npm run build:apk     # interfaz + cap sync + APK de release → dist/OpenTV-<ve
 
 - **Requisitos:** JDK 17 en `JAVA_HOME` y el Android SDK (`ANDROID_HOME` o
   `platforms/android/android/local.properties`).
-- **R8** está activado en el release (`minifyEnabled` + `shrinkResources` en
-  `android/app/build.gradle`). Capacitor y Media3 traen sus propias reglas; las de
-  OpenTV están en `android/app/proguard-rules.pro`. Si un plugin nuevo falla solo en
-  release, falta una regla `-keep` para él.
-- **Firma:** `platforms/android/android/keystore.properties` (ignorado por git)
-  indica la clave:
+- **R8** está activado en el release. Las reglas de OpenTV (incluidas las de
+  libtorrent4j) están en `android/app/proguard-rules.pro`; si algo falla solo
+  en release, falta una regla `-keep`.
+- **Firma:** `platforms/android/android/keystore.properties` (ignorado por git):
   ```properties
   storeFile=C:/ruta/fuera/del/repo/opentv-release.jks
   storePassword=…
   keyAlias=opentv
   keyPassword=…
   ```
-  Sin ese archivo se usa la clave de depuración. Un APK con otra firma no se puede
-  instalar encima del que ya hay: hay que desinstalar (se pierden los datos).
-- **WebView en release:** la depuración remota (chrome://inspect) solo está en el
-  build de depuración (`gradlew assembleDebug`).
+  Sin ese archivo se usa la clave de depuración. Un APK con otra firma no se
+  instala encima del que ya hay: habría que desinstalar y se pierden los datos.
+- **Versiones:** cada release sube `versionCode` en `android/app/build.gradle`;
+  en Fire TV eso también refresca el icono del lanzador.
+- **WebView:** la depuración remota (chrome://inspect) solo está en el build
+  de depuración (`gradlew assembleDebug`).
 - **Instalar en la Fire TV:** ver el README (Downloader o `adb install -r`).
+
+## Pendiente
+
+- macOS y Linux (builds de Electron con el FFmpeg de cada sistema).
+- Android TV de otras marcas y uso largo en el Fire TV (memoria).
+- Una política de seguridad de contenido (CSP) para la ventana de Electron.
