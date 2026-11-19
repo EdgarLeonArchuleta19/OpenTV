@@ -211,6 +211,19 @@ function autoPickStremioSource(item, episode, previous, done) {
   });
 }
 
+/* What torrentProbe found, for a few minutes: hash -> { at, peers, available }. */
+var TORRENT_PROBE_TTL_MS = 3 * 60 * 1000;
+var torrentProbeCache = {};
+function torrentProbeFor(hash) {
+  var r = hash && torrentProbeCache[hash];
+  return r && Date.now() - r.at < TORRENT_PROBE_TTL_MS ? r : null;
+}
+/* "12 conectadas ahora · completo" / "nadie lo comparte ahora". */
+function torrentProbeText(r) {
+  if (r.available < 0 || !r.peers) { return 'nadie lo comparte ahora'; }
+  return r.peers + (r.peers === 1 ? ' conectada' : ' conectadas') + ' ahora · ' + (r.available >= 100 ? 'completo' : r.available + ' % disponible');
+}
+
 /* ------------------------------------------------ "Elegir fuente" panel */
 var sourcePickerOpen = false;
 var sourcePickerNode = null;
@@ -456,7 +469,9 @@ function openSourcePicker(item, episode, onPick, opts) {
     meta.push(langs || 'Idioma original');
     meta.push(src.kind === 'torrent' ? 'Torrent' : 'Directo');
     if (src.size) { meta.push(src.size); }
-    if (src.seeds !== null) { meta.push(src.seeds + (src.seeds === 1 ? ' semilla' : ' semillas')); }
+    var live = src.kind === 'torrent' ? torrentProbeFor(src.infoHash) : null;
+    if (live) { meta.push(torrentProbeText(live)); }
+    else if (src.seeds !== null) { meta.push(src.seeds + (src.seeds === 1 ? ' semilla' : ' semillas') + (probeRunning && src.kind === 'torrent' ? ' · comprobando…' : '')); }
     if (src.hdr) { meta.push('HDR'); }
     if (src.hevc) { meta.push('HEVC'); }
     if (src.provider) { meta.push(src.provider); }
@@ -473,6 +488,24 @@ function openSourcePicker(item, episode, onPick, opts) {
   }
 
   var lastGroups = [], lastPending = 0;
+  /* PC, when the viewer opened the panel (not while it plays the
+     recommended one by itself): ask how many people the best torrents
+     really have now (service torrentProbe), then show it on their rows. */
+  var probeAsked = false, probeRunning = false;
+  function maybeProbe(all) {
+    if (probeAsked || waiting || !platformHas('window') || !platformHas('torrents')) { return; }
+    var torrents = all.filter(function (x) { return x.kind === 'torrent' && x.infoHash && !torrentProbeFor(x.infoHash); })
+      .sort(function (a, b) { return b._score - a._score; }).slice(0, 6);
+    probeAsked = true;
+    if (!torrents.length) { return; }
+    probeRunning = true;
+    portalServiceCall('torrentProbe', { torrents: torrents.map(function (t) { return { infoHash: t.infoHash, fileIdx: t.fileIdx, sources: t.sources }; }) }, function (err, out) {
+      probeRunning = false;
+      var res = (!err && out && out.results) || {};
+      for (var h in res) { if (Object.prototype.hasOwnProperty.call(res, h)) { torrentProbeCache[h] = { at: Date.now(), peers: res[h].peers, available: res[h].available }; } }
+      if (seq === sourcePickerSeq && sourcePickerOpen) { render(lastGroups, lastPending); }
+    }, 20000);
+  }
   function render(groups, pending) {
     lastGroups = groups;
     lastPending = pending;
@@ -483,6 +516,7 @@ function openSourcePicker(item, episode, onPick, opts) {
       g.sources.forEach(function (s, i) { s._i = i; s._score = scoreSource(s, ctx); all.push(s); });
     });
     var best = bestSource(all, ctx);
+    if (pending === 0) { maybeProbe(all); }
     renderFilters(all);
     clear(body);
     if (!groups.length) {
@@ -711,6 +745,25 @@ function formatSpeed(bytes) {
   return Math.max(0, Math.round(bytes / 1024)) + ' KB/s';
 }
 
+/* "Probando 3 fuentes · 12 conexiones · 100 % disponible · 2,1 MB/s". */
+function torrentStatusText(st) {
+  var head = st.racing > 1 ? 'Probando ' + st.racing + ' fuentes' : (st.ready ? 'Cargando torrent' : 'Buscando el torrent');
+  var parts = [head, st.peers + (st.peers === 1 ? ' conexión' : ' conexiones')];
+  if (st.peers > 0 && typeof st.available === 'number') { parts.push(st.available + ' % disponible'); }
+  parts.push(formatSpeed(st.speed));
+  return parts.join(' · ');
+}
+
+/* The sources already fetched for this title or episode (none when they
+   were not asked for: a source remembered from before plays directly). */
+function cachedStremioSources(item, episode) {
+  var type = item._stremioType || (isSeriesItem(item) ? 'series' : 'movie');
+  var hit = streamsCache[type + '|' + stremioStreamId(item, episode) + '|' + getVodSourcesConfig().addons.length];
+  var all = [];
+  if (hit && Date.now() - hit.at < STREAMS_CACHE_MS) { hit.groups.forEach(function (g) { all = all.concat(g.sources); }); }
+  return all;
+}
+
 /* While the torrent starts: how many people it found and how fast it goes. */
 function startTorrentPoll(item) {
   stopTorrentPoll();
@@ -722,8 +775,7 @@ function startTorrentPoll(item) {
       /* The fastest download seen tells how good this connection is. */
       noteNetSpeed(st.speed);
       if (playerVideo && playerVideo.readyState >= 3) { return; }
-      setPlayerStatus((st.ready ? 'Cargando torrent' : 'Buscando el torrent') + ' · ' +
-        st.peers + (st.peers === 1 ? ' conexión' : ' conexiones') + ' · ' + formatSpeed(st.speed));
+      setPlayerStatus(torrentStatusText(st));
     }, 5000);
   }, 1000);
 }
@@ -800,21 +852,51 @@ function resolveStremioPlayback(item, done) {
       setPlayerStatus('Buscando el torrent…');
       torrentInUse = true;
       startTorrentPoll(item);
-      portalServiceCall('torrentStart', { infoHash: chosen.infoHash, fileIdx: chosen.fileIdx, sources: chosen.sources }, function (err, info) {
-        if (mySeq !== resolveSeq) { return; }
-        if (err || !info || info.returnValue === false || !info.url) {
-          stopTorrentPoll();
-          vodFailure('el torrent', err || (info && info.errorText) || 'No se pudo abrir el torrent');
-          return done('');
-        }
-        /* Android: plays, but the whole file will not fit on this device. */
-        if (info.fits === false) { setPlayerStatus('Este torrent no cabe completo en el aparato: se verá mientras haya espacio.'); }
-        resolveExternal(info.url, info.name || chosen.filename, null, false);
-      }, 75000);
+      /* Source race: a few close alternatives start at the same time; the
+         service plays the chosen one if it works, else the first that does.
+         A source remembered from before plays without the list: it is asked
+         for now, waiting 2.5 s at most. */
+      var raceMax = platformHas('window') ? 3 : 1;
+      if (cachedStremioSources(item, ep).length) { return startTorrent(chosen, raceMax); }
+      var waited = false;
+      var waitTimer = setTimeout(function () { if (!waited) { waited = true; startTorrent(chosen, raceMax); } }, 2500);
+      fetchStremioStreams(item, ep, function (groups, pending) {
+        if (pending > 0 || waited) { return; }
+        waited = true;
+        clearTimeout(waitTimer);
+        startTorrent(chosen, raceMax);
+      });
       return;
     }
     stremioTorrentRelease();
     resolveExternal(chosen.url, chosen.filename, chosen.headers, chosen.notWebReady);
+  }
+
+  function startTorrent(chosen, raceMax) {
+    if (mySeq !== resolveSeq) { return; }
+    var alts = torrentRaceAlternatives(chosen, cachedStremioSources(item, ep), sourceRankContext(item, ep), raceMax);
+    portalServiceCall('torrentStart', {
+      infoHash: chosen.infoHash, fileIdx: chosen.fileIdx, sources: chosen.sources,
+      alternatives: alts.map(function (a) { return { infoHash: a.infoHash, fileIdx: a.fileIdx, sources: a.sources }; })
+    }, function (err, info) {
+      if (mySeq !== resolveSeq) { return; }
+      if (err || !info || info.returnValue === false || !info.url) {
+        stopTorrentPoll();
+        vodFailure('el torrent', err || (info && info.errorText) || 'No se pudo abrir el torrent');
+        return done('');
+      }
+      var won = info.infoHash && info.infoHash !== chosen.infoHash ? alts.filter(function (a) { return a.infoHash === info.infoHash; })[0] : null;
+      if (won) {
+        /* The chosen torrent had nobody sharing it: this one plays (and is
+           what the title remembers). */
+        target._stremioSource = won;
+        rememberStremioPick(item, ep, won);
+        setPlayerStatus('La fuente elegida no tenía gente compartiendo: se usa otra · ' + sourceReason(won));
+      }
+      /* Android: plays, but the whole file will not fit on this device. */
+      if (info.fits === false) { setPlayerStatus('Este torrent no cabe completo en el aparato: se verá mientras haya espacio.'); }
+      resolveExternal(info.url, info.name || chosen.filename, null, false);
+    }, 75000);
   }
 
   function resolveExternal(url, name, headers, notWebReady) {

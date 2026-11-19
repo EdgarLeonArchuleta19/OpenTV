@@ -126,8 +126,31 @@ final class Torrents {
         "udp://open.stealth.si:80/announce",
         "udp://tracker.torrent.eu.org:451/announce",
         "udp://exodus.desync.com:6969/announce",
-        "udp://explodie.org:6969/announce"
+        "udp://explodie.org:6969/announce",
+        "udp://open.tracker.cl:1337/announce",
+        "udp://tracker.qu.ax:6969/announce",
+        "udp://tracker-udp.gbitt.info:80/announce",
+        "udp://tracker.tryhackx.org:6969/announce",
+        "udp://tracker.dler.org:6969/announce",
+        "udp://tracker.gmi.gd:6969/announce",
+        "http://tracker.renfei.net:8080/announce"
     };
+
+    /* The community-kept list of working public trackers (as on PC),
+       refreshed at most once a day in the background and kept in a file. */
+    private static final String TRACKERS_URL = "https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_best.txt";
+    private static final long TRACKERS_MAX_AGE_MS = 24 * 60 * 60 * 1000L;
+    private static final int TRACKERS_MAX = 40;
+    private static volatile List<String> fetchedTrackers = new ArrayList<>();
+    private static volatile long trackersCheckedAt;
+
+    /* Source race (see start): torrents started at once on a 1 GB TV, the
+       grace a better-ranked one gets once another is alive, and when the
+       best one with metadata plays if none is alive. */
+    private static final int RACE_MAX = 2;
+    private static final long RACE_GRACE_MS = 4000;
+    private static final long RACE_HEAD_START_MS = 4000;   // only the chosen torrent can win before this
+    private static final long RACE_SETTLE_MS = 12000;
 
     static final Pattern HASH = Pattern.compile("^[0-9a-f]{40}$");
     static final Pattern VIDEO_EXT = Pattern.compile("\\.(mp4|m4v|mkv|webm|avi|mov|ts|m2ts|wmv|flv|mpg|mpeg)$", Pattern.CASE_INSENSITIVE);
@@ -146,6 +169,8 @@ final class Torrents {
     private static int sessionUsers;          // downloads holding the session
     private static LocalServer server;
     private static volatile Job current;
+    /* The torrents of a source race still starting (current is one of them). */
+    private static volatile List<Job> racingJobs = new ArrayList<>();
     private static Boolean libLoaded;
     private static ScheduledFuture<?> idleCheck;
     private static ScheduledFuture<?> sessionShutdown;
@@ -285,6 +310,10 @@ final class Torrents {
         s.setInteger(settings_pack.int_types.hashing_threads.swigValue(), 1);
         s.setInteger(settings_pack.int_types.file_pool_size.swigValue(), 4);
         s.stopTrackerTimeout(2);
+        // Ask every tracker at once (not only the first of each tier): a
+        // torrent with few people may be known to just one of them.
+        s.setBoolean(settings_pack.bool_types.announce_to_all_trackers.swigValue(), true);
+        s.setBoolean(settings_pack.bool_types.announce_to_all_tiers.swigValue(), true);
         // A block stuck on a slow peer stalls the player: re-request it from
         // another peer after a few seconds (defaults 60 s / 20 s). Measured on
         // a public swarm: +40-80 % in-order throughput for a sequential reader.
@@ -332,8 +361,13 @@ final class Torrents {
         if (!HASH.matcher(hash).matches()) throw new PortalException("El torrent no es válido");
         Integer fileIdx = fileIndex(p.opt("fileIdx"));
         String key = hash + ":" + (fileIdx == null ? "" : fileIdx);
+        refreshTrackers();
         Job job;
         boolean fresh = false;
+        // Source race: the chosen torrent and the page's alternatives start
+        // together (RACE_MAX on a TV); awaitRace keeps the one that works.
+        List<Job> race = new ArrayList<>();
+        List<Integer> raceIdx = new ArrayList<>();
         Job playing = current;
         // A download of this same torrent gives way (libtorrent holds a
         // torrent once); it goes on when the stream stops. Outside the lock:
@@ -367,10 +401,35 @@ final class Torrents {
                     stopLocked();
                     throw e;
                 }
+                race.add(job);
+                raceIdx.add(fileIdx);
+                JSONArray alts = Js.arr(p.opt("alternatives"));
+                for (int i = 0; alts != null && i < alts.length() && race.size() < RACE_MAX; i++) {
+                    JSONObject alt = alts.optJSONObject(i);
+                    if (alt == null) continue;
+                    String ah = Js.text(Js.or(alt.opt("infoHash"), "")).toLowerCase(Locale.ROOT);
+                    if (!HASH.matcher(ah).matches() || ah.equals(hash)) continue;
+                    // (A torrent a download holds cannot be added twice: add
+                    // fails and that alternative is skipped below.)
+                    Integer ai = fileIndex(alt.opt("fileIdx"));
+                    String at = token();
+                    Job aj = new Job(ah + ":" + (ai == null ? "" : ai), ah, at, new File(root, at));
+                    try {
+                        add(aj, trackers(alt.opt("sources")));
+                        race.add(aj);
+                        raceIdx.add(ai);
+                    } catch (Exception e) {
+                        Log.w(TAG, "torrent: alternativa " + ah + " no se pudo abrir: " + e.getMessage());
+                        deleteTree(aj.dir);
+                    }
+                }
+                if (race.size() > 1) racingJobs = new ArrayList<>(race);
                 scheduleIdleCheck();
             }
         }
-        if (fresh) {
+        if (fresh && race.size() > 1) {
+            job = awaitRace(race, raceIdx);
+        } else if (fresh) {
             awaitMetadata(job, fileIdx);
         } else if (!job.done.await(READY_TIMEOUT_MS + 5000, TimeUnit.MILLISECONDS)) {
             throw new PortalException("No se encontraron fuentes para este torrent. Prueba con otra fuente.");
@@ -435,21 +494,149 @@ final class Torrents {
         job.done.countDown();
     }
 
+    /* Source race: every job downloads its metadata only (nothing is wanted
+       yet). One is alive once a connected seed has it, or the connected
+       peers hold every piece between them (distributed copies >= 1). The
+       first job (the chosen source) wins as soon as it is alive; another
+       alive one wins after RACE_GRACE_MS; with none alive, the first one
+       with metadata after RACE_SETTLE_MS. The others are removed and the
+       winner becomes current, with its file picked as in awaitMetadata. */
+    private static Job awaitRace(List<Job> jobs, List<Integer> idxs) {
+        long started = System.currentTimeMillis();
+        long firstAlive = 0;
+        int winIdx = -1;
+        boolean[] warmed = new boolean[jobs.size()];
+        boolean[] hasMeta = new boolean[jobs.size()];
+        boolean[] wasAlive = new boolean[jobs.size()];
+        String err = null;
+        try {
+            while (true) {
+                int alive = -1, meta = -1, failed = 0;
+                for (int i = 0; i < jobs.size(); i++) {
+                    Job j = jobs.get(i);
+                    TorrentHandle h = j.handle;
+                    if (j.cancelled || h == null || !h.isValid()) { failed++; continue; }
+                    TorrentStatus st = h.status();
+                    if (!st.hasMetadata()) continue;
+                    if (!warmed[i]) {
+                        warmed[i] = true;
+                        try { warmUp(j, h.torrentFile(), idxs.get(i)); } catch (Throwable ignored) { /* judged as is */ }
+                    }
+                    if (meta < 0) meta = i;
+                    hasMeta[i] = true;
+                    // Once alive, it stays so (the peers' count moves from one read to the next).
+                    if (!wasAlive[i] && (st.numSeeds() > 0 || st.distributedCopies() >= 1f || st.totalPayloadDownload() >= 512 * 1024)) wasAlive[i] = true;
+                    if (alive < 0 && wasAlive[i]) alive = i;
+                }
+                long now = System.currentTimeMillis();
+                if (failed == jobs.size()) { err = "Se canceló la carga del torrent"; break; }
+                if (alive == 0) { winIdx = 0; break; }
+                if (alive > 0) {
+                    // A better-ranked one gets the grace only if it has its
+                    // metadata (it may be about to work); one still without
+                    // it is likely dead.
+                    boolean hope = now - started < RACE_HEAD_START_MS && !jobs.get(0).cancelled;
+                    for (int b = 0; b < alive; b++) if (hasMeta[b] && !jobs.get(b).cancelled) hope = true;
+                    if (firstAlive == 0) firstAlive = now;
+                    if (!hope || now - firstAlive >= RACE_GRACE_MS) { winIdx = alive; break; }
+                } else if (meta >= 0 && now - started >= RACE_SETTLE_MS) {
+                    winIdx = meta;
+                    break;
+                } else if (now - started >= READY_TIMEOUT_MS) {
+                    err = "No se encontraron fuentes para este torrent. Prueba con otra fuente.";
+                    break;
+                }
+                Thread.sleep(250);
+            }
+        } catch (InterruptedException e) {
+            err = "Se canceló la carga del torrent";
+        } catch (Throwable t) {
+            Log.w(TAG, "torrent: carrera: " + t);
+            err = "No se pudo abrir el torrent";
+        }
+        Job winner = null;
+        synchronized (Torrents.class) {
+            if (winIdx >= 0 && !jobs.get(winIdx).cancelled) winner = jobs.get(winIdx);
+            else if (err == null) err = "Se canceló la carga del torrent";
+            for (Job j : jobs) {
+                if (j == winner) continue;
+                if (j.error == null) j.error = winner != null ? "Se usó otra fuente" : err;
+                j.cancelled = true;
+                TorrentHandle h = j.handle;
+                if (h != null && session != null) {
+                    try { session.remove(h, SessionHandle.DELETE_FILES); } catch (Throwable ignored) { /* already gone */ }
+                }
+                final File dir = j.dir;
+                timer.schedule(() -> deleteTree(dir), 3, TimeUnit.SECONDS);
+                j.done.countDown();
+            }
+            racingJobs = new ArrayList<>();
+            if (winner != null) {
+                current = winner;
+                Log.i(TAG, "torrent: carrera ganada por " + winner.hash + (winIdx == 0 ? " (la elegida)" : " (alternativa " + winIdx + ")"));
+            } else if (jobs.contains(current)) {
+                current = null;
+                if (idleCheck != null) { idleCheck.cancel(false); idleCheck = null; }
+                scheduleSessionShutdown();
+            }
+            // A download that gave way to the chosen torrent may go on.
+            if (winIdx != 0) timer.execute(Downloads::wake);
+        }
+        if (winner == null) return jobs.get(0);
+        String e2;
+        try {
+            e2 = select(winner, winner.handle.torrentFile(), idxs.get(winIdx));
+        } catch (Throwable t) {
+            Log.w(TAG, "torrent: " + t);
+            e2 = "No se pudo abrir el torrent";
+        }
+        if (e2 != null) {
+            winner.error = e2;
+            synchronized (Torrents.class) {
+                if (current == winner) stopLocked();
+            }
+        }
+        winner.done.countDown();
+        return winner;
+    }
+
     /* The file the addon pointed at (fileIdx), or the biggest video file.
        Returns an error text, or null when the job is ready. */
+    /* The file the addon pointed at (fileIdx), or the biggest video file; -1 if none. */
+    private static int videoIndex(FileStorage fs, Integer fileIdx) {
+        int n = fs.numFiles();
+        if (fileIdx != null && fileIdx >= 0 && fileIdx < n && !fs.padFileAt(fileIdx)) return fileIdx;
+        int idx = -1;
+        long best = -1;
+        for (int i = 0; i < n; i++) {
+            if (fs.padFileAt(i) || !VIDEO_EXT.matcher(fs.fileName(i)).find()) continue;
+            if (fs.fileSize(i) > best) { best = fs.fileSize(i); idx = i; }
+        }
+        return idx;
+    }
+
+    /* Source race: a torrent that wants nothing counts as finished, and
+       libtorrent drops its seeds. Once the metadata is in, each racer wants
+       the first pieces of its video: it keeps its seeds (so it can be told
+       alive) and gets a head start if it wins. */
+    private static void warmUp(Job job, TorrentInfo ti, Integer fileIdx) {
+        FileStorage fs = ti.files();
+        int idx = videoIndex(fs, fileIdx);
+        if (idx < 0) return;
+        TorrentHandle h = job.handle;
+        Priority[] prio = Priority.array(Priority.IGNORE, fs.numFiles());
+        prio[idx] = Priority.DEFAULT;
+        h.prioritizeFiles(prio);
+        Priority[] pieces = Priority.array(Priority.IGNORE, ti.numPieces());
+        int first = (int) (fs.fileOffset(idx) / Math.max(1, ti.pieceLength()));
+        for (int p = first; p < Math.min(ti.numPieces(), first + 2); p++) pieces[p] = Priority.TOP_PRIORITY;
+        h.prioritizePieces(pieces);
+    }
+
     private static String select(Job job, TorrentInfo ti, Integer fileIdx) {
         FileStorage fs = ti.files();
         int n = fs.numFiles();
-        int idx = -1;
-        if (fileIdx != null && fileIdx >= 0 && fileIdx < n && !fs.padFileAt(fileIdx)) {
-            idx = fileIdx;
-        } else {
-            long best = -1;
-            for (int i = 0; i < n; i++) {
-                if (fs.padFileAt(i) || !VIDEO_EXT.matcher(fs.fileName(i)).find()) continue;
-                if (fs.fileSize(i) > best) { best = fs.fileSize(i); idx = i; }
-            }
-        }
+        int idx = videoIndex(fs, fileIdx);
         if (idx < 0) return "El torrent no tiene ningún vídeo";
         TorrentHandle h = job.handle;
         Priority[] prio = Priority.array(Priority.IGNORE, n);
@@ -518,10 +705,38 @@ final class Torrents {
 
     /* --------------------------------------------------------- stats, stop */
 
+    /* 0..100: share of the video the connected peers hold between them. */
+    private static int availablePercent(TorrentStatus st) {
+        if (st.numSeeds() > 0) return 100;
+        float copies = st.distributedCopies();
+        if (copies < 0) return 0;
+        return copies >= 1f ? 100 : Math.round(copies * 100);
+    }
+
     static JSONObject stats() {
+        List<Job> race = racingJobs;
+        if (race.size() > 1) {
+            long peers = 0, speed = 0, downloaded = 0;
+            int available = 0;
+            for (Job r : race) {
+                try {
+                    TorrentHandle h = r.handle;
+                    if (h == null || !h.isValid() || r.cancelled) continue;
+                    TorrentStatus st = h.status();
+                    peers += st.numPeers();
+                    speed += st.downloadPayloadRate();
+                    downloaded += st.totalPayloadDownload();
+                    if (st.hasMetadata()) available = Math.max(available, availablePercent(st));
+                } catch (Throwable ignored) { /* removed meanwhile */ }
+            }
+            return Js.o("active", true, "ready", false, "racing", race.size(), "peers", peers, "speed", speed,
+                "downloaded", downloaded, "available", available,
+                "seconds", (System.currentTimeMillis() - race.get(0).started) / 1000);
+        }
         Job j = current;
         if (j == null) return Js.o("active", false);
         long peers = 0, speed = 0, upload = 0, downloaded = 0;
+        int available = 0;
         try {
             TorrentHandle h = j.handle;
             if (h != null && h.isValid()) {
@@ -530,11 +745,14 @@ final class Torrents {
                 speed = st.downloadPayloadRate();
                 upload = st.uploadPayloadRate();
                 downloaded = st.totalPayloadDownload();
+                if (st.hasMetadata()) available = availablePercent(st);
             }
         } catch (Throwable ignored) { /* removed meanwhile */ }
         return Js.o(
             "active", true,
             "ready", j.ready,
+            "racing", 0,
+            "available", available,
             "name", j.ready ? j.fileName : "",
             "length", j.ready ? j.fileLength : 0,
             "peers", peers,
@@ -571,6 +789,15 @@ final class Torrents {
         Job j = current;
         current = null;
         if (idleCheck != null) { idleCheck.cancel(false); idleCheck = null; }
+        // Torrents still racing: awaitRace sees them cancelled, removes their
+        // handles and deletes their folders.
+        List<Job> race = racingJobs;
+        racingJobs = new ArrayList<>();
+        for (Job r : race) {
+            if (r == j) continue;
+            r.cancelled = true;
+            if (r.error == null) r.error = "Se canceló la carga del torrent";
+        }
         if (j == null) return;
         j.cancelled = true;
         synchronized (j.pieceLock) { j.pieceLock.notifyAll(); }
@@ -920,6 +1147,7 @@ final class Torrents {
 
     static List<String> trackers(Object sources) {
         List<String> list = new ArrayList<>(Arrays.asList(DEFAULT_TRACKERS));
+        for (String t : fetchedTrackers) if (!list.contains(t)) list.add(t);
         JSONArray a = Js.arr(sources);
         for (int i = 0; a != null && i < a.length(); i++) {
             String s = Js.text(a.opt(i));
@@ -929,6 +1157,65 @@ final class Torrents {
             }
         }
         return list;
+    }
+
+    static List<String> parseTrackers(String text) {
+        List<String> out = new ArrayList<>();
+        for (String line : text.split("\r?\n")) {
+            String t = line.trim();
+            if (out.size() >= TRACKERS_MAX) break;
+            if (t.matches("(?i)^(udp|https?|wss?)://\\S+$") && !out.contains(t)) out.add(t);
+        }
+        return out;
+    }
+
+    /* Never blocks a start: the list read now is used, a fresh one next time. */
+    private static void refreshTrackers() {
+        long now = System.currentTimeMillis();
+        if (now - trackersCheckedAt < 60 * 60 * 1000L || root == null || !supported()) return;
+        trackersCheckedAt = now;
+        final File file = new File(root.getParentFile(), "trackers.txt");
+        timer.execute(() -> {
+            try {
+                if (file.isFile() && file.length() < 65536) {
+                    byte[] buf = new byte[(int) file.length()];
+                    try (java.io.FileInputStream in = new java.io.FileInputStream(file)) {
+                        int off = 0, n;
+                        while (off < buf.length && (n = in.read(buf, off, buf.length - off)) > 0) off += n;
+                    }
+                    List<String> saved = parseTrackers(new String(buf, Crypto.UTF8));
+                    if (!saved.isEmpty()) fetchedTrackers = saved;
+                    if (System.currentTimeMillis() - file.lastModified() < TRACKERS_MAX_AGE_MS) return;
+                }
+                Http.Url u = Http.Url.parse(TRACKERS_URL);
+                Http.Request r = new Http.Request();
+                r.secure = true;
+                r.connectHost = Dnsx.prepare(u.hostname);
+                r.port = 443;
+                r.tlsName = u.hostname;
+                r.path = u.path;
+                r.connectTimeout = 10000;
+                r.readTimeout = 10000;
+                r.headers.put("Host", u.hostname);
+                Http.Response res = Http.execute(r);
+                try {
+                    if (res.status != 200) return;
+                    List<String> list = parseTrackers(new String(res.readAll(65536), Crypto.UTF8));
+                    if (list.isEmpty()) return;
+                    fetchedTrackers = list;
+                    try (java.io.FileOutputStream out = new java.io.FileOutputStream(file)) {
+                        StringBuilder sb = new StringBuilder();
+                        for (String t : list) sb.append(t).append('\n');
+                        out.write(sb.toString().getBytes(Crypto.UTF8));
+                    }
+                    Log.i(TAG, "torrent: " + list.size() + " trackers públicos actualizados");
+                } finally {
+                    res.abort();
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "torrent: no se pudo actualizar la lista de trackers: " + t);
+            }
+        });
     }
 
     static String extOf(String name) {

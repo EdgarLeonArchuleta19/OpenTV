@@ -367,3 +367,26 @@ test('a series also listed in a movie catalogue stays a series, out of the movie
   /* Both titles are in the catalogue, the movie in its own row. */
   assert.deepEqual(plain(vod.map((it) => it._stremioId)).sort(), ['tt0000001', 'tt12590266']);
 });
+
+/* Source race: only close torrents race the chosen one. */
+test('race alternatives: same language, no CAM, not far below, best first', () => {
+  const ctx = load();
+  const stream = (hash, title, extra) => plain(ctx.describeStremioStream(Object.assign({ infoHash: hash, title: title }, extra || {}), 'Torrentio'));
+  const chosen = stream('a'.repeat(40), 'Pelicula 2024 1080p WEB-DL LATINO\n👤 40 💾 2.1 GB');
+  const list = [
+    chosen,
+    stream('b'.repeat(40), 'Pelicula 2024 1080p BluRay LATINO\n👤 25 💾 2.4 GB'),
+    stream('c'.repeat(40), 'Pelicula 2024 1080p WEB-DL ENGLISH\n👤 900 💾 2.0 GB'),
+    stream('d'.repeat(40), 'Pelicula 2024 CAM LATINO\n👤 300 💾 1.0 GB'),
+    stream('e'.repeat(40), 'Pelicula 2024 720p LATINO\n👤 10 💾 0.9 GB'),
+    { kind: 'direct', url: 'https://x/y.mp4', langs: ['latino'] }
+  ];
+  const rctx = ctx.sourceRankContext({ duration: '120 min' }, null);
+  const alts = plain(ctx.torrentRaceAlternatives(chosen, list, rctx, 3)).map((s) => s.infoHash[0]);
+  assert.ok(alts.indexOf('b') === 0, 'the close Latino 1080p first: ' + alts.join(','));
+  assert.equal(alts.indexOf('c'), -1);   /* another language */
+  assert.equal(alts.indexOf('d'), -1);   /* CAM */
+  assert.ok(alts.length <= 3);
+  assert.deepEqual(plain(ctx.torrentRaceAlternatives(chosen, list, rctx, 0)), []);
+  assert.deepEqual(plain(ctx.torrentRaceAlternatives({ kind: 'direct' }, list, rctx, 3)), []);
+});

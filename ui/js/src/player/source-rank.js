@@ -319,6 +319,37 @@ function bestSource(list, ctx) {
   return best;
 }
 
+/* Source race: other torrents of the same title that may start together
+   with `chosen` (the service keeps the one that works). Only close ones:
+   the same audio language when chosen has one, no CAM unless chosen is a
+   CAM, shown by the preferences and not far below it in the ranking, so a
+   race never trades a Latino Full HD for an English 720p. Best first. */
+var RACE_SCORE_GAP = 450;
+function torrentRaceAlternatives(chosen, list, ctx, max) {
+  if (!chosen || chosen.kind !== 'torrent' || !(max > 0)) { return []; }
+  var base = scoreSource(chosen, ctx);
+  var langs = chosen.langs || [];
+  var picked = [];
+  for (var i = 0; i < list.length; i++) {
+    var s = list[i];
+    if (!s || s.kind !== 'torrent' || !s.infoHash || s.infoHash === chosen.infoHash) { continue; }
+    if (s.cam && !chosen.cam) { continue; }
+    if (sourcePrefsBlock(s, ctx.prefs, ctx.episode)) { continue; }
+    if (langs.length && !langs.some(function (l) { return (s.langs || []).indexOf(l) !== -1; })) { continue; }
+    var sc = scoreSource(s, ctx);
+    if (sc < base - RACE_SCORE_GAP) { continue; }
+    picked.push({ src: s, score: sc });
+  }
+  picked.sort(function (a, b) { return b.score - a.score; });
+  var out = [], seen = {};
+  for (var p = 0; p < picked.length && out.length < max; p++) {
+    if (seen[picked[p].src.infoHash]) { continue; }
+    seen[picked[p].src.infoHash] = true;
+    out.push(picked[p].src);
+  }
+  return out;
+}
+
 /* "Latino · Full HD · 85 semillas · 2,1 GB": why it was chosen. */
 function sourceReason(src) {
   var q = { '4K': '4K', '1080p': 'Full HD', '720p': 'HD', 'SD': 'SD' }[src.quality] || '';

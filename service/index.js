@@ -198,9 +198,15 @@ function torrents() { return require('./torrents'); }
 service.register('torrentStart', function (message) {
   if (!torrentsAvailable) { return fail(message, new Error('Los torrents solo están disponibles en la app de PC')); }
   var p = message.payload || {};
-  torrents().start({ infoHash: p.infoHash, fileIdx: p.fileIdx, sources: p.sources }, function (err, info) {
+  torrents().start({ infoHash: p.infoHash, fileIdx: p.fileIdx, sources: p.sources, alternatives: p.alternatives }, function (err, info) {
     respond(message, err, info);
   });
+});
+
+/* torrentProbe({torrents}): PC only, the people each torrent really has now. */
+service.register('torrentProbe', function (message) {
+  if (!torrentsAvailable) { return respond(message, null, { results: {} }); }
+  torrents().probe(message.payload || {}, function (err, out) { respond(message, err, out); });
 });
 
 service.register('torrentStats', function (message) {
@@ -244,6 +250,16 @@ service.register('fetchM3u', function (message) {
   m3u.fetchM3u(payload.url, function (err, channels) {
     if (err) { return fail(message, err); }
     respond(message, null, { channels: channels || [] });
+  });
+});
+
+/* epg({url, ids}): now and next for those channels, from the list's
+   programme guide (service/epg.js). */
+service.register('epg', function (message) {
+  var payload = message.payload || {};
+  require('./epg').get(payload.url, payload.ids, function (err, programmes) {
+    if (err) { return fail(message, err); }
+    respond(message, null, { programmes: programmes });
   });
 });
 
