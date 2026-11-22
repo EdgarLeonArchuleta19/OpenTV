@@ -33,16 +33,26 @@
     document.addEventListener('opentv:player-status', function (event) {
       var info = event.detail || {};
       var app = window.__opentv;
-      var visible = info.mode === 'vod' && info.text && (!app || app.state.screen === 'detail' || app.state.screen === 'player');
+      // Only over the details screen: in the player the same text already
+      // shows in its centre (#player-status), and two notices looked doubled.
+      var onPlayer = !!(app && app.state.screen === 'player');
+      var visible = info.mode === 'vod' && info.text && !onPlayer && (!app || app.state.screen === 'detail');
       playback.hidden = !visible;
       playback.textContent = visible ? info.text : '';
       playback.classList.toggle('is-error', !!info.error);
       if (guard) { clearTimeout(guard); guard = null; }
-      if (visible && !info.error && info.loading) {
+      if (info.mode === 'vod' && info.text && !info.error && info.loading) {
         guard = setTimeout(function () {
-          playback.hidden = false;
-          playback.classList.add('is-error');
-          playback.textContent = 'El vídeo no terminó de cargar. Inténtalo otra vez o prueba otra fuente.';
+          var late = 'El vídeo no terminó de cargar. Inténtalo otra vez o prueba otra fuente.';
+          var center = document.getElementById('player-status');
+          if (window.__opentv && window.__opentv.state.screen === 'player' && center) {
+            center.textContent = late;
+            center.classList.add('is-active');
+          } else {
+            playback.hidden = false;
+            playback.classList.add('is-error');
+            playback.textContent = late;
+          }
           document.dispatchEvent(new CustomEvent('opentv:playback-timeout'));
         }, 30000);
       }
@@ -60,7 +70,7 @@
       if (app.state.screen !== 'player' && app.state.screen !== 'detail') playback.hidden = true;
       var failed = app.state.screen === 'home' && app.vod && !app.vod.length && app.api && !app.api.loading && app.api.error;
       badge.hidden = !failed;
-      badge.textContent = failed ? app.api.error + ' · Ajustes → Addons' : '';
+      badge.textContent = failed ? app.api.error + ' · Ajustes → Plugins' : '';
     }, 1200);
   });
 })();

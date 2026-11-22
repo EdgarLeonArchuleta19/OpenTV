@@ -104,6 +104,15 @@ function makeDesktopSearchCard(item) {
     img.decoding = 'async';
     img.src = item.poster;
     img.onerror = function () {
+      if (!img._posterProTried && item && typeof posterProFallbackForItem === 'function') {
+        var alt = posterProFallbackForItem(item, 'poster');
+        if (alt && alt !== item.poster) {
+          img._posterProTried = true;
+          item.poster = alt;
+          img.src = alt;
+          return;
+        }
+      }
       if (window.OPENTV_DESKTOP) { markCoverBroken(item); applyGenericCover(art, item); }
       else { this.style.visibility = 'hidden'; }
     };
@@ -216,14 +225,14 @@ function updateSearchStateUi() {
     searchStateBox.classList.add('is-active');
     searchStateBox.appendChild(el('div', 'search-spinner'));
     searchStateBox.appendChild(el('div', 'search-state-title', 'Buscando…'));
-    searchStateBox.appendChild(el('div', 'search-state-hint', 'Buscando en tus addons'));
+    searchStateBox.appendChild(el('div', 'search-state-hint', 'Buscando en tus plugins'));
     return;
   }
   if (!count && status === 'error') {
     searchEmpty.classList.remove('is-active');
     searchStateBox.classList.add('is-active');
     searchStateBox.appendChild(el('div', 'search-state-title', 'No se pudo completar la búsqueda'));
-    searchStateBox.appendChild(el('div', 'search-state-hint', 'Tus addons no respondieron. Revisa la conexión e inténtalo otra vez.'));
+    searchStateBox.appendChild(el('div', 'search-state-hint', 'Tus plugins no respondieron. Revisa la conexión e inténtalo otra vez.'));
     var retry = el('div', 'search-retry focusable', 'Reintentar');
     retry._activate = retrySearch;
     searchStateBox.appendChild(retry);
@@ -232,12 +241,12 @@ function updateSearchStateUi() {
   if (count && status === 'searching') {
     searchInlineState.classList.add('is-active');
     searchInlineState.appendChild(el('i', 'search-spinner is-small'));
-    searchInlineState.appendChild(document.createTextNode('Buscando en tus addons…'));
+    searchInlineState.appendChild(document.createTextNode('Buscando en tus plugins…'));
     return;
   }
   if (count && status === 'error') {
     searchInlineState.classList.add('is-active', 'is-error');
-    searchInlineState.appendChild(document.createTextNode('Algún addon no respondió. '));
+    searchInlineState.appendChild(document.createTextNode('Algún plugin no respondió. '));
     var retry2 = el('span', 'search-retry-link focusable', 'Reintentar');
     retry2._activate = retrySearch;
     searchInlineState.appendChild(retry2);

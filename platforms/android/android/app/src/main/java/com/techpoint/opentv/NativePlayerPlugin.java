@@ -237,6 +237,16 @@ public class NativePlayerPlugin extends Plugin {
         emit(o);
     }
 
+    /* The page's seek is over: it takes the player's positions again. */
+    private void emitSeekedIfDone() {
+        if (!seeking) return;
+        seeking = false;
+        JSObject o = new JSObject();
+        o.put("t", "seeked");
+        o.put("s", seekSeq);
+        emit(o);
+    }
+
     private void emitTime() {
         if (player == null || !loaded) return;
         JSObject o = new JSObject();
@@ -427,13 +437,18 @@ public class NativePlayerPlugin extends Plugin {
             }
             emitTime();
             emitState();
-            if (state == Player.STATE_READY && seeking) {
-                seeking = false;
-                JSObject o = new JSObject();
-                o.put("t", "seeked");
-                o.put("s", seekSeq);
-                emit(o);
-            }
+            if (state == Player.STATE_READY) emitSeekedIfDone();
+        }
+
+        // A seek inside what is already buffered keeps the player READY: no
+        // state change follows, so the seek ends here. (Without this the page
+        // kept waiting for "seeked" and ignored the real position: subtitles
+        // stopped moving and fell out of step with the audio.)
+        @Override
+        public void onPositionDiscontinuity(Player.PositionInfo oldPosition, Player.PositionInfo newPosition, int reason) {
+            if (reason != Player.DISCONTINUITY_REASON_SEEK && reason != Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) return;
+            emitTime();
+            if (player != null && player.getPlaybackState() == Player.STATE_READY) emitSeekedIfDone();
         }
 
         @Override

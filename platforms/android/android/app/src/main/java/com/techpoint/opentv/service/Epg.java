@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -31,6 +32,7 @@ import java.util.zip.GZIPInputStream;
  * description.
  *
  *   get(url, ids) -> { id: [ { s, e, t, d }, … ] }   (now and the next two)
+ *   schedule(url, id) -> [ { s, e, t, d }, … ]         (one channel, 12 h)
  *
  * One copy per guide link, kept for TTL_MS (a failed one for FAIL_TTL_MS).
  */
@@ -42,6 +44,8 @@ final class Epg {
     private static final long AHEAD_MS = 12 * 60 * 60 * 1000L;
     private static final int PER_CHANNEL = 10;
     private static final int ANSWER_PER_CHANNEL = 3;
+    private static final int SCHEDULE_MAX = 60;     // one channel's day: programmes kept
+    private static final int SCHEDULE_CACHE = 12;   // channels whose day is kept
     private static final int MAX_IDS = 4000;
     private static final long MAX_BYTES = 80L * 1024 * 1024;
     private static final int MAX_REDIRECTS = 5;
@@ -91,6 +95,64 @@ final class Epg {
         return out;
     }
 
+    private static JSONObject progJson(Prog p) throws Exception {
+        JSONObject o = Js.o("s", p.s, "e", p.e, "t", p.t);
+        if (!p.d.isEmpty()) Js.put(o, "d", p.d);
+        return o;
+    }
+
+    private static final class Day { long at; List<Prog> list; }
+    private static final LinkedHashMap<String, Day> days = new LinkedHashMap<>();
+
+    /* One channel's programmes for the next 12 h (the "Programación"
+       window). The shared copy keeps few per channel (memory on a 1 GB TV);
+       when those do not reach far enough, the guide is read again keeping
+       only this channel, and that day is kept a while for a few channels.
+       Same as schedule() in service/epg.js. */
+    static JSONArray schedule(String url, String id) throws Exception {
+        if (url == null || url.isEmpty() || id == null || id.isEmpty()) throw new PortalException("url e id requeridos");
+        String key = url + "|" + id;
+        long now = System.currentTimeMillis();
+        List<Prog> list = null;
+        synchronized (days) {
+            Day d = days.get(key);
+            if (d != null && now - d.at < TTL_MS) list = d.list;
+        }
+        if (list == null) {
+            Guide g = load(url);
+            if (g.failed != null) throw new PortalException(g.failed);
+            List<Prog> have = new ArrayList<>();
+            List<Prog> all = g.byId.get(id);
+            if (all != null) for (Prog p : all) if (p.e > now) have.add(p);
+            long reach = have.isEmpty() ? 0 : have.get(have.size() - 1).e;
+            if (!have.isEmpty() && (have.size() < PER_CHANNEL || reach >= now + AHEAD_MS - 60 * 60 * 1000L)) {
+                list = have;
+            } else {
+                Map<String, List<Prog>> one = new HashMap<>();
+                try {
+                    download(url, one, id, SCHEDULE_MAX);
+                    List<Prog> got = one.get(id);
+                    list = got != null ? got : have;
+                } catch (Exception e) {
+                    list = have;
+                }
+                synchronized (days) {
+                    if (days.size() >= SCHEDULE_CACHE) {
+                        String oldest = days.keySet().iterator().next();
+                        days.remove(oldest);
+                    }
+                    Day d = new Day();
+                    d.at = System.currentTimeMillis();
+                    d.list = list;
+                    days.put(key, d);
+                }
+            }
+        }
+        JSONArray out = new JSONArray();
+        for (Prog p : list) if (p.e > now) out.put(progJson(p));
+        return out;
+    }
+
     private static Guide load(String url) {
         Object lock;
         synchronized (locks) {
@@ -104,7 +166,7 @@ final class Epg {
             if (g != null && now - g.at < (g.failed != null ? FAIL_TTL_MS : TTL_MS)) return g;
             Guide fresh = new Guide();
             try {
-                download(url, fresh.byId);
+                download(url, fresh.byId, null, PER_CHANNEL);
             } catch (PortalException e) {
                 fresh.failed = e.getMessage();
                 fresh.byId = new HashMap<>();
@@ -118,7 +180,7 @@ final class Epg {
         }
     }
 
-    private static void download(String urlStr, Map<String, List<Prog>> byId) throws Exception {
+    private static void download(String urlStr, Map<String, List<Prog>> byId, String only, int cap) throws Exception {
         for (int redirects = 0; ; redirects++) {
             if (!HTTP_URL.matcher(urlStr).find()) throw new PortalException("La guía debe ser una dirección http(s)");
             if (redirects > MAX_REDIRECTS) throw new PortalException("Demasiadas redirecciones al descargar la guía");
@@ -147,7 +209,7 @@ final class Epg {
                     continue;
                 }
                 if (res.status != 200) throw new PortalException("HTTP " + res.status + " al descargar la guía");
-                parse(res.body, byId);
+                parse(res.body, byId, only, cap);
                 return;
             } finally {
                 res.abort();
@@ -166,7 +228,7 @@ final class Epg {
         @Override public int read(byte[] b, int off, int len) throws IOException { int n = super.read(b, off, len); add(n); return n; }
     }
 
-    private static void parse(InputStream raw, Map<String, List<Prog>> byId) throws Exception {
+    private static void parse(InputStream raw, Map<String, List<Prog>> byId, String only, int cap) throws Exception {
         BufferedInputStream in = new BufferedInputStream(raw, 64 * 1024);
         in.mark(2);
         int b0 = in.read(), b1 = in.read();
@@ -193,7 +255,8 @@ final class Epg {
                     title = null;
                     desc = null;
                     List<Prog> have = channel == null ? null : byId.get(channel);
-                    keep = channel != null && s > 0 && e > now && s < until && (have == null || have.size() < PER_CHANNEL * 2);
+                    keep = channel != null && (only == null || only.equals(channel)) && s > 0 && e > now && s < until
+                        && (have == null || have.size() < cap * 2);
                 } else if (keep && title == null && "title".equals(name)) {
                     title = clean(xp.nextText(), TITLE_MAX);
                 } else if (keep && desc == null && "desc".equals(name)) {
@@ -213,7 +276,7 @@ final class Epg {
         for (Map.Entry<String, List<Prog>> en : byId.entrySet()) {
             List<Prog> list = en.getValue();
             Collections.sort(list, (x, y) -> Long.compare(x.s, y.s));
-            if (list.size() > PER_CHANNEL) en.setValue(new ArrayList<>(list.subList(0, PER_CHANNEL)));
+            if (list.size() > cap) en.setValue(new ArrayList<>(list.subList(0, cap)));
         }
     }
 

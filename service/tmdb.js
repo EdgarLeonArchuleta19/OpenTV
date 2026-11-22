@@ -70,7 +70,10 @@ function slim(r, kind) {
 /* One TMDB answer in Spanish (Mexico): done(error, json). `extra` is added
    to the query (page, region). */
 function fetchJson(route, extra, creds, done) {
-  var query = 'language=es-MX' + (extra || '') + (creds.readAccessToken ? '' : '&api_key=' + encodeURIComponent(creds.apiKey));
+  /* A route that names its own language keeps it (TMDB answers 400 to the
+     parameter twice: the JS plugins' raw routes bring theirs). */
+  var lang = /[?&]language=/.test(route) ? '' : 'language=es-MX';
+  var query = (lang + (extra || '') + (creds.readAccessToken ? '' : '&api_key=' + encodeURIComponent(creds.apiKey))).replace(/^&/, '');
   var headers = { accept: 'application/json' };
   if (creds.readAccessToken) { headers.Authorization = 'Bearer ' + creds.readAccessToken; }
   var finished = false;
@@ -161,6 +164,7 @@ function localDate() {
    the ones our catalogue has are shown, so a longer list fills the rows. */
 var PAGES = 2;
 function list(name, done) {
+  if (/^raw:/.test(String(name))) { return rawRoute(String(name).slice(4), done); }
   if (/^search:/.test(String(name))) { return search(String(name).slice(7), done); }
   var es = /^es:(tt\d+)$/.exec(String(name));
   if (es) { return spanishTitle(es[1], done); }
@@ -215,6 +219,17 @@ function search(text, done) {
     searchCache[key] = { at: Date.now(), items: items };
     searchCacheSize++;
     done({ items: items });
+  });
+}
+
+function rawRoute(routeAndQuery, done) {
+  var creds = readCredentials();
+  if (!creds) { return done({ error: 'Sin clave de TMDB', unavailable: true }); }
+  var r = String(routeAndQuery || '');
+  if (r.charAt(0) !== '/') { r = '/' + r; }
+  fetchJson(r, '', creds, function (err, json) {
+    if (err) { return done({ error: err }); }
+    done({ item: json });
   });
 }
 

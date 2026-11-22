@@ -133,3 +133,77 @@ function setGuideCardProgramme(card, ch) {
   if (!line) { line = el('div', 'lg-prog'); info.appendChild(line); }
   if (line.textContent !== text) { line.textContent = text; }
 }
+
+/* ------------------------------------------------------ Programación */
+/* The day of one channel: its programmes for the next 12 hours, from the
+   list's guide (the service reads them: epgSchedule). A window over the
+   app (the same frame as the plugin windows): the one on now first, marked
+   and with how far it has gone; the rest in order, with a line where the
+   day changes. Rows take the focus, so the remote scrolls the list. */
+function openLiveSchedule(ch) {
+  ch = ch || CHANNELS[state.channel];
+  if (!ch) { return; }
+  var m = pluginsModal('Programación', ch.name || 'Canal');
+  m.root.classList.add('ls-modal');
+  var list = el('div', 'ls-list scrollable');
+  m.body.appendChild(list);
+  var close = pluginsModalButton('Cerrar', '', closeSourcePicker);
+  m.foot.appendChild(close);
+  function note(text) {
+    clear(list);
+    list.appendChild(el('div', 'ls-note', text));
+    setFocus(close);
+  }
+  if (!ch.epg || !ch.tvgId) {
+    note('Este canal no trae programación. Las listas que incluyen guía (como Pluto TV o Plex) la muestran aquí.');
+    return;
+  }
+  list.appendChild(makeLoader('Cargando la programación…', 'is-small'));
+  setFocus(close);
+  var root = m.root;
+  portalServiceCall('epgSchedule', { url: ch.epg, id: ch.tvgId }, function (err, payload) {
+    if (!root.isConnected) { return; }
+    var progs = (!err && payload && payload.programmes) || [];
+    if (!progs.length) {
+      note(err ? 'No se pudo leer la guía de esta lista. Inténtalo más tarde.' : 'La guía no tiene programas de este canal para las próximas horas.');
+      return;
+    }
+    clear(list);
+    var now = Date.now();
+    var today = new Date(now).toDateString();
+    var lastDay = today;
+    var first = null;
+    progs.forEach(function (p) {
+      var day = new Date(p.s).toDateString();
+      if (day !== lastDay) {
+        lastDay = day;
+        list.appendChild(el('div', 'ls-day', day === new Date(now + 86400000).toDateString() ? 'Mañana' : 'Después'));
+      }
+      var on = p.s <= now && p.e > now;
+      var row = el('div', 'ls-row focusable' + (on ? ' is-now' : ''));
+      var when = el('div', 'ls-time');
+      when.appendChild(el('b', null, liveEpgClock(p.s)));
+      when.appendChild(el('span', null, liveEpgClock(p.e)));
+      row.appendChild(when);
+      var info = el('div', 'ls-info');
+      var head = el('div', 'ls-title-row');
+      head.appendChild(el('span', 'ls-title', p.t || 'Programa'));
+      if (on) { head.appendChild(el('span', 'ls-badge', 'Ahora')); }
+      info.appendChild(head);
+      if (p.d) { info.appendChild(el('div', 'ls-desc', p.d)); }
+      if (on) {
+        var bar = el('div', 'ls-progress');
+        var fill = el('i');
+        fill.style.width = Math.max(2, Math.min(100, Math.round((now - p.s) / (p.e - p.s) * 100))) + '%';
+        bar.appendChild(fill);
+        info.appendChild(bar);
+      }
+      row.appendChild(info);
+      /* (A row only takes the focus: nothing to do on OK.) */
+      row._activate = function () {};
+      list.appendChild(row);
+      if (!first) { first = row; }
+    });
+    if (first) { setFocus(first); }
+  }, 70000);
+}

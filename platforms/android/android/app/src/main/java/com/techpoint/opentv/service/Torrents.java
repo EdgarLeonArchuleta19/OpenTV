@@ -217,6 +217,11 @@ final class Torrents {
         // Free space of the cache volume, re-read at most every few seconds.
         long free = -1;
         long freeAt;
+        // Which video of a season pack, when the addon gave no fileIdx: its
+        // file name and the episode (set once at start, see videoIndex).
+        String wantName = "";
+        int season;
+        int episode;
 
         Job(String key, String hash, String token, File dir) {
             this.key = key;
@@ -361,6 +366,10 @@ final class Torrents {
         if (!HASH.matcher(hash).matches()) throw new PortalException("El torrent no es válido");
         Integer fileIdx = fileIndex(p.opt("fileIdx"));
         String key = hash + ":" + (fileIdx == null ? "" : fileIdx);
+        // Season pack without fileIdx: the file name and episode pick the video.
+        String wantName = Js.text(Js.or(p.opt("filename"), ""));
+        int season = p.optInt("season", 0);
+        int episode = p.optInt("episode", 0);
         refreshTrackers();
         Job job;
         boolean fresh = false;
@@ -393,6 +402,9 @@ final class Torrents {
                 ensureSession();
                 String tok = token();
                 job = new Job(key, hash, tok, new File(root, tok));
+                job.wantName = wantName;
+                job.season = season;
+                job.episode = episode;
                 current = job;
                 fresh = true;
                 try {
@@ -414,6 +426,9 @@ final class Torrents {
                     Integer ai = fileIndex(alt.opt("fileIdx"));
                     String at = token();
                     Job aj = new Job(ah + ":" + (ai == null ? "" : ai), ah, at, new File(root, at));
+                    aj.wantName = Js.text(Js.or(alt.opt("filename"), ""));
+                    aj.season = season;
+                    aj.episode = episode;
                     try {
                         add(aj, trackers(alt.opt("sources")));
                         race.add(aj);
@@ -600,18 +615,44 @@ final class Torrents {
         return winner;
     }
 
-    /* The file the addon pointed at (fileIdx), or the biggest video file.
-       Returns an error text, or null when the job is ready. */
-    /* The file the addon pointed at (fileIdx), or the biggest video file; -1 if none. */
-    private static int videoIndex(FileStorage fs, Integer fileIdx) {
+    /* "S01E05", "s1e5", "1x05" for season/episode (not "S01E050"); null if unknown. */
+    static Pattern episodePattern(int season, int episode) {
+        if (season <= 0 || episode <= 0) return null;
+        return Pattern.compile("(^|[^0-9a-z])(s0*" + season + "[ ._-]*e0*" + episode + "|0*" + season + "x0*" + episode + ")(?![0-9])",
+            Pattern.CASE_INSENSITIVE);
+    }
+
+    private static String baseName(String name) {
+        if (name == null) return "";
+        int cut = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+        return name.substring(cut + 1).toLowerCase(Locale.ROOT);
+    }
+
+    /* The video to play; -1 if none. In order: the file the addon pointed at
+       (fileIdx); in a season pack without it, the file with the addon's file
+       name, then the one named after the episode (S01E05, 1x05); last, the
+       biggest video (a film). Same as pickFile in service/torrents.js. */
+    private static int videoIndex(FileStorage fs, Integer fileIdx, Job job) {
         int n = fs.numFiles();
         if (fileIdx != null && fileIdx >= 0 && fileIdx < n && !fs.padFileAt(fileIdx)) return fileIdx;
-        int idx = -1;
-        long best = -1;
+        String want = job == null ? "" : baseName(job.wantName);
+        Pattern ep = null;
+        int videos = 0;
+        for (int i = 0; i < n; i++) {
+            if (!fs.padFileAt(i) && VIDEO_EXT.matcher(fs.fileName(i)).find()) videos++;
+        }
+        if (job != null && videos > 1) ep = episodePattern(job.season, job.episode);
+        int named = -1, matched = -1, idx = -1;
+        long matchedSize = -1, best = -1;
         for (int i = 0; i < n; i++) {
             if (fs.padFileAt(i) || !VIDEO_EXT.matcher(fs.fileName(i)).find()) continue;
+            String name = baseName(fs.fileName(i));
+            if (!want.isEmpty() && named < 0 && name.equals(want)) named = i;
+            if (ep != null && ep.matcher(name).find() && fs.fileSize(i) > matchedSize) { matchedSize = fs.fileSize(i); matched = i; }
             if (fs.fileSize(i) > best) { best = fs.fileSize(i); idx = i; }
         }
+        if (named >= 0) return named;
+        if (matched >= 0) return matched;
         return idx;
     }
 
@@ -621,7 +662,7 @@ final class Torrents {
        alive) and gets a head start if it wins. */
     private static void warmUp(Job job, TorrentInfo ti, Integer fileIdx) {
         FileStorage fs = ti.files();
-        int idx = videoIndex(fs, fileIdx);
+        int idx = videoIndex(fs, fileIdx, job);
         if (idx < 0) return;
         TorrentHandle h = job.handle;
         Priority[] prio = Priority.array(Priority.IGNORE, fs.numFiles());
@@ -636,7 +677,7 @@ final class Torrents {
     private static String select(Job job, TorrentInfo ti, Integer fileIdx) {
         FileStorage fs = ti.files();
         int n = fs.numFiles();
-        int idx = videoIndex(fs, fileIdx);
+        int idx = videoIndex(fs, fileIdx, job);
         if (idx < 0) return "El torrent no tiene ningún vídeo";
         TorrentHandle h = job.handle;
         Priority[] prio = Priority.array(Priority.IGNORE, n);

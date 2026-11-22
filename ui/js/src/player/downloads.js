@@ -82,7 +82,29 @@ function startTitleDownload(item, episode) {
   if (isSeriesItem(item) && !episode) { return; }
   var existing = downloadFor(item, episode);
   if (existing && existing.status !== 'error' && existing.status !== 'missing') { return openSettingsAt('downloads'); }
-  openSourcePicker(item, episode, function (src) {
+  openSourcePicker(item, episode, function (picked) {
+    /* JS plugin servers give their link only when asked (the same step as
+       Reproducir, stremio-sources.js): without it the service got an empty
+       link and the download failed. */
+    if (!picked.url && picked.jsLazyRef && picked.jsAddonUrl && typeof resolveJsPluginLazyRef === 'function') {
+      showToast('Preparando la descarga…', 'info');
+      resolveJsPluginLazyRef(picked.jsAddonUrl, picked.jsLazyRef, function (jErr, resolved) {
+        if (jErr || !resolved || !resolved.url) {
+          showDownloadNotice('No se pudo descargar: ' + (jErr || 'este servidor no dio el enlace del vídeo. Prueba otra fuente.'));
+          return;
+        }
+        var copy = {};
+        for (var k in picked) { if (picked.hasOwnProperty(k)) { copy[k] = picked[k]; } }
+        copy.url = resolved.url;
+        if (resolved.headers) { copy.headers = resolved.headers; }
+        startDownloadOf(copy);
+      });
+      return;
+    }
+    startDownloadOf(picked);
+  }, { download: true });
+
+  function startDownloadOf(src) {
     var target = episode || item;
     portalServiceCall('downloadStart', {
       title: item.title || '',
@@ -99,7 +121,7 @@ function startTitleDownload(item, episode) {
       refreshDownloads();
       showDownloadNotice(failed ? ('No se pudo descargar: ' + (err || (answer && answer.errorText) || 'error desconocido')) : '');
     });
-  }, { download: true });
+  }
 }
 
 /* "Se está descargando": continue using the app, or go see it. */

@@ -28,7 +28,7 @@ function askRelayRealStart(base, asked) {
         if (relayBaseUrl !== base || relayRequestedStart !== asked) { return; }
         var real = NaN;
         try { real = Number(JSON.parse(xhr.responseText).start); } catch (eJson) { /* ignore */ }
-        if (isFinite(real) && real >= 0 && Math.abs(asked - real) < 30) { relayStartOffset = real; }
+        if (isFinite(real) && real >= 0 && Math.abs(asked - real) < 30) { relayStartOffset = real; syncNativeSubtitleTrack(); }
       };
       xhr.send(null);
     } catch (eAsk) { /* keep the asked second */ }
@@ -271,9 +271,14 @@ function stopPlayerVideo() {
   }
   state.streamError = '';
   clearBufferingNotice();
+  if (typeof hidePlayerHeroLoad === 'function') { hidePlayerHeroLoad(); }
+  if (typeof clearSkipIntro === 'function') { clearSkipIntro(); }
   setPlayerStatus('');
   showOsdIcon('none');
   stopVodProgressTicker();
+  /* A track inside the file goes with the file: the next video turns it
+     on again (media-info.js applySubtitleDefaults). */
+  if (/^(native|embedded):/.test(vodSubLoadedUrl)) { vodSubLoadedUrl = ''; }
   /* Keep the settings panel/dialog open across an audio/quality restart;
      back() and screen changes close them. Keep the loaded cues too: an
      audio/quality switch replaces the source but not the subtitles, and
@@ -344,6 +349,7 @@ function setPlayerStatus(text) {
     } }));
   }
   if (!playerStatus) { playerStatus = $('player-status'); }
+  if (typeof updatePlayerHeroLoadStatus === 'function' && text) { updatePlayerHeroLoadStatus(text); }
   if (!playerStatus) { return; }
   if (text) {
     playerStatus.textContent = text;
@@ -387,6 +393,7 @@ function playUrl(url, playOptions) {
     var mStart = /[?&]start=(\d+)/.exec(url);
     relayStartOffset = mStart ? parseInt(mStart[1], 10) : 0;
     relayRequestedStart = relayStartOffset;
+    syncNativeSubtitleTrack();
     askRelayRealStart(relayBaseUrl, relayRequestedStart);
   } else {
     relayBaseUrl = '';
@@ -394,6 +401,12 @@ function playUrl(url, playOptions) {
     relayRequestedStart = 0;
   }
   setPlayerStatus('Conectando con el vídeo…');
+  if (state.playerMode === 'vod' && state.playerItem && typeof showPlayerHeroLoad === 'function') {
+    showPlayerHeroLoad(state.playerItem, state.playerEpisode);
+  }
+  if (state.playerMode === 'vod' && state.playerItem && state.playerEpisode && typeof loadSkipIntroSegments === 'function') {
+    loadSkipIntroSegments(state.playerItem, state.playerEpisode);
+  }
   state.streamError = '';
   compatWatchBegin();
 
@@ -404,6 +417,11 @@ function playUrl(url, playOptions) {
   var rawMime = (state.playerItem && state.playerItem.streamMime) || '';
   var isHls = (url.indexOf('.m3u8') !== -1) || (rawMime.indexOf('mpegurl') !== -1) || !!(state.playerItem && state.playerItem.isHls);
   var mime = isHls ? 'application/vnd.apple.mpegurl' : ((url.indexOf('.mp4') !== -1 || rawMime.indexOf('mp4') !== -1) ? 'video/mp4' : 'video/mp2t');
+
+  var startedOnce = false;
+  var stallTimes = [];
+  var stallHintShown = false;
+  var nextEpPreloaded = false;
 
   playerVideo.onerror = function () {
     hideNextEpisodeLoading();
@@ -441,7 +459,9 @@ function playUrl(url, playOptions) {
        viewer picked Normal. */
     if (code === 4 && tryCompatFallback('error')) { return; }
     if (code && stremioRetryTranscode()) { return; }
+    if (!startedOnce && state.playerMode === 'vod' && typeof tryDirectSourceFallback === 'function' && tryDirectSourceFallback()) { return; }
     state.streamError = 'No se pudo abrir el stream (código ' + (code || 'error') + ')';
+    if (typeof hidePlayerHeroLoad === 'function') { hidePlayerHeroLoad(); }
     playerVideo.classList.remove('is-active');
     if (playerFrame) { playerFrame.style.display = 'block'; }
     setPlayerStatus(state.streamError);
@@ -502,7 +522,8 @@ function playUrl(url, playOptions) {
        becomes available with the loaded media metadata. */
     if (state.playerMode === 'vod' && state.streamMode === 'normal') {
       var audioInfo = (state.playerItem && state.playerItem.streamAudioInfo);
-      var nativeTrack = vodAudioChosen ? vodCurrentAudioTrack : preferredAudioIndex(audioInfo);
+      var nativeTrack = vodAudioChosen ? vodCurrentAudioTrack :
+        (audioInfo ? preferredAudioIndex(audioInfo) : nativeAudioIndexByLanguage());
       if (selectNativeAudioTrack(nativeTrack)) {
         vodCurrentAudioTrack = nativeTrack;
       }
@@ -521,6 +542,11 @@ function playUrl(url, playOptions) {
     }
   };
   playerVideo.onplaying = function () {
+    if (!startedOnce) {
+      startedOnce = true;
+      if (typeof noteActiveSourceStarted === 'function') { noteActiveSourceStarted(); }
+    }
+    if (typeof hidePlayerHeroLoad === 'function') { hidePlayerHeroLoad(); }
     hideNextEpisodeLoading();
     clearStatus();
   };
@@ -535,7 +561,22 @@ function playUrl(url, playOptions) {
       var totalDur = vodPlaybackDuration();
       updateVodProgress(cur, totalDur);
       updateSubtitleDisplay(cur);
+      if (typeof updateSkipIntroButton === 'function') { updateSkipIntroButton(cur); }
       rememberWatchProgress(cur, totalDur);
+      /* Preload the next episode's sources 45 s before the end so advancing starts right away. */
+      if (!nextEpPreloaded && totalDur > 120 && totalDur - cur <= 45 && totalDur - cur >= 5 &&
+          state.playerItem && state.playerItem._stremio && isSeriesItem(state.playerItem) &&
+          typeof fetchStremioStreams === 'function') {
+        nextEpPreloaded = true;
+        var epsList = episodeListForCurrentSeason(state.playerItem);
+        var curEp = state.playerEpisode;
+        for (var ei = 0; ei < epsList.length - 1; ei++) {
+          if (curEp && (epsList[ei].id === curEp.id || epsList[ei].number === curEp.number)) {
+            fetchStremioStreams(state.playerItem, epsList[ei + 1], function () {});
+            break;
+          }
+        }
+      }
     }
   };
   playerVideo.onpause = function () {
@@ -556,6 +597,17 @@ function playUrl(url, playOptions) {
   };
   playerVideo.onwaiting = function () {
     scheduleBufferingNotice('Cargando vídeo…');
+    if (startedOnce && !stallHintShown && state.playerMode === 'vod' && state.playerItem && state.playerItem._stremio) {
+      var now = Date.now();
+      stallTimes.push(now);
+      stallTimes = stallTimes.filter(function (t) { return now - t < 60000; });
+      if (stallTimes.length >= 3) {
+        stallHintShown = true;
+        if (typeof showToast === 'function') {
+          showToast('La fuente se está trabando · puedes cambiarla en "Fuente"', 'info');
+        }
+      }
+    }
   };
   playerVideo.onstalled = function () {
     scheduleBufferingNotice('Conectando…');
@@ -611,16 +663,26 @@ function playUrl(url, playOptions) {
     if (playOptions.remainPaused) { playerVideo.pause(); return; }
     var p = playerVideo.play();
     if (p && p.catch) {
-      p.catch(function () {
+      p.catch(function (err) {
         if (playerVideo.error) { return; }
-        state.streamError = 'Pulsa OK para iniciar la reproducción';
+        /* Only a blocked autoplay asks for a key. A stream that failed
+           (PC: hls.js rejects with AbortError) already says why, and
+           "Pulsa OK" over it sent the viewer the wrong way. */
+        if (err && err.name && err.name !== 'NotAllowedError') { return; }
+        state.streamError = playStartHint();
         setPlayerStatus(state.streamError);
       });
     }
   } catch (e2) {
-    state.streamError = 'Pulsa OK para iniciar la reproducción';
+    state.streamError = playStartHint();
     setPlayerStatus(state.streamError);
   }
+}
+
+/* "Press play" in the words of the device's own controls. */
+function playStartHint() {
+  return platformHas('mouse') && !platformIsTv() ? 'Pulsa Espacio o haz clic para reproducir'
+    : 'Pulsa OK para iniciar la reproducción';
 }
 
 /* The playable URL of a title (async: the addon source may need the
@@ -665,6 +727,26 @@ function startPlayerVideo(item, episode) {
   playUrl(directUrl);
 }
 
+/* A file played directly with several dubs (PC: Electron turns on the
+   AudioVideoTracks list): the track in the viewer's language, or -1 to
+   leave the file's own default. */
+function nativeAudioIndexByLanguage() {
+  var tracks;
+  try { tracks = playerVideo && playerVideo.audioTracks; } catch (eTracks) { return -1; }
+  if (!tracks || tracks.length < 2) { return -1; }
+  for (var i = 0; i < tracks.length; i++) {
+    if (window.__opentvAudioWanted(tracks[i].language || '', tracks[i].label || '')) { return i; }
+  }
+  return -1;
+}
+
+/* Is a video really loaded? After stopPlayerVideo() the src attribute is
+   empty, but the src property then reads as the page's own address, so it
+   cannot tell. lastPlayingUrl is cleared there too. */
+function playerVideoLoaded() {
+  return !!(playerVideo && lastPlayingUrl && !playerVideo.error);
+}
+
 function expandToFullscreen(item, episode) {
   /* Stremio mode: first the viewer picks the source (or the saved one is used). */
   if (stremioNeedsPick(item, episode)) { return; }
@@ -674,8 +756,8 @@ function expandToFullscreen(item, episode) {
      VOD both restart from zero. */
   var sameEpisode = !episode || !state.playerEpisode ||
     state.playerEpisode === episode || state.playerEpisode.id === episode.id;
-  var keepCurrentVideo = state.screen === 'detail' && playerVideo &&
-    !!playerVideo.src && state.playerItem === item && sameEpisode;
+  var keepCurrentVideo = state.screen === 'detail' && playerVideoLoaded() &&
+    state.playerItem === item && sameEpisode;
   state.playerMode = 'vod';
   if (item && state.playerItem !== item) { resetMediaSelection(); }
   if (item) { state.playerItem = item; }

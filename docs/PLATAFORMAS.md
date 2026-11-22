@@ -33,7 +33,7 @@ tests/               pruebas compartidas
 | Películas, series y anime de addons (compatibles con Stremio) | ✅ | ✅ |
 | Fuentes con enlace directo (HTTP / HLS) | ✅ | ✅ |
 | Torrents | ✅ torrent-stream | ✅ Android 9+ con ARM, libtorrent4j |
-| Descargas | ✅ | ✅ (con notificación) |
+| Descargas | ✅ | ✅ solo celular, con notificación (no en la tele) |
 | Subtítulos del archivo | ✅ relay FFmpeg | ✅ ExoPlayer |
 | Subtítulos de addons e importados | ✅ | ✅ |
 | TV en vivo (listas M3U) | ✅ | ✅ |
@@ -59,8 +59,8 @@ Código en `ui/js/src/services/vod-api.js` y `ui/js/src/player/stremio-sources.j
 
 1. **Addons instalados.** Vienen siempre y no se pueden quitar
    **Cinemeta** (catálogo), **Anime Kitsu** (catálogo de anime) y
-   **OpenSubtitles** (subtítulos). Ninguno da vídeos y no se preinstala ningún
-   addon de fuentes; si alguno falta, la app lo vuelve a poner. El usuario
+   **OpenSubtitles** (subtítulos). Ninguno da vídeos; si alguno falta, la app
+   lo vuelve a poner. Se pueden preinstalar más (también de fuentes). El usuario
    agrega más en **Ajustes →
    Addons** pegando la URL del `manifest.json`; se guarda lo que ofrece cada
    uno (catálogos, géneros, recursos, prefijos de id).
@@ -107,14 +107,14 @@ Código en `ui/js/src/services/vod-api.js` y `ui/js/src/player/stremio-sources.j
    (`tmdb.list('search:<texto>')`) y ese título se busca en los addons.
 
 "Stremio" es una marca de otra empresa: en la interfaz solo aparece como
-"compatible con Stremio"; la sección se llama **Addons**.
+"compatible con Stremio"; la sección se llama **Plugins**.
 
 ## TV en vivo
 
 Independiente de los addons: solo listas M3U (`service/m3u.js`,
 `M3u.java`). La app empieza con una lista pública de
 [iptv-org](https://github.com/iptv-org/iptv) y ofrece más en "Buscar listas";
-el usuario agrega las suyas en **Ajustes → Addons → TV en vivo** (o en el
+el usuario agrega las suyas en **Ajustes → Plugins** (o en el
 celular, **Mi cuenta → Addons y listas**).
 
 **Guía de horarios.** Si la cabecera de la lista nombra una guía XMLTV

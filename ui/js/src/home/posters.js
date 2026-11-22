@@ -225,6 +225,18 @@ function posterImageError() {
     return;
   }
   var tile = img.parentNode;
+  var item = tile && tile._item;
+  if (!img._posterProTried && item && typeof posterProFallbackForItem === 'function') {
+    var alt = posterProFallbackForItem(item, 'poster');
+    if (alt && alt !== img.getAttribute('data-poster-src')) {
+      img._posterProTried = true;
+      item.poster = alt;
+      img.setAttribute('data-poster-src', alt);
+      img.removeAttribute('src');
+      img.src = tileImageUrl(img);
+      return;
+    }
+  }
   if (window.OPENTV_DESKTOP && tile && tile.classList) {
     markCoverBroken(tile._item);
     applyGenericCover(tile, tile._item);
@@ -248,15 +260,16 @@ function makePoster(item, x, y, w, h, opts) {
     pimg.onload = posterImageLoaded;
     p.appendChild(pimg);
   }
-  /* sel_poster_nohalo items (free, search, related) draw their own title,
-     so the PosterView title/shadow children stay hidden. */
-  if (!opts.gold) {
+  /* PC and TV: a clean poster, only its picture. The rating, title and the
+     rest are on the details screen. (A poster without a picture draws its
+     title on its generic cover.) The old layout keeps its title strip. */
+  if (!opts.gold && !window.OPENTV_DESKTOP) {
     p.appendChild(el('div', 'p-shade'));
     p.appendChild(el('div', 'p-title', item.title));
   }
   p._item = item;
   if (window.OPENTV_DESKTOP && !item.poster) { applyGenericCover(p, item); }
-  if (window.OPENTV_DESKTOP && item.title) { p.appendChild(el('div', 'p-hover', item.title)); }
+  if (window.OPENTV_DESKTOP && item.title) { p.setAttribute('aria-label', item.title); }
   p._activate = function () { openDetail(item); };
   schedulePosterMemoryPass();
   return p;

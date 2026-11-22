@@ -100,14 +100,25 @@
     attachedUrl = hlsUrl;
     var startPos = (video._opentvStartPos && video._opentvStartPos > 0) ? video._opentvStartPos : -1;
     video._opentvStartPos = 0;
-    currentHls = new Hls({ enableWorker: true, maxBufferLength: 25,
-      maxMaxBufferLength: 60, backBufferLength: 30,
+    var tvLite = !!(document.body && document.body.classList.contains('is-tv'));
+    currentHls = new Hls({ enableWorker: true,
+      maxBufferLength: tvLite ? 14 : 25,
+      maxMaxBufferLength: tvLite ? 25 : 60,
+      backBufferLength: tvLite ? 10 : 30,
       startPosition: startPos,
       // Start from a broadband estimate (4 Mbps) instead of 500 kbps, so the
       // picture does not begin blurry and climb up for the first seconds.
       abrEwmaDefaultEstimate: 4000000,
       xhrSetup: function (xhr) { xhr.withCredentials = false; } });
     var instance = currentHls;
+    instance.on(Hls.Events.FRAG_LOADED, function (_, data) {
+      if (currentHls !== instance || !data || !data.frag || !data.frag.stats) return;
+      var st = data.frag.stats;
+      var ms = st.loading ? (st.loading.end - st.loading.start) : 0;
+      if (st.loaded > 40000 && ms > 40) {
+        document.dispatchEvent(new CustomEvent('opentv:direct-speed', { detail: st.loaded * 1000 / ms }));
+      }
+    });
     instance.on(Hls.Events.MANIFEST_PARSED, function () {
       if (currentHls !== instance) return;
       var pref = preferredHeight();
@@ -115,6 +126,18 @@
       levelsChanged();
     });
     instance.on(Hls.Events.LEVEL_SWITCHED, function () { if (currentHls === instance) levelsChanged(); });
+    // Several dubs: start on the viewer's language (Ajustes → Reproducción),
+    // not on the one the stream marks as default (often Portuguese).
+    instance.on(Hls.Events.AUDIO_TRACKS_UPDATED, function (_, data) {
+      var tracks = (data && data.audioTracks) || [];
+      if (currentHls !== instance || tracks.length < 2 || typeof window.__opentvAudioWanted !== 'function') return;
+      for (var i = 0; i < tracks.length; i++) {
+        if (window.__opentvAudioWanted(tracks[i].lang || '', tracks[i].name || '')) {
+          if (instance.audioTrack !== i) instance.audioTrack = i;
+          return;
+        }
+      }
+    });
     // A stream with picture but no audio track: app.js offers compatibility mode.
     instance.on(Hls.Events.BUFFER_CODECS, function (_, data) {
       if (currentHls === instance && data && data.video && !data.audio && !data.audiovideo) video._opentvNoAudio = true;

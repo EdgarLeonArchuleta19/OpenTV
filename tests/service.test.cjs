@@ -79,6 +79,48 @@ test('torrents: tracker lists are read safely and race candidates are unique, va
   assert.deepEqual(c.map((x) => x.hash[0]), ['a', 'b', 'c', 'd']);
 });
 
+test('torrents: in a season pack the episode plays, not the biggest file', () => {
+  const t = require('../service/torrents.js');
+  const files = [
+    { name: 'Show.S01E01.1080p.mkv', length: 900 },
+    { name: 'Show.S01E02.1080p.mkv', length: 1500 },
+    { name: 'Show.S01E10.1080p.mkv', length: 800 },
+    { name: 'Show.S01E10.sample.mkv', length: 50 },
+    { name: 'notes.txt', length: 5 }
+  ];
+  /* The addon's fileIdx wins. */
+  assert.equal(t._pickFile(files, { fileIdx: 0 }).name, 'Show.S01E01.1080p.mkv');
+  /* No fileIdx: the addon's file name, then the episode's (not S01E01 for E10, nor the sample). */
+  assert.equal(t._pickFile(files, { filename: 'Pack/Show.S01E01.1080p.mkv' }).name, 'Show.S01E01.1080p.mkv');
+  assert.equal(t._pickFile(files, { season: 1, episode: 10 }).name, 'Show.S01E10.1080p.mkv');
+  assert.equal(t._pickFile(files, { season: 1, episode: 1 }).name, 'Show.S01E01.1080p.mkv');
+  assert.equal(t._pickFile([{ name: 'show.1x02.avi', length: 1 }, { name: 'show.1x03.avi', length: 9 }], { season: 1, episode: 2 }).name, 'show.1x02.avi');
+  /* A film (nothing to match): the biggest video. */
+  assert.equal(t._pickFile(files, {}).name, 'Show.S01E02.1080p.mkv');
+});
+
+test('epg: the Programación of one channel keeps only that channel, more programmes', () => {
+  const epg = require('../service/epg.js');
+  const p2 = (n) => String(n).padStart(2, '0');
+  const t = (ms) => { const d = new Date(ms); return d.getUTCFullYear() + p2(d.getUTCMonth() + 1) + p2(d.getUTCDate()) + p2(d.getUTCHours()) + p2(d.getUTCMinutes()) + '00 +0000'; };
+  const now = Date.now();
+  let xml = '<tv>';
+  for (let i = 0; i < 20; i++) {
+    const s = now + i * 30 * 60e3 - 10 * 60e3;
+    xml += '<programme channel="c1" start="' + t(s) + '" stop="' + t(s + 30 * 60e3) + '"><title>P' + i + '</title></programme>';
+    xml += '<programme channel="c2" start="' + t(s) + '" stop="' + t(s + 30 * 60e3) + '"><title>Q' + i + '</title></programme>';
+  }
+  xml += '</tv>';
+  const shared = {};
+  const r1 = epg._makeReader(shared); r1.write(xml); r1.end();
+  assert.equal(shared.c1.length, 10);
+  const one = {};
+  const r2 = epg._makeReader(one, { only: 'c1', cap: 60 }); r2.write(xml); r2.end();
+  assert.deepEqual(Object.keys(one), ['c1']);
+  assert.equal(one.c1.length, 20);
+  assert.equal(one.c1[0].t, 'P0');
+});
+
 test('epg: XMLTV times, the guide link of a list and what is on now and next', () => {
   const epg = require('../service/epg.js');
   const m3u = require('../service/m3u.js');
@@ -99,4 +141,61 @@ test('epg: XMLTV times, the guide link of a list and what is on now and next', (
   r.write(xml.slice(0, 77)); r.write(xml.slice(77, 300)); r.write(xml.slice(300)); r.end();
   assert.deepEqual(byId.c1.map((p) => p.t), ['Ahora & aquí', 'Después']);
   assert.equal(byId.c1[0].d, 'Algo');
+});
+
+test('netguard: never this device, the home network only when allowed, checked by address', async () => {
+  const g = require('../service/netguard.js');
+  const kinds = {
+    '127.0.0.1': 'loopback', '127.8.9.1': 'loopback', '::1': 'loopback', '[::1]': 'loopback', '::ffff:127.0.0.1': 'loopback',
+    '10.0.0.5': 'lan', '172.16.0.1': 'lan', '172.31.255.1': 'lan', '192.168.1.69': 'lan', '169.254.1.1': 'lan',
+    '100.64.0.1': 'lan', 'fd00::1': 'lan', 'fe80::1': 'lan',
+    '0.0.0.0': 'blocked', '224.0.0.1': 'blocked', '255.255.255.255': 'blocked', '::': 'blocked', 'ff02::1': 'blocked', '999.1.1.1': 'blocked',
+    '172.32.0.1': 'public', '8.8.8.8': 'public', '2606:4700::1111': 'public'
+  };
+  for (const ip of Object.keys(kinds)) assert.equal(g.classify(ip), kinds[ip], ip);
+  const check = (host, lan) => new Promise((resolve) => g.check(host, lan, (err, ip) => resolve(err ? 'refused' : ip)));
+  assert.equal(await check('localhost', true), 'refused');
+  assert.equal(await check('127.0.0.1', true), 'refused');
+  assert.equal(await check('192.168.1.69', false), 'refused');
+  assert.equal(await check('192.168.1.69', true), '192.168.1.69');
+  assert.equal(await check('8.8.8.8', false), '8.8.8.8');
+});
+
+test('ffmpeg-tls: HTTPS is verified; a host whose certificate failed is asked again without it', () => {
+  const tls = require('../service/ffmpeg-tls.js');
+  assert.deepEqual(tls.args('http://a.example/v.mp4'), []);
+  assert.deepEqual(tls.args('https://cdn.example/v.mp4'), ['-tls_verify', '1']);
+  assert.equal(tls.noteFailure('https://cdn.example/v.mp4', 'Connection refused'), false);
+  assert.equal(tls.noteFailure('https://cdn.example/v.mp4', 'error:0A000086:SSL routines::certificate verify failed'), true);
+  assert.deepEqual(tls.args('https://cdn.example/other.mp4'), ['-tls_verify', '0']);
+  assert.deepEqual(tls.args('https://other.example/v.mp4'), ['-tls_verify', '1']);
+});
+
+test('PC: the app page reads media from servers that allow only their own site', () => {
+  const cors = require(path.join(ROOT, 'platforms', 'electron', 'media-cors.cjs'));
+  const on = {};
+  const ses = { webRequest: {} };
+  ['onBeforeSendHeaders', 'onHeadersReceived', 'onCompleted', 'onErrorOccurred'].forEach((n) => { ses.webRequest[n] = (fn) => { on[n] = fn; }; });
+  cors.install(ses);
+  const send = (id, origin) => on.onBeforeSendHeaders({ id, url: 'https://tv.example/a.m3u8', requestHeaders: origin ? { Origin: origin } : {} }, () => {});
+  const answer = (id) => {
+    let out = null;
+    on.onHeadersReceived({ id, responseHeaders: { 'access-control-allow-origin': ['http://pluto.tv'], 'Access-Control-Allow-Credentials': ['true'], 'Content-Type': ['x'] } }, (r) => { out = r; });
+    return out;
+  };
+  send(1, 'opentv://app');
+  const r1 = answer(1);
+  assert.deepEqual(r1.responseHeaders['Access-Control-Allow-Origin'], ['*']);
+  assert.equal(r1.responseHeaders['access-control-allow-origin'], undefined);
+  assert.equal(r1.responseHeaders['Access-Control-Allow-Credentials'], undefined);
+  assert.deepEqual(r1.responseHeaders['Content-Type'], ['x']);
+  /* A redirect hop keeps the same id. */
+  assert.deepEqual(answer(1).responseHeaders['Access-Control-Allow-Origin'], ['*']);
+  on.onCompleted({ id: 1 });
+  assert.deepEqual(answer(1), {});
+  /* The JS plugins' page (Origin null) and other requests are left alone. */
+  send(2, 'null');
+  assert.deepEqual(answer(2), {});
+  send(3, '');
+  assert.deepEqual(answer(3), {});
 });

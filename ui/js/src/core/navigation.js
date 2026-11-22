@@ -61,12 +61,18 @@ function showScreen(name) {
 }
 
 var lastBackTime = 0;
+/* TVs: when the first Back in the player was pressed (the second one
+   within this window leaves it). */
+var playerBackArmedAt = 0;
+var PLAYER_BACK_WINDOW_MS = 2500;
 function back() {
   var now = Date.now();
   if (now - lastBackTime < 250) { return; }
   lastBackTime = now;
   if (historyDrawerOpen) { closeHistoryDrawer(); return; }
   if (sourcePickerOpen) { closeSourcePicker(); return; }
+  /* Something on screen that Back closes first (a plugin card's buttons). */
+  if (state.focus && state.focus._onBack && state.focus._onBack()) { return; }
   if (typeof liveCatMenuOpen === 'function' && liveCatMenuOpen()) { closeLiveCatMenu(true); return; }
   /* The remote's Back (Fire TV, Android TV) closes the channel guide; it
      used to move the focus to the menu behind it, leaving the guide open. */
@@ -98,9 +104,28 @@ function back() {
     }
     if (state.channelsOpen) {
       closeChannelPanel();
+    } else if (platformIsTv() && window.OPENTV_DESKTOP && state.playerMode === 'vod') {
+      /* TVs, movie or episode: the first Back closes the controls and says
+         how to leave; a second one within a moment leaves the player. One
+         press used to drop the movie when the viewer only wanted the menu
+         gone. */
+      if (now - playerBackArmedAt < PLAYER_BACK_WINDOW_MS) {
+        playerBackArmedAt = 0;
+        restorePlayerReturn();
+      } else {
+        playerBackArmedAt = now;
+        if (state.vodInfobarVisible) { hideVodInfobar(); }
+        if (state.infobar) { hideInfobar(); }
+        showToast('Pulsa Atrás otra vez para salir', 'info');
+      }
     } else if (platformIsTv() && window.OPENTV_DESKTOP) {
-      /* TVs: Back leaves the player at once (hiding the controls first made
-         it take several presses, as they come back with any key). */
+      /* TVs, live channels: Back leaves the player at once (hiding the
+         controls first made it take several presses, as they come back
+         with any key). */
+      restorePlayerReturn();
+    } else if (state.playerMode === 'vod' && window.OPENTV_DESKTOP && platformHas('mouse')) {
+      /* PC: "Volver (Esc)" — the controls show with any mouse move, so
+         hiding them first made Esc take two presses. */
       restorePlayerReturn();
     } else if (state.infobar) {
       hideInfobar();
@@ -375,6 +400,12 @@ function handleKey(e) {
 
   /* Menu / ContextMenu button to open in-player settings */
   var isMenu = (k === 457 || k === 93 || k === 467 || key === 'Menu' || key === 'ContextMenu');
+  /* TV en vivo, Menu on the remote: the channel's Programación. */
+  if (state.screen === 'player' && state.playerMode === 'live' && isMenu && !sourcePickerOpen) {
+    openLiveSchedule();
+    if (e.preventDefault) { e.preventDefault(); }
+    return;
+  }
   if (state.screen === 'player' && state.playerMode === 'vod' && isMenu) {
     if (dialogPlaySettingsOpen) {
       closePlaySettingsDialog();
@@ -539,6 +570,10 @@ function handleKey(e) {
       resumePlayerPlayback();
       state.streamError = '';
       setPlayerStatus('');
+    } else if (state.screen === 'player' && state.playerMode === 'vod' && skipIntroShown()) {
+      /* "Saltar intro" on screen: OK skips it (the remote's arrows seek, so
+         the button itself is out of reach on a TV). */
+      skipIntroBtn._activate();
     } else if (state.screen === 'player' && state.playerMode === 'vod') {
       togglePlayerPlayPause();
     } else {

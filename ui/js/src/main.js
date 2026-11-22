@@ -4,6 +4,8 @@
 /* ------------------------------------------------------------------ boot */
 function boot() {
   if (window.OPENTV_DESKTOP) { installTitleBar(); showBootSplash(); }
+  applyAccent();
+  applyTextSize();
   fitDesignViewport();
   window.addEventListener('resize', fitDesignViewport, false);
   window.addEventListener('orientationchange', fitDesignViewport, false);
@@ -13,6 +15,10 @@ function boot() {
   setTimeout(fitDesignViewport, 1200);
   setTimeout(fitDesignViewport, 3000);
   document.addEventListener('keydown', handleKey, false);
+  /* PC: the app's volume is Windows' own (full level in the app, the
+     slider moves the system volume), from the start, not only once the TV
+     page was opened. */
+  startSystemVolumeSync();
   /* PC: the downloads list, so "Reproducir" finds a downloaded title at once. */
   if (platformHas('downloads')) { refreshDownloads(); }
   /* Android: what this device can do, from the service: torrents (Android
@@ -21,7 +27,9 @@ function boot() {
     portalServiceCall('ping', {}, function (err, info) {
       if (err || !info) { return; }
       if (info.torrents === true) { window.OPENTV_PLATFORM.enable('torrents'); }
-      if (info.downloads === true) { window.OPENTV_PLATFORM.enable('downloads'); refreshDownloads(); }
+      /* Downloads: phones only. A TV has little storage and is never
+         taken anywhere without internet. */
+      if (info.downloads === true && !platformIsTv()) { window.OPENTV_PLATFORM.enable('downloads'); refreshDownloads(); }
       setDeviceProfile(info.media, info.storage);
     });
     /* A new APK on GitHub: a short notice (Acerca de has the button too). */
@@ -114,6 +122,8 @@ function boot() {
     openItem: function (item) { openDetail(item); },
     /* The catalogue as it is now (`vod` above is the one at start). */
     currentVod: function () { return VOD; },
+    /* Tests: a JS plugin's code in the sandbox, without downloading it. */
+    jsPluginLoadCode: function (ad, code, cb) { loadJsPluginCode(ad, code, cb); },
     avatarSvg: function (i) { return avatarSvg(i); },
     leavePlayer: restorePlayerReturn,
     /* Seguir viendo / Historial: forget a title (tests). */

@@ -177,14 +177,12 @@
           </div>
         </div>
 
-        <!-- RESOLUCIÓN / MODO DE REPRODUCCIÓN -->
+        <!-- REPRODUCTOR: open the video elsewhere. (The manual "Compatibilidad
+             máxima" switch is gone: the PC changes to it on its own when a
+             video fails, compat-watchdog.js; Android's player needs none.) -->
         <div class="psv-row" id="psv-sec-player">
-          <div class="psv-title">Calidad de reproducción</div>
-          <div class="psv-grid scrollable" id="psv-player-row">
-            <button class="psv-btn focusable" id="psv-btn-p2" title="Recomendado: la app elige sola y cambia si hay problemas"><span class="psv-check">✔</span>Automática</button>
-            <button class="psv-btn focusable" id="psv-btn-p1" title="Convierte el vídeo en este PC. Úsalo si se corta o no tiene sonido. Usa más CPU."><span class="psv-check">✔</span>Compatibilidad máxima</button>
-          </div>
-          <div class="psv-hint">Usa <b>Compatibilidad máxima</b> si el vídeo se corta, no carga o no tiene sonido.</div>
+          <div class="psv-title">Reproductor</div>
+          <div class="psv-grid scrollable" id="psv-player-row"></div>
         </div>
 
         <!-- CALIDAD: only shown when the title has more than one version. -->

@@ -320,6 +320,14 @@
   }
 
   function onTime(el, s, d) {
+    /* A seek whose "seeked" never came (an older native build, or a seek
+       the player answered without a state change): after a few seconds the
+       player's own position counts again, or the page's clock (subtitles,
+       progress bar) stays stuck where the seek aimed. */
+    if (s.seeking && d.s === s.seekSeq && s.seekAt && Date.now() - s.seekAt > 3000) {
+      s.seeking = false;
+      fire(el, 'seeked');
+    }
     if (d.s === s.seekSeq && !s.seeking && !s.ended && typeof d.p === 'number') { s.time = d.p; }
     var dur = (typeof d.d === 'number' && d.d > 0) ? d.d : NaN;
     if (s.live && d.dyn) { dur = Infinity; }
@@ -597,6 +605,7 @@
     s.time = v;
     s.ended = false;
     s.seeking = true;
+    s.seekAt = Date.now();
     s.seekSeq = ++seekCounter;
     fire(this, 'seeking');
     queueSeek(this);

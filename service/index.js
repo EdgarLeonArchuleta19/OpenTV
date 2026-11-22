@@ -115,6 +115,71 @@ service.register('mediaDuration', function (message) {
   });
 });
 
+/* A link that already names the video file (…/movie.mp4, …/index.m3u8) and
+   is not a resolver: nothing to follow, no extra round trip before playing. */
+function looksLikeMediaFile(u) {
+  var path = String(u || '').split(/[?#]/)[0];
+  return /\.(mp4|m4v|mkv|webm|avi|mov|ts|m2ts|m3u8|mpd)$/i.test(path) && !/\/resolve\//i.test(path);
+}
+
+/* Some addon sources (e.g. /resolve/... endpoints) answer with a 302 redirect
+ * to the real CDN file. Resolving that redirect once here avoids hitting the
+ * addon's resolver on every FFmpeg/player Range request (duration probe,
+ * keyframe seek, subtitle hash), which can trigger HTTP 429 rate limits and
+ * hides the real file extension (.ts, .mp4, .mkv, .m3u8). */
+function followRedirects(targetUrl, headers, done) {
+  if (!/^https?:\/\//i.test(targetUrl) || /^https?:\/\/127\.0\.0\.1(?::|\/|$)/i.test(targetUrl) || looksLikeMediaFile(targetUrl)) {
+    return done(targetUrl);
+  }
+  var current = targetUrl;
+  var hops = 0;
+  function step() {
+    var parsed = urlmod.parse(current);
+    var secure = parsed.protocol === 'https:';
+    var mod = secure ? httpsMod : httpMod;
+    if (!mod || !parsed.hostname) { return done(current); }
+    var reqHeaders = { Range: 'bytes=0-0' };
+    Object.keys(headers || {}).forEach(function (k) {
+      if (!/\r|\n/.test(k + headers[k])) { reqHeaders[k] = String(headers[k]); }
+    });
+    var finished = false;
+    function finish(nextUrl) {
+      if (finished) { return; }
+      finished = true;
+      if (nextUrl && hops < 5) {
+        current = nextUrl;
+        hops++;
+        return step();
+      }
+      done(current);
+    }
+    var req = mod.request({
+      method: 'GET',
+      protocol: parsed.protocol,
+      hostname: parsed.hostname,
+      port: parsed.port || (secure ? 443 : 80),
+      path: parsed.path || '/',
+      headers: reqHeaders
+    }, function (res) {
+      var loc = res.statusCode >= 300 && res.statusCode < 400 && res.headers && res.headers.location;
+      res.resume();
+      try { req.abort(); } catch (e) { /* closed */ }
+      if (loc) {
+        var resolved = urlmod.resolve(current, String(loc));
+        if (/^https?:\/\//i.test(resolved)) { return finish(resolved); }
+      }
+      finish(null);
+    });
+    req.on('error', function () { finish(null); });
+    req.setTimeout(3500, function () {
+      try { req.abort(); } catch (e) { /* closed */ }
+      finish(null);
+    });
+    req.end();
+  }
+  step();
+}
+
 /* resolveExternal({url, headers, name, forceRelay, videoCopy, audioTrack, duration})
  * A link chosen in Stremio mode (an addon's HTTP/HLS source, or a torrent
  * already served on loopback by torrentStart). Same answer shape as resolve,
@@ -124,44 +189,46 @@ service.register('mediaDuration', function (message) {
  *   MKV/AVI/other     -> FFmpeg relay (copies the video when the UI allows it) */
 service.register('resolveExternal', function (message) {
   var p = message.payload || {};
-  var url = String(p.url || '');
-  if (!/^https?:\/\//i.test(url)) { return fail(message, new Error('La fuente no tiene un enlace http(s) válido')); }
+  var rawUrl = String(p.url || '');
+  if (!/^https?:\/\//i.test(rawUrl)) { return fail(message, new Error('La fuente no tiene un enlace http(s) válido')); }
   var headers = (p.headers && typeof p.headers === 'object') ? p.headers : {};
   var hasHeaders = Object.keys(headers).length > 0;
-  var name = String(p.name || '') + ' ' + url.split('?')[0];
-  var isHls = /\.m3u8\b/i.test(name);
-  var webReady = /\.(mp4|m4v|webm|mov)\b/i.test(name) && p.notWebReady !== true && p.notWebReady !== 'true';
-  var stream = { url: url, headers: headers, duration: mediaDuration.seconds(p.duration) };
+  followRedirects(rawUrl, headers, function (url) {
+    var name = String(p.name || '') + ' ' + url.split('?')[0];
+    var isHls = /\.m3u8\b/i.test(name);
+    var webReady = /\.(mp4|m4v|webm|mov)\b/i.test(name) && p.notWebReady !== true && p.notWebReady !== 'true';
+    var stream = { url: url, headers: headers, duration: mediaDuration.seconds(p.duration) };
 
-  if (isHls) {
-    if (!hasHeaders) { return respond(message, null, { url: url, proxyPath: url, isHls: true, mime: 'application/vnd.apple.mpegurl' }); }
-    return proxy.start(function (perr) {
+    if (isHls) {
+      if (!hasHeaders) { return respond(message, null, { url: url, resolvedUrl: url, proxyPath: url, isHls: true, mime: 'application/vnd.apple.mpegurl' }); }
+      return proxy.start(function (perr) {
+        if (perr) { return fail(message, perr); }
+        var token = proxy.add(url, headers, 0, '');
+        respond(message, null, { resolvedUrl: url, proxyPath: proxy.baseUrl() + '/media/' + token + '/stream.m3u8', isHls: true, mime: 'application/vnd.apple.mpegurl' });
+      });
+    }
+
+    var forceRelay = p.forceRelay === true || p.forceRelay === 'true' || !webReady;
+    if (forceRelay && !relay.available()) {
+      return fail(message, new Error('Este vídeo necesita el modo compatible y falta ffmpeg.exe en la carpeta bin de OpenTV'));
+    }
+    var relayOpts = { hevc: false, audio: Number(p.audioTrack) || 0, videoCopy: p.videoCopy === true || p.videoCopy === 'true' };
+    var out = { resolvedUrl: url, mime: 'video/mp4', isHls: false, durationId: mediaDuration.register(stream) };
+    if (relay.available()) { out.relayUrl = relay.register(stream, relayOpts); }
+    if (forceRelay) {
+      out.proxyPath = out.relayUrl;
+      out.isRelay = true;
+      return respond(message, null, out);
+    }
+    if (!hasHeaders) {
+      out.proxyPath = url;
+      return respond(message, null, out);
+    }
+    proxy.start(function (perr) {
       if (perr) { return fail(message, perr); }
-      var token = proxy.add(url, headers, 0, '');
-      respond(message, null, { proxyPath: proxy.baseUrl() + '/media/' + token + '/stream.m3u8', isHls: true, mime: 'application/vnd.apple.mpegurl' });
+      out.proxyPath = proxy.baseUrl() + '/media/' + proxy.add(url, headers, stream.duration, '') + '/stream.mp4';
+      respond(message, null, out);
     });
-  }
-
-  var forceRelay = p.forceRelay === true || p.forceRelay === 'true' || !webReady;
-  if (forceRelay && !relay.available()) {
-    return fail(message, new Error('Este vídeo necesita el modo compatible y falta ffmpeg.exe en la carpeta bin de OpenTV'));
-  }
-  var relayOpts = { hevc: false, audio: Number(p.audioTrack) || 0, videoCopy: p.videoCopy === true || p.videoCopy === 'true' };
-  var out = { mime: 'video/mp4', isHls: false, durationId: mediaDuration.register(stream) };
-  if (relay.available()) { out.relayUrl = relay.register(stream, relayOpts); }
-  if (forceRelay) {
-    out.proxyPath = out.relayUrl;
-    out.isRelay = true;
-    return respond(message, null, out);
-  }
-  if (!hasHeaders) {
-    out.proxyPath = url;
-    return respond(message, null, out);
-  }
-  proxy.start(function (perr) {
-    if (perr) { return fail(message, perr); }
-    out.proxyPath = proxy.baseUrl() + '/media/' + proxy.add(url, headers, stream.duration, '') + '/stream.mp4';
-    respond(message, null, out);
   });
 });
 
@@ -189,6 +256,175 @@ service.register('proxySubtitles', function (message) {
     }) });
   });
 });
+
+/* subtitleCat({imdbId, title, year, kind, season, episode, filename}):
+ * fallback subtitle search on SubtitleCat when OpenSubtitles fails or misses. */
+service.register('subtitleCat', function (message) {
+  require('./subtitlecat').search(message.payload || {}, function (err, subs) {
+    respond(message, null, { subtitles: subs || [] });
+  });
+});
+
+/* resolveShortCode({code}): resolves a Downloader numeric code (aftv.news/N)
+ * or short code (!abc -> py.md/abc, abc -> cutt.ly/abc) to its target URL. */
+service.register('resolveShortCode', function (message) {
+  var code = String((message.payload || {}).code || '').trim();
+  if (!code) { return fail(message, new Error('Código vacío')); }
+  var startUrl = /^\d{4,9}$/.test(code) ? ('https://aftv.news/' + code)
+    : (code.charAt(0) === '!' ? ('https://py.md/' + encodeURIComponent(code.slice(1)))
+    : (/^[A-Za-z0-9_-]{2,48}$/.test(code) ? ('https://cutt.ly/' + encodeURIComponent(code)) : ''));
+  if (!startUrl) { return fail(message, new Error('Código corto no válido')); }
+  resolveRedirectTarget(startUrl, 0, function (err, target) {
+    if (err || !target) { return fail(message, err || new Error('No se pudo resolver el código')); }
+    respond(message, null, { url: target });
+  });
+});
+
+/* pluginFetch({url, method, headers, body, bodyBase64, redirect, timeoutMs}): CORS-free
+ * HTTP request for JS plugins (kino-plugin.json / plugin.js). */
+service.register('pluginFetch', function (message) {
+  var p = message.payload || {};
+  var targetUrl = String(p.url || '').trim();
+  if (!/^https?:\/\//i.test(targetUrl)) {
+    return respond(message, null, { ok: false, status: 0, url: targetUrl, headers: {}, text: '', error: 'URL no válida' });
+  }
+  var method = String(p.method || 'GET').toUpperCase();
+  var headers = (p.headers && typeof p.headers === 'object') ? p.headers : {};
+  var bodyBuf = p.bodyBase64 != null ? Buffer.from(String(p.bodyBase64), 'base64')
+    : (p.body != null ? Buffer.from(String(p.body), 'utf8') : null);
+  var follow = p.redirect !== 'manual';
+  var timeoutMs = Math.min(25000, Math.max(1500, Number(p.timeoutMs) || 12000));
+  var allowLan = p.allowLan === true || p.allowLan === 'true';
+  runPluginHttp(targetUrl, method, headers, bodyBuf, follow, timeoutMs, 0, allowLan, function (resObj) {
+    respond(message, null, resObj);
+  });
+});
+
+/* Each hop (the first request and every redirect) is checked by
+   netguard and sent to the very address that was checked. */
+function runPluginHttp(targetUrl, method, reqHeaders, bodyBuf, follow, timeoutMs, depth, allowLan, cb) {
+  var done = false;
+  function finish(out) { if (!done) { done = true; cb(out); } }
+  if (depth > 5) { return finish({ ok: false, status: 0, url: targetUrl, headers: {}, text: '', error: 'Demasiadas redirecciones' }); }
+  var parsed = urlmod.parse(targetUrl);
+  var mod = parsed.protocol === 'https:' ? httpsMod : httpMod;
+  if (!mod || !parsed.hostname) { return finish({ ok: false, status: 0, url: targetUrl, headers: {}, text: '', error: 'Host inválido' }); }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return finish({ ok: false, status: 0, url: targetUrl, headers: {}, text: '', error: 'URL no válida' });
+  }
+  require('./netguard').check(parsed.hostname, allowLan, function (gErr, ip) {
+    if (gErr) { return finish({ ok: false, status: 0, url: targetUrl, headers: {}, text: '', error: gErr.message }); }
+    sendPluginHttp(parsed, ip, targetUrl, method, reqHeaders, bodyBuf, follow, timeoutMs, depth, allowLan, finish);
+  });
+}
+
+function sendPluginHttp(parsed, ip, targetUrl, method, reqHeaders, bodyBuf, follow, timeoutMs, depth, allowLan, finish) {
+  var mod = parsed.protocol === 'https:' ? httpsMod : httpMod;
+  var h = { 'User-Agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120.0 Safari/537.36' };
+  for (var k in reqHeaders) {
+    /* (A name or value Node refuses would throw inside the service.) */
+    if (Object.prototype.hasOwnProperty.call(reqHeaders, k) && reqHeaders[k] != null &&
+        /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(k) && !/[^\t\x20-\x7e\x80-\xff]/.test(String(reqHeaders[k]))) {
+      h[k] = String(reqHeaders[k]);
+    }
+  }
+  if (bodyBuf && !h['Content-Length'] && !h['content-length']) {
+    h['Content-Length'] = bodyBuf.length;
+  }
+  var defaultPort = parsed.protocol === 'https:' ? '443' : '80';
+  if (!h.Host && !h.host) { h.Host = parsed.hostname + (parsed.port && String(parsed.port) !== defaultPort ? ':' + parsed.port : ''); }
+  var opts = {
+    hostname: ip,
+    servername: /^[\d.]+$|:/.test(parsed.hostname) ? undefined : parsed.hostname,
+    port: parsed.port,
+    path: parsed.path || '/',
+    method: method,
+    headers: h
+  };
+  var req = mod.request(opts, function (res) {
+    if (follow && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+      res.resume();
+      var nextUrl = urlmod.resolve(targetUrl, res.headers.location);
+      var nextMethod = (res.statusCode === 307 || res.statusCode === 308) ? method : 'GET';
+      var nextBody = (nextMethod === method) ? bodyBuf : null;
+      return runPluginHttp(nextUrl, nextMethod, reqHeaders, nextBody, follow, timeoutMs, depth + 1, allowLan, finish);
+    }
+    var chunks = [], size = 0;
+    res.on('data', function (c) {
+      size += c.length;
+      if (size <= 2 * 1024 * 1024) { chunks.push(c); }
+    });
+    res.on('end', function () {
+      var outHeaders = {};
+      var setCookies = [];
+      for (var hk in res.headers) {
+        if (Object.prototype.hasOwnProperty.call(res.headers, hk) && res.headers[hk] != null) {
+          var lowK = hk.toLowerCase();
+          if (lowK === 'set-cookie') {
+            setCookies = Array.isArray(res.headers[hk]) ? res.headers[hk].map(String) : [String(res.headers[hk])];
+            outHeaders[lowK] = setCookies.join('\n');
+          } else {
+            outHeaders[lowK] = Array.isArray(res.headers[hk]) ? res.headers[hk].join(', ') : String(res.headers[hk]);
+          }
+        }
+      }
+      var buf = Buffer.concat(chunks);
+      finish({
+        ok: res.statusCode >= 200 && res.statusCode < 300,
+        status: res.statusCode || 0,
+        url: targetUrl,
+        headers: outHeaders,
+        setCookies: setCookies,
+        text: buf.toString('utf8'),
+        base64: buf.toString('base64')
+      });
+    });
+  });
+  req.setTimeout(timeoutMs, function () {
+    try { req.abort(); } catch (e) {}
+    finish({ ok: false, status: 0, url: targetUrl, headers: {}, text: '', error: 'Timeout' });
+  });
+  req.on('error', function (e) {
+    finish({ ok: false, status: 0, url: targetUrl, headers: {}, text: '', error: (e && e.message) || 'Network error' });
+  });
+  if (bodyBuf) { req.write(bodyBuf); }
+  req.end();
+}
+
+function resolveRedirectTarget(currentUrl, depth, cb) {
+  if (depth > 6) { return cb(null, currentUrl); }
+  var parsed = urlmod.parse(currentUrl);
+  var mod = parsed.protocol === 'https:' ? httpsMod : httpMod;
+  if (!mod || !parsed.hostname) { return cb(new Error('Dirección no válida')); }
+  var req = mod.get({
+    hostname: parsed.hostname,
+    port: parsed.port,
+    path: parsed.path || '/',
+    headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120.0 Safari/537.36' }
+  }, function (res) {
+    if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+      res.resume();
+      var next = urlmod.resolve(currentUrl, res.headers.location);
+      return resolveRedirectTarget(next, depth + 1, cb);
+    }
+    var chunks = [], size = 0;
+    res.on('data', function (c) {
+      size += c.length;
+      if (size <= 128 * 1024) { chunks.push(c); }
+    });
+    res.on('end', function () {
+      var html = Buffer.concat(chunks).toString('utf8');
+      /* go.aftvnews.com embeds the target link inside the HTML redirect page. */
+      if (/aftvnews\.com/i.test(parsed.hostname)) {
+        var m = /href=["'](https?:\/\/(?!(?:[a-z0-9-]+\.)?aftvnews\.com)[^"'<>]+)["']/i.exec(html);
+        if (m && m[1]) { return cb(null, m[1]); }
+      }
+      cb(null, currentUrl);
+    });
+  });
+  req.setTimeout(7000, function () { try { req.abort(); } catch (e) {} cb(new Error('Tiempo agotado al consultar el código')); });
+  req.on('error', function (e) { cb(e); });
+}
 
 /* Torrents (PC only: the Electron service is the only one with the engine;
  * on other platforms these methods answer "not available"). */
@@ -260,6 +496,16 @@ service.register('epg', function (message) {
   require('./epg').get(payload.url, payload.ids, function (err, programmes) {
     if (err) { return fail(message, err); }
     respond(message, null, { programmes: programmes });
+  });
+});
+
+/* epgSchedule({url, id}): one channel's programmes for the next 12 hours
+   (TV en vivo → Programación). */
+service.register('epgSchedule', function (message) {
+  var payload = message.payload || {};
+  require('./epg').schedule(payload.url, payload.id, function (err, programmes) {
+    if (err) { return fail(message, err); }
+    respond(message, null, { programmes: programmes || [] });
   });
 });
 

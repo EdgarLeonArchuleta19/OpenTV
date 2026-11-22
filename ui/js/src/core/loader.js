@@ -75,6 +75,40 @@ function trackedCallback(done) {
    later never flashes it. Replace it with the content when it is ready (the
    animation stops with the element). `cls` adds a size: 'is-small' for
    inline places such as an episode list. */
+/* A section (Inicio, Películas…) waiting for its first titles: the shape of
+   the page that is coming (the big hero and a row of posters) in quiet
+   greys, breathing slowly, and one line saying what is loading. Plain
+   blocks and a single opacity animation on the whole: nothing to repaint
+   on a Fire TV. */
+function makeCatalogSkeleton(text) {
+  var box = el('div', 'ot-skel');
+  box.setAttribute('role', 'status');
+  var hero = el('div', 'ot-skel-hero');
+  var lines = el('div', 'ot-skel-lines');
+  ['is-eyebrow', 'is-title', 'is-meta', 'is-text', 'is-text is-short'].forEach(function (c) {
+    lines.appendChild(el('i', 'ot-skel-bar ' + c));
+  });
+  var btns = el('div', 'ot-skel-btns');
+  btns.appendChild(el('i', 'ot-skel-bar is-btn'));
+  btns.appendChild(el('i', 'ot-skel-bar is-round'));
+  lines.appendChild(btns);
+  hero.appendChild(lines);
+  box.appendChild(hero);
+  box.appendChild(el('i', 'ot-skel-bar is-label'));
+  var row = el('div', 'ot-skel-row');
+  for (var i = 0; i < 6; i++) { row.appendChild(el('i', 'ot-skel-card')); }
+  box.appendChild(row);
+  if (text) {
+    var note = el('div', 'ot-skel-note');
+    var dots = el('div', 'ot-loader-dots');
+    for (var d = 0; d < 3; d++) { dots.appendChild(el('span')); }
+    note.appendChild(dots);
+    note.appendChild(el('span', null, text));
+    hero.appendChild(note);
+  }
+  return box;
+}
+
 function makeLoader(text, cls) {
   var box = el('div', 'ot-loader' + (cls ? ' ' + cls : ''));
   box.setAttribute('role', 'status');

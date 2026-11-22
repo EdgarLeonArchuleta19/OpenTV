@@ -39,7 +39,15 @@ function fitDesignViewport() {
   /* Desktop: the window's own title bar strip sits above the canvas. */
   var titleInset = window.OPENTV_DESKTOP ? titleBarHeight() : 0;
   vh = Math.max(1, vh - titleInset);
-  var scale = Math.min(vw / 1920, vh / 1080);
+  /* TV screen margin (Ajustes → Apariencia): the canvas is drawn inside a
+     border for sets that crop the edges of the picture. */
+  var margin = uiScreenMargin();
+  var marginX = Math.round(vw * margin);
+  var marginY = Math.round(vh * margin);
+  vw = Math.max(1, vw - marginX * 2);
+  vh = Math.max(1, vh - marginY * 2);
+  /* PC interface size: a smaller scale makes a larger canvas. */
+  var scale = Math.min(vw / 1920, vh / 1080) * uiScaleFactor();
   if (!isFinite(scale) || scale <= 0) { scale = 1; }
   scale = Math.round(scale * 10000) / 10000;
   /* Keep a non-16:9 display letterboxed instead of stretching the design. */
@@ -60,8 +68,8 @@ function fitDesignViewport() {
     app.style.setProperty('--oy', Math.floor((ch - 1080) / 2) + 'px');
     left = 0; top = titleInset;
   }
-  app.style.left = left + 'px';
-  app.style.top = top + 'px';
+  app.style.left = (left + marginX) + 'px';
+  app.style.top = (top + marginY) + 'px';
   app.style.webkitTransform = 'scale(' + scale + ')';
   app.style.transform = 'scale(' + scale + ')';
 }

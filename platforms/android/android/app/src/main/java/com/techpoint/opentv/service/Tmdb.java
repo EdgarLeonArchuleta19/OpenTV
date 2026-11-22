@@ -85,6 +85,7 @@ final class Tmdb {
 
     /* The service answer for tmdb({list}). */
     static JSONObject list(String name) {
+        if (name.startsWith("raw:")) return rawRoute(name.substring(4));
         if (name.startsWith("search:")) return search(name.substring(7));
         if (name.startsWith("es:")) return spanishTitle(name.substring(3));
         if (name.startsWith("es-season:")) {
@@ -201,6 +202,16 @@ final class Tmdb {
         esCache.put(key, new Object[] { System.currentTimeMillis(), out });
     }
 
+    static JSONObject rawRoute(String routeAndQuery) {
+        if (!credentials()) return error("Sin clave de TMDB", true);
+        String r = routeAndQuery.startsWith("/") ? routeAndQuery : ("/" + routeAndQuery);
+        try {
+            return Js.o("item", fetchJson(r, ""), "returnValue", true);
+        } catch (Exception e) {
+            return error(e.getMessage(), false);
+        }
+    }
+
     static JSONObject spanishTitle(String imdb) {
         if (!imdb.matches("tt\\d{5,10}")) return error("Id no válido", false);
         if (!credentials()) return error("Sin clave de TMDB", true);
@@ -253,7 +264,10 @@ final class Tmdb {
 
     /* One TMDB answer in Spanish (Mexico); `extra` is added to the query. */
     private static JSONObject fetchJson(String route, String extra) throws Exception {
-        String query = "language=es-MX" + extra + (token.isEmpty() ? "&api_key=" + URLEncoder.encode(apiKey, "UTF-8") : "");
+        // A route that names its own language keeps it (TMDB answers 400 to
+        // the parameter twice: the JS plugins' raw routes bring theirs).
+        String lang = route.matches("(?s).*[?&]language=.*") ? "" : "language=es-MX";
+        String query = (lang + extra + (token.isEmpty() ? "&api_key=" + URLEncoder.encode(apiKey, "UTF-8") : "")).replaceFirst("^&", "");
         Http.Request r = new Http.Request();
         r.secure = true;
         r.connectHost = "api.themoviedb.org";   // system resolver, as tmdb.js

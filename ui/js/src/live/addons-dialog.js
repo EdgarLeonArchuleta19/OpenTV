@@ -6,7 +6,7 @@
 
 var addonsDialogReturn = null;
 /* 'm3u': TV lists (PRESET_ADDONS). 'vod': recommended movie and series
-   addons (RECOMMENDED_VOD_ADDONS), from Ajustes → Addons → Recomendados. */
+   addons (RECOMMENDED_VOD_ADDONS), from Ajustes → Plugins → Recomendados. */
 var addonsDialogMode = 'm3u';
 
 function openAddonsDialog(mode) {
@@ -14,7 +14,7 @@ function openAddonsDialog(mode) {
   if (!dlg) { return; }
   addonsDialogMode = mode === 'vod' ? 'vod' : 'm3u';
   var title = dlg.querySelector('.da-title');
-  if (title) { title.textContent = addonsDialogMode === 'vod' ? 'Addons recomendados' : 'Buscar listas de TV'; }
+  if (title) { title.textContent = addonsDialogMode === 'vod' ? 'Plugins recomendados' : 'Buscar listas de TV'; }
   dialogAddonsOpen = true;
   addonsDialogReturn = state.focus;
   dlg.classList.add('is-active');
@@ -47,7 +47,7 @@ function closeAddonsDialog() {
     else { setFocus(playerStage); }
     return;
   }
-  /* From Ajustes → Addons → TV en vivo: show the lists just added there. */
+  /* From Ajustes → Plugins: show the lists just added there. */
   if (state.screen === 'settings' && typeof settingsIndexOf === 'function') {
     showSettingsPanel(settingsIndexOf('sources'), false);
     var again = settingsRight && settingsRight.querySelector(addonsDialogMode === 'vod' ? '.fx-btn.is-recommend' : '.fx-btn.is-search');
@@ -134,7 +134,7 @@ function renderVodAddonsDialog(box, q) {
     };
     box.appendChild(item);
   });
-  if (!shown) { box.appendChild(el('div', 'da-empty', 'No hay addons con ese nombre.')); }
+  if (!shown) { box.appendChild(el('div', 'da-empty', 'No hay plugins con ese nombre.')); }
   var exitBtn = $('da-btn-exit');
   if (exitBtn) { exitBtn._activate = function () { closeAddonsDialog(); }; }
 }

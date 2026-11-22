@@ -30,7 +30,7 @@ function startOverTitle(item, episode) {
   resetResumePlan();
   resumeFromStartKey = resumeKeyFor(item, episode);
   /* A video left loaded on the detail page would be reused where it was. */
-  if (playerVideo && playerVideo.src && state.playerItem === item) { stopPlayerVideo(); }
+  if (playerVideoLoaded() && state.playerItem === item) { stopPlayerVideo(); }
   expandToFullscreen(item, episode);
 }
 

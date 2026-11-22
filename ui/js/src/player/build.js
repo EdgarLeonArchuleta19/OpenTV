@@ -69,24 +69,17 @@ function buildPlayer() {
       openPlaySettingsDialog();
     };
   }
-  if (psvBtnP1) {
-    psvBtnP1._activate = function () {
-      /* Explicit user action must always recreate the source.  Never use
-         the visual selection or a stale URL as a reason to skip it. */
-      setSmoothMode(playSettingsItem(), true);
-      renderPlaySettingPlayerOptions();
-      schedulePlaySettingHide();
-      restartCurrentPlayback();
+  if (psvSecPlayer && !$('psv-btn-ext')) {
+    var pRow = $('psv-player-row') || psvSecPlayer;
+    var extBtn = el('button', 'psv-btn focusable', 'Abrir externo / Cast');
+    extBtn.id = 'psv-btn-ext';
+    extBtn.title = 'Abrir en VLC, MX Player o enviar a otra tele';
+    extBtn._activate = function () {
+      if (typeof openCurrentInExternalPlayer === 'function') { openCurrentInExternalPlayer(); }
     };
+    pRow.appendChild(extBtn);
   }
-  if (psvBtnP2) {
-    psvBtnP2._activate = function () {
-      setSmoothMode(playSettingsItem(), false);
-      renderPlaySettingPlayerOptions();
-      schedulePlaySettingHide();
-      restartCurrentPlayback();
-    };
-  }
+  if (typeof installPhonePlayerGestures === 'function') { installPhonePlayerGestures(); }
   if (psvAspectRow) {
     var aBtns = psvAspectRow.querySelectorAll('.psv-btn');
     for (var ai = 0; ai < aBtns.length; ai++) {
@@ -285,6 +278,7 @@ function buildPlayer() {
       { label: 'Anterior', right: 333, w: 67 },
       { label: 'Siguiente', right: 0, w: 67 },
       { label: 'Guía', right: 0, w: 67 },
+      { label: 'Programación', right: 0, w: 67 },
       { label: 'Favorito', right: 219, w: 67 },
       { label: 'HD', right: 389, w: 67 },
       { label: 'Reproducir', right: 0, w: 67 },
@@ -312,12 +306,12 @@ function buildPlayer() {
         'Favorito': UI_ICONS.star, 'Reproductor 1': UI_ICONS.retry, 'Bloquear': UI_ICONS.lock,
         'Feedback': UI_ICONS.diagnostics, 'Canales': UI_ICONS.channels, 'Ventana flotante': UI_ICONS.pip,
         'Reproducir': UI_ICONS.pause, 'Pantalla completa': UI_ICONS.fullscreen,
-        'Siguiente': LIVE_DOCK_ICONS.next, 'Guía': LIVE_DOCK_ICONS.guide };
+        'Siguiente': LIVE_DOCK_ICONS.next, 'Guía': LIVE_DOCK_ICONS.guide, 'Programación': LIVE_DOCK_ICONS.schedule };
       var piTips = { 'HD': 'Calidad automática', 'Anterior': 'Canal anterior', 'Formato': 'Formato de pantalla',
         'Favorito': 'Añadir a favoritos', 'Reproductor 1': 'Reintentar señal', 'Bloquear': 'Bloqueo (no disponible)',
         'Feedback': 'Diagnóstico de red', 'Canales': 'Lista de canales', 'Ventana flotante': 'Ventana flotante (Ctrl+P)',
         'Reproducir': 'Pausa (Espacio)', 'Pantalla completa': 'Pantalla completa (F)',
-        'Siguiente': 'Canal siguiente', 'Guía': 'Guía de canales (G)' };
+        'Siguiente': 'Canal siguiente', 'Guía': 'Guía de canales (G)', 'Programación': 'Programación del canal' };
       iconizeButton(b, piIcons[d.label], piTips[d.label]);
       if (d.label === 'HD') { b.classList.add('pi-quality-btn'); }
       if (d.label === 'Reproducir') { b.classList.add('pi-play'); }
@@ -328,6 +322,7 @@ function buildPlayer() {
         if (label === 'Anterior') { setChannel(state.channel - 1); }
         else if (label === 'Siguiente') { setChannel(state.channel + 1); }
         else if (label === 'Guía') { openLiveGuide(); }
+        else if (label === 'Programación') { openLiveSchedule(); }
         else if (label === 'Formato') {
           var sc = playerInfo.querySelector('.pi-scale');
           sc.textContent = sc.textContent === 'Normal' ? '16:9' : (sc.textContent === '16:9' ? '4:3' : 'Normal');
@@ -376,7 +371,7 @@ function buildPlayer() {
     var acts = actions.querySelectorAll('.pi-act');
     for (var ak = 0; ak < acts.length; ak++) { byKind[acts[ak]._kind] = acts[ak]; }
     ['Anterior', 'Reproducir', 'Siguiente'].forEach(function (k) { if (byKind[k]) { gCenter.appendChild(byKind[k]); } });
-    ['Favorito', 'Guía', 'Canales', 'HD', 'Reproductor 1', 'Ventana flotante', 'Pantalla completa'].forEach(function (k) { if (byKind[k]) { gRight.appendChild(byKind[k]); } });
+    ['Favorito', 'Programación', 'Guía', 'Canales', 'HD', 'Reproductor 1', 'Ventana flotante', 'Pantalla completa'].forEach(function (k) { if (byKind[k]) { gRight.appendChild(byKind[k]); } });
     actions.appendChild(gLeft);
     actions.appendChild(gCenter);
     actions.appendChild(gRight);
@@ -385,7 +380,7 @@ function buildPlayer() {
      remote does instead of the buttons (navigation.js handles the keys). */
   if (window.OPENTV_DESKTOP && platformIsTv()) {
     var hints = el('div', 'pi-hints');
-    [['▲', 'Canal siguiente'], ['▼', 'Canal anterior'], ['▶', 'Lista de canales'], ['◀', 'Último canal'], ['OK', 'Pausa']].forEach(function (h) {
+    [['▲', 'Canal siguiente'], ['▼', 'Canal anterior'], ['▶', 'Lista de canales'], ['◀', 'Último canal'], ['OK', 'Pausa'], ['Menú', 'Programación']].forEach(function (h) {
       var chip = el('div', 'pi-hint');
       chip.appendChild(el('span', 'pi-key', h[0]));
       chip.appendChild(el('span', 'pi-hint-text', h[1]));
@@ -641,7 +636,7 @@ function renderPlayerChannels(anchorIndex) {
     promo.appendChild(el('div', 'promo-icon', '⚙️'));
     var promoInfo = el('div', 'promo-info');
     promoInfo.appendChild(el('div', 'promo-text', '➕ Agregar listas M3U'));
-    promoInfo.appendChild(el('div', 'promo-sub', 'Instala listas recomendadas o agrega tu enlace en Ajustes → Addons → TV en vivo'));
+    promoInfo.appendChild(el('div', 'promo-sub', 'Instala listas recomendadas o agrega tu enlace en Ajustes → Plugins'));
     promo.appendChild(promoInfo);
     promo._activate = function () { openAddonsDialog(); };
     promo._onMove = function (dir) {

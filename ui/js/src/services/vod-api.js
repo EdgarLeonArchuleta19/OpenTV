@@ -390,12 +390,25 @@ function isBuiltinVodAddon(ad) {
   return false;
 }
 
-/* Recommended addons ("Recomendados" in Ajustes → Addons): Torrentio and
-   TorrentsDB. None is preinstalled: the viewer adds them from here.
-   TorrentsDB works without debrid. */
+/* Recommended addons ("Recomendados" in Ajustes → Plugins): direct sources,
+   torrent sources in Spanish, catalogs and Spanish subtitles. None is
+   preinstalled: the viewer adds them from here. */
 var RECOMMENDED_VOD_ADDONS = [
-  { name: 'Torrentio', url: 'https://torrentio.strem.fun/manifest.json', desc: 'Fuentes para reproducir películas y series, en varios idiomas y calidades' },
-  { name: 'TorrentsDB', url: 'https://torrentsdb.com/manifest.json', desc: 'Fuentes torrent sin debrid, con proveedores y estrenos en varios idiomas' }
+  { name: 'FrameXTV +', url: 'https://raw.githubusercontent.com/syberia1/frametv/HEAD/kino-plugin.json', desc: 'Catálogo completo de FrameXTV en español latino, subtitulado y castellano', cat: 'directas' },
+  { name: 'DeepFlix', url: 'https://mg.homelabx.qzz.io/manifest.json', desc: 'Películas y series en español latino por enlace directo, sin torrents', cat: 'directas' },
+  { name: 'Pelispedia', url: 'https://raw.githubusercontent.com/xuper-plugin/kino-plugin-pelispedia/HEAD/kino-plugin.json', desc: 'Películas y series en español latino, castellano y subtitulado sin torrents', cat: 'directas' },
+  { name: 'Cuevana Pro', url: 'https://raw.githubusercontent.com/xuper-plugin/kino-plugin-cuevanapro/HEAD/kino-plugin.json', desc: 'Catálogo amplio de películas y series en español latino y subtitulado', cat: 'directas' },
+  { name: 'CineHD Plus', url: 'https://raw.githubusercontent.com/xuper-plugin/kino-plugin-cinehdplus/HEAD/kino-plugin.json', desc: 'Estrenos y series en HD en español latino y castellano (solo PC)', cat: 'directas', pcOnly: true },
+  { name: 'CNCVerse', url: 'https://cncverse.dpdns.org/manifest.json', desc: 'Catálogos y fuentes de películas y series por enlace directo HTTP', cat: 'directas' },
+  { name: 'PlavioHD', url: 'https://hd.plavio.site/manifest.json', desc: 'Películas, series en HD y eventos por enlace directo sin torrents', cat: 'directas' },
+  { name: 'Torrentio', url: 'https://torrentio.strem.fun/manifest.json', desc: 'Fuentes para reproducir películas y series, en varios idiomas y calidades', cat: 'torrents' },
+  { name: 'TorrentsDB', url: 'https://torrentsdb.com/manifest.json', desc: 'Fuentes torrent sin debrid, con proveedores y estrenos en varios idiomas', cat: 'torrents' },
+  { name: 'Peerflix ES', url: 'https://addon.peerflix.mov/language=es,en/manifest.json', desc: 'Películas y series con audio en español latino y castellano primero', cat: 'torrents' },
+  { name: 'TorrentClaw', url: 'https://torrentclaw.com/api/stremio/manifest.json', desc: 'Más de 30 fuentes de películas y series con audio en español e inglés', cat: 'torrents' },
+  { name: 'Streaming Catalogs', url: 'https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/manifest.json', desc: 'Lo que está en tendencia en Netflix, HBO Max, Disney+, Prime Video y Apple TV+', cat: 'catalogos' },
+  { name: 'IMDb Catalogs', url: 'https://1fe84bc728af-imdb-catalogs.baby-beamup.club/manifest.json', desc: 'Listas populares y mejor valoradas de películas y series de IMDb', cat: 'catalogos' },
+  { name: 'Rotten Tomatoes', url: 'https://7a82163c306e-rottentomatoes.baby-beamup.club/manifest.json', desc: 'Películas Certified Fresh y series mejor calificadas de Rotten Tomatoes', cat: 'catalogos' },
+  { name: 'Subtitles Website', url: 'https://subtitles.website/stremio/manifest.json', desc: 'Más de 630.000 subtítulos en español y otros idiomas para películas y series', cat: 'subtitulos' }
 ];
 
 function isVodAddonInstalled(url) {
@@ -412,9 +425,15 @@ function seedDefaultVodAddons(cfg) {
     if (!localStorage.getItem(VOD_ANIME_KEY)) { localStorage.setItem(VOD_ANIME_KEY, '1'); }
   } catch (e) { /* ignore */ }
   var have = {};
-  for (var i = 0; i < cfg.addons.length; i++) { have[stremioBaseFromUrl(cfg.addons[i].url)] = true; }
-  var list = builtinVodAddons();
   var changed = false;
+  for (var i = 0; i < cfg.addons.length; i++) {
+    have[stremioBaseFromUrl(cfg.addons[i].url)] = true;
+    if (isBuiltinVodAddon(cfg.addons[i]) && cfg.addons[i].disabled) {
+      cfg.addons[i].disabled = false;
+      changed = true;
+    }
+  }
+  var list = builtinVodAddons();
   for (var d = 0; d < list.length; d++) {
     var def = list[d];
     if (have[stremioBaseFromUrl(def.url)]) { continue; }
@@ -452,7 +471,7 @@ function normalizeStremioManifestUrl(url) {
 
 function stremioBaseFromUrl(url) {
   var clean = normalizeStremioManifestUrl(url);
-  return clean.replace(/\/manifest\.json(\?.*)?$/i, '').replace(/\/$/, '');
+  return clean.replace(/\/(?:manifest|kino-plugin)\.json(\?.*)?$/i, '').replace(/\/$/, '');
 }
 
 /* Addon requests carry no custom headers: those would force a CORS
@@ -474,10 +493,10 @@ function addonRequest(url, done, timeoutMs) {
     if (xhr.readyState !== 4) { return; }
     if (xhr.status < 200 || xhr.status >= 300) { finish('HTTP ' + xhr.status); return; }
     try { finish(null, JSON.parse(xhr.responseText)); }
-    catch (err) { finish('El addon no devolvió JSON válido'); }
+    catch (err) { finish('El plugin no devolvió JSON válido'); }
   };
-  xhr.onerror = function () { finish('No se pudo conectar con el addon'); };
-  xhr.ontimeout = function () { finish('El addon tardó demasiado en responder'); };
+  xhr.onerror = function () { finish('No se pudo conectar con el plugin'); };
+  xhr.ontimeout = function () { finish('El plugin tardó demasiado en responder'); };
   try { xhr.send(null); } catch (err) { finish(err.message || 'No se pudo iniciar la petición'); }
 }
 
@@ -532,10 +551,12 @@ function stremioAddonInfo(manifest, url) {
     url: url,
     baseUrl: stremioBaseFromUrl(url),
     kind: 'stremio',
-    name: (manifest && manifest.name) || 'Addon',
+    name: (manifest && manifest.name) || 'Plugin',
     desc: (manifest && manifest.description) || '',
     logo: (manifest && manifest.logo) || '',
     configurable: !!(manifest && manifest.behaviorHints && (manifest.behaviorHints.configurable || manifest.behaviorHints.configurationRequired)),
+    p2p: !!(manifest && manifest.behaviorHints && manifest.behaviorHints.p2p),
+    addonCatalogs: (manifest && manifest.addonCatalogs) || [],
     types: (manifest && manifest.types) || [],
     idPrefixes: (manifest && manifest.idPrefixes) || null,
     resources: stremioResources(manifest),
@@ -554,7 +575,8 @@ function hasSourceAddons() {
 }
 
 function addonSupports(ad, resource, type, id) {
-  var res = ad && ad.resources;
+  if (!ad || ad.disabled) { return false; }
+  var res = ad.resources;
   if (!res || !res.length) { return false; }
   for (var i = 0; i < res.length; i++) {
     if (res[i].name !== resource) { continue; }
@@ -583,11 +605,36 @@ var animeCatalogInstalled = (function () {
 })();
 function hasAnimeCatalog(addons) {
   for (var i = 0; i < addons.length; i++) {
+    if (addons[i] && addons[i].disabled) { continue; }
     for (var c = 0; c < (addons[i].catalogs || []).length; c++) {
       if (addons[i].catalogs[c].type === 'anime' && addons[i].catalogs[c].home) { return true; }
     }
   }
   return false;
+}
+
+/* Poster Pro fallback: OpenPosterDB (with Spanish poster & embedded ratings)
+   when an addon title with an IMDb or TMDB id comes without a poster or
+   backdrop, or when its cover fails to load. */
+var POSTER_PRO_BASE = 'https://openposterdb.com/t0-free-rpdb/';
+
+function posterProUrl(metaId, isSeries, kind) {
+  var raw = String(metaId || '').replace(/^stremio:/, '').split(':')[0];
+  var slot = kind === 'backdrop' ? 'backdrop-default' : 'poster-default';
+  var qs = kind === 'backdrop' ? '' : '?lang=es-MX';
+  if (/^tt\d{5,10}$/.test(raw)) {
+    return POSTER_PRO_BASE + 'imdb/' + slot + '/' + raw + '.jpg' + qs;
+  }
+  var tm = /^tmdb[:_-]?(\d+)$/i.exec(raw);
+  if (tm) {
+    return POSTER_PRO_BASE + 'tmdb/' + slot + '/' + (isSeries ? 'series-' : 'movie-') + tm[1] + '.jpg' + qs;
+  }
+  return '';
+}
+
+function posterProFallbackForItem(item, kind) {
+  if (!item) { return ''; }
+  return posterProUrl(item._stremioId || item.id, isSeriesItem(item), kind || 'poster');
 }
 
 /* `anime`: the title comes from an anime list (it only goes to Anime). */
@@ -608,6 +655,8 @@ function stremioMetaToVodRecord(meta, baseUrl, rowName, anime) {
     if (gn === 'anime' && !animeCatalogInstalled) { catParts.push('anime'); }
     if (gn.indexOf('family') !== -1 || gn.indexOf('kids') !== -1 || gn.indexOf('infantil') !== -1) { catParts.push('infantil'); }
   }
+  var poster = meta.poster || posterProUrl(meta.id, isSeries, 'poster') || '';
+  var bg = meta.background || posterProUrl(meta.id, isSeries, 'backdrop') || poster;
   return {
     _animeCat: !!anime,
     id: 'stremio:' + meta.id,
@@ -624,9 +673,9 @@ function stremioMetaToVodRecord(meta, baseUrl, rowName, anime) {
     synopsis: meta.description || meta.overview || '',
     kind: isSeries ? 'serie' : 'película',
     type: isSeries ? 'teleplay' : 'movie',
-    poster: meta.poster || '',
-    landscape: meta.background || meta.poster || '',
-    backdrop: meta.background || meta.poster || '',
+    poster: poster,
+    landscape: bg,
+    backdrop: bg,
     logo: meta.logo || '',
     portal: false,
     _portal: false,
@@ -721,17 +770,32 @@ function fetchAddonCatalogs(ad, taken, done) {
   });
 }
 
-/* Reads a manifest (or the user's own JSON / M3U catalogue). */
+/* Reads a manifest (or a JS plugin repo/domain, or the user's own JSON / M3U catalogue). */
 function inspectVodAddon(url, done) {
   if (/\.m3u8?(\?.*)?$/i.test(url)) { return done(null, { url: url, baseUrl: '', kind: 'm3u', name: 'Lista M3U', resources: [], catalogs: [] }); }
+  if (/kino-plugin\.json(\?.*)?$/i.test(url) || (typeof resolveJsPluginRepoFromInput === 'function' && resolveJsPluginRepoFromInput(url))) {
+    return inspectJsPlugin(url, done);
+  }
   var manifestUrl = /\/manifest\.json(\?.*)?$/i.test(url) ? url : (stremioBaseFromUrl(url) + '/manifest.json');
   addonRequest(manifestUrl, function (err, manifest) {
     if (!err && manifest && (manifest.id || manifest.name) && (manifest.resources || manifest.catalogs)) {
       return done(null, stremioAddonInfo(manifest, manifestUrl));
     }
+    if (typeof inspectJsPlugin === 'function') {
+      inspectJsPlugin(url, function (jsErr, jsInfo) {
+        if (!jsErr && jsInfo) { return done(null, jsInfo); }
+        addonRequest(url, function (jErr, jPayload) {
+          if (jErr || !jPayload || !(jPayload.metas || apiArray(jPayload).length)) {
+            return done(err || jErr || 'No es un plugin compatible (manifest.json) ni un catálogo válido');
+          }
+          done(null, { url: url, baseUrl: stremioBaseFromUrl(url), kind: 'json', name: 'Catálogo JSON', resources: [], catalogs: [] });
+        });
+      });
+      return;
+    }
     addonRequest(url, function (jErr, jPayload) {
       if (jErr || !jPayload || !(jPayload.metas || apiArray(jPayload).length)) {
-        return done(err || jErr || 'No es un addon compatible (manifest.json) ni un catálogo válido');
+        return done(err || jErr || 'No es un plugin compatible (manifest.json) ni un catálogo válido');
       }
       done(null, { url: url, baseUrl: stremioBaseFromUrl(url), kind: 'json', name: 'Catálogo JSON', resources: [], catalogs: [] });
     });
@@ -767,12 +831,57 @@ function fetchPlainCatalog(ad, done) {
   });
 }
 
+function isAddonCollectionOnly(info) {
+  if (!info || !info.resources || !info.resources.length) { return false; }
+  var hasCollection = false;
+  for (var i = 0; i < info.resources.length; i++) {
+    var name = info.resources[i] && info.resources[i].name;
+    if (name === 'catalog' || name === 'meta' || name === 'stream' || name === 'subtitles') { return false; }
+    if (name === 'addon_catalog') { hasCollection = true; }
+  }
+  return hasCollection || !!(info.addonCatalogs && info.addonCatalogs.length && !info.catalogs.length);
+}
+
+/* Reads the addons listed in a Stremio addon_catalog collection. */
+function fetchStremioAddonCollection(info, done) {
+  var list = (info && info.addonCatalogs) || [];
+  if (!list.length) { list = [{ type: 'all', id: 'top' }]; }
+  var jobs = list.slice(0, 6);
+  var left = jobs.length, out = [], seen = {};
+  jobs.forEach(function (cat) {
+    var url = info.baseUrl + '/addon_catalog/' + encodeURIComponent(cat.type || 'all') + '/' + encodeURIComponent(cat.id || 'top') + '.json';
+    addonRequest(url, function (err, payload) {
+      var addons = (!err && payload && payload.addons) ? payload.addons : [];
+      for (var i = 0; i < addons.length && out.length < 150; i++) {
+        var entry = addons[i];
+        var m = (entry && entry.manifest) || entry || {};
+        var tUrl = normalizeStremioManifestUrl((entry && entry.transportUrl) || m.transportUrl || m.url || '');
+        if (!tUrl || seen[tUrl] || (!m.name && !m.id)) { continue; }
+        seen[tUrl] = true;
+        out.push({
+          name: String(m.name || m.id),
+          desc: String(m.description || 'Plugin compatible con Stremio.'),
+          logo: /^https?:\/\//i.test(m.logo || '') ? m.logo : '',
+          url: tUrl
+        });
+      }
+      if (--left === 0) { done(null, out); }
+    });
+  });
+}
+
 function installVodAddon(addonInput, done) {
   done = done || function () {};
   var url = normalizeStremioManifestUrl(addonInput && addonInput.url);
-  if (!url) { return done('Pega la URL de un addon (https://…/manifest.json)'); }
+  if (!url) { return done('Pega la URL de un plugin (https://…/manifest.json)'); }
   inspectVodAddon(url, function (err, info) {
     if (err) { return done(err); }
+    if (isAddonCollectionOnly(info)) {
+      return fetchStremioAddonCollection(info, function (cErr, list) {
+        if (cErr || !list || !list.length) { return done('Esta colección de plugins está vacía o no respondió'); }
+        done(null, 0, { isCollection: true, name: info.name, addons: list });
+      });
+    }
     var cfg = getVodSourcesConfig();
     var replaced = false;
     for (var i = 0; i < cfg.addons.length; i++) {
@@ -797,13 +906,17 @@ function refreshAddonManifests(cfg, done) {
   var stale = [];
   for (var i = 0; i < cfg.addons.length; i++) {
     /* Also read once more when saved by an older build (no genre lists). */
-    if ((!cfg.addons[i].resources || cfg.addons[i].manifestV !== 3) &&cfg.addons[i].kind !== 'm3u' && cfg.addons[i].kind !== 'json') { stale.push(i); }
+    if ((!cfg.addons[i].resources || cfg.addons[i].manifestV !== 3) && cfg.addons[i].kind !== 'm3u' && cfg.addons[i].kind !== 'json' && cfg.addons[i].kind !== 'jsplugin') { stale.push(i); }
   }
   if (!stale.length) { return done(); }
   var left = stale.length;
   stale.forEach(function (idx) {
     inspectVodAddon(cfg.addons[idx].url, function (err, info) {
-      if (!err && info) { info.id = cfg.addons[idx].id; cfg.addons[idx] = info; }
+      if (!err && info) {
+        info.id = cfg.addons[idx].id;
+        if (cfg.addons[idx].disabled) { info.disabled = true; }
+        cfg.addons[idx] = info;
+      }
       if (--left === 0) { saveVodSourcesConfig(cfg); done(); }
     });
   });
@@ -816,11 +929,13 @@ function syncExternalVodCatalogs(done) {
   var cfg = getVodSourcesConfig();
   if (!cfg.addons.length) { animeCatalogInstalled = false; replaceVod([], 'stremio-external', false); return done(null, 0); }
   refreshAddonManifests(cfg, function () {
-    animeCatalogInstalled = hasAnimeCatalog(cfg.addons);
+    var active = cfg.addons.filter(function (ad) { return ad && !ad.disabled; });
+    animeCatalogInstalled = hasAnimeCatalog(active);
+    if (!active.length) { replaceVod([], 'stremio-external', false); return done(null, 0); }
     stremioRowOrder = {};
     stremioRowSeq = 0;
     var byId = {}, all = [], taken = {};
-    var left = cfg.addons.length;
+    var left = active.length;
     function collect(items) {
       for (var j = 0; j < items.length; j++) {
         var it = items[j];
@@ -848,17 +963,46 @@ function syncExternalVodCatalogs(done) {
       if (all.length) { replaceVod(all, 'stremio-external', false); }
       done(null, all.length);
     }
-    /* Addons are read in parallel; rows keep the order of the list. */
+    /* Low-spec devices (TV, <=4 GB RAM or <=2 CPU cores): keep Home fast by
+       loading built-in catalogs plus up to 2 extra user catalogs in batches of 3;
+       extra plugins still work on demand in Search and when resolving streams.
+       Powerful PCs run every catalog in full parallel without limits. */
+    var lowSpec = typeof isLowSpecDevice === 'function' && isLowSpecDevice();
+    var homeList = [];
+    var extraCats = 0;
+    for (var ai = 0; ai < active.length; ai++) {
+      var candAd = active[ai];
+      if (!lowSpec || isBuiltinVodAddon(candAd)) {
+        homeList.push(candAd);
+      } else {
+        var givesHome = candAd.kind === 'm3u' || candAd.kind === 'json' ||
+          (candAd.catalogs || []).some(function (c) { return c && c.home; });
+        if (givesHome && extraCats < 2) {
+          extraCats++;
+          homeList.push(candAd);
+        }
+      }
+    }
+    if (!homeList.length) { replaceVod([], 'stremio-external', false); return done(null, 0); }
+    left = homeList.length;
     var results = [];
-    cfg.addons.forEach(function (ad, idx) {
+    var nextIdx = 0;
+    var maxConc = lowSpec ? 3 : homeList.length;
+    function runNext() {
+      if (nextIdx >= homeList.length) { return; }
+      var idx = nextIdx++;
+      var ad = homeList[idx];
       function store(items) {
         results[idx] = items;
         if (left === 1) { for (var k = 0; k < results.length; k++) { collect(results[k] || []); } }
         finished();
+        runNext();
       }
       if (ad.kind === 'm3u' || ad.kind === 'json') { fetchPlainCatalog(ad, store); }
+      else if (ad.kind === 'jsplugin') { fetchJsPluginCatalogs(ad, taken, store); }
       else { fetchAddonCatalogs(ad, taken, store); }
-    });
+    }
+    for (var w = 0; w < maxConc; w++) { runNext(); }
   });
 }
 
@@ -871,6 +1015,7 @@ function searchStremioAddons(query, done, each, noAnime) {
   var jobs = [];
   for (var i = 0; i < cfg.addons.length; i++) {
     var ad = cfg.addons[i];
+    if (!ad || ad.disabled) { continue; }
     for (var c = 0; c < (ad.catalogs || []).length; c++) {
       /* (noAnime: TMDB's trends, which never come from an anime list.) */
       if (ad.catalogs[c].search && !(noAnime && ad.catalogs[c].type === 'anime')) { jobs.push({ ad: ad, cat: ad.catalogs[c] }); }
@@ -884,6 +1029,15 @@ function searchStremioAddons(query, done, each, noAnime) {
     return rankSearchResults(query, out);
   }
   jobs.forEach(function (job, idx) {
+    if (job.ad.kind === 'jsplugin') {
+      searchJsPlugin(job.ad, query, function (recs) {
+        results[idx] = recs || [];
+        left--;
+        if (each) { each(merged(), left); }
+        if (left === 0) { done(merged()); }
+      });
+      return;
+    }
     addonRequest(catalogUrl(job.ad.baseUrl, job.cat, 'search=' + encodeURIComponent(query)), function (err, payload) {
       var metas = (!err && payload && payload.metas) ? payload.metas : [];
       var recs = [];
@@ -1066,6 +1220,17 @@ function loadStremioMeta(item, done) {
   var cfg = getVodSourcesConfig();
   var bases = [];
   for (var i = 0; i < cfg.addons.length; i++) {
+    if (cfg.addons[i].kind === 'jsplugin' && !cfg.addons[i].disabled && String(sid).indexOf('kino:' + cfg.addons[i].pluginId + ':') === 0) {
+      item._detailLoading = true;
+      loadJsPluginEpisodes(cfg.addons[i], item, function (eErr, meta) {
+        if (!eErr && meta) { applyStremioMeta(item, meta); }
+        item._detailLoading = false;
+        item._detailsLoaded = true;
+        if (state.detail === item && state.screen === 'detail') { buildDetail(item); }
+        done(item);
+      });
+      return;
+    }
     if (addonSupports(cfg.addons[i], 'meta', type, sid)) {
       if (cfg.addons[i].baseUrl === item._stremioBase) { bases.unshift(cfg.addons[i].baseUrl); }
       else { bases.push(cfg.addons[i].baseUrl); }
@@ -1078,7 +1243,7 @@ function loadStremioMeta(item, done) {
       item._detailLoading = false;
       item._detailsLoaded = true;
       if (isSeriesItem(item) && !(item.episodes && item.episodes.length)) {
-        item._detailError = 'Ninguno de tus addons da los capítulos de esta serie';
+        item._detailError = 'Ninguno de tus plugins da los capítulos de esta serie';
       }
       if (state.detail === item && state.screen === 'detail') { buildDetail(item); }
       return done(item);
@@ -1105,13 +1270,32 @@ function applyStremioMeta(item, meta) {
     else { item.synopsis = meta.description; }
   }
   if (meta.runtime) { item.duration = meta.runtime; }
+  if (meta.logo && !item.logo) { item.logo = meta.logo; }
   if (meta.imdbRating) { item.score = String(meta.imdbRating); }
+  else if (meta.links && meta.links.length) {
+    for (var l = 0; l < meta.links.length; l++) {
+      var lk = meta.links[l];
+      if (lk && /^imdb$/i.test(lk.category || '') && /^\d+(?:\.\d+)?$/.test(String(lk.name || '').trim())) {
+        item.score = String(lk.name).trim();
+        break;
+      }
+    }
+  }
   if (meta.genres && meta.genres.length) { item.genres = meta.genres; }
   if (meta.background) { item.backdrop = meta.background; item.landscape = meta.background; }
   if (meta.cast && meta.cast.length) { item.actors = meta.cast.join(', '); }
+  else if (meta.app_extras && meta.app_extras.cast && meta.app_extras.cast.length) {
+    var names = [];
+    for (var c = 0; c < meta.app_extras.cast.length && names.length < 12; c++) {
+      var cn = meta.app_extras.cast[c] && meta.app_extras.cast[c].name;
+      if (cn) { names.push(cn); }
+    }
+    if (names.length) { item.actors = names.join(', '); }
+  }
   if (meta.director && meta.director.length) { item.director = [].concat(meta.director).join(', '); }
   if (!(meta.videos && meta.videos.length && isSeriesItem(item))) { return; }
   var seasonsMap = {}, seasonsList = [];
+  var nowMs = Date.now(), nextEpMs = Infinity, nextEpInfo = null;
   for (var v = 0; v < meta.videos.length; v++) {
     var vid = meta.videos[v];
     var sNum = parseInt(vid.season, 10);
@@ -1121,6 +1305,13 @@ function applyStremioMeta(item, meta) {
       seasonsList.push(seasonsMap[sNum]);
     }
     var epNum = parseInt(vid.episode || vid.number, 10) || (seasonsMap[sNum]._episodes.length + 1);
+    if (vid.released) {
+      var relMs = Date.parse(vid.released);
+      if (isFinite(relMs) && relMs > nowMs && relMs < nextEpMs) {
+        nextEpMs = relMs;
+        nextEpInfo = { s: sNum, e: epNum, ms: relMs };
+      }
+    }
     seasonsMap[sNum]._episodes.push({
       id: vid.id || (item._stremioId + ':' + sNum + ':' + epNum),
       number: epNum,
@@ -1130,6 +1321,11 @@ function applyStremioMeta(item, meta) {
       thumb: vid.thumbnail || item.backdrop || item.poster || '',
       released: vid.released || ''
     });
+  }
+  if (nextEpInfo) {
+    var dObj = new Date(nextEpInfo.ms);
+    var months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    item.nextEpisodeDate = 'T' + nextEpInfo.s + ':E' + nextEpInfo.e + ' · ' + dObj.getDate() + ' ' + months[dObj.getMonth()];
   }
   seasonsList.sort(function (a, b) { return a.number - b.number; });
   for (var s = 0; s < seasonsList.length; s++) {

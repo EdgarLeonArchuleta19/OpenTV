@@ -305,7 +305,20 @@ function mobilePoster(item) {
   var a = el('a', 'm-poster');
   a.href = '#';
   a.setAttribute('aria-label', item.title || 'Título');
-  a.appendChild(mPicture(item.poster, 112));
+  var pic = mPicture(item.poster, 112);
+  pic.onerror = function () {
+    if (!pic._posterProTried && item && typeof posterProFallbackForItem === 'function') {
+      var alt = posterProFallbackForItem(item, 'poster');
+      if (alt && alt !== item.poster) {
+        pic._posterProTried = true;
+        item.poster = alt;
+        pic.src = mImg(alt, 112);
+        return;
+      }
+    }
+    pic.style.visibility = 'hidden';
+  };
+  a.appendChild(pic);
   a.addEventListener('click', function (event) { event.preventDefault(); openMobileDetail(item); });
   return a;
 }
@@ -691,7 +704,7 @@ function renderMobileSearch() {
       clear(results);
       if (!items.length) { results.appendChild(el('p', 'm-empty', 'Sin resultados para «' + q + '».')); return; }
       results.appendChild(mobileGrid('', items));
-      if (!finished) { results.appendChild(el('p', 'm-empty is-small', 'Buscando en más addons…')); }
+      if (!finished) { results.appendChild(el('p', 'm-empty is-small', 'Buscando en más plugins…')); }
     });
   }
   input.addEventListener('input', function () {
@@ -816,7 +829,7 @@ function renderMobileAccount() {
     if (Object.prototype.hasOwnProperty.call(state.mylist, key)) { titles++; }
   }
   var list = el('section', 'm-list');
-  list.appendChild(mobileListItem('<path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5 12 21l9-4.5"/>', 'Addons y listas',
+  list.appendChild(mobileListItem('<path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5 12 21l9-4.5"/>', 'Plugins',
     'Catálogo, fuentes, subtítulos y TV en vivo', function () { mobileOpen('addons'); }));
   list.appendChild(mobileListItem('<path d="M6 3.5h12v17l-6-4-6 4z"/>', 'Mi lista', 'Historial, Mi lista y favoritos' + (titles ? ' · ' + titles + (titles === 1 ? ' guardado' : ' guardados') : ''), function () { mobileOpen('mylist'); }));
   list.appendChild(mobileListItem('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>', 'Historial', 'Sigue donde lo dejaste', function () { mobileOpen('history'); }));
@@ -834,149 +847,13 @@ function renderMobileAccount() {
 }
 
 /* ---------------------------------------------------------- addons */
-/* Phone: the same as Ajustes → Addons on PC: the addons (catalog, sources,
-   subtitles) and the TV en vivo lists (M3U / IPTV), add and remove. */
+/* Phone: the same view as Ajustes → Plugins on PC and TV
+   (screens/plugins.js); mobile.css gives it phone sizes. */
 function renderMobileAddons() {
-  mob.main.appendChild(mobileSubHeader('Addons y listas'));
-
-  function addForm(placeholder, run) {
-    var form = el('form', 'm-add');
-    var input = document.createElement('input');
-    input.type = 'url';
-    input.className = 'm-search m-add-input';
-    input.placeholder = placeholder;
-    input.autocapitalize = 'off';
-    input.spellcheck = false;
-    var btn = el('button', 'm-add-btn', 'Agregar');
-    btn.type = 'submit';
-    var msg = el('p', 'm-add-msg', '');
-    form.appendChild(input);
-    form.appendChild(btn);
-    form.addEventListener('submit', function (ev) {
-      ev.preventDefault();
-      var url = (input.value || '').trim();
-      if (!/^(https?|stremio):\/\//i.test(url)) { msg.textContent = 'Pega una dirección que empiece con https://'; msg.className = 'm-add-msg is-err'; return; }
-      btn.disabled = true;
-      btn.textContent = 'Agregando…';
-      run(url, function (err, text) {
-        btn.disabled = false;
-        btn.textContent = 'Agregar';
-        msg.textContent = err ? 'No se pudo agregar: ' + err : text;
-        msg.className = 'm-add-msg ' + (err ? 'is-err' : 'is-ok');
-        if (!err) { input.value = ''; setTimeout(function () { renderMobile(true); }, 900); }
-      });
-    });
-    var wrap = el('div', 'm-add-wrap');
-    wrap.appendChild(form);
-    wrap.appendChild(msg);
-    return wrap;
-  }
-
-  function row(title, sub, onRemove) {
-    var r = el('div', 'm-item m-addon');
-    var tx = el('span', 'm-item-text');
-    tx.appendChild(el('span', 'm-item-title', title));
-    if (sub) { tx.appendChild(el('span', 'm-item-sub', sub)); }
-    r.appendChild(tx);
-    /* (No onRemove: one of the app's own addons, which stays.) */
-    if (onRemove) {
-      r.appendChild(mButton('m-round m-remove', mSvg('<path d="M6 6l12 12M18 6 6 18"/>', 18), 'Quitar', onRemove));
-    } else {
-      r.appendChild(el('span', 'm-tag-fixed', 'Incluido'));
-    }
-    return r;
-  }
-
-  /* A recommended addon or list: name, what it gives and Agregar. */
-  function recRow(title, sub, on, run) {
-    var r = el('div', 'm-item m-addon');
-    var tx = el('span', 'm-item-text');
-    tx.appendChild(el('span', 'm-item-title', title));
-    tx.appendChild(el('span', 'm-item-sub', sub));
-    r.appendChild(tx);
-    if (on) { r.appendChild(el('span', 'm-tag-fixed', 'Agregado')); return r; }
-    var btn = el('button', 'm-add-btn m-rec-btn', 'Agregar');
-    btn.type = 'button';
-    btn.addEventListener('click', function () {
-      btn.disabled = true;
-      btn.textContent = 'Agregando…';
-      run(function (err) {
-        if (err) { btn.disabled = false; btn.textContent = 'No cargó'; return; }
-        renderMobile(true);
-      });
-    });
-    r.appendChild(btn);
-    return r;
-  }
-
-  /* Películas y series */
-  var cfg = getVodSourcesConfig();
-  var vod = el('section', 'm-section');
-  vod.appendChild(el('h2', 'm-h2', 'Películas y series'));
-  var vodList = el('div', 'm-list');
-  cfg.addons.forEach(function (ad, idx) {
-    vodList.appendChild(row(ad.name || 'Addon', addonOffers(ad), isBuiltinVodAddon(ad) ? null : function () {
-      var c = getVodSourcesConfig();
-      c.addons.splice(idx, 1);
-      saveVodSourcesConfig(c);
-      syncExternalVodCatalogs(function () {});
-      renderMobile(true);
-    }));
-  });
-  vod.appendChild(vodList);
-  if (!hasSourceAddons()) { vod.appendChild(el('p', 'm-note', 'Sin addon de fuentes: puedes ver la información, pero no reproducir.')); }
-  vod.appendChild(addForm('https://…/manifest.json', function (url, done) {
-    installVodAddon({ url: url }, function (err, count, info) { done(err, '✔ ' + (info ? info.name : 'Addon') + (count ? ' · ' + count + ' títulos' : '')); });
-  }));
-  vod.appendChild(el('h3', 'm-h3', 'Recomendados'));
-  var vodRec = el('div', 'm-list');
-  RECOMMENDED_VOD_ADDONS.forEach(function (rec) {
-    vodRec.appendChild(recRow(rec.name, rec.desc, isVodAddonInstalled(rec.url), function (done) {
-      installVodAddon({ url: rec.url }, function (err) { done(err); });
-    }));
-  });
-  vod.appendChild(vodRec);
-  mob.main.appendChild(vod);
-
-  /* TV en vivo */
-  var live = el('section', 'm-section');
-  live.appendChild(el('h2', 'm-h2', 'TV en vivo'));
-  var liveList = el('div', 'm-list');
-  getSavedAddons().forEach(function (ad, idx) {
-    liveList.appendChild(row(ad.name || 'Lista M3U', ad.count ? ad.count + ' canales' : 'Lista M3U / IPTV', function () {
-      var current = getSavedAddons();
-      current.splice(idx, 1);
-      saveSavedAddons(current);
-      reloadLiveLists();
-      renderMobile(true);
-    }));
-  });
-  live.appendChild(liveList);
-  if (!getSavedAddons().length) { live.appendChild(el('p', 'm-note', 'Agrega una lista M3U o IPTV para ver canales en vivo.')); }
-  live.appendChild(addForm('https://…/lista.m3u', function (url, done) {
-    installAddon({ id: 'custom_' + Date.now(), name: 'Lista M3U', url: url }, function (err, count) {
-      if (!err) { reloadLiveLists(); }
-      done(err, '✔ ' + count + ' canales');
-    });
-  }));
-  /* Recomendadas: the free-channel lists at the top of PRESET_ADDONS (the
-     ones before the iptv-org block, which starts at España TDT). */
-  live.appendChild(el('h3', 'm-h3', 'Recomendadas'));
-  var liveRec = el('div', 'm-list');
-  var savedUrls = {};
-  getSavedAddons().forEach(function (ad) { savedUrls[ad.url] = true; });
-  for (var p = 0; p < PRESET_ADDONS.length && PRESET_ADDONS[p].id !== 'es_tdt'; p++) {
-    (function (preset) {
-      liveRec.appendChild(recRow(preset.name, preset.desc, !!savedUrls[preset.url], function (done) {
-        installAddon(preset, function (err) {
-          if (!err) { reloadLiveLists(); }
-          done(err);
-        });
-      }));
-    })(PRESET_ADDONS[p]);
-  }
-  live.appendChild(liveRec);
-  mob.main.appendChild(live);
+  mob.main.appendChild(mobileSubHeader('Plugins'));
+  var wrap = el('div', 'm-plugins');
+  wrap.appendChild(buildPluginsView());
+  mob.main.appendChild(wrap);
 }
 
 /* ---------------------------------------------------------- profiles */

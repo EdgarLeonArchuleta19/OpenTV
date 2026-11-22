@@ -329,6 +329,11 @@ function playEpisode(item, ep) {
     expandToFullscreen(item, ep);
     return;
   }
+  /* Save the episode that was playing under its own number first: stopping
+     after the switch below saved the old position (the end of the last
+     episode) under the new one, so the detail page skipped it ("Ver E3"). */
+  if (state.episodeSwitchTimer) { clearTimeout(state.episodeSwitchTimer); state.episodeSwitchTimer = null; }
+  stopPlayerVideo();
   state.playerItem = item;
   state.playerEpisode = ep;
   state.detailEpisode = ep;
@@ -337,6 +342,9 @@ function playEpisode(item, ep) {
      loads its own. They stayed on screen over a failed episode switch. */
   subtitleSeq++;
   activeSubtitleCues = [];
+  vodSubLoadedUrl = '';
+  /* A sync offset fitted to the last episode's file is wrong for this one. */
+  vodSubOffset = 0;
   if (playerSubtitles) { playerSubtitles.innerHTML = ''; }
   if (playerStage && playerInfo) { updatePlayer(); }
   syncDetailEpisodeHighlight(item);
@@ -344,10 +352,8 @@ function playEpisode(item, ep) {
      cleared.  Starting a new episode in the same turn can exceed the RAM
      budget of webOS 4, especially with the FFmpeg relay.  Release first,
      then create exactly one replacement pipeline. */
-  if (state.episodeSwitchTimer) { clearTimeout(state.episodeSwitchTimer); }
   state.episodeSwitchSeq = (state.episodeSwitchSeq || 0) + 1;
   var switchSeq = state.episodeSwitchSeq;
-  stopPlayerVideo();
   setPlayerStatus('Cambiando capítulo…');
   state.episodeSwitchTimer = setTimeout(function () {
     state.episodeSwitchTimer = null;

@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld('desktop', {
   openDownloads: () => ipcRenderer.invoke('desktop:open-downloads'),
   // Stremio mode: opens an addon's https ".../configure" page in the browser.
   openAddonConfig: (url) => ipcRenderer.invoke('desktop:open-addon-config', url),
+  // Offscreen browser capture for JS plugins (kino.browser.capture / load).
+  browserCapture: (opts) => ipcRenderer.invoke('desktop:browser-capture', opts),
+  // Open current video stream in VLC / MPV / system player.
+  openExternalPlayer: (url) => ipcRenderer.invoke('desktop:open-external-player', url),
   // TMDB trending lists ('movie-week', 'tv-week', …); the key stays in main.
   tmdb: (list) => ipcRenderer.invoke('desktop:tmdb', list),
   // Profiles backup in DocumentsOpenTV (survives uninstalling the app).

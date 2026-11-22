@@ -191,8 +191,7 @@ function get(id, done) {
       }
     }
     var args = ['-hide_banner', '-nostdin', '-loglevel', 'info', '-rw_timeout', '5000000',
-      '-probesize', '1M', '-analyzeduration', '1M'];
-    if (/^https:/i.test(target)) args.push('-tls_verify', '1');
+      '-probesize', '2M', '-analyzeduration', '3M'].concat(require('./ffmpeg-tls').args(target));
     var lines = [], headers = entry.stream.headers || {};
     Object.keys(headers).forEach(function (name) {
       // Request credentials are used only by FFmpeg; never send them to the UI.
@@ -208,10 +207,22 @@ function get(id, done) {
     args.push('-i', target);
     try { child = spawn(FFMPEG, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true }); }
     catch (_) { return finish(0); }
+    var tlsFailed = false;
     child.on('error', function () { finish(found); });
-    child.on('close', function () { finish(found); });
+    child.on('close', function () {
+      /* The source's certificate did not pass: once more without the check
+         (ffmpeg-tls.js now skips it for that host). */
+      if (!found && tlsFailed && !entry.tlsRetried && !finished) {
+        entry.tlsRetried = true;
+        active = false;
+        running--;
+        return entry.start();
+      }
+      finish(found);
+    });
     child.stderr.on('data', function (chunk) {
       if (finished) return;
+      if (!found && require('./ffmpeg-tls').noteFailure(target, chunk)) { tlsFailed = true; }
       output = (output + String(chunk)).slice(-65536);
       if (!found) {
         var match = /Duration:\s*(\d+:\d{2}:\d{2}(?:[.,]\d+)?)/i.exec(output);

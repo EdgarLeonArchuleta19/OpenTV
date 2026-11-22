@@ -138,6 +138,9 @@ function showOsdIcon(type) {
   if (!playerOsdIcon) { playerOsdIcon = $('player-osd-icon'); }
   if (!playerOsdIcon) { return; }
   if (osdHideTimer) { clearTimeout(osdHideTimer); osdHideTimer = null; }
+  /* TVs: no big pause sign over the picture; the play/pause button of the
+     player's controls already says it. */
+  if (type === 'pause' && platformIsTv()) { type = 'none'; }
   if (window.OPENTV_DESKTOP) {
     var osdIcons = { pause: UI_ICONS.pause, forward: UI_ICONS.forward, backward: UI_ICONS.rewind };
     if (!osdIcons[type]) { playerOsdIcon.classList.remove('is-active'); return; }

@@ -143,5 +143,12 @@ function applySubtitleDefaults(info) {
   if (!stillThere) {
     vodCurrentSubtitle = list[0];
     loadSubtitleTrack(vodCurrentSubtitle);
+    return;
   }
+  /* The same choice on a new episode or video: tracks inside the file
+     ("native:N", "embedded:N") keep their names from one episode to the
+     next but start off with each video, and the cues of the last one were
+     dropped: load it again (once). */
+  var want = vodCurrentSubtitle.url ? vodCurrentSubtitle.url : (vodCurrentSubtitle.cues ? 'imported:' + (vodCurrentSubtitle.label || '') : '');
+  if (want !== vodSubLoadedUrl) { loadSubtitleTrack(vodCurrentSubtitle); }
 }

@@ -47,6 +47,7 @@ final class Http {
     static final class Response implements Closeable {
         int status;
         final Map<String, String> headers = new HashMap<>();   // lower-case names
+        final java.util.List<String> setCookies = new java.util.ArrayList<>();
         InputStream body;
         private Conn conn;
         private boolean reusable;
@@ -220,14 +221,18 @@ final class Http {
             if (parts.length < 2 || !parts[0].startsWith("HTTP/")) throw new IOException("respuesta HTTP no válida");
             res.status = Integer.parseInt(parts[1].trim());
             res.headers.clear();
+            res.setCookies.clear();
             String h;
             while ((h = readLine(c.in)) != null && !h.isEmpty()) {
                 int colon = h.indexOf(':');
                 if (colon <= 0) continue;
                 String name = h.substring(0, colon).trim().toLowerCase(Locale.ROOT);
                 String value = h.substring(colon + 1).trim();
+                if ("set-cookie".equals(name)) {
+                    res.setCookies.add(value);
+                }
                 String prev = res.headers.get(name);
-                res.headers.put(name, prev == null ? value : prev + ", " + value);
+                res.headers.put(name, prev == null ? value : prev + ("set-cookie".equals(name) ? "\n" : ", ") + value);
             }
             if (h == null) throw new EOFException("cabeceras incompletas");
         } while (res.status >= 100 && res.status < 200);

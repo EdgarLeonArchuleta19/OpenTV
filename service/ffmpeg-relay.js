@@ -79,11 +79,11 @@ function inputArgs(s) {
   var h = splitHeaders(s.headers);
   var args = [
     '-hide_banner', '-loglevel', 'warning', '-nostdin',
-    '-probesize', '1M', '-analyzeduration', '1M'
+    '-probesize', '2M', '-analyzeduration', '3M'
   ];
   if (/^https?:\/\//i.test(s.url)) {   // estas opciones solo existen para entradas HTTP(S)
     args.push('-rw_timeout', '15000000');
-    if (/^https:/i.test(s.url)) { args.push('-tls_verify', '1'); }
+    args = args.concat(require('./ffmpeg-tls').args(s.url));
     if (h.ua) args.push('-user_agent', h.ua);
     if (h.rest) args.push('-headers', h.rest);
   }
@@ -402,6 +402,7 @@ var server = http.createServer(function (req, res) {
   stopCurrent();   // el player a veces abre y aborta peticiones; no dejamos procesos huerfanos
   var mySeq = ++requestSeq;
   var gone = false;
+  var tlsRetried = false;   /* one retry without the certificate check */
   res.on('close', function () { gone = true; });
 
   resolveForFfmpeg(s, function (input) {
@@ -435,6 +436,7 @@ var server = http.createServer(function (req, res) {
     var ff = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     current = { ff: ff };
     var started = false;
+    var tlsFailed = false;
 
   ff.on('error', function (e) {
     log('no se pudo lanzar ffmpeg:', e.message);
@@ -445,7 +447,10 @@ var server = http.createServer(function (req, res) {
     res.end();
   });
 
-  ff.stderr.on('data', function (d) { log('ffmpeg:', String(d).trim()); });
+  ff.stderr.on('data', function (d) {
+    log('ffmpeg:', String(d).trim());
+    if (!started && require('./ffmpeg-tls').noteFailure(input.url, d)) { tlsFailed = true; }
+  });
 
   ff.stdout.on('data', function (chunk) {
     if (!started) {
@@ -468,6 +473,13 @@ var server = http.createServer(function (req, res) {
   ff.on('close', function (code) {
     if (crcFile) { try { fs.unlinkSync(crcFile); } catch (eRm) { /* read and removed already */ } }
     if (current && current.ff === ff) current = null;
+    /* The source's certificate did not pass: the same start again,
+       without the check (ffmpeg-tls.js now skips it for that host). */
+    if (!started && tlsFailed && !tlsRetried && !gone && mySeq === requestSeq) {
+      tlsRetried = true;
+      log('certificado no válido en la fuente: se reintenta sin verificarlo');
+      return run(realStart);
+    }
     if (!started) {
       res.writeHead(502, { 'Access-Control-Allow-Origin': '*' });
       started = true;

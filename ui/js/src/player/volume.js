@@ -73,23 +73,16 @@ function buildPlayerVolume(group) {
   wrap.appendChild(playerVolRange);
   playerVolLabel = el('span', 'vod-vol-label', '');
   wrap.appendChild(playerVolLabel);
-  wrap.setAttribute('data-tip', systemVolumeApi() ? 'Volumen de Windows · rueda del ratón' : 'Volumen · rueda del ratón');
+  wrap.setAttribute('data-tip', systemVolumeApi() ? 'Volumen de Windows' : 'Volumen');
   group.appendChild(wrap);
   playerVolSets.push({ range: playerVolRange, mute: playerMuteBtn, label: playerVolLabel });
   syncPlayerVolumeUi();
 }
 
-/* Wheel over the picture changes the volume (Ctrl + wheel is left alone). */
+/* (The mouse wheel no longer changes the volume: the user asked for it.) */
 function installPlayerWheelVolume() {
   if (!window.OPENTV_DESKTOP || !playerStage || playerStage._wheelVolume) { return; }
   playerStage._wheelVolume = true;
-  $('screen-player').addEventListener('wheel', function (event) {
-    if (event.ctrlKey || state.screen !== 'player') { return; }
-    if (playSettingViewOpen || dialogPlaySettingsOpen || state.episodeBrowserOpen || state.categoryPickerOpen || state.channelsOpen) { return; }
-    if (event.target && event.target.closest && event.target.closest('.scrollable, .quality-menu, .pc-list, .player-channels')) { return; }
-    event.preventDefault();
-    changeLiveVolume(event.deltaY < 0 ? 0.05 : -0.05);
-  }, { passive: false });
 }
 
 /* Hovering the seek bar shows the time under the pointer. */

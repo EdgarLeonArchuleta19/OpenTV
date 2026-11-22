@@ -370,14 +370,14 @@ function buildDesktopSection(page, all, opts) {
     if (vodApiState.loading) {
       /* Loading: the loader in the middle of the section, replaced by
          the rows as soon as they arrive. */
-      var wait = makeLoader('Cargando los títulos de tus addons…', 'is-page');
-      abs(wait, 192, 0, 1560, 760);
+      var wait = makeCatalogSkeleton('Cargando el catálogo de tus plugins…');
+      abs(wait, 192, 0, 1600, 800);
       page.appendChild(wait);
       return;
     }
     var empty = el('div', 'catalog-empty', getVodSourcesConfig().addons.length
-      ? 'Tus addons no tienen títulos de esta sección.'
-      : 'Agrega un addon con catálogo en Ajustes → Addons para ver películas y series.');
+      ? 'Tus plugins no tienen títulos de esta sección.'
+      : 'Agrega un plugin con catálogo en Ajustes → Plugins para ver películas y series.');
     abs(empty, 192, 170, 1500, 80);
     page.appendChild(empty);
     return;

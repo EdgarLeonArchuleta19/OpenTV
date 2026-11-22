@@ -117,7 +117,7 @@ function openDetail(item) {
     scrPlayer.classList.add('is-mini');
     scrPlayer.classList.add('is-active');
     /* The title's picture while the preview loads (or when there is none:
-       no trailer, addon titles) instead of an empty black box. */
+       addon titles) instead of an empty black box. */
     if (playerVideo && (!document.pictureInPictureElement || state.playerItem === item)) {
       var stillArt = heroArt(item) || item.poster || '';
       if (stillArt) { playerVideo.poster = sizedImageUrl(stillArt, 1280); }
@@ -248,6 +248,9 @@ function buildDetail(item) {
   for (var g = 0; g < genreList.length; g++) {
     genres.appendChild(el('div', 'chip', genreList[g]));
   }
+  if (item.nextEpisodeDate) {
+    genres.appendChild(el('div', 'chip is-next-ep', 'Próximo: ' + item.nextEpisodeDate));
+  }
   if (pcPage) {
     genres.classList.add('has-meta');
     genres.insertBefore(el('span', 'detail-meta is-inline', metaText), genres.firstChild);
@@ -363,7 +366,8 @@ function buildDetail(item) {
     btnDefs.push({ label: state.favs[String(item.id)] ? 'Quitar de favoritos' : 'Añadir a favoritos', kind: 'favorite', iconOnly: true, group: true });
     btnDefs.push({ label: inMyList(item) ? 'Quitar de Mi lista' : 'Añadir a Mi lista', kind: 'mylist', iconOnly: true });
     if (canChooseSource) {
-      /* PC: save the movie or the selected episode to watch without internet. */
+      /* PC and phone: save the movie or the selected episode to watch
+         without internet (TVs never get the capability, main.js). */
       if (platformHas('downloads')) {
         var dl = downloadFor(item, isSeriesItem(item) ? state.detailEpisode : null);
         btnDefs.push({ label: dl && dl.status === 'done' ? 'Descargado' : (dl && dl.status !== 'error' && dl.status !== 'missing' ? 'Descargando…' : 'Descargar'),
@@ -376,9 +380,9 @@ function buildDetail(item) {
   if (!canPlay) {
     btnDefs = btnDefs.filter(function (d) { return d.kind === 'favorite' || d.kind === 'mylist'; });
     var noSrc = el('div', 'detail-nosrc');
-    noSrc.appendChild(el('span', 'detail-nosrc-text', 'Para reproducir, agrega un addon de fuentes.'));
+    noSrc.appendChild(el('span', 'detail-nosrc-text', 'Para reproducir, agrega un plugin de fuentes.'));
     var goAddons = el('div', 'detail-btn focusable detail-nosrc-btn');
-    goAddons.appendChild(el('span', null, 'Ir a Addons'));
+    goAddons.appendChild(el('span', null, 'Ir a Plugins'));
     goAddons._activate = function () { openSettingsAt('sources'); };
     noSrc.appendChild(goAddons);
     detailButtons.appendChild(noSrc);
@@ -419,6 +423,9 @@ function buildDetail(item) {
     }
     btn._activate = (function (kind, it) {
       return function () {
+        /* (A click reaches here even while it is off: an episode's sources
+           still loading.) */
+        if (this && this.getAttribute && this.getAttribute('aria-disabled') === 'true') { return; }
         if (kind === 'fullscreen') { resumeFromStartKey = ''; expandToFullscreen(it, state.detailEpisode); }
         else if (kind === 'restart') { startOverTitle(it, isSeriesItem(it) ? state.detailEpisode : null); }
         else if (kind === 'language') { openPlaySettingsDialog(it); }
@@ -427,6 +434,8 @@ function buildDetail(item) {
         else if (kind === 'favorite' || kind === 'mylist') {
           var enabled = kind === 'favorite' ? toggleFavorite(it) : toggleMyList(it);
           this.classList.toggle('is-selected', enabled);
+          showToast(kind === 'favorite' ? (enabled ? 'Se añadió a favoritos' : 'Se quitó de favoritos')
+            : (enabled ? 'Se añadió a Mi lista' : 'Se quitó de Mi lista'));
           var label = this.querySelector('span');
           var text = kind === 'favorite'
             ? (desk ? (enabled ? 'Quitar de favoritos' : 'Añadir a favoritos') : (enabled ? 'En favoritos' : 'Favorito'))
@@ -721,7 +730,8 @@ function renderDetailBottomDesktop(item) {
           tile.appendChild(play);
           tile.title = 'Episodio ' + numText + (title && title !== 'Episodio ' + numText ? ' · ' + title : '');
           tile._ep = ep;
-          tile._activate = function () { playEpisode(item, ep); };
+          /* Like the cards: picks the episode and loads its sources first. */
+          tile._activate = function () { selectDetailEpisode(item, ep); };
           grid.appendChild(tile);
         })(episodes[e], e);
       }
@@ -745,6 +755,10 @@ function renderDetailBottomDesktop(item) {
         var now = grid.querySelector('.detail-episode.is-playing');
         if (now && now.offsetLeft > grid.clientWidth - now.offsetWidth) { grid.scrollLeft = now.offsetLeft - 40; }
       }, 0);
+    } else if (item._detailsLoaded && !item._detailLoading) {
+      /* Loaded and still no episodes: say so instead of a loader that
+         never ends (a plugin that gave the series but not its episodes). */
+      epSection.appendChild(el('p', 'dd-empty', item._detailError || 'Tus plugins no dan los capítulos de esta serie.'));
     } else {
       epSection.appendChild(makeLoader('Cargando episodios…', 'is-small'));
     }
@@ -797,14 +811,30 @@ function refreshEpisodeTiles(item, grid) {
   }
 }
 
-/* PC: clicking an episode on the details screen picks it: Reproducir now
-   plays it, and its sources are looked up meanwhile (kept for a while, so
-   "Elegir fuente" opens with them at once). Nothing opens. TVs: OK on an
-   episode plays it, as before (one press with the remote). */
+/* Picking an episode on the details screen (PC and TVs): Reproducir now
+   plays it, and its sources are looked up first (kept for a while, so
+   "Elegir fuente" opens with them at once). Reproducir and Cambiar fuente
+   stay off until the lookup ends. On a TV the focus goes up to Reproducir,
+   so the next OK plays; OK again on the picked episode once its sources are
+   ready plays it too. */
 var detailEpisodeLookup = 0;
+var detailEpisodeReady = null;
+
+/* Reproducir and Cambiar fuente on or off while an episode's sources load. */
+function setDetailPlayWaiting(waiting) {
+  if (!detailButtons) { return; }
+  ['fullscreen', 'source'].forEach(function (kind) {
+    var b = detailButtons.querySelector('.detail-btn[data-kind="' + kind + '"]');
+    if (!b) { return; }
+    b.classList.toggle('is-waiting', !!waiting);
+    if (waiting) { b.setAttribute('aria-disabled', 'true'); } else { b.removeAttribute('aria-disabled'); }
+  });
+}
+
 function selectDetailEpisode(item, ep) {
-  if (platformIsTv()) { playEpisode(item, ep); return; }
+  if (detailEpisodeReady === ep && state.detailEpisode === ep) { playEpisode(item, ep); return; }
   state.detailEpisode = ep;
+  detailEpisodeReady = null;
   syncDetailEpisodeHighlight(item);
   var season = item.seasons && item.seasons[state.detailSeason];
   var code = (season && season.number ? 'T' + season.number + ':' : '') + 'E' + (ep.number || '');
@@ -813,8 +843,12 @@ function selectDetailEpisode(item, ep) {
   if (playSpan) { playSpan.textContent = resume && resume.indexOf(code) !== -1 ? resume : 'Reproducir ' + code; }
   syncStartOverButton(item);
   var status = detailButtons ? detailButtons.querySelector('.detail-ep-status') : null;
-  if (!item._stremio || item._plain || !hasSourceAddons()) {
+  var playBtn = detailButtons ? detailButtons.querySelector('.detail-btn[data-kind="fullscreen"]') : null;
+  if (platformIsTv() && playBtn) { setFocus(playBtn); }
+  if (!item._stremio || item._plain || !hasSourceAddons() || downloadedFileFor(item, ep)) {
     if (status) { status.textContent = ''; }
+    setDetailPlayWaiting(false);
+    detailEpisodeReady = ep;
     return;
   }
   if (!status) {
@@ -826,12 +860,26 @@ function selectDetailEpisode(item, ep) {
   var name = 'Capítulo ' + (ep.number || '');
   status.textContent = 'Buscando fuentes del ' + name.toLowerCase() + '…';
   status.className = 'detail-ep-status is-busy';
+  setDetailPlayWaiting(true);
   fetchStremioStreams(item, ep, function (groups, pending) {
     if (mine !== detailEpisodeLookup || pending) { return; }
+    if (state.screen !== 'detail' || state.detailEpisode !== ep) { return; }
     var count = 0;
     groups.forEach(function (g) { count += g.sources.length; });
-    status.className = 'detail-ep-status' + (count ? ' is-ready' : ' is-none');
-    status.textContent = count ? (name + ' · ' + count + (count === 1 ? ' fuente lista' : ' fuentes listas')) : ('Sin fuentes para el ' + name.toLowerCase());
+    /* The result as a toast, like the app's other notices; the line next
+       to the buttons only shows the search in progress. */
+    status.className = 'detail-ep-status';
+    status.textContent = '';
+    showToast(count ? (name + ' · ' + count + (count === 1 ? ' fuente lista' : ' fuentes listas')) : ('Sin fuentes para el ' + name.toLowerCase()),
+      count ? 'ok' : 'info');
+    /* Cambiar fuente opens even with none (it says why); Reproducir only
+       with something to play. */
+    setDetailPlayWaiting(false);
+    if (!count && playBtn) {
+      playBtn.classList.add('is-waiting');
+      playBtn.setAttribute('aria-disabled', 'true');
+    }
+    if (count) { detailEpisodeReady = ep; }
   });
 }
 

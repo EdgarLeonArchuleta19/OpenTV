@@ -1,0 +1,108 @@
+/* =============================================================================
+   Color de acento (Ajustes → Apariencia, core/appearance.js)
+   Con "Blanco" no se aplica nada: el aspecto monocromo original. Con otro
+   color, body lleva .has-accent y --ot-accent / --ot-accent-ink (texto encima).
+   Solo cambia colores, sin capas ni efectos nuevos: no pesa en la tele.
+   ============================================================================= */
+
+/* Muestras de color en la propia opción. */
+.desktop .set-swatch {
+  display: inline-block; width: 16px; height: 16px; margin-right: 10px; vertical-align: -2px;
+  border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25);
+}
+.desktop .set-seg-btn.is-on .set-swatch { box-shadow: 0 0 0 2px #fff, inset 0 0 0 1px rgba(0, 0, 0, .25); }
+.desktop.has-accent .set-seg-btn.is-on .set-swatch { box-shadow: 0 0 0 2px var(--ot-accent-ink); }
+
+/* Anillos de foco hechos con outline: el mismo grosor, en el color. */
+.desktop.has-accent .is-focused { outline-color: var(--ot-accent) !important; }
+
+/* Opciones y pestañas elegidas en Ajustes y paneles. */
+.desktop.has-accent .set-seg-btn.is-on,
+.desktop.has-accent .set-seg.is-wrap .set-seg-btn.is-on,
+.desktop.has-accent .sd-tab.is-on { background: var(--ot-accent); color: var(--ot-accent-ink); }
+.desktop.has-accent .set-seg-btn.is-focused,
+.desktop.has-accent .sd-tab.is-focused { box-shadow: 0 0 0 3px var(--ot-accent); }
+.desktop.has-accent .pb-opt.is-checked.is-focused { box-shadow: 0 0 0 2px #000, 0 0 0 4px var(--ot-accent) !important; }
+
+/* Elegir fuente. */
+.desktop.has-accent .srcp-chip.is-on { background: var(--ot-accent); color: var(--ot-accent-ink); }
+.desktop.has-accent .srcp-chip.is-focused { box-shadow: 0 0 0 3px var(--ot-accent); }
+.desktop.has-accent .srcp-item.is-focused { box-shadow: inset 0 0 0 2px var(--ot-accent); }
+
+/* Pósteres, tarjetas y listas. */
+.desktop.has-accent .poster.is-focused::after { box-shadow: inset 0 0 0 4px var(--ot-accent); }
+.desktop.has-accent .continue-card.is-focused .cc-frame { box-shadow: 0 0 0 4px var(--ot-accent), 0 22px 50px rgba(0, 0, 0, .55); }
+.desktop.has-accent .continue-card .cc-progress i { background: var(--ot-accent); }
+.desktop.has-accent .sr-chip.is-focused,
+.desktop.has-accent .lg-card.is-focused,
+.desktop.has-accent .lg-close.is-focused,
+.desktop.has-accent .acc-seg-btn.is-focused { box-shadow: 0 0 0 3px var(--ot-accent); }
+.desktop.has-accent .lg-cat.is-focused { box-shadow: inset 0 0 0 3px var(--ot-accent); }
+.desktop.has-accent .player-episodes .pe-ep.is-focused { border-color: var(--ot-accent) !important; }
+.desktop.has-accent .profile-picker .pp-tile.is-focused .pp-avatar { box-shadow: 0 0 0 4px var(--ot-accent); }
+
+/* Menú de secciones. */
+.desktop.has-accent .home-tabs .tab-item.is-focused { box-shadow: inset 0 0 0 2px var(--ot-accent); }
+.desktop.has-accent.is-tv .home-tabs .tab-item.is-focused { background: var(--ot-accent); box-shadow: none; }
+.desktop.has-accent.is-tv .home-tabs .tab-item.is-focused .tab-icon,
+.desktop.has-accent.is-tv .home-tabs .tab-item.is-focused .tab-title { color: var(--ot-accent-ink) !important; }
+
+/* Barra de arriba (Buscar, Mi lista) y temporadas de la ficha en la tele. */
+.desktop.has-accent .notify-item.is-focused:not(.personal) { background: var(--ot-accent) !important; }
+.desktop.has-accent .notify-item.is-focused:not(.personal) .n-normal.is-svg { color: var(--ot-accent-ink) !important; }
+.desktop.has-accent.is-tv .dd-flow .detail-season.is-focused,
+.desktop.has-accent.is-tv .dd-flow .season-popup-item.is-focused { background: var(--ot-accent); }
+.desktop.has-accent.is-tv .dd-flow .detail-season.is-focused .season-text,
+.desktop.has-accent.is-tv .dd-flow .detail-season.is-focused .season-arrow,
+.desktop.has-accent.is-tv .dd-flow .season-popup-item.is-focused .season-item-text { color: var(--ot-accent-ink); }
+
+/* Botón principal de reproducir: portada de Inicio y ficha. */
+.desktop.has-accent .hero-btn.is-primary,
+.desktop.has-accent.is-tv .tvh-info .hero-btn.is-primary { background: var(--ot-accent); color: var(--ot-accent-ink); }
+.desktop.has-accent .hero-btn.is-primary:hover { background: var(--ot-accent); filter: brightness(1.12); }
+.desktop.has-accent .hero-btn.is-focused { box-shadow: 0 0 0 4px #0e0e11, 0 0 0 7px var(--ot-accent); }
+.desktop.has-accent.is-tv .hero-btn.is-focused { box-shadow: 0 0 0 4px #0e0e11, 0 0 0 8px var(--ot-accent); }
+.desktop.has-accent .detail-btn[data-kind="fullscreen"],
+.desktop.has-accent .detail-btn[data-kind="fullscreen"].is-focused { background: var(--ot-accent); color: var(--ot-accent-ink); box-shadow: none; }
+.desktop.has-accent .detail-btn[data-kind="fullscreen"]:hover { background: var(--ot-accent); filter: brightness(1.12); }
+/* Tele: los botones de la ficha son grises y el del foco se pinta lleno. */
+.desktop.has-accent.is-tv .detail-buttons .detail-btn.is-focused { background: var(--ot-accent) !important; color: var(--ot-accent-ink) !important; }
+.desktop.has-accent.is-tv .detail-buttons .detail-btn.is-attached:not(.is-focused) { background: rgba(255, 255, 255, .13) !important; color: #fff !important; filter: none; }
+/* "Cambiar fuente", pegado a Reproducir: mismo color, separado por una raya. */
+.desktop.has-accent .detail-btn.is-attached,
+.desktop.has-accent .detail-btn.is-attached:hover { background: var(--ot-accent); color: var(--ot-accent-ink); }
+.desktop.has-accent .detail-btn.is-attached:hover { filter: brightness(1.12); }
+
+/* Tamaño del texto "Aumentado" (core/appearance.js): los bloques de texto
+   crecen un 12 % con lo que tienen dentro. zoom reacomoda el bloque (no lo
+   encima sobre lo de al lado, como haría transform). Los pósteres, no. */
+.desktop.is-text-large .hero-meta,
+.desktop.is-text-large .hero-genres,
+.desktop.is-text-large .hero-synopsis,
+.desktop.is-text-large .dd-title,
+.desktop.is-text-large .detail-episode,
+.desktop.is-text-large .set-page,
+.desktop.is-text-large .sd-title,
+.desktop.is-text-large .vod-infobar-title,
+.desktop.is-text-large .psv-title,
+.desktop.is-text-large .psv-btn,
+.desktop.is-text-large .dialog-playsettings-box,
+.desktop.is-text-large .srcp-item,
+.desktop.is-text-large .ot-toast,
+.desktop.is-text-large .player-status { zoom: 1.12; }
+/* TVs: the details block grows upwards from the buttons, a little less so
+   a two-line title still fits under the top edge. (Not on the PC: its title
+   is fitted to the width by measuring it, and zoom shrank it.) */
+.desktop.is-text-large.is-tv .detail-left { zoom: 1.08; }
+.desktop.is-text-large:not(.is-tv) .detail-left .detail-meta,
+.desktop.is-text-large:not(.is-tv) .detail-left .detail-desc,
+.desktop.is-text-large:not(.is-tv) .detail-left .detail-synopsis { zoom: 1.12; }
+/* Row titles sit at a fixed place in the row: only their letters grow. */
+.desktop.is-text-large .d-row-title { font-size: 38px; }
+.desktop.is-text-large.is-tv .d-row-title { font-size: 42px; }
+
+/* Barra de progreso del reproductor. */
+.desktop.has-accent #vod-seekbar .vod-seek-progress,
+.desktop.has-accent .vod-seek-progress,
+.desktop.has-accent #vod-seekbar .vod-seek-thumb,
+.desktop.has-accent .vod-seek-thumb { background: var(--ot-accent) !important; }

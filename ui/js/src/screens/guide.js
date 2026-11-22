@@ -8,10 +8,10 @@ var GUIDE_SEEN_KEY = 'opentv_guide_seen_v1';
 function guideSteps() {
   var steps = [
     { title: 'Bienvenido a OpenTV', text: 'Películas, series y TV en vivo en un solo lugar. El catálogo ya viene listo para explorar.' },
-    { title: 'Para reproducir', text: 'Agrega un addon de fuentes en Ajustes → Addons. Pega la dirección que termina en manifest.json.',
-      action: 'Ir a Addons', run: function () { openSettingsAt('sources'); } },
-    { title: 'TV en vivo', text: 'Agrega tus listas M3U o IPTV en Ajustes → Addons → TV en vivo.' },
-    { title: 'La mejor fuente, sola', text: 'OpenTV elige el idioma, la calidad y la fuente más estable. Cámbialo en Ajustes → Preferencias de addons.' }
+    { title: 'Para reproducir', text: 'Agrega un plugin de fuentes en Ajustes → Plugins. Pega la dirección que termina en manifest.json.',
+      action: 'Ir a Plugins', run: function () { openSettingsAt('sources'); } },
+    { title: 'TV en vivo', text: 'Agrega tus listas M3U o IPTV en Ajustes → Plugins.' },
+    { title: 'La mejor fuente, sola', text: 'OpenTV elige el idioma, la calidad y la fuente más estable. Cámbialo en Plugins → Configurar.' }
   ];
   if (platformHas('downloads')) {
     steps[3].text += ' Y descarga para ver sin internet.';

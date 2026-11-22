@@ -208,6 +208,9 @@ public final class OpenTvService {
                     return ok(VideoHash.hash(url, p.optJSONObject("headers")));
                 }
                 case "proxySubtitles": return proxySubtitles(p);
+                case "subtitleCat": return ok(Js.o("subtitles", SubtitleCat.search(p)));
+                case "resolveShortCode": return resolveShortCode(p);
+                case "pluginFetch": return pluginFetch(p);
                 // Torrents: libtorrent + a loopback Range server (Torrents.java).
                 case "torrentStart": return ok(Torrents.start(p));
                 case "torrentStats": return ok(Torrents.stats());
@@ -226,6 +229,7 @@ public final class OpenTvService {
                     return ok(Js.o("channels", M3u.fetchM3u(Js.text(p.opt("url")))));
                 }
                 case "epg": return ok(Js.o("programmes", Epg.get(Js.text(p.opt("url")), p.opt("ids"))));
+                case "epgSchedule": return ok(Js.o("programmes", Epg.schedule(Js.text(p.opt("url")), Js.text(p.opt("id")))));
                 case "resolveLive": {
                     if (!Js.truthy(p.opt("streamUrl"))) throw new PortalException("El canal no tiene enlace");
                     return ok(Js.o("url", p.opt("streamUrl"), "proxyPath", p.opt("streamUrl"), "isHls", true));
@@ -252,8 +256,70 @@ public final class OpenTvService {
     }
 
     private static final Pattern HTTP_URL = Pattern.compile("^https?://", Pattern.CASE_INSENSITIVE);
+    private static final Pattern MEDIA_FILE = Pattern.compile("\\.(mp4|m4v|mkv|webm|avi|mov|ts|m2ts|m3u8|mpd)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern LOOPBACK_URL = Pattern.compile("^https?://127\\.0\\.0\\.1(?::|/|$)", Pattern.CASE_INSENSITIVE);
     private static final Pattern HLS_NAME = Pattern.compile("\\.m3u8\\b",Pattern.CASE_INSENSITIVE);
     private static final int MAX_SUBTITLES = 60;
+
+    /* Some addon sources (e.g. /resolve/... endpoints) answer with a 302
+       redirect to the real CDN file. Resolving that redirect once here avoids
+       hitting the addon's resolver on every ExoPlayer/VideoHash Range request
+       (which can trigger HTTP 429 rate limits) and reveals the real file
+       extension (.ts, .mp4, .mkv, .m3u8). */
+    private static String followRedirects(String targetUrl, JSONObject headers) {
+        if (!HTTP_URL.matcher(targetUrl).find() || LOOPBACK_URL.matcher(targetUrl).find()) return targetUrl;
+        // A link that already names the video file and is not a resolver:
+        // nothing to follow, no extra round trip before playing.
+        String path = targetUrl.split("[?#]", 2)[0];
+        if (MEDIA_FILE.matcher(path).find() && !path.toLowerCase(java.util.Locale.ROOT).contains("/resolve/")) return targetUrl;
+        String current = targetUrl;
+        for (int hops = 0; hops < 5; hops++) {
+            Http.Url u = Http.Url.parse(current);
+            boolean secure = "https:".equals(u.protocol);
+            if (u.hostname.isEmpty() || !(secure || "http:".equals(u.protocol))) break;
+            Http.Request r = new Http.Request();
+            r.method = "GET";
+            r.secure = secure;
+            try {
+                r.connectHost = Dnsx.prepare(u.hostname);
+            } catch (java.io.IOException e) {
+                break;   // (the link plays as it is)
+            }
+            if (r.connectHost.isEmpty()) r.connectHost = u.hostname;
+            int defaultPort = secure ? 443 : 80;
+            r.port = u.port.isEmpty() ? defaultPort : Integer.parseInt(u.port);
+            r.tlsName = u.hostname;
+            r.path = u.path;
+            r.connectTimeout = 3500;
+            r.readTimeout = 3500;
+            if (headers != null) {
+                java.util.Iterator<String> keys = headers.keys();
+                while (keys.hasNext()) {
+                    String k = keys.next();
+                    r.headers.put(k, Js.text(headers.opt(k)));
+                }
+            }
+            r.headers.put("Range", "bytes=0-0");
+            r.headers.put("Host", u.host());
+            Http.Response res = null;
+            try {
+                res = Http.execute(r);
+                if (res.status >= 300 && res.status < 400 && res.header("location") != null) {
+                    String next = Http.Url.resolve(current, res.header("location"));
+                    if (HTTP_URL.matcher(next).find()) {
+                        current = next;
+                        continue;
+                    }
+                }
+                break;
+            } catch (Exception ignored) {
+                break;
+            } finally {
+                if (res != null) res.abort();
+            }
+        }
+        return current;
+    }
 
     /* resolveExternal({url, headers, name, notWebReady, duration}): a source
        chosen in the addon mode. ExoPlayer plays HLS, MP4, MKV, WebM and TS
@@ -261,22 +327,23 @@ public final class OpenTvService {
        relay: the link goes as is, or through the proxy when it needs request
        headers. Same answer shape as the Node method. */
     private static JSONObject resolveExternal(JSONObject p) throws Exception {
-        String url = Js.text(Js.or(p.opt("url"), ""));
-        if (!HTTP_URL.matcher(url).find()) throw new PortalException("La fuente no tiene un enlace http(s) válido");
+        String rawUrl = Js.text(Js.or(p.opt("url"), ""));
+        if (!HTTP_URL.matcher(rawUrl).find()) throw new PortalException("La fuente no tiene un enlace http(s) válido");
         JSONObject headers = p.optJSONObject("headers");
         if (headers == null) headers = new JSONObject();
         boolean hasHeaders = headers.length() > 0;
+        String url = followRedirects(rawUrl, headers);
         String name = Js.text(Js.or(p.opt("name"), "")) + " " + url.split("\\?", 2)[0];
         if (HLS_NAME.matcher(name).find()) {
             String mime = "application/vnd.apple.mpegurl";
-            if (!hasHeaders) return ok(Js.o("url", url, "proxyPath", url, "isHls", true, "mime", mime));
+            if (!hasHeaders) return ok(Js.o("url", url, "resolvedUrl", url, "proxyPath", url, "isHls", true, "mime", mime));
             Proxy.start();
             String token = Proxy.add(url, headers, 0, "", null);
-            return ok(Js.o("url", url, "proxyPath", Proxy.baseUrl() + "/media/" + token + "/stream.m3u8", "isHls", true, "mime", mime));
+            return ok(Js.o("url", url, "resolvedUrl", url, "proxyPath", Proxy.baseUrl() + "/media/" + token + "/stream.m3u8", "isHls", true, "mime", mime));
         }
         double duration = MediaDuration.seconds(p.opt("duration"));
         JSONObject stream = Js.o("url", url, "headers", headers, "duration", Js.jsonNum(duration));
-        JSONObject out = Js.o("url", url, "mime", "video/mp4", "isHls", false, "durationId", MediaDuration.register(stream));
+        JSONObject out = Js.o("url", url, "resolvedUrl", url, "mime", "video/mp4", "isHls", false, "durationId", MediaDuration.register(stream));
         if (!hasHeaders) {
             Js.put(out, "proxyPath", url);
             return ok(out);
@@ -301,5 +368,143 @@ public final class OpenTvService {
             out.put(Js.o("lang", Js.text(Js.or(s.opt("lang"), "")), "format", "srt", "url", Proxy.addSubtitle(url)));
         }
         return ok(Js.o("subtitles", out));
+    }
+
+    private static final Pattern AFTV_TARGET = Pattern.compile("href=[\"'](https?://(?!(?:[a-z0-9-]+\\.)?aftvnews\\.com)[^\"'<>]+)[\"']", Pattern.CASE_INSENSITIVE);
+
+    private static JSONObject resolveShortCode(JSONObject p) throws Exception {
+        String code = Js.trim(Js.text(p.opt("code")));
+        if (code.isEmpty()) throw new PortalException("Código vacío");
+        String startUrl;
+        if (code.matches("^\\d{4,9}$")) {
+            startUrl = "https://aftv.news/" + code;
+        } else if (code.startsWith("!") && code.length() > 1) {
+            startUrl = "https://py.md/" + java.net.URLEncoder.encode(code.substring(1), "UTF-8");
+        } else if (code.matches("^[A-Za-z0-9_-]{2,48}$")) {
+            startUrl = "https://cutt.ly/" + java.net.URLEncoder.encode(code, "UTF-8");
+        } else {
+            throw new PortalException("Código corto no válido");
+        }
+        String current = startUrl;
+        for (int hops = 0; hops < 6; hops++) {
+            Http.Url u = Http.Url.parse(current);
+            boolean secure = "https:".equals(u.protocol);
+            if (u.hostname.isEmpty() || !(secure || "http:".equals(u.protocol))) break;
+            Http.Request r = new Http.Request();
+            r.method = "GET";
+            r.secure = secure;
+            r.connectHost = Dnsx.prepare(u.hostname);
+            if (r.connectHost.isEmpty()) r.connectHost = u.hostname;
+            int defPort = secure ? 443 : 80;
+            r.port = u.port.isEmpty() ? defPort : Integer.parseInt(u.port);
+            r.tlsName = u.hostname;
+            r.path = u.path;
+            r.connectTimeout = 7000;
+            r.readTimeout = 7000;
+            r.headers.put("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120.0 Safari/537.36");
+            r.headers.put("Host", u.host());
+            try (Http.Response res = Http.execute(r)) {
+                if (res.status >= 300 && res.status < 400 && res.header("location") != null) {
+                    String next = Http.Url.resolve(current, res.header("location"));
+                    if (HTTP_URL.matcher(next).find()) {
+                        current = next;
+                        continue;
+                    }
+                }
+                if (u.hostname.toLowerCase(java.util.Locale.ROOT).contains("aftvnews.com")) {
+                    String html = new String(res.readAll(128 * 1024), Crypto.UTF8);
+                    java.util.regex.Matcher m = AFTV_TARGET.matcher(html);
+                    if (m.find()) current = m.group(1);
+                }
+                break;
+            }
+        }
+        return ok(Js.o("url", current));
+    }
+
+    private static JSONObject pluginFetch(JSONObject p) {
+        String targetUrl = Js.trim(Js.text(p.opt("url")));
+        if (!HTTP_URL.matcher(targetUrl).find()) {
+            return ok(Js.o("ok", false, "status", 0, "url", targetUrl, "headers", new JSONObject(), "text", "", "error", "URL no válida"));
+        }
+        String method = Js.trim(Js.text(Js.or(p.opt("method"), "GET"))).toUpperCase(java.util.Locale.ROOT);
+        JSONObject reqHeaders = p.optJSONObject("headers");
+        byte[] bodyBytes = null;
+        if (p.has("bodyBase64") && !p.isNull("bodyBase64")) {
+            try { bodyBytes = android.util.Base64.decode(Js.text(p.opt("bodyBase64")), android.util.Base64.DEFAULT); } catch (Exception ignored) {}
+        } else if (p.has("body") && !p.isNull("body")) {
+            bodyBytes = Js.text(p.opt("body")).getBytes(Crypto.UTF8);
+        }
+        boolean follow = !"manual".equalsIgnoreCase(Js.text(p.opt("redirect")));
+        int timeoutMs = Math.min(25000, Math.max(1500, p.optInt("timeoutMs", 12000)));
+        boolean allowLan = p.optBoolean("allowLan", false) || "true".equals(Js.text(p.opt("allowLan")));
+        String current = targetUrl;
+        for (int depth = 0; depth <= 5; depth++) {
+            Http.Url u = Http.Url.parse(current);
+            boolean secure = "https:".equals(u.protocol);
+            if (u.hostname.isEmpty() || !(secure || "http:".equals(u.protocol))) {
+                return ok(Js.o("ok", false, "status", 0, "url", current, "headers", new JSONObject(), "text", "", "error", "Host inválido"));
+            }
+            // Each hop (the first request and every redirect) is checked and
+            // sent to the very address that was checked (NetGuard).
+            String checkedIp;
+            try {
+                checkedIp = NetGuard.check(u.hostname, allowLan);
+            } catch (PortalException e) {
+                return ok(Js.o("ok", false, "status", 0, "url", current, "headers", new JSONObject(), "text", "", "error", e.getMessage()));
+            }
+            Http.Request r = new Http.Request();
+            r.method = method;
+            r.secure = secure;
+            r.connectHost = checkedIp;
+            if (r.connectHost.isEmpty()) r.connectHost = u.hostname;
+            int defPort = secure ? 443 : 80;
+            r.port = u.port.isEmpty() ? defPort : Integer.parseInt(u.port);
+            r.tlsName = u.hostname;
+            r.path = u.path;
+            r.connectTimeout = timeoutMs;
+            r.readTimeout = timeoutMs;
+            r.headers.put("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120.0 Safari/537.36");
+            if (reqHeaders != null) {
+                java.util.Iterator<String> keys = reqHeaders.keys();
+                while (keys.hasNext()) {
+                    String k = keys.next();
+                    String hv = Js.text(reqHeaders.opt(k));
+                    // (A line break would start another header.)
+                    if (k.indexOf('\r') < 0 && k.indexOf('\n') < 0 && hv.indexOf('\r') < 0 && hv.indexOf('\n') < 0) r.headers.put(k, hv);
+                }
+            }
+            r.headers.put("Host", u.host());
+            if (bodyBytes != null) {
+                r.body = bodyBytes;
+                r.headers.put("Content-Length", String.valueOf(r.body.length));
+            }
+            try (Http.Response res = Http.execute(r)) {
+                if (follow && res.status >= 300 && res.status < 400 && res.header("location") != null) {
+                    String next = Http.Url.resolve(current, res.header("location"));
+                    if (HTTP_URL.matcher(next).find()) {
+                        current = next;
+                        if (res.status != 307 && res.status != 308) {
+                            method = "GET";
+                            bodyBytes = null;
+                        }
+                        continue;
+                    }
+                }
+                byte[] bytes = res.readAll(2 * 1024 * 1024);
+                JSONObject outH = new JSONObject();
+                for (Map.Entry<String, String> e : res.headers.entrySet()) {
+                    Js.put(outH, e.getKey(), e.getValue());
+                }
+                String text = new String(bytes, Crypto.UTF8);
+                String b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
+                org.json.JSONArray scArr = new org.json.JSONArray();
+                for (String sc : res.setCookies) { scArr.put(sc); }
+                return ok(Js.o("ok", res.status >= 200 && res.status < 300, "status", res.status, "url", current, "headers", outH, "setCookies", scArr, "text", text, "base64", b64));
+            } catch (Exception e) {
+                return ok(Js.o("ok", false, "status", 0, "url", current, "headers", new JSONObject(), "text", "", "error", String.valueOf(e.getMessage())));
+            }
+        }
+        return ok(Js.o("ok", false, "status", 0, "url", current, "headers", new JSONObject(), "text", "", "error", "Demasiadas redirecciones"));
     }
 }

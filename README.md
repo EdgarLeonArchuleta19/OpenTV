@@ -41,7 +41,7 @@ TMDB (opcional) ───────────────────► ten
 | **OpenSubtitles** | Subtítulos en varios idiomas |
 
 Vienen siempre y no se pueden quitar. Ninguno de ellos da vídeos. **Para reproducir hace falta un addon de fuentes**,
-que agrega cada usuario en **Ajustes → Addons** pegando la URL de su
+que agrega cada usuario en **Ajustes → Plugins** pegando la URL de su
 `manifest.json`. Sin él, la app funciona igual: muestras las fichas, tu lista y
 el historial, y al darle a *Reproducir* te dice dónde agregar uno.
 
@@ -53,7 +53,7 @@ el historial, y al darle a *Reproducir* te dice dónde agregar uno.
 | 🎯 **Elegir fuente** | Panel con las fuentes de todos tus addons, con calidad, tamaño, idioma y semillas. OpenTV marca una **Recomendada** (primero tu idioma, luego la calidad, luego la salud del torrent; CAM solo si no hay otra) y puede elegirla sola. Filtros por idioma (Latino, Castellano, Inglés) y calidad. |
 | ⚙️ **Preferencias de addons** | Como la página *configure* de Torrentio, pero dentro de la app: idiomas preferidos, calidades que nunca quieres ver (4K, SD, CAM…), semillas mínimas, tamaño máximo y proveedores. |
 | 🧲 **Torrents** | En PC y en Android 9+ (incluida la Fire TV). Se ven mientras se descargan y se borran al salir. La app lo avisa la primera vez. |
-| ⬇️ **Descargas** | Guarda una película o un capítulo para verlo sin internet (PC y Android, con notificación de progreso). Se reanudan si se cortan. |
+| ⬇️ **Descargas** | Guarda una película o un capítulo para verlo sin internet (PC y celular Android, con notificación de progreso; en la tele no). Se reanudan si se cortan. |
 | 💬 **Subtítulos** | Los que trae el archivo, los de tus addons (OpenSubtitles) o un `.srt`/`.vtt` tuyo. Tamaño, color y desfase ajustables. |
 | 🔊 **Audio** | Cambia de pista viendo el idioma real (Latino, Castellano, Inglés…). |
 | 🌸 **Anime** | Sección propia con el catálogo de Kitsu: anime japonés de verdad, no caricaturas. |
@@ -92,9 +92,9 @@ el historial, y al darle a *Reproducir* te dice dónde agregar uno.
 ## 🚀 Primeros pasos
 
 1. **Instala** OpenTV (abajo).
-2. **Agrega un addon de fuentes** en **Ajustes → Addons → Películas y series**: pega la URL de su `manifest.json`.
+2. **Agrega un addon de fuentes** en **Ajustes → Plugins**: elige uno en Comunidad o pega la URL de su `manifest.json` en Mis plugins.
 3. **Ajusta tus preferencias** en **Ajustes → Preferencias de addons** (idioma, calidad).
-4. **TV en vivo:** agrega tu lista M3U en **Ajustes → Addons → TV en vivo**, o busca una lista pública.
+4. **TV en vivo:** agrega tu lista M3U en **Ajustes → Plugins → Mis plugins**, o elige una lista pública en Comunidad.
 
 En el celular, todo eso está en **Mi cuenta → Addons y listas**.
 
@@ -150,7 +150,7 @@ En Android las actualizaciones llegan desde la propia app (**Acerca de → Busca
 | Addons, fichas, búsqueda, Anime | ✅ | ✅ | ✅ |
 | Enlaces directos (HTTP / HLS) | ✅ | ✅ | ✅ |
 | Torrents | ✅ | ✅ Android 9+ (ARM) | ✅ Android 9+ (ARM) |
-| Descargas | ✅ | ✅ | ✅ |
+| Descargas | ✅ | — | ✅ |
 | Subtítulos del archivo, de addons e importados | ✅ | ✅ | ✅ |
 | TV en vivo (M3U) | ✅ | ✅ | ✅ |
 | Ventana flotante y barra de título | ✅ | — | — |

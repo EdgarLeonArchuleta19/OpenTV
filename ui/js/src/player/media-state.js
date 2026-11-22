@@ -54,6 +54,10 @@ var subtitleSeq = 0;
 var vodSubSize = 'normal';
 var vodSubStyle = 'white';
 var vodSubOffset = 0;
+/* The subtitle track loadSubtitleTrack last started (its url): a new
+   episode or a new video clears it, so the same choice is loaded again
+   (the file's own tracks start off with every new video). */
+var vodSubLoadedUrl = '';
 var playerCurrentAspect = 'contain';
 var lastHistorySaveAt = 0;
 
@@ -96,6 +100,13 @@ function languageMatchesPreference(label, code) {
   if (wanted === 'en') { return /^(en|eng|ing)|ingl/.test(value); }
   return false;
 }
+
+/* desktop/player.js (hls.js) asks which of a stream's audio tracks is in
+   the viewer's language: many HLS sources mark Portuguese as the default. */
+window.__opentvAudioWanted = function (lang, name) {
+  var wanted = preferredLanguageCode();
+  return languageMatchesPreference(lang, wanted) || languageMatchesPreference(name, wanted);
+};
 
 function rememberWatchProgress(current, duration, force) {
   var item = state.playerItem;
@@ -304,8 +315,11 @@ function parseSRT(data) {
 
 var nativeSubTrack = null;
 
+/* The page's subtitles as a text track of the <video>, for picture in
+   picture (where the page cannot draw over the video). Only where PiP
+   exists: on a TV it rebuilt about a thousand cues for nothing. */
 function syncNativeSubtitleTrack() {
-  if (!playerVideo || typeof VTTCue === 'undefined') { return; }
+  if (!playerVideo || typeof VTTCue === 'undefined' || !platformHas('pip')) { return; }
   try {
     if (!nativeSubTrack) {
       nativeSubTrack = playerVideo.addTextTrack('subtitles', 'Subtítulos', 'es');
@@ -317,7 +331,9 @@ function syncNativeSubtitleTrack() {
       nativeSubTrack.mode = 'disabled';
       return;
     }
-    var offset = vodSubOffset || 0;
+    /* Through the relay (modo compatible) the video's clock starts at 0
+       where the relay started (relayStartOffset), not at the film's 0. */
+    var offset = (vodSubOffset || 0) - (relayBaseUrl ? (relayStartOffset || 0) : 0);
     for (var i = 0; i < activeSubtitleCues.length; i++) {
       var c = activeSubtitleCues[i];
       var s = Math.max(0, c.start + offset);
@@ -331,6 +347,7 @@ function syncNativeSubtitleTrack() {
 }
 
 function loadSubtitleTrack(sub, attempt) {
+  vodSubLoadedUrl = sub && sub.url ? sub.url : (sub && sub.cues ? 'imported:' + (sub.label || '') : '');
   /* The same track of the file already on: nothing to restart. */
   if (sub && embeddedSubtitleOn(sub)) { return; }
   /* Android: a text track of the file, shown through ExoPlayer. */

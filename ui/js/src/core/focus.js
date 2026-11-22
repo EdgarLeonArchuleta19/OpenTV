@@ -305,6 +305,104 @@ function tvDetailSectionMove(dir) {
   return false;
 }
 
+/* Details screen with the remote or the keyboard: down from Reproducir /
+   Cambiar fuente (or any button of that row) to the episodes or the
+   recommendations, then up again, comes back to that same button, not to
+   "Leer más", which can sit nearer on screen. Up from inside the lower part
+   only leaves it from its top line. True when it handled the key. */
+function detailBackToButtons(dir) {
+  if (!window.OPENTV_DESKTOP || state.screen !== 'detail' || !detailButtons || !detailBottom) { return false; }
+  var node = state.focus;
+  if (dir === 'down' && detailButtons.contains(node)) {
+    detailButtons._last = node;
+    return false;
+  }
+  if (dir !== 'up' || !detailBottom.contains(node)) { return false; }
+  var myTop = node.getBoundingClientRect().top;
+  var items = detailBottom.querySelectorAll('.focusable');
+  for (var i = 0; i < items.length; i++) {
+    if (items[i] === node || !isVisible(items[i])) { continue; }
+    var r = items[i].getBoundingClientRect();
+    if (r.width && r.height && r.bottom <= myTop + 4) { return false; }
+  }
+  var target = detailButtons._last;
+  if (!target || !target.isConnected || !isVisible(target)) {
+    target = detailButtons.querySelector('.detail-btn[data-kind="fullscreen"]') || firstIn(detailButtons);
+  }
+  if (!target || !isVisible(target)) { return false; }
+  setFocus(target);
+  return true;
+}
+
+/* Details screen: left/right along the buttons go one by one, in order.
+   Measuring positions skipped "Cambiar fuente", which is joined to
+   Reproducir (left from it did nothing, right from Reproducir jumped over
+   it). True when it handled the key. */
+function detailButtonsRowMove(dir) {
+  if (state.screen !== 'detail' || !detailButtons || (dir !== 'left' && dir !== 'right')) { return false; }
+  if (!detailButtons.contains(state.focus)) { return false; }
+  var all = detailButtons.querySelectorAll('.focusable');
+  var row = [];
+  for (var i = 0; i < all.length; i++) { if (isVisible(all[i])) { row.push(all[i]); } }
+  var at = row.indexOf(state.focus);
+  if (at === -1) { return false; }
+  var next = row[at + (dir === 'right' ? 1 : -1)];
+  if (next) { setFocus(next); }
+  return true;
+}
+
+/* The player's option menus (the sheet "Audio, subtítulos y más" and the
+   "Audio y subtítulos" dialog) move line by line: left/right stay on the
+   line (they used to jump to an option of another line), up/down go to the
+   next line and land on its chosen option. True when it handled the key. */
+function playerMenuLines() {
+  var lines = [];
+  function add(node) { if (node && isVisible(node) && firstIn(node)) { lines.push(node); } }
+  if (dialogPlaySettingsOpen && dialogPlaySettings) {
+    var drows = dialogPlaySettings.querySelectorAll('.dps-row');
+    for (var d = 0; d < drows.length; d++) { add(drows[d]); }
+    if (dpsBtnExit && isVisible(dpsBtnExit)) { lines.push(dpsBtnExit); }
+    return lines;
+  }
+  if (playSettingViewOpen && playSettingView) {
+    var prows = playSettingView.querySelectorAll('.psv-row');
+    for (var p = 0; p < prows.length; p++) {
+      var subs = prows[p].querySelectorAll('.psv-episode-numbers, .psv-episode-ranges');
+      if (subs.length) { for (var s = 0; s < subs.length; s++) { add(subs[s]); } }
+      else { add(prows[p]); }
+    }
+  }
+  return lines;
+}
+
+function playerMenuMove(dir) {
+  if (state.screen !== 'player' && state.screen !== 'detail') { return false; }
+  if (!dialogPlaySettingsOpen && !playSettingViewOpen) { return false; }
+  var lines = playerMenuLines();
+  var at = -1;
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i] === state.focus || lines[i].contains(state.focus)) { at = i; break; }
+  }
+  if (at === -1) { return false; }
+  var line = lines[at];
+  if (dir === 'left' || dir === 'right') {
+    if (line === state.focus) { return true; }
+    var all = line.querySelectorAll('.focusable');
+    var opts = [];
+    for (var k = 0; k < all.length; k++) { if (isVisible(all[k])) { opts.push(all[k]); } }
+    var pos = opts.indexOf(state.focus);
+    var next = opts[pos + (dir === 'right' ? 1 : -1)];
+    if (next) { setFocus(next); }
+    return true;
+  }
+  var to = lines[at + (dir === 'down' ? 1 : -1)];
+  if (!to) { return true; }
+  if (to.classList.contains('focusable')) { setFocus(to); return true; }
+  var chosen = to.querySelector('.focusable.is-selected, .focusable.is-on, .focusable.is-current');
+  setFocus(chosen && isVisible(chosen) ? chosen : firstIn(to));
+  return true;
+}
+
 function reveal(node) {
   /* A section still sliding in reads shifted on screen (its first poster
      looked off the right edge, and the row was scrolled to "show" it).
@@ -531,6 +629,9 @@ function moveFocus(dir) {
   }
   if (state.focus._onMove && state.focus._onMove(dir)) { return; }
   if (tvDetailSectionMove(dir)) { return; }
+  if (detailBackToButtons(dir)) { return; }
+  if (detailButtonsRowMove(dir)) { return; }
+  if (playerMenuMove(dir)) { return; }
 
   var inPage = state.screen === 'home' && closest(state.focus, '.home-page');
   var inSidebar = state.screen === 'home' && closest(state.focus, '.home-tabs');

@@ -20,6 +20,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'opentv', privileges: {
 
 const info = require('../../package.json');
 const { createService } = require('./service.cjs');
+const { cspFor } = require('./csp.cjs');
 const systemAudio = require('./system-volume.cjs');
 const updates = require('./updater.cjs');
 const logger = require('./logger.cjs');
@@ -155,12 +156,11 @@ async function start() {
     }
     const served = net.fetch(pathToFileURL(file).href);
     if (!/\.html?$/i.test(file)) return served;
-    /* Only the app's own scripts run (hls.js uses a blob: worker): markup
-       that slips in from network data cannot execute script. */
+    /* Each page with its policy (csp.cjs): the app's pages, and the
+       sandboxed page where the JS plugins run. */
     return served.then((res) => {
       const headers = new Headers(res.headers);
-      headers.set('Content-Security-Policy',
-        "script-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-src 'none'");
+      headers.set('Content-Security-Policy', cspFor(file));
       return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
     });
   });
@@ -219,6 +219,32 @@ async function start() {
     shell.openExternal(parsed.href);
     return true;
   });
+  /* Offscreen WebView capture for JS plugins (kino.browser.capture / load). */
+  ipcMain.handle('desktop:browser-capture', (event, opts) => {
+    if (!trusted(event) || !opts || typeof opts.url !== 'string') return { ok: false, error: 'Parámetros inválidos' };
+    return runBrowserCapture(opts);
+  });
+  /* Open the current stream in VLC / MPV / system player. */
+  ipcMain.handle('desktop:open-external-player', (event, url) => {
+    if (!trusted(event) || typeof url !== 'string' || url.length > 4096) return { ok: false, error: 'URL no válida' };
+    if (!/^https?:\/\//i.test(url)) return { ok: false, error: 'Solo enlaces http/https' };
+    const { spawn } = require('node:child_process');
+    const vlcPaths = [
+      'C:\\Program Files\\VideoLAN\\VLC\\vlc.exe',
+      'C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe'
+    ];
+    for (const p of vlcPaths) {
+      if (fs.existsSync(p)) {
+        try {
+          const child = spawn(p, [url], { detached: true, stdio: 'ignore' });
+          child.unref();
+          return { ok: true, app: 'VLC' };
+        } catch { /* fall through */ }
+      }
+    }
+    shell.openExternal(url);
+    return { ok: true, app: 'reproductor del sistema' };
+  });
   /* Downloads: opens Videos\OpenTV (fixed path, nothing from the page). */
   ipcMain.handle('desktop:open-downloads', (event) => {
     if (!trusted(event)) return false;
@@ -251,6 +277,8 @@ async function start() {
 
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(permission === 'fullscreen'));
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'fullscreen');
+  // Live channels whose servers allow only their own site (Pluto).
+  require('./media-cors.cjs').install(session.defaultSession);
 
   const iconPath = path.join(root, 'images', 'icon-large.png');
   windowRef = new BrowserWindow({
@@ -267,6 +295,9 @@ async function start() {
       // Keep the decoder and playback timers active while the user minimizes
       // the window or switches to another app. Closing still shuts media down.
       backgroundThrottling: false,
+      // video.audioTracks: a direct file with several dubs starts on the
+      // viewer's language (ui/js/src/player/playback.js).
+      enableBlinkFeatures: 'AudioVideoTracks',
       webSecurity: true, allowRunningInsecureContent: false
     }
   });
@@ -357,3 +388,145 @@ app.on('before-quit', () => {
   try { systemAudio.stop(); } catch { /* shutdown continues */ }
 });
 app.on('window-all-closed', () => app.quit());
+
+/* Offscreen browser capture for JS plugins (kino.browser.capture / load).
+   Runs in a shared ephemeral partition so Cloudflare cookies persist during
+   the session without touching the main app session, and destroys the hidden
+   window immediately on capture or timeout. */
+const captureHandlers = new Map();
+const captureOptions = new Map();   /* webContentsId -> { allowLan } */
+let captureSessionReady = false;
+function ensureCaptureSession() {
+  const ses = session.fromPartition('opentv-capture');
+  if (!captureSessionReady) {
+    captureSessionReady = true;
+    /* Every request of the hidden window (the page, its redirects, its
+       scripts and media) goes through the same rules as the plugins'
+       requests: never this computer, the home network only when that
+       plugin is allowed (service/netguard.js). Chromium connects on its
+       own after this check, so here it is a check of the name's answer. */
+    const netguard = require('../../service/netguard.js');
+    ses.webRequest.onBeforeRequest((details, callback) => {
+      let host = '';
+      try {
+        const u = new URL(details.url);
+        if (u.protocol === 'data:' || u.protocol === 'blob:' || u.protocol === 'about:') return callback({});
+        if (u.protocol !== 'http:' && u.protocol !== 'https:' && u.protocol !== 'ws:' && u.protocol !== 'wss:') return callback({ cancel: true });
+        host = u.hostname;
+      } catch { return callback({ cancel: true }); }
+      const opts = details.webContentsId != null ? captureOptions.get(details.webContentsId) : null;
+      netguard.check(host, !!(opts && opts.allowLan), (err) => callback(err ? { cancel: true } : {}));
+    });
+    ses.webRequest.onBeforeSendHeaders((details, callback) => {
+      const h = details.webContentsId != null ? captureHandlers.get(details.webContentsId) : null;
+      if (h) h(details);
+      callback({ requestHeaders: details.requestHeaders });
+    });
+  }
+  return ses;
+}
+
+function runBrowserCapture(opts) {
+  let target;
+  try { target = new URL(String(opts.url || '').trim()); } catch { return Promise.resolve({ ok: false, error: 'URL no válida' }); }
+  if (target.protocol !== 'http:' && target.protocol !== 'https:') return Promise.resolve({ ok: false, error: 'Protocolo no permitido' });
+
+  const timeoutMs = Math.min(25000, Math.max(2000, Number(opts.timeoutMs) || 15000));
+  const returnHtml = !!opts.returnHtml;
+  const waitMs = Math.min(5000, Math.max(0, Number(opts.waitMs) || 350));
+  let matchRe = /\.(m3u8|mp4|mpd)(\?|$)/i;
+  if (opts.matchSource) {
+    try { matchRe = new RegExp(String(opts.matchSource), String(opts.matchFlags || 'i')); } catch { /* default */ }
+  }
+
+  return new Promise((resolve) => {
+    const ses = ensureCaptureSession();
+    const capWin = new BrowserWindow({
+      show: false, width: 1280, height: 720,
+      webPreferences: {
+        sandbox: true, contextIsolation: true, nodeIntegration: false,
+        partition: 'opentv-capture', backgroundThrottling: false
+      }
+    });
+    const wc = capWin.webContents;
+    const wcId = wc.id;
+    captureOptions.set(wcId, { allowLan: opts.allowLan === true });
+    wc.setAudioMuted(true);
+    wc.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+    let done = false;
+    let timer = null;
+    const finish = (payload) => {
+      if (done) return;
+      done = true;
+      if (timer) clearTimeout(timer);
+      captureHandlers.delete(wcId);
+      captureOptions.delete(wcId);
+      try { if (!capWin.isDestroyed()) capWin.destroy(); } catch { /* closed */ }
+      resolve(payload);
+    };
+
+    const readCookies = async (u) => {
+      try {
+        const list = await ses.cookies.get({ url: u });
+        return list.map((c) => c.name + '=' + c.value).join('; ');
+      } catch { return ''; }
+    };
+
+    captureHandlers.set(wcId, (details) => {
+      if (done || returnHtml) return;
+      if (matchRe.test(details.url || '')) {
+        const reqH = {};
+        for (const [k, v] of Object.entries(details.requestHeaders || {})) reqH[k] = String(v);
+        readCookies(details.url).then((cookies) => {
+          finish({ ok: true, url: details.url, headers: reqH, cookies });
+        });
+      }
+    });
+
+    wc.on('did-finish-load', () => {
+      if (done) return;
+      const script = opts.script ? String(opts.script) : '';
+      const afterScript = () => {
+        if (done || !returnHtml) return;
+        setTimeout(async () => {
+          if (done) return;
+          try {
+            const finalUrl = wc.getURL() || target.href;
+            const html = await wc.executeJavaScript('document.documentElement ? document.documentElement.outerHTML : ""', true);
+            const cookies = await readCookies(finalUrl);
+            finish({ ok: true, url: finalUrl, html: String(html || ''), cookies, headers: {} });
+          } catch (e) {
+            finish({ ok: false, error: (e && e.message) || 'Error al leer la página' });
+          }
+        }, waitMs);
+      };
+      if (script) {
+        wc.executeJavaScript(script, true).then(afterScript, afterScript);
+      } else {
+        afterScript();
+      }
+    });
+
+    wc.on('did-fail-load', (_e, code, desc) => {
+      if (code === -3) return; // ERR_ABORTED
+      finish({ ok: false, error: desc || ('Error ' + code) });
+    });
+
+    timer = setTimeout(() => finish({ ok: false, error: 'Tiempo agotado esperando el vídeo' }), timeoutMs);
+
+    const loadOpts = {};
+    if (opts.headers && typeof opts.headers === 'object') {
+      const lines = [];
+      for (const [k, v] of Object.entries(opts.headers)) {
+        if (/^referer$/i.test(k)) loadOpts.httpReferrer = String(v);
+        else if (/^user-agent$/i.test(k)) loadOpts.userAgent = String(v);
+        else if (v != null && !/[\r\n]/.test(String(v))) lines.push(k + ': ' + v);
+      }
+      if (lines.length) loadOpts.extraHeaders = lines.join('\n');
+    }
+    capWin.loadURL(target.href, loadOpts).catch((e) => {
+      if (!done && (!e || e.code !== 'ERR_ABORTED')) finish({ ok: false, error: (e && e.message) || 'No se pudo abrir la página' });
+    });
+  });
+}

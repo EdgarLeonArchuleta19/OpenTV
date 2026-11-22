@@ -213,6 +213,9 @@ function renderDialogSubtitle() {
 
 function formatAudioLang(code) {
   var full = (code || '').toLowerCase().trim();
+  /* Auto-translated subtitles (GTSubs / SubtitleCat: 'esgt', 'es-gt', 'spagt'). */
+  var gt = /(?:^|[-_])([a-z]{2,3})[-_]?gt$/.exec(full);
+  if (gt) { return formatAudioLang(gt[1]) + ' (traducido)'; }
   /* Latino and Castellano are different dubs: never show both as "Español".
      OpenSubtitles: 'spn' / 'ea' are its Latin American Spanish. */
   if (/^(es[-_](419|mx|la|us|ar|co|cl|pe|ve)|latino|lat|latam|spn|ea|spl)$/.test(full)) return 'Español (Latino)';

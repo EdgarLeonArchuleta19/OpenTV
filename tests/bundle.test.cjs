@@ -33,6 +33,11 @@ test('ui/js/app.js is ES5 (old TV WebViews)', () => {
   assert.doesNotThrow(() => acorn.parse(code, { ecmaVersion: 5 }));
 });
 
+test('the JS plugins runtime is ES5 too (it runs on the same TVs)', () => {
+  const code = fs.readFileSync(path.join(ROOT, 'ui', 'js', 'plugin-runtime.js'), 'utf8');
+  assert.doesNotThrow(() => acorn.parse(code, { ecmaVersion: 5 }));
+});
+
 test('each module is ES5 on its own (clear error location)', () => {
   const listed = JSON.parse(fs.readFileSync(path.join(SRC, 'modules.json'), 'utf8'));
   for (const f of listed) {
@@ -43,7 +48,7 @@ test('each module is ES5 on its own (clear error location)', () => {
 });
 
 test('desktop main and preload parse', () => {
-  for (const f of ['platforms/electron/main.cjs', 'platforms/electron/preload.cjs', 'platforms/electron/system-volume.cjs', 'platforms/electron/service.cjs']) {
+  for (const f of ['platforms/electron/main.cjs', 'platforms/electron/preload.cjs', 'platforms/electron/system-volume.cjs', 'platforms/electron/service.cjs', 'platforms/electron/csp.cjs']) {
     const code = fs.readFileSync(path.join(ROOT, f), 'utf8');
     assert.doesNotThrow(() => acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'script', allowHashBang: true, allowReturnOutsideFunction: true }), f);
   }

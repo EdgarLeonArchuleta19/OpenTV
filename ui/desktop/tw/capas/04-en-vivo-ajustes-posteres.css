@@ -501,3 +501,11 @@
 .desktop .dd-grid.has-cards .ep-play { display: flex !important; }
 .desktop .dd-grid.has-cards .detail-episode.is-playing { background: rgba(255, 255, 255, .08) !important; border-color: transparent !important; }
 .desktop .dd-grid.has-cards .detail-episode:hover { background: rgba(255, 255, 255, .09) !important; }
+
+/* Rating badge on poster cards (Poster Pro style). */
+.desktop .poster .p-rating {
+  position: absolute; top: 10px; right: 10px; z-index: 3; pointer-events: none;
+  padding: 3px 8px; border-radius: 8px; font-size: 13px; font-weight: 700; letter-spacing: .01em;
+  background: rgba(12, 12, 16, .82); color: #ffd15c; border: 1px solid rgba(255, 209, 92, .28);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .45);
+}

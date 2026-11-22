@@ -1,6 +1,29 @@
 /* core/config.js — Configuración estática: canales, pestañas del inicio y menú de ajustes.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
+/* Low-spec detection: TVs are always treated as low-spec (1 GB Fire TV
+   baseline); phones and PCs with <= 4 GB RAM or <= 2 CPU cores also enable
+   lightweight concurrency and disable heavy blur effects. Powerful PCs run
+   with zero artificial limits. */
+function isLowSpecDevice() {
+  if (typeof platformIsTv === 'function' && platformIsTv()) { return true; }
+  try {
+    var mem = navigator && navigator.deviceMemory;
+    var cores = navigator && navigator.hardwareConcurrency;
+    /* 4 GB or less is low today (8 GB is the usual PC, 16 GB the good one).
+       The core count alone is not: many 4-core laptops with 16 GB run the
+       app fine, so only 2 cores or fewer count. */
+    if ((typeof mem === 'number' && mem > 0 && mem <= 4) ||
+        (typeof cores === 'number' && cores > 0 && cores <= 2)) {
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+if (typeof document !== 'undefined' && document.body && isLowSpecDevice()) {
+  document.body.classList.add('is-low-spec');
+}
+
 /* Live TV comes only from the viewer's own M3U lists (live/channels.js).
    CHANNELS holds the channels of the category on screen. Do not draw
    fictitious rows while the lists load: they looked like real channels. */
@@ -64,7 +87,7 @@ var SETTINGS_ITEMS = [
   { id: 'history', label: 'Mi lista' },
   { id: 'parent', label: 'Bloqueo' },
   { id: 'playback', label: 'Ajustes' },
-  { id: 'sources', label: 'Addons' },
+  { id: 'sources', label: 'Plugins' },
   { id: 'downloads', label: 'Descargas' },
   { id: 'feedback', label: 'Ayuda y Feedback' },
   { id: 'about', label: 'Sobre nosotros' }

@@ -112,7 +112,7 @@ function loadVodCatalog() {
   vodApiState.loading = true;
   syncExternalVodCatalogs(function (err, count) {
     vodApiState.loading = false;
-    vodApiState.error = count ? null : (getVodSourcesConfig().addons.length ? 'Tus addons no respondieron' : 'Agrega un addon con catálogo');
+    vodApiState.error = count ? null : (getVodSourcesConfig().addons.length ? 'Tus plugins no respondieron' : 'Agrega un plugin con catálogo');
   });
 }
 

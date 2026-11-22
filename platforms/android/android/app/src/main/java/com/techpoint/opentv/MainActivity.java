@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
@@ -32,6 +33,21 @@ public class MainActivity extends BridgeActivity {
     private boolean openDownloadsPending;
     private Runnable downloadStartHook;
 
+    /* The remote's Menu key never reaches the page (the WebView keeps it):
+       handed over as the ContextMenu key the page knows (TV en vivo →
+       Programación, the player's settings). */
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_MENU && bridge != null && bridge.getWebView() != null) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                bridge.getWebView().evaluateJavascript(
+                    "document.dispatchEvent(new KeyboardEvent('keydown',{key:'ContextMenu',bubbles:true,cancelable:true}))", null);
+            }
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // The OpenTV service (M3U, addon sources + media proxy on 127.0.0.1:8910) starts
@@ -41,6 +57,8 @@ public class MainActivity extends BridgeActivity {
         new Thread(() -> OpenTvService.start(app), "opentv-start").start();
         // Native video player (ExoPlayer) for ui/js/native-player.js.
         registerPlugin(NativePlayerPlugin.class);
+        // Offscreen WebView capture for JS plugins (kino.browser.capture / load).
+        registerPlugin(BrowserCapturePlugin.class);
         super.onCreate(savedInstanceState);
         final SizedImages images = new SizedImages(getCacheDir());
         // Images asked at their display size (https://opentv-img.local/i?…)

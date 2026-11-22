@@ -19,7 +19,7 @@ function storage(initial) {
 
 function load(opts) {
   opts = opts || {};
-  return loadModules(['core/utils.js', 'core/platform.js', 'services/vod-api.js', 'player/settings-dialog.js', 'player/source-rank.js', 'player/stremio-sources.js'], {
+  return loadModules(['core/utils.js', 'core/platform.js', 'services/vod-api.js', 'services/js-plugins.js', 'player/settings-dialog.js', 'player/source-rank.js', 'player/stremio-sources.js'], {
     localStorage: storage(opts.storage),
     window: { OPENTV_DESKTOP: true, location: { search: '', hash: '', href: 'opentv://app/index.html' }, OPENTV_PLATFORM: { name: opts.platform || 'electron', tv: !!opts.tv, has: (c) => (opts.caps || ['addons', 'torrents']).indexOf(c) !== -1 } },
     location: { search: '', hash: '' },
@@ -160,6 +160,14 @@ test('without an addon that gives sources, titles are information only', () => {
   const withStream = { opentv_vod_defaults_v1: '1', opentv_vod_sources_v1: JSON.stringify({ addons: [
     { url: 'https://src/manifest.json', resources: [{ name: 'stream', types: ['movie'] }] }] }) };
   assert.equal(load({ storage: withStream }).hasSourceAddons(), true);
+  /* An installed plugin marked "Sin usar" (disabled) is kept but not used. */
+  const pausedStream = { opentv_vod_defaults_v1: '1', opentv_vod_sources_v1: JSON.stringify({ addons: [
+    { name: 'Pausado', url: 'https://src/manifest.json', disabled: true, resources: [{ name: 'stream', types: ['movie'] }] }] }) };
+  const pausedCtx = load({ storage: pausedStream });
+  assert.equal(pausedCtx.hasSourceAddons(), false);
+  const movie = { id: 'stremio:tt1', _stremioId: 'tt1', type: 'movie' };
+  pausedCtx.rememberStremioPick(movie, null, { addon: 'Pausado', url: 'https://x/a.mp4', quality: '1080p' });
+  assert.equal(pausedCtx.savedStremioPick(movie, null), null);
 });
 
 test('the app\'s own three addons are always there and cannot be removed', () => {
@@ -389,4 +397,122 @@ test('race alternatives: same language, no CAM, not far below, best first', () =
   assert.ok(alts.length <= 3);
   assert.deepEqual(plain(ctx.torrentRaceAlternatives(chosen, list, rctx, 0)), []);
   assert.deepEqual(plain(ctx.torrentRaceAlternatives({ kind: 'direct' }, list, rctx, 3)), []);
+});
+
+test('Poster Pro fallback fills missing IMDb/TMDB posters and detects addon_catalog collections', () => {
+  const ctx = load();
+  const noPoster = plain(ctx.stremioMetaToVodRecord({ id: 'tt0133093', type: 'movie', name: 'The Matrix' }, 'https://a', ''));
+  assert.equal(noPoster.poster, 'https://openposterdb.com/t0-free-rpdb/imdb/poster-default/tt0133093.jpg?lang=es-MX');
+  assert.equal(noPoster.backdrop, 'https://openposterdb.com/t0-free-rpdb/imdb/backdrop-default/tt0133093.jpg');
+  const colInfo = ctx.stremioAddonInfo({ id: 'col', name: 'Colección', resources: ['addon_catalog'], addonCatalogs: [{ type: 'all', id: 'top' }] }, 'https://col/manifest.json');
+  assert.equal(ctx.isAddonCollectionOnly(colInfo), true);
+  const normalInfo = ctx.stremioAddonInfo(MANIFEST, 'https://a/manifest.json');
+  assert.equal(ctx.isAddonCollectionOnly(normalInfo), false);
+});
+
+test('auto-translated subtitle codes and JS plugin domain mapping work', () => {
+  const ctx = load();
+  assert.equal(ctx.formatAudioLang('esgt'), 'Español (traducido)');
+  assert.equal(ctx.formatAudioLang('es-gt'), 'Español (traducido)');
+  assert.equal(ctx.formatAudioLang('en-gt'), 'Inglés (traducido)');
+  assert.equal(ctx.resolveJsPluginRepoFromInput('https://framextv.cc/'), 'baskettv23/Framextv');
+  assert.equal(ctx.resolveJsPluginRepoFromInput('baskettv23/Pelispanda'), 'baskettv23/Pelispanda');
+  assert.equal(ctx.stremioBaseFromUrl('https://raw.githubusercontent.com/baskettv23/Framextv/HEAD/kino-plugin.json'), 'https://raw.githubusercontent.com/baskettv23/Framextv/HEAD');
+  /* kino lives in the plugins' sandbox (ui/js/plugin-runtime.js). */
+  const vm = require('vm');
+  const fakeWindow = { parent: { postMessage() {} }, addEventListener() {} };
+  vm.runInNewContext(require('fs').readFileSync(require('path').join(__dirname, '..', 'ui', 'js', 'plugin-runtime.js'), 'utf8'),
+    { window: fakeWindow, Promise, setTimeout, JSON, Math, Object, Array, String, Number, Error, RegExp, unescape, escape, encodeURIComponent, decodeURIComponent });
+  const shim = fakeWindow.__opentvKino.build('test', {});
+  assert.equal(shim.crypto.hash('sha256', 'abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  /* Pure-JS AES-256-GCM and AES-128-CBC match Node native crypto bit-for-bit. */
+  const nodeCrypto = require('crypto');
+  const key32 = Buffer.from('00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff', 'hex');
+  const iv12 = Buffer.from('aabbccddeeff001122334455', 'hex');
+  const aad = Buffer.from('wing-aad', 'utf8');
+  const plainMsg = '{"ok":true,"url":"https://cdn.example/video.m3u8"}';
+  const cipher = nodeCrypto.createCipheriv('aes-256-gcm', key32, iv12);
+  cipher.setAAD(aad);
+  const encBuf = Buffer.concat([cipher.update(plainMsg, 'utf8'), cipher.final(), cipher.getAuthTag()]);
+  const gcmDec = shim.crypto.decrypt('aes-256-gcm', {
+    key: key32.toString('base64'), keyEncoding: 'base64',
+    iv: iv12.toString('base64'), ivEncoding: 'base64',
+    data: encBuf.toString('base64'), inputEncoding: 'base64',
+    aad: aad.toString('utf8'), aadEncoding: 'utf8',
+    outputEncoding: 'utf8'
+  });
+  assert.equal(gcmDec, plainMsg);
+  const gcmEnc = shim.crypto.encrypt('aes-256-gcm', {
+    key: key32.toString('base64'), keyEncoding: 'base64',
+    iv: iv12.toString('base64'), ivEncoding: 'base64',
+    data: plainMsg, inputEncoding: 'utf8',
+    aad: aad.toString('utf8'), aadEncoding: 'utf8',
+    outputEncoding: 'base64'
+  });
+  assert.equal(gcmEnc, encBuf.toString('base64'));
+  /* AES-128-CBC round-trip */
+  const key16 = Buffer.from('0123456789abcdef0123456789abcdef', 'hex');
+  const iv16 = Buffer.from('fedcba9876543210fedcba9876543210', 'hex');
+  const cbcEnc = shim.crypto.encrypt('aes-128-cbc', {
+    key: key16.toString('hex'), keyEncoding: 'hex',
+    iv: iv16.toString('hex'), ivEncoding: 'hex',
+    data: 'hola mundo opentv', inputEncoding: 'utf8', outputEncoding: 'base64'
+  });
+  const cbcDec = shim.crypto.decrypt('aes-128-cbc', {
+    key: key16.toString('hex'), keyEncoding: 'hex',
+    iv: iv16.toString('hex'), ivEncoding: 'hex',
+    data: cbcEnc, inputEncoding: 'base64', outputEncoding: 'utf8'
+  });
+  assert.equal(cbcDec, 'hola mundo opentv');
+  /* Nested seasons flattening and rank.sortBySimilarity */
+  const flat = plain(ctx.flattenKinoEpisodes({
+    seasons: [{ number: 2, episodes: [{ number: 3, ref: 's2e3', title: 'Ep 3' }] }]
+  }));
+  assert.equal(flat.length, 1);
+  assert.equal(flat[0].season, 2);
+  assert.equal(flat[0].number, 3);
+  assert.equal(flat[0].ref, 's2e3');
+  const ranked = plain(shim.rank.sortBySimilarity([{ title: 'Otra cosa' }, { title: 'The Matrix', year: 1999 }], 'Matrix', { year: 1999 }));
+  assert.equal(ranked[0].title, 'The Matrix');
+  /* Lazy JS plugin alternatives and resolve() subtitles are playable and preserved. */
+  const lazy = plain(ctx.describeStremioStream({
+    name: 'FrameXTV', title: 'Servidor 2 · 1080p LATINO', url: '',
+    jsLazyRef: 'srv:2', jsAddonUrl: 'https://raw.githubusercontent.com/baskettv23/Framextv/HEAD/kino-plugin.json',
+    subtitles: [{ lang: 'es', url: 'https://cdn.example/es.vtt', label: 'Español (FrameXTV)' }]
+  }, 'FrameXTV'));
+  assert.equal(lazy.kind, 'direct');
+  assert.equal(ctx.stremioSourcePlayable(lazy), true);
+  assert.equal(lazy.subtitles.length, 1);
+  assert.equal(lazy.subtitles[0].label, 'Español (FrameXTV)');
+  assert.equal(typeof shim.browser.capture, 'function');
+  assert.equal(typeof shim.browser.load, 'function');
+  assert.equal(shim.cookies.get('example.com'), null);
+});
+
+test('source health, direct speed and direct auto-fallback rank reliable servers first', () => {
+  const ctx = load();
+  const s1 = plain(ctx.describeStremioStream({ name: 'A', title: '1080p LATINO', url: 'https://bad-host.example/video.m3u8' }, 'A'));
+  const s2 = plain(ctx.describeStremioStream({ name: 'B', title: '1080p LATINO', url: 'https://fast-host.example/video.m3u8' }, 'B'));
+  ctx.noteSourceOutcome(s1, false, 0);
+  ctx.noteSourceOutcome(s1, false, 0);
+  ctx.noteSourceOutcome(s2, true, 900);
+  ctx.noteSourceOutcome(s2, true, 1100);
+  const rctx = rankCtx(ctx, { langs: ['latino'] });
+  assert.equal(ctx.bestSource([s1, s2], rctx).url, s2.url);
+  /* Direct auto-fallback skips already-tried URL and picks the next same-language direct source. */
+  const alts = plain(ctx.directFallbackAlternatives(s1, [s1, s2], rctx, 2, { [s1.url]: true }));
+  assert.equal(alts.length, 1);
+  assert.equal(alts[0].url, s2.url);
+  /* Direct speed measurement adapts effectiveNetSpeed without needing torrents. */
+  ctx.noteDirectSpeed(625000); /* 5 Mbps */
+  assert.equal(ctx.effectiveNetSpeed(), 5);
+  /* On TV/Android (preferDirect: true), a non-CAM direct source always beats a torrent;
+     a torrent is only recommended when no non-CAM direct source exists. */
+  const torLat1080 = src(ctx, 'Peli.2024.1080p.WEB-DL.mkv\n👤 400 💾 2.1 GB ⚙️ A\n🇲🇽');
+  const dir720 = plain(ctx.describeStremioStream({ name: 'Directo', title: '720p', url: 'https://cdn.example/720.m3u8' }, 'Directo'));
+  const dirCam = plain(ctx.describeStremioStream({ name: 'Directo', title: 'HDCAM LATINO', url: 'https://cdn.example/cam.mp4' }, 'Directo'));
+  const tvCtx = Object.assign(rankCtx(ctx, { langs: ['latino'] }), { preferDirect: true });
+  assert.equal(ctx.bestSource([torLat1080, dir720], tvCtx).url, dir720.url);
+  assert.equal(ctx.bestSource([torLat1080, dirCam], tvCtx).infoHash, torLat1080.infoHash);
+  assert.equal(ctx.bestSource([torLat1080], tvCtx).infoHash, torLat1080.infoHash);
 });

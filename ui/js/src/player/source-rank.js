@@ -6,6 +6,8 @@
 
 var SOURCE_PREFS_KEY = 'opentv_source_prefs_v1';
 var NET_SPEED_KEY = 'opentv_net_speed_v1';
+var SOURCE_HEALTH_KEY = 'opentv_source_health_v1';
+var sessionDirectMbps = 0;
 
 /* Languages a source can be tagged with, in the order the chips show them. */
 var SOURCE_LANG_LABELS = {
@@ -191,6 +193,90 @@ function noteNetSpeed(bytesPerSec) {
   } catch (e) { /* ignore */ }
 }
 
+/* Session throughput observed on direct/HLS streams (exponential moving average)
+   so slow Wi-Fi or mobile networks adapt right away without waiting for torrents. */
+function noteDirectSpeed(bytesPerSec) {
+  var mbps = (Number(bytesPerSec) || 0) * 8 / 1000000;
+  if (!(mbps > 0.2) || mbps > 500) { return; }
+  sessionDirectMbps = sessionDirectMbps > 0 ? (sessionDirectMbps * 0.6 + mbps * 0.4) : mbps;
+  noteNetSpeed(bytesPerSec);
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('opentv:direct-speed', function (ev) {
+    if (ev && ev.detail) { noteDirectSpeed(ev.detail); }
+  });
+}
+
+function isMeteredConnection() {
+  try {
+    var c = navigator && (navigator.connection || navigator.mozConnection || navigator.webkitConnection);
+    if (!c) { return false; }
+    return !!(c.saveData || c.type === 'cellular');
+  } catch (e) { return false; }
+}
+
+function effectiveNetSpeed() {
+  var peak = knownNetSpeed();
+  if (sessionDirectMbps > 0) {
+    return peak > 0 ? Math.min(peak, Math.round(sessionDirectMbps * 10) / 10) : Math.round(sessionDirectMbps * 10) / 10;
+  }
+  return peak;
+}
+
+/* ------------------------------------------------ source health (direct & plugin) */
+function sourceHealthKey(src) {
+  if (!src) { return ''; }
+  if (src.url) {
+    var m = /^https?:\/\/([^\/:?#]+)/i.exec(src.url);
+    if (m) { return m[1].toLowerCase().replace(/^www\./, ''); }
+  }
+  return String(src.provider || src.addon || '').toLowerCase().trim();
+}
+
+function loadSourceHealth() {
+  try { return JSON.parse(localStorage.getItem(SOURCE_HEALTH_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+
+function noteSourceOutcome(src, ok, startupMs) {
+  var key = sourceHealthKey(src);
+  if (!key) { return; }
+  var map = loadSourceHealth();
+  var rec = map[key] || { ok: 0, fail: 0, streakFail: 0, avgMs: 0, at: 0 };
+  if (ok) {
+    rec.ok = Math.min(99, (rec.ok || 0) + 1);
+    rec.streakFail = 0;
+    if (startupMs > 0 && startupMs < 60000) {
+      rec.avgMs = rec.avgMs > 0 ? Math.round(rec.avgMs * 0.65 + startupMs * 0.35) : Math.round(startupMs);
+    }
+  } else {
+    rec.fail = Math.min(99, (rec.fail || 0) + 1);
+    rec.streakFail = Math.min(5, (rec.streakFail || 0) + 1);
+  }
+  rec.at = Date.now();
+  map[key] = rec;
+  var keys = Object.keys(map);
+  if (keys.length > 60) {
+    keys.sort(function (a, b) { return (map[a].at || 0) - (map[b].at || 0); });
+    for (var i = 0; i < keys.length - 60; i++) { delete map[keys[i]]; }
+  }
+  try { localStorage.setItem(SOURCE_HEALTH_KEY, JSON.stringify(map)); } catch (e) {}
+}
+
+function sourceHealthScore(src) {
+  var key = sourceHealthKey(src);
+  if (!key) { return 0; }
+  var rec = loadSourceHealth()[key];
+  if (!rec || Date.now() - (rec.at || 0) > 7 * 86400000) { return 0; }
+  var delta = 0;
+  if (rec.streakFail > 0) { delta -= Math.min(780, rec.streakFail * 260); }
+  else if (rec.ok >= 2) { delta += 50; }
+  if (rec.avgMs > 0) {
+    if (rec.avgMs < 2000) { delta += 80; }
+    else if (rec.avgMs > 6000) { delta -= 120; }
+  }
+  return delta;
+}
+
 /* ------------------------------------------------ this device */
 /* Android: what the device decodes and shows, and its free space (the
    service's ping). null on PC: there the relay converts any audio and
@@ -279,14 +365,36 @@ function scoreSource(src, ctx) {
     if (src.seeds !== null) {
       score += src.seeds < 3 ? -350 : Math.min(260, 90 * Math.log(src.seeds + 1) / Math.LN10);
     }
+    if (ctx.metered && src.sizeBytes > 2.5 * 1073741824) { score -= 350; }
   } else {
-    score += 200;   /* starts at once, no peers needed */
+    var isHlsDirect = /\.m3u8(\?|$)/i.test(src.url || '');
+    var isLazyDirect = !src.url && !!src.jsLazyRef;
+    score += src.notWebReady ? 40 : 200;   /* starts at once, no peers needed; web-ready direct links first */
+    if (isHlsDirect && ((typeof platformIsTv === 'function' && platformIsTv()) || ctx.metered || (ctx.mbps > 0 && ctx.mbps < 12))) {
+      score += 70;  /* adaptive HLS handles fluctuating bandwidth without stalling */
+    }
+    if (isLazyDirect) { score -= 45; }
+    if ((typeof platformIsTv === 'function' && platformIsTv()) || ctx.metered) { score += 120; }
   }
+  /* Spanish subtitles bundled with an English/original stream help Spanish viewers. */
+  var wantsEs = prefs.langs.indexOf('latino') !== -1 || prefs.langs.indexOf('castellano') !== -1;
+  if (wantsEs && !langScore) {
+    var hasEsSubs = !!src.subsEs;
+    if (!hasEsSubs && Array.isArray(src.subtitles)) {
+      for (var si = 0; si < src.subtitles.length; si++) {
+        if (/^(es|spa|spn|lat)/i.test(String((src.subtitles[si] && (src.subtitles[si].lang || src.subtitles[si].language)) || ''))) {
+          hasEsSubs = true; break;
+        }
+      }
+    }
+    if (hasEsSubs) { score += 140; }
+  }
+  score += sourceHealthScore(src);
   if (src.hevc) { score -= 80; }
   if (src.tenBit) { score -= 60; }
   if (src.hdr) { score -= 140; }
   if (src.threeD) { score -= 500; }
-  if (src.mp4) { score += 30; }
+  if (src.mp4 || /\.mp4(\?|$)/i.test(src.url || '')) { score += 30; }
   /* Android: what this device cannot decode, show or store. */
   score -= sourceDevicePenalty(src, src.kind === 'torrent');
   /* The addon's own order breaks ties. */
@@ -295,17 +403,69 @@ function scoreSource(src, ctx) {
 
 function sourceRankContext(item, episode) {
   var target = episode || item || {};
+  var metered = isMeteredConnection();
+  var mbps = effectiveNetSpeed();
+  if (metered && (!mbps || mbps > 7)) { mbps = 6; }
   return {
     prefs: loadSourcePrefs(),
-    mbps: knownNetSpeed(),
+    mbps: mbps,
+    metered: metered,
     duration: typeof durationToSeconds === 'function' ? durationToSeconds(target.duration || (item && item.duration)) : 0,
     episode: !!episode
   };
 }
 
+/* Direct-source auto-fallback: next best direct sources of the same language
+   (excluding already-tried URLs/refs) when the chosen direct server fails. */
+function directFallbackAlternatives(chosen, list, ctx, max, triedKeys) {
+  if (!chosen || chosen.kind !== 'direct' || !(max > 0)) { return []; }
+  triedKeys = triedKeys || {};
+  var langs = chosen.langs || [];
+  var picked = [];
+  for (var i = 0; i < list.length; i++) {
+    var s = list[i];
+    if (!s || s.kind !== 'direct') { continue; }
+    var k = s.url || (s.jsAddonUrl + '|' + s.jsLazyRef);
+    if (!k || triedKeys[k]) { continue; }
+    if (s.cam && !chosen.cam) { continue; }
+    if (sourcePrefsBlock(s, ctx.prefs, ctx.episode)) { continue; }
+    if (langs.length && !langs.some(function (l) { return (s.langs || []).indexOf(l) !== -1; })) { continue; }
+    picked.push({ src: s, key: k, score: scoreSource(s, ctx) });
+  }
+  picked.sort(function (a, b) { return b.score - a.score; });
+  var out = [], seen = {};
+  for (var p = 0; p < picked.length && out.length < max; p++) {
+    if (seen[picked[p].key]) { continue; }
+    seen[picked[p].key] = true;
+    out.push(picked[p].src);
+  }
+  return out;
+}
+
 /* The best of `list` for ctx, among the ones the preferences show (or among
-   all of them when the preferences hide every source). */
+   all of them when the preferences hide every source).
+   On TV and Android (non-desktop), direct links always come before torrents
+   so a torrent is only recommended when no non-CAM direct source exists. */
 function bestSource(list, ctx) {
+  var directFirst = (ctx && typeof ctx.preferDirect === 'boolean') ? ctx.preferDirect
+    : (typeof platformHas === 'function' ? !platformHas('window') : false);
+  if (directFirst) {
+    var directPool = [];
+    for (var d = 0; d < list.length; d++) {
+      var cand = list[d];
+      if (cand && cand.kind === 'direct' && !cand.cam && !sourcePrefsBlock(cand, ctx.prefs, ctx.episode)) {
+        directPool.push(cand);
+      }
+    }
+    if (directPool.length) {
+      var bestDirect = null, bestDirectScore = -Infinity;
+      for (var j = 0; j < directPool.length; j++) {
+        var ds = scoreSource(directPool[j], ctx);
+        if (ds > bestDirectScore) { bestDirectScore = ds; bestDirect = directPool[j]; }
+      }
+      if (bestDirect) { return bestDirect; }
+    }
+  }
   var best = null, bestScore = -Infinity, shown = 0;
   for (var pass = 0; pass < 2 && !best; pass++) {
     for (var i = 0; i < list.length; i++) {
@@ -410,8 +570,8 @@ function buildSourcePrefsEditor(onChange) {
         save();
       });
     });
-    var subs = row('Subtítulos', 'Los del archivo vienen con el vídeo y van sincronizados. Si no hay, se usan los de tus addons.');
-    [['file', 'Archivo primero'], ['addons', 'Addons primero'], ['fileOnly', 'Solo archivo'], ['addonsOnly', 'Solo addons']].forEach(function (o) {
+    var subs = row('Subtítulos', 'Los del archivo vienen con el vídeo y van sincronizados. Si no hay, se usan los de tus plugins.');
+    [['file', 'Archivo primero'], ['addons', 'Plugins primero'], ['fileOnly', 'Solo archivo'], ['addonsOnly', 'Solo plugins']].forEach(function (o) {
       chip(subs, o[1], p.subsFrom === o[0], function () { p.subsFrom = o[0]; save(); });
     });
 
@@ -430,7 +590,7 @@ function buildSourcePrefsEditor(onChange) {
         save();
       });
     });
-    var per = row('Máximo por calidad', 'Cuántas fuentes de cada calidad muestra cada addon.');
+    var per = row('Máximo por calidad', 'Cuántas fuentes de cada calidad muestra cada plugin.');
     [[0, 'Todas'], [3, '3'], [5, '5'], [10, '10']].forEach(function (o) {
       chip(per, o[1], p.perQuality === o[0], function () { p.perQuality = o[0]; save(); });
     });

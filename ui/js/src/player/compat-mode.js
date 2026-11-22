@@ -56,7 +56,10 @@ function restoreSmoothMode(item) {
   } else if (key && smoothModeByTitle.hasOwnProperty(key)) {
     state.streamMode = smoothModeByTitle[key] ? 'smooth' : 'normal';
   } else {
-    state.streamMode = state.playback.streamMode === 'smooth' ? 'smooth' : 'normal';
+    /* Directo first. (A global "Compatibilidad máxima" saved by older
+       versions no longer applies: its switch is gone, and the automatic
+       fallback still changes when a video fails.) */
+    state.streamMode = 'normal';
   }
 }
 

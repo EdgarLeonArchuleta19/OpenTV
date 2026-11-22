@@ -18,7 +18,8 @@ var LIVE_DOCK_ICONS = {
   plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12M12 6v12"/></svg>',
   star: UI_ICONS.star,
   full: UI_ICONS.fullscreen,
-  guide: uiSvg('<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18M9 9v11"/>')
+  guide: uiSvg('<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18M9 9v11"/>'),
+  schedule: uiSvg('<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M7.5 14h4M7.5 17h7"/>')
 };
 var liveVolRange = null;
 var liveVolToast = null;
@@ -45,8 +46,10 @@ function syncFromSystemVolume() {
   if (!api || systemVolumePending !== null) { return; }
   api('get').then(function (r) {
     if (!r || r.error || typeof r.volume !== 'number' || systemVolumePending !== null) { return; }
+    /* The first answer always applies: the videos go to full level. */
+    var first = !systemVolumeOn;
     systemVolumeOn = true;
-    if (Math.abs(r.volume - liveAudio.volume) > 0.004 || r.muted !== liveAudio.muted) {
+    if (first || Math.abs(r.volume - liveAudio.volume) > 0.004 || r.muted !== liveAudio.muted) {
       liveAudio.volume = r.volume;
       liveAudio.muted = r.muted;
       applyLiveAudio(false);
@@ -67,8 +70,12 @@ function pushSystemVolume() {
     }).catch(function () { systemVolumePending = null; });
   }, 60);
 }
+/* Once, at start (main.js) and again from the TV page (harmless): the app
+   plays at full level and its volume is Windows' own, everywhere. */
+var systemVolumeStarted = false;
 function startSystemVolumeSync() {
-  if (!systemVolumeApi()) { return; }
+  if (!systemVolumeApi() || systemVolumeStarted) { return; }
+  systemVolumeStarted = true;
   syncFromSystemVolume();
   /* Follow changes made with the keyboard volume keys or the taskbar. */
   setInterval(function () {
@@ -195,7 +202,7 @@ function buildLiveDock(page) {
     applyLiveAudio(true);
   });
   bar.appendChild(liveMuteBtn);
-  /* Volume: a slider (drag, click or mouse wheel) and its value. */
+  /* Volume: a slider (drag or click) and its value. */
   var volWrap = el('div', 'live-dock-volume');
   liveVolRange = document.createElement('input');
   liveVolRange.type = 'range';
@@ -211,10 +218,6 @@ function buildLiveDock(page) {
     if (systemVolumeOn) { pushSystemVolume(); }
   });
   liveVolRange.addEventListener('change', function () { applyLiveAudio(true); });
-  liveVolRange.addEventListener('wheel', function (event) {
-    event.preventDefault();
-    changeLiveVolume(event.deltaY < 0 ? 0.05 : -0.05);
-  }, { passive: false });
   volWrap.appendChild(liveVolRange);
   liveVolLabel = el('span', 'live-dock-vol', '80%');
   volWrap.appendChild(liveVolLabel);
@@ -230,6 +233,7 @@ function buildLiveDock(page) {
   });
   bar.appendChild(liveFavBtn);
   if (window.OPENTV_DESKTOP) {
+    bar.appendChild(dockButton('is-schedule', LIVE_DOCK_ICONS.schedule, 'Programación', 'Programación del canal', function () { openLiveSchedule(); }));
     bar.appendChild(dockButton('is-guide', LIVE_DOCK_ICONS.guide, 'Guía', 'Guía de canales (G)', openLiveGuide));
   }
   bar.appendChild(dockButton('is-full', LIVE_DOCK_ICONS.full, 'Pantalla completa', 'Ver en pantalla completa', function () { openPlayer('live'); }));
@@ -243,20 +247,11 @@ function buildLiveDock(page) {
     liveDock.appendChild(liveDockCats);
   }
   page.appendChild(liveDock);
-  /* Mouse wheel over the preview changes the volume. */
-  if (liveMain && !liveMain._wheelVolume) {
-    liveMain._wheelVolume = true;
-    liveMain.addEventListener('wheel', function (event) {
-      if (event.ctrlKey) { return; }
-      event.preventDefault();
-      changeLiveVolume(event.deltaY < 0 ? 0.05 : -0.05);
-    }, { passive: false });
-  }
   renderLiveDockCats();
   applyLiveAudio(false);
   syncLiveFavButton();
   if (volWrap) { volWrap.setAttribute('data-tip', systemVolumeApi() ? 'Volumen de Windows' : 'Volumen'); }
-  if (!liveDock._systemSync) { liveDock._systemSync = true; startSystemVolumeSync(); }
+  startSystemVolumeSync();
 }
 
 /* PC and TV (design "3A"): the categories in one drop-down in the app's

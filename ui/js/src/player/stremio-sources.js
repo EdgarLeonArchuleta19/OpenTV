@@ -9,6 +9,8 @@
 var STREMIO_PICKS_KEY = 'opentv_stremio_picks_v1';
 var TORRENT_NOTICE_KEY = 'opentv_torrent_notice_v1';
 var STREMIO_PICKS_MAX = 300;
+/* A remembered direct link (not a torrent) older than this is looked up again. */
+var STREMIO_DIRECT_PICK_MS = 3 * 60 * 60 * 1000;
 
 /* ------------------------------------------------ remembered sources */
 function stremioTargetId(item, episode) {
@@ -23,7 +25,14 @@ function loadStremioPicks() {
 
 function savedStremioPick(item, episode) {
   var id = stremioTargetId(item, episode);
-  return id ? (loadStremioPicks()[id] || null) : null;
+  var pick = id ? (loadStremioPicks()[id] || null) : null;
+  if (pick && pick.addon) {
+    var addons = getVodSourcesConfig().addons;
+    for (var i = 0; i < addons.length; i++) {
+      if (addons[i] && addons[i].name === pick.addon && addons[i].disabled) { return null; }
+    }
+  }
+  return pick;
 }
 
 function rememberStremioPick(item, episode, src) {
@@ -33,6 +42,8 @@ function rememberStremioPick(item, episode, src) {
   picks[id] = {
     addon: src.addon, url: src.url || '', infoHash: src.infoHash || '', fileIdx: src.fileIdx,
     sources: src.sources || null, headers: src.headers || null, notWebReady: !!src.notWebReady,
+    subtitles: Array.isArray(src.subtitles) ? src.subtitles.slice(0, 12) : null,
+    jsLazyRef: src.jsLazyRef || '', jsAddonUrl: src.jsAddonUrl || '',
     filename: src.filename || '', label: src.label || '', quality: src.quality || '',
     langs: src.langs || [], original: !!src.original, at: Date.now()
   };
@@ -53,6 +64,16 @@ function forgetStremioPick(item, episode) {
   }
   var target = episode || item;
   if (target) { target._stremioSource = null; }
+}
+
+/* Season and episode numbers of an episode ("tt0903747:1:5" → 1, 5), for
+   finding its file in a season pack; 0 when unknown (films, absolute anime
+   numbering). */
+function torrentEpisodeHint(episode) {
+  var id = String((episode && episode.id) || '');
+  /* Anime ids ("kitsu:12345:5") carry the show's id, not a season. */
+  var m = !/^(kitsu|mal|anilist|anidb)[:_]/i.test(id) && /:(\d{1,3}):(\d{1,4})$/.exec(id);
+  return m ? { season: parseInt(m[1], 10), episode: parseInt(m[2], 10) } : { season: 0, episode: 0 };
 }
 
 /* ------------------------------------------------ the addons' sources */
@@ -76,8 +97,11 @@ function describeStremioStream(s, addonName) {
   var tags = sourceTags(name, title, hints.filename);
   return {
     addon: addonName,
-    kind: s.infoHash ? 'torrent' : (s.url ? 'direct' : 'other'),
+    kind: s.infoHash ? 'torrent' : ((s.url || s.jsLazyRef) ? 'direct' : 'other'),
     url: s.url || '',
+    jsLazyRef: s.jsLazyRef || '',
+    jsAddonUrl: s.jsAddonUrl || '',
+    subtitles: Array.isArray(s.subtitles) ? s.subtitles : null,
     infoHash: s.infoHash ? String(s.infoHash).toLowerCase() : '',
     fileIdx: s.fileIdx,
     sources: s.sources || null,
@@ -123,7 +147,7 @@ function sizeToBytes(text) {
 
 function stremioSourcePlayable(src) {
   if (src.kind === 'torrent') { return platformHas('torrents') && /^[0-9a-f]{40}$/.test(src.infoHash); }
-  return src.kind === 'direct' && /^https?:\/\//i.test(src.url);
+  return src.kind === 'direct' && (/^https?:\/\//i.test(src.url) || !!(src.jsLazyRef && src.jsAddonUrl));
 }
 
 /* Asks every addon with "stream" at once; onUpdate(groups, pending) runs as
@@ -144,9 +168,18 @@ function copyStreamGroups(groups) {
   });
 }
 
+function vodStreamsCacheSig() {
+  var addons = getVodSourcesConfig().addons;
+  var parts = [];
+  for (var i = 0; i < addons.length; i++) {
+    if (addons[i] && !addons[i].disabled) { parts.push(addons[i].url || addons[i].id || i); }
+  }
+  return parts.join(',');
+}
+
 function fetchStremioStreams(item, episode, onUpdate) {
   var type = item._stremioType || (isSeriesItem(item) ? 'series' : 'movie');
-  var key = type + '|' + stremioStreamId(item, episode) + '|' + getVodSourcesConfig().addons.length;
+  var key = type + '|' + stremioStreamId(item, episode) + '|' + vodStreamsCacheSig();
   var hit = streamsCache[key];
   if (hit && Date.now() - hit.at < STREAMS_CACHE_MS) { onUpdate(copyStreamGroups(hit.groups), 0); return; }
   if (streamsInFlight[key]) { streamsInFlight[key].push(onUpdate); return; }
@@ -155,10 +188,22 @@ function fetchStremioStreams(item, episode, onUpdate) {
     if (!pending) {
       delete streamsInFlight[key];
       /* (Nothing kept when every addon failed: try again next time.) */
-      if (groups.some(function (g) { return g.state === 'done'; })) { streamsCache[key] = { at: Date.now(), groups: copyStreamGroups(groups) }; }
+      if (groups.some(function (g) { return g.state === 'done'; })) {
+        streamsCache[key] = { at: Date.now(), groups: copyStreamGroups(groups) };
+        var scKeys = Object.keys(streamsCache);
+        if (scKeys.length > 40) {
+          scKeys.sort(function (a, b) { return (streamsCache[a].at || 0) - (streamsCache[b].at || 0); });
+          for (var sk = 0; sk < scKeys.length - 40; sk++) { delete streamsCache[scKeys[sk]]; }
+        }
+      }
     }
     for (var i = 0; i < listeners.length; i++) { listeners[i](pending ? groups : copyStreamGroups(groups), pending); }
   });
+}
+
+function isLikelyTorrentAddon(ad) {
+  var s = String((ad && (ad.name || '')) + ' ' + (ad && (ad.url || ''))).toLowerCase();
+  return /torrent|peerflix|knightcrawler|comet|mediafusion|jackett/i.test(s);
 }
 
 function fetchStremioStreamsNow(item, episode, onUpdate) {
@@ -168,14 +213,24 @@ function fetchStremioStreamsNow(item, episode, onUpdate) {
   var groups = [];
   for (var i = 0; i < cfg.addons.length; i++) {
     if (addonSupports(cfg.addons[i], 'stream', type, rawId)) {
-      groups.push({ addon: cfg.addons[i], name: cfg.addons[i].name, state: 'loading', sources: [], hidden: 0, dead: 0 });
+      groups.push({ addon: cfg.addons[i], name: cfg.addons[i].name, state: 'loading', sources: [], hidden: 0, dead: 0, _ord: groups.length });
     }
   }
+  /* Ask direct/JS plugins before torrent scrapers so fast direct links show first. */
+  groups.sort(function (a, b) {
+    var ta = isLikelyTorrentAddon(a.addon) ? 1 : 0;
+    var tb = isLikelyTorrentAddon(b.addon) ? 1 : 0;
+    return (ta - tb) || (a._ord - b._ord);
+  });
   var pending = groups.length;
   onUpdate(groups, pending);
-  groups.forEach(function (g) {
-    addonRequest(g.addon.baseUrl + '/stream/' + encodeURIComponent(type) + '/' + stremioStreamId(item, episode) + '.json', function (err, payload) {
-      var streams = (!err && payload && payload.streams) ? payload.streams : [];
+  var lowSpec = typeof isLowSpecDevice === 'function' && isLowSpecDevice();
+  var maxConc = lowSpec ? 3 : Math.max(1, groups.length);
+  var nextG = 0;
+  function launchNext() {
+    if (nextG >= groups.length) { return; }
+    var g = groups[nextG++];
+    function finishGroup(err, streams) {
       for (var s = 0; s < streams.length; s++) {
         var src = describeStremioStream(streams[s], g.name);
         src._i = g.sources.length;   /* the addon's own order, a tie-breaker */
@@ -187,8 +242,19 @@ function fetchStremioStreamsNow(item, episode, onUpdate) {
       g.error = err || '';
       noteSourceProviders(g.sources);
       onUpdate(groups, --pending);
+      launchNext();
+    }
+    if (g.addon && g.addon.kind === 'jsplugin' && typeof resolveJsPluginStreams === 'function') {
+      resolveJsPluginStreams(g.addon, item, episode, function (jErr, jStreams) {
+        finishGroup(jErr, jStreams || []);
+      });
+      return;
+    }
+    addonRequest(g.addon.baseUrl + '/stream/' + encodeURIComponent(type) + '/' + stremioStreamId(item, episode) + '.json', function (err, payload) {
+      finishGroup(err, (!err && payload && payload.streams) ? payload.streams : []);
     }, 25000);
-  });
+  }
+  for (var w = 0; w < maxConc && w < groups.length; w++) { launchNext(); }
 }
 
 /* Next episode with no source chosen: the best one from the same addon,
@@ -520,7 +586,7 @@ function openSourcePicker(item, episode, onPick, opts) {
     renderFilters(all);
     clear(body);
     if (!groups.length) {
-      body.appendChild(el('div', 'srcp-empty', 'Ninguno de tus addons da fuentes para reproducir. Agrega un addon de fuentes en Ajustes → Addons.'));
+      body.appendChild(el('div', 'srcp-empty', 'Ninguno de tus plugins da fuentes para reproducir. Agrega un plugin de fuentes en Ajustes → Plugins.'));
     }
     var total = 0, shown = 0, first = null, again = null;
     /* The recommended one first, with why. */
@@ -575,19 +641,26 @@ function openSourcePicker(item, episode, onPick, opts) {
       body.appendChild(more);
       if (keepFocus === 'showhidden') { again = more; }
     }
-    var count = pending > 0 ? 'Buscando en ' + pending + (pending === 1 ? ' addon…' : ' addons…')
+    var count = pending > 0 ? 'Buscando en ' + pending + (pending === 1 ? ' plugin…' : ' plugins…')
       : (shown === total ? total + (total === 1 ? ' fuente' : ' fuentes') : shown + ' de ' + total + ' fuentes');
     note.textContent = waiting && best ? count + ' · Se reproducirá la recomendada. Pulsa cualquier tecla para elegir otra.' : count;
 
-    /* Play the recommended one when every addon answered, or 8 s after the
-       first sources arrived (a slow addon must not hold the viewer). */
+    /* Play the recommended one when every addon answered, quickly (2.8 s) if a
+       strong non-CAM direct source in the viewer's language already arrived,
+       or 8 s after the first sources arrived (a slow addon must not hold the viewer). */
     if (waiting && best) {
       if (pending === 0) { return autoChoose(); }
+      var fastDirect = best.kind === 'direct' && !best.cam && scoreSource(best, ctx) >= 1200;
+      if (fastDirect && autoTimer && !autoTimer._fast) {
+        clearTimeout(autoTimer);
+        autoTimer = null;
+      }
       if (!autoTimer) {
         autoTimer = setTimeout(function () {
           autoTimer = null;
           if (waiting && seq === sourcePickerSeq && sourcePickerOpen) { autoChoose(); }
-        }, 8000);
+        }, fastDirect ? 2800 : 8000);
+        autoTimer._fast = fastDirect;
       }
     }
     if (waiting && pending === 0 && !best) { waiting = false; }
@@ -648,9 +721,9 @@ function stremioNeedsPick(item, episode) {
 /* "Reproducir" with no addon that gives sources (Cinemeta and Kitsu only
    give the catalog): say so, and where to add one. */
 function showNoSourcesNotice() {
-  showShortNotice('Agrega un addon para reproducir',
-    'Para ver este contenido necesitas un addon de fuentes. Agrégalo en Addons.',
-    'Ir a Addons', function () { openSettingsAt('sources'); });
+  showShortNotice('Agrega un plugin para reproducir',
+    'Para ver este contenido necesitas un plugin de fuentes. Agrégalo en Plugins.',
+    'Ir a Plugins', function () { openSettingsAt('sources'); });
 }
 
 /* Panels over the app (source picker, notices, the guide): inside the
@@ -758,7 +831,7 @@ function torrentStatusText(st) {
    were not asked for: a source remembered from before plays directly). */
 function cachedStremioSources(item, episode) {
   var type = item._stremioType || (isSeriesItem(item) ? 'series' : 'movie');
-  var hit = streamsCache[type + '|' + stremioStreamId(item, episode) + '|' + getVodSourcesConfig().addons.length];
+  var hit = streamsCache[type + '|' + stremioStreamId(item, episode) + '|' + vodStreamsCacheSig()];
   var all = [];
   if (hit && Date.now() - hit.at < STREAMS_CACHE_MS) { hit.groups.forEach(function (g) { all = all.concat(g.sources); }); }
   return all;
@@ -780,6 +853,71 @@ function startTorrentPoll(item) {
   }, 1000);
 }
 
+var directFallbackState = { key: '', tried: {}, attempts: 0, startAt: 0 };
+
+function directSourceKey(src) {
+  if (!src) { return ''; }
+  return src.url || ((src.jsAddonUrl || '') + '|' + (src.jsLazyRef || ''));
+}
+
+function resetDirectFallback(item, ep, src) {
+  var targetKey = stremioTargetId(item, ep);
+  if (directFallbackState.key !== targetKey) {
+    directFallbackState = { key: targetKey, tried: {}, attempts: 0, startAt: Date.now() };
+  } else {
+    directFallbackState.startAt = Date.now();
+  }
+  var sk = directSourceKey(src);
+  if (sk) { directFallbackState.tried[sk] = true; }
+}
+
+function noteActiveSourceStarted() {
+  var item = state.playerItem;
+  if (!item || !item._stremio) { return; }
+  var ep = isSeriesItem(item) ? state.playerEpisode : null;
+  var target = ep || item;
+  var src = target && target._stremioSource;
+  if (!src) { return; }
+  var elapsed = directFallbackState.startAt ? (Date.now() - directFallbackState.startAt) : 0;
+  if (typeof noteSourceOutcome === 'function') { noteSourceOutcome(src, true, elapsed); }
+  directFallbackState.attempts = 0;
+}
+
+/* Auto-fallback for direct sources: when a direct server fails (403/timeout/decode)
+   before playback starts, automatically try up to 2 alternative direct sources of
+   the same language from cachedStremioSources. */
+function tryDirectSourceFallback(item, ep) {
+  item = item || state.playerItem;
+  if (!item || !item._stremio || item._downloadId) { return false; }
+  ep = ep || (isSeriesItem(item) ? state.playerEpisode : null);
+  var target = ep || item;
+  var cur = target && target._stremioSource;
+  if (!cur || cur.kind !== 'direct') { return false; }
+  if (typeof noteSourceOutcome === 'function') { noteSourceOutcome(cur, false, 0); }
+  var targetKey = stremioTargetId(item, ep);
+  if (directFallbackState.key !== targetKey) {
+    directFallbackState = { key: targetKey, tried: {}, attempts: 0, startAt: Date.now() };
+  }
+  var curKey = directSourceKey(cur);
+  if (curKey) { directFallbackState.tried[curKey] = true; }
+  if (directFallbackState.attempts >= 2) { return false; }
+  if (typeof directFallbackAlternatives !== 'function') { return false; }
+  var alts = directFallbackAlternatives(cur, cachedStremioSources(item, ep), sourceRankContext(item, ep), 1, directFallbackState.tried);
+  if (!alts.length) { return false; }
+  var nextSrc = alts[0];
+  directFallbackState.attempts++;
+  var nextKey = directSourceKey(nextSrc);
+  if (nextKey) { directFallbackState.tried[nextKey] = true; }
+  target._stremioSource = nextSrc;
+  target._stremioNoCopy = false;
+  rememberStremioPick(item, ep, nextSrc);
+  setPlayerStatus('El servidor falló · probando otra fuente (' + nextSrc.addon + ')…');
+  setTimeout(function () {
+    if (state.playerItem === item && state.playerMode === 'vod') { restartCurrentPlayback(); }
+  }, 50);
+  return true;
+}
+
 /* resolvePlayerStream for addon titles: the chosen source → playable URL. */
 function resolveStremioPlayback(item, done) {
   var mySeq = resolveSeq;
@@ -792,11 +930,11 @@ function resolveStremioPlayback(item, done) {
       loadStremioMeta(item, function () {
         if (mySeq !== resolveSeq) { return; }
         if (item.episodes && item.episodes.length) { resolveStremioPlayback(item, done); }
-        else { vodFailure('los capítulos', item._detailError || 'Ninguno de tus addons da los capítulos'); done(''); }
+        else { vodFailure('los capítulos', item._detailError || 'Ninguno de tus plugins da los capítulos'); done(''); }
       });
       return;
     }
-    vodFailure('los capítulos', item._detailError || 'Ninguno de tus addons da los capítulos');
+    vodFailure('los capítulos', item._detailError || 'Ninguno de tus plugins da los capítulos');
     return done('');
   }
   if (ep && !state.playerEpisode) { state.playerEpisode = ep; }
@@ -818,6 +956,12 @@ function resolveStremioPlayback(item, done) {
     return;
   }
   var src = target._stremioSource || savedStremioPick(item, ep);
+  /* A direct link remembered from hours ago (debrid, CDN) has usually
+     expired: look the sources up again instead. Torrents keep. */
+  if (src && !target._stremioSource && !src.infoHash && src.at && Date.now() - src.at > STREMIO_DIRECT_PICK_MS) {
+    forgetStremioPick(item, ep);
+    src = null;
+  }
   if (src) { return go(src); }
   var previous = null;
   if (item.episodes) {
@@ -840,7 +984,7 @@ function resolveStremioPlayback(item, done) {
   setPlayerStatus('Buscando fuente…');
   autoPickStremioSource(item, ep, previous, function (picked) {
     if (mySeq !== resolveSeq) { return; }
-    if (!picked) { vodFailure('la fuente', 'Tus addons no dieron ninguna fuente para este título'); return done(''); }
+    if (!picked) { vodFailure('la fuente', 'Tus plugins no dieron ninguna fuente para este título'); return done(''); }
     rememberStremioPick(item, ep, picked);
     go(picked);
   });
@@ -869,19 +1013,44 @@ function resolveStremioPlayback(item, done) {
       return;
     }
     stremioTorrentRelease();
+    resetDirectFallback(item, ep, chosen);
+    if (!chosen.url && chosen.jsLazyRef && chosen.jsAddonUrl && typeof resolveJsPluginLazyRef === 'function') {
+      setPlayerStatus('Resolviendo servidor…');
+      resolveJsPluginLazyRef(chosen.jsAddonUrl, chosen.jsLazyRef, function (jErr, resolved) {
+        if (mySeq !== resolveSeq) { return; }
+        if (jErr || !resolved || !resolved.url) {
+          if (tryDirectSourceFallback(item, ep)) { return; }
+          vodFailure('la fuente', jErr || 'No se pudo obtener el enlace de este servidor');
+          return done('');
+        }
+        chosen.url = resolved.url;
+        if (resolved.headers) { chosen.headers = resolved.headers; }
+        if (resolved.subtitles) { chosen.subtitles = resolved.subtitles; }
+        rememberStremioPick(item, ep, chosen);
+        resolveExternal(chosen.url, chosen.filename, chosen.headers, chosen.notWebReady);
+      });
+      return;
+    }
     resolveExternal(chosen.url, chosen.filename, chosen.headers, chosen.notWebReady);
   }
 
   function startTorrent(chosen, raceMax) {
     if (mySeq !== resolveSeq) { return; }
     var alts = torrentRaceAlternatives(chosen, cachedStremioSources(item, ep), sourceRankContext(item, ep), raceMax);
+    /* A season pack the addon gave no fileIdx for: the service picks the
+       file by the addon's file name, then by the episode (S01E05). */
+    var hint = torrentEpisodeHint(ep);
     portalServiceCall('torrentStart', {
-      infoHash: chosen.infoHash, fileIdx: chosen.fileIdx, sources: chosen.sources,
-      alternatives: alts.map(function (a) { return { infoHash: a.infoHash, fileIdx: a.fileIdx, sources: a.sources }; })
+      infoHash: chosen.infoHash, fileIdx: chosen.fileIdx, sources: chosen.sources, filename: chosen.filename || '',
+      season: hint.season, episode: hint.episode,
+      alternatives: alts.map(function (a) { return { infoHash: a.infoHash, fileIdx: a.fileIdx, sources: a.sources, filename: a.filename || '' }; })
     }, function (err, info) {
       if (mySeq !== resolveSeq) { return; }
       if (err || !info || info.returnValue === false || !info.url) {
         stopTorrentPoll();
+        /* Not remembered any more: the next try looks for another source
+           instead of failing on this one every time. */
+        forgetStremioPick(item, ep);
         vodFailure('el torrent', err || (info && info.errorText) || 'No se pudo abrir el torrent');
         return done('');
       }
@@ -913,6 +1082,8 @@ function resolveStremioPlayback(item, done) {
     portalServiceCall('resolveExternal', params, function (error, payload) {
       if (mySeq !== resolveSeq) { return; }
       if (error || !payload || payload.returnValue === false || !(payload.proxyPath || payload.url)) {
+        if (!item._downloadId) { forgetStremioPick(item, ep); }
+        if (tryDirectSourceFallback(item, ep)) { return; }
         vodFailure('el enlace de vídeo', error || (payload && payload.errorText) || 'Respuesta vacía del servicio');
         return done('');
       }
@@ -934,9 +1105,13 @@ function resolveStremioPlayback(item, done) {
       nativeSubIndex = -1;
       nativeCueText = '';
       mediaInfoCache[mediaInfoKey(item)] = info;
+      var miKeys = Object.keys(mediaInfoCache);
+      if (miKeys.length > 40) {
+        for (var mk = 0; mk < miKeys.length - 40; mk++) { delete mediaInfoCache[miKeys[mk]]; }
+      }
       done(payload.proxyPath || payload.url);
       requestVideoDuration(item, ep, payload);
-      loadStremioSubtitles(item, ep, { url: url, headers: headers, name: name });
+      loadStremioSubtitles(item, ep, { url: payload.resolvedUrl || url, headers: headers, name: name });
       bindNativeTextTracks();
     }, 30000);
   }
@@ -1041,6 +1216,8 @@ function stremioMediaInfo(item) {
    inside the file join the addons' (Preferencias decides the order). */
 function onSourceTracks(item, episode, answer) {
   if (!item || !item._stremio) { return; }
+  /* A late answer about the episode played before: not this one's tracks. */
+  if (state.playerItem !== item || (episode && state.playerEpisode !== episode)) { return; }
   var target = episode || item;
   var info = stremioMediaInfo(item);
   var tracks = answer.audio || [];
@@ -1190,24 +1367,41 @@ function importSubtitleFile(done) {
   input.click();
 }
 
-/* OpenSubtitles answers dozens of files (six Dutch, four Spanish…). The
-   dialog shows one button per language, so keep the first file of each
-   language: Spanish, English and Portuguese first, then the rest, at most
-   STREMIO_SUBTITLE_MAX (the local service keeps that many links alive). */
+/* OpenSubtitles answers dozens of files (six Dutch, four Spanish…), the
+   ones made for this release first. Spanish, English and Portuguese keep
+   up to STREMIO_SUBTITLE_PER_LANG files each (a series' episodes come in
+   several cuts: when one drifts, the viewer tries the next, "Español ·
+   opción 2"); other languages keep their first file. At most
+   STREMIO_SUBTITLE_MAX in all (the local service keeps that many links
+   alive). */
 var STREMIO_SUBTITLE_MAX = 16;
+var STREMIO_SUBTITLE_PER_LANG = 3;
 function pickStremioSubtitles(all) {
   var seen = {}, first = [], rest = [];
   for (var i = 0; i < all.length; i++) {
     var label = formatAudioLang(all[i].lang);
-    if (seen[label]) { continue; }
-    seen[label] = true;
-    (/^(Español|Inglés|Portugués)/.test(label) ? first : rest).push(all[i]);
+    var main = /^(Español|Inglés|Portugués)/.test(label);
+    seen[label] = (seen[label] || 0) + 1;
+    if (seen[label] > (main ? STREMIO_SUBTITLE_PER_LANG : 1)) { continue; }
+    (main ? first : rest).push({ lang: all[i].lang, url: all[i].url, label: all[i].label || '', _n: seen[label] });
   }
+  var order = ['Español', 'Inglés', 'Portugués'];
   first.sort(function (a, b) {
-    var order = ['Español', 'Inglés', 'Portugués'];
-    return order.indexOf(formatAudioLang(a.lang).split(' ')[0]) - order.indexOf(formatAudioLang(b.lang).split(' ')[0]);
+    return order.indexOf(formatAudioLang(a.lang).split(' ')[0]) - order.indexOf(formatAudioLang(b.lang).split(' ')[0]) || a._n - b._n;
   });
   return first.concat(rest).slice(0, STREMIO_SUBTITLE_MAX);
+}
+
+/* "Español · opción 2" for the second and third file of a language (the
+   service answers in the order it was asked). */
+function labelStremioSubtitles(picked, answered) {
+  return answered.map(function (s, i) {
+    var p = picked[i];
+    if (p && p.label && !s.label) { s.label = p.label; }
+    var n = p && p._n;
+    if (n > 1 && !s.label) { s.label = formatAudioLang(s.lang) + ' · opción ' + n; }
+    return s;
+  });
 }
 
 /* Subtitles from the addons that offer them (for example OpenSubtitles),
@@ -1220,42 +1414,110 @@ function loadStremioSubtitles(item, episode, file) {
   var cfg = getVodSourcesConfig();
   var type = item._stremioType || (isSeriesItem(item) ? 'series' : 'movie');
   var rawId = isSeriesItem(item) ? (episode && episode.id) : item._stremioId;
-  var addons = cfg.addons.filter(function (ad) { return addonSupports(ad, 'subtitles', type, rawId); });
-  if (!addons.length || !rawId) { return; }
-  if (file && file.url && !file._hashed) {
+  var activeSrc = (episode ? episode._stremioSource : item._stremioSource) || null;
+  var srcSubs = [];
+  if (activeSrc && Array.isArray(activeSrc.subtitles)) {
+    for (var ss = 0; ss < activeSrc.subtitles.length; ss++) {
+      var subObj = activeSrc.subtitles[ss];
+      if (subObj && /^https?:\/\//i.test(subObj.url || '')) {
+        srcSubs.push({
+          lang: String(subObj.lang || subObj.language || 'es'),
+          url: subObj.url,
+          label: subObj.label ? String(subObj.label) : ''
+        });
+      }
+    }
+  }
+  var addons = rawId ? cfg.addons.filter(function (ad) { return addonSupports(ad, 'subtitles', type, rawId); }) : [];
+  if (!addons.length && !srcSubs.length) { return; }
+  if (file && file.url && !file._hashed && addons.length) {
     var asked = false;
-    var go = function (extra) { if (!asked) { asked = true; loadStremioSubtitles(item, episode, { _hashed: true, extra: extra }); } };
-    setTimeout(function () { go(''); }, 9000);   /* no hash in time: ask without it */
+    var name = String(file.name || '').split(/[\/\\]/).pop();
+    var nameExtra = name ? 'filename=' + encodeURIComponent(name) : '';
+    var go = function (extra) { if (!asked) { asked = true; loadStremioSubtitles(item, episode, { _hashed: true, extra: extra, name: name }); } };
+    /* No hash in time: ask with the file name only (it often finds the
+       release's subtitles too). */
+    var fallback = setTimeout(function () { go(nameExtra); }, 9000);
     portalServiceCall('videoHash', { url: file.url, headers: file.headers || {} }, function (err, info) {
-      var name = String(file.name || '').split(/[\/\\]/).pop();
+      var hashed = !!(!err && info && /^[0-9a-f]{16}$/.test(info.hash || ''));
       var extra = [];
-      if (!err && info && /^[0-9a-f]{16}$/.test(info.hash || '')) { extra.push('videoHash=' + info.hash, 'videoSize=' + info.size); }
-      if (name) { extra.push('filename=' + encodeURIComponent(name)); }
-      go(extra.join('&'));
-    }, 9000);
+      if (hashed) { extra.push('videoHash=' + info.hash, 'videoSize=' + info.size); }
+      if (nameExtra) { extra.push(nameExtra); }
+      if (!asked) { clearTimeout(fallback); go(extra.join('&')); return; }
+      /* The hash came late (a torrent fetches the file's last piece first):
+         ask again for the subtitles made for this very file, the ones that
+         stay in sync after a seek, unless the viewer already picked one. */
+      if (hashed && !vodSubChosen && state.playerItem === item && (!episode || state.playerEpisode === episode)) {
+        loadStremioSubtitles(item, episode, { _hashed: true, extra: extra.join('&'), name: name });
+      }
+    }, 45000);
     return;
   }
   var extraPath = file && file.extra ? '/' + file.extra : '';
-  var all = [], left = addons.length;
+  var all = srcSubs.slice(), left = addons.length;
+  /* Shows a set of files (the addons' first; SubtitleCat's added after). */
+  function deliver(list) {
+    var found = pickStremioSubtitles(list);
+    if (!found.length) { return; }
+    portalServiceCall('proxySubtitles', { subtitles: found }, function (pErr, answer) {
+      /* Subtitles belong to the title, not to one stream attempt: the
+         player restarts the source (resume, audio, quality) and bumps
+         resolveSeq, so check that the same title/episode is still on. */
+      if (state.playerItem !== item || (episode && state.playerEpisode !== episode)) { return; }
+      if (pErr || !answer || !answer.subtitles) { return; }
+      var info = stremioMediaInfo(item);
+      info._addonSubs = labelStremioSubtitles(found, answer.subtitles);
+      composeStremioSubtitles(item, info);
+    });
+  }
+  /* SubtitleCat (machine translations, not made for this release) only when
+     the subtitle plugins gave nothing in Spanish: what they gave shows at
+     once, and SubtitleCat's files are added when they come. */
+  function hasSpanish(list) {
+    for (var i = 0; i < list.length; i++) {
+      if (/^Español/.test(formatAudioLang(String(list[i].lang || '').replace(/-gt$/i, '')))) { return true; }
+    }
+    return false;
+  }
+  function checkDone() {
+    if (--left > 0) { return; }
+    deliver(all);
+    if (hasSpanish(all)) { return; }
+    var hint = torrentEpisodeHint(episode);
+    portalServiceCall('subtitleCat', {
+      imdbId: String(rawId || '').split(':')[0],
+      title: (item._en && item._en.title) || item.title || '',
+      year: String(item.year || '').slice(0, 4),
+      kind: type === 'series' ? 'series' : 'movie',
+      season: hint.season,
+      episode: hint.episode,
+      filename: (file && file.name) || ''
+    }, function (cErr, cAns) {
+      var list = (!cErr && cAns && cAns.subtitles) ? cAns.subtitles : [];
+      var catSubs = [];
+      for (var c = 0; c < list.length; c++) {
+        if (list[c] && /^https?:\/\//i.test(list[c].url || '')) {
+          catSubs.push({ lang: String(list[c].lang || ''), url: list[c].url });
+        }
+      }
+      if (catSubs.length) { deliver(all.concat(catSubs)); }
+    }, 10000);
+  }
+  if (!addons.length) { left = 1; checkDone(); return; }
   addons.forEach(function (ad) {
     addonRequest(ad.baseUrl + '/subtitles/' + encodeURIComponent(type) + '/' + stremioStreamId(item, episode) + extraPath + '.json', function (err, payload) {
       var subs = (!err && payload && payload.subtitles) ? payload.subtitles : [];
+      var isTranslator = /translat|traduc/i.test(String(ad.name || '') + ' ' + String(ad.desc || ''));
       for (var i = 0; i < subs.length; i++) {
-        if (subs[i] && /^https?:\/\//i.test(subs[i].url || '')) { all.push({ lang: subs[i].lang || '', url: subs[i].url }); }
+        var s = subs[i];
+        if (!s || !/^https?:\/\//i.test(s.url || '')) { continue; }
+        /* GTSubs notice tracks ("info:...") are not real subtitles. */
+        if (/^info:/i.test(s.id || '') || /^info:/i.test(s.lang || '')) { continue; }
+        var langCode = String(s.lang || '');
+        if (isTranslator && langCode && !/gt$/i.test(langCode)) { langCode += '-gt'; }
+        all.push({ lang: langCode, url: s.url });
       }
-      if (--left > 0) { return; }
-      var found = pickStremioSubtitles(all);
-      if (!found.length) { return; }
-      portalServiceCall('proxySubtitles', { subtitles: found }, function (pErr, answer) {
-        /* Subtitles belong to the title, not to one stream attempt: the
-           player restarts the source (resume, audio, quality) and bumps
-           resolveSeq, so check that the same title/episode is still on. */
-        if (state.playerItem !== item || (episode && state.playerEpisode !== episode)) { return; }
-        if (pErr || !answer || !answer.subtitles) { return; }
-        var info = stremioMediaInfo(item);
-        info._addonSubs = answer.subtitles;
-        composeStremioSubtitles(item, info);
-      });
+      checkDone();
     }, 15000);
   });
 }

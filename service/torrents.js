@@ -4,7 +4,8 @@
  * normal HTTP file with Range support, so <video>, the proxy and the FFmpeg
  * relay treat it like any other link.
  *
- *   start({ infoHash, fileIdx, sources, alternatives }) -> { url, name, length, infoHash }
+ *   start({ infoHash, fileIdx, filename, season, episode, sources, alternatives })
+ *                                                       -> { url, name, length, infoHash }
  *   stats()                                             -> { peers, speed, available, racing, ... }
  *   stop()                                              -> engine destroyed, cache deleted
  *
@@ -144,14 +145,42 @@ function trackersFrom(sources) {
   return list;
 }
 
-/* The file the addon pointed at (fileIdx), or the biggest video file. */
-function pickFile(files, fileIdx) {
+/* "S01E05", "s1e5", "1x05" for season/episode (not "S01E050"). */
+function episodePattern(season, episode) {
+  var s = Number(season), e = Number(episode);
+  if (!(s > 0) || !(e > 0)) { return null; }
+  return new RegExp('(^|[^0-9a-z])(s0*' + s + '[ ._-]*e0*' + e + '|0*' + s + 'x0*' + e + ')(?![0-9])', 'i');
+}
+
+function baseName(name) {
+  return String(name || '').split(/[\/\\]/).pop().toLowerCase();
+}
+
+/* The video to play in a torrent. `hint`: { fileIdx, filename, season,
+   episode } from the addon and the page. In order: the file the addon
+   pointed at (fileIdx); in a season pack without it, the file with the
+   addon's file name, then the one named after the episode (S01E05, 1x05);
+   last, the biggest video (a film). */
+function pickFile(files, hint) {
+  hint = hint || {};
+  var fileIdx = hint.fileIdx;
   var idx = Number(fileIdx);
   if (fileIdx !== undefined && fileIdx !== null && fileIdx !== '' && idx >= 0 && files[idx]) { return files[idx]; }
+  var videos = files.filter(function (f) { return VIDEO_EXT.test(f.name); });
+  var want = baseName(hint.filename);
+  if (want) {
+    var named = videos.filter(function (f) { return baseName(f.name) === want; })[0];
+    if (named) { return named; }
+  }
+  var pattern = videos.length > 1 ? episodePattern(hint.season, hint.episode) : null;
+  if (pattern) {
+    var matching = videos.filter(function (f) { return pattern.test(baseName(f.name)); });
+    if (matching.length) {
+      return matching.reduce(function (a, b) { return b.length > a.length ? b : a; });
+    }
+  }
   var best = null;
-  files.forEach(function (f) {
-    if (VIDEO_EXT.test(f.name) && (!best || f.length > best.length)) { best = f; }
-  });
+  videos.forEach(function (f) { if (!best || f.length > best.length) { best = f; } });
   return best;
 }
 
@@ -264,14 +293,15 @@ function describe(c) {
 /* ---------------------------------------------------------------- race */
 
 function candidatesFrom(opts) {
-  var list = [{ infoHash: opts.infoHash, fileIdx: opts.fileIdx, sources: opts.sources }]
+  var list = [{ infoHash: opts.infoHash, fileIdx: opts.fileIdx, sources: opts.sources, filename: opts.filename }]
     .concat(Array.isArray(opts.alternatives) ? opts.alternatives : []);
   var out = [], seen = {};
   list.forEach(function (c) {
     var hash = String((c && c.infoHash) || '').toLowerCase();
     if (!/^[0-9a-f]{40}$/.test(hash) || seen[hash] || out.length >= RACE_MAX) { return; }
     seen[hash] = true;
-    out.push({ hash: hash, fileIdx: c.fileIdx, sources: c.sources });
+    out.push({ hash: hash, fileIdx: c.fileIdx, sources: c.sources, filename: c.filename || '',
+      season: opts.season, episode: opts.episode });
   });
   return out;
 }
@@ -293,7 +323,7 @@ function openJob(cand) {
     failed: '', token: crypto.randomBytes(8).toString('hex'), started: Date.now(), lastRead: Date.now(),
     firstPiece: 0, lastPiece: -1 };
   engine.on('ready', function () {
-    var file = pickFile(engine.files, cand.fileIdx);
+    var file = pickFile(engine.files, cand);
     if (!file) { j.failed = 'El torrent no tiene ningún vídeo'; return; }
     engine.files.forEach(function (f) { if (f !== file) { f.deselect(); } });
     file.select();
@@ -436,7 +466,7 @@ function probe(opts, done) {
     /* The one playing or starting already reports itself in stats(). */
     if ((current && current.hash === hash) || (racing && racing.jobs.some(function (j) { return j.hash === hash; }))) { return; }
     seen[hash] = true;
-    list.push({ hash: hash, fileIdx: t.fileIdx, sources: t.sources });
+    list.push({ hash: hash, fileIdx: t.fileIdx, sources: t.sources, filename: t.filename || '', season: opts.season, episode: opts.episode });
   });
   if (!list.length) { return done(null, { results: {} }); }
   refreshTrackers();
@@ -447,7 +477,7 @@ function probe(opts, done) {
       var j = { hash: c.hash, engine: engine, file: null, firstPiece: 0, lastPiece: -1 };
       engine.on('ready', function () {
         /* Nothing selected: torrent-stream downloads no piece of the video. */
-        var file = pickFile(engine.files, c.fileIdx);
+        var file = pickFile(engine.files, c);
         var pl = engine.torrent && engine.torrent.pieceLength;
         if (!file || !pl) { return; }
         engine.files.forEach(function (f) { f.deselect(); });
@@ -522,4 +552,4 @@ function close() {
 removeCache();
 
 module.exports = { start: start, stop: stop, stats: stats, probe: probe, close: close, CACHE: CACHE,
-  /* (tests) */ _parseTrackers: parseTrackers, _candidatesFrom: candidatesFrom };
+  /* (tests) */ _parseTrackers: parseTrackers, _candidatesFrom: candidatesFrom, _pickFile: pickFile };

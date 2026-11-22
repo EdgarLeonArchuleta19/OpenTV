@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!-- Where the JS plugins run (js/plugin-runtime.js), inside an iframe with
+     sandbox="allow-scripts" and no allow-same-origin. This policy lets the
+     plugin's code compile ('unsafe-eval') and forbids everything else:
+     no network, images, frames or forms of its own. The app does the
+     network for it (ui/js/src/services/js-plugins.js). Electron sends the
+     same policy as a header (platforms/electron/main.cjs). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-eval'; base-uri 'none'; form-action 'none'">
+<title>OpenTV plugins</title>
+</head>
+<body>
+<script src="js/plugin-runtime.js"></script>
+</body>
+</html>

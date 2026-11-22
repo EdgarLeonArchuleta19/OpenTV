@@ -1,13 +1,12 @@
 /* screens/settings-hub.js — Ajustes: una pestaña con tres subpestañas
-   (Apariencia, Reproducción, Preferencias de addons). Grupos con título y
+   (Apariencia y Reproducción; las preferencias de fuentes están en Plugins → Configurar). Grupos con título y
    filas anchas: el nombre a la izquierda (con ⓘ: la explicación al pasar el
    ratón) y las opciones a la derecha.
    Parte del módulo único de la app (ver ui/js/src/README.md). */
 
 var SETTINGS_HUB_TABS = [
   { id: 'look', label: 'Apariencia' },
-  { id: 'play', label: 'Reproducción' },
-  { id: 'addons', label: 'Preferencias de addons' }
+  { id: 'play', label: 'Reproducción' }
 ];
 var settingsHubTab = 'look';
 var SET_INFO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.5h.01"/></svg>';
@@ -60,6 +59,25 @@ function hubRow(parent, label, hint, options, current, pick) {
 
 function buildAppearanceSettings() {
   var box = el('div', 'set-page');
+  var look = settingsGroup(box, 'Estilo');
+  var accentRow = hubRow(look, 'Color de acento', 'El color del foco, de las opciones elegidas, del botón de reproducir y de las barras de progreso.',
+    ACCENTS.map(function (a) { return a.label; }), accentIndex(), function (i) { setAccent(i); });
+  var swatches = accentRow.querySelectorAll('.set-seg-btn');
+  for (var s = 0; s < swatches.length; s++) {
+    var dot = el('i', 'set-swatch');
+    dot.style.background = ACCENTS[s].color;
+    swatches[s].insertBefore(dot, swatches[s].firstChild);
+  }
+  accentRow.querySelector('.set-seg').classList.add('is-wrap');
+  hubRow(look, 'Tamaño del texto', 'Aumentado hace más grandes los textos y botones (no los pósteres). Útil si ves la pantalla de lejos.',
+    ['Normal', 'Aumentado'], textLarge() ? 1 : 0, function (i) { setTextSize(i === 1); });
+  if (platformIsTv()) {
+    hubRow(look, 'Margen de pantalla', 'Si tu tele corta los bordes de la imagen, deja un margen para que se vea todo.',
+      ['Ninguno', 'Pequeño', 'Grande'], uiSizeIndex(), function (i) { setUiSize(i); });
+  } else if (platformHas('window')) {
+    hubRow(look, 'Tamaño de la interfaz', 'Hace más pequeños los textos, botones y pósteres. Útil en monitores grandes o si ves de cerca.',
+      ['Normal', 'Compacto', 'Muy compacto'], uiSizeIndex(), function (i) { setUiSize(i); });
+  }
   var home = settingsGroup(box, 'Inicio');
   hubRow(home, 'Tamaño de los pósteres', 'Compacto muestra más títulos en cada fila.', ['Normal', 'Compacto'],
     catalogCompact() ? 1 : 0, function (i) { setCatalogDensity(i === 1); });
@@ -77,16 +95,9 @@ function buildAppearanceSettings() {
 function buildPlaybackSettings() {
   var box = el('div', 'set-page');
   function save() { applyGlobalPlaybackPreferences(); saveGlobalPlayback(); }
+  /* (No "Calidad: Compatibilidad máxima" any more: the PC switches to it on
+     its own when a video fails, compat-watchdog.js.) */
   var video = settingsGroup(box, 'Vídeo');
-  hubRow(video, 'Calidad', 'Compatibilidad máxima convierte el vídeo: más estable, pero usa más CPU.',
-    ['Automática', 'Compatibilidad máxima'], state.playback.streamMode === 'smooth' ? 1 : 0, function (i) {
-      state.playback.streamMode = i === 1 ? 'smooth' : 'normal';
-      /* A deliberate global choice supersedes this session's per-title ones. */
-      smoothModeByTitle = {};
-      clearCompatTitles();
-      if (state.playerItem) { restoreSmoothMode(state.playerItem); }
-      save();
-    });
   hubRow(video, 'Formato de pantalla', '', ['Llenar', 'Original', '16:9', '4:3'], state.playback.screen,
     function (i) { state.playback.screen = i; save(); });
   var audio = settingsGroup(box, 'Audio');
@@ -118,8 +129,7 @@ function buildSettingsHubPanel() {
       all[i].setAttribute('aria-selected', on ? 'true' : 'false');
     }
     clear(body);
-    body.appendChild(id === 'play' ? buildPlaybackSettings()
-      : (id === 'addons' ? buildSourcePrefsEditor(null) : buildAppearanceSettings()));
+    body.appendChild(id === 'play' ? buildPlaybackSettings() : buildAppearanceSettings());
   }
   SETTINGS_HUB_TABS.forEach(function (t) {
     var b = el('div', 'sd-tab focusable', t.label);
@@ -130,6 +140,7 @@ function buildSettingsHubPanel() {
   });
   page.body.appendChild(tabs);
   page.body.appendChild(body);
-  show(settingsHubTab);
+  /* (The source preferences moved to Plugins → Configurar.) */
+  show(settingsHubTab === 'play' ? 'play' : 'look');
   return page.panel;
 }

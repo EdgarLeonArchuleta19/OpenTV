@@ -3,58 +3,30 @@
 
 /* --- Live TV Categories & Addons (M3U / IPTV) --- */
 var PRESET_ADDONS = [
-  /* Free ad-supported (FAST) channels from Pluto TV, Plex, Samsung TV Plus,
-     Tubi and Roku, as M3U lists rebuilt every day by
-     github.com/BuddyChewChew/app-m3u-generator (from i.mjh.nz data).
-     First, so "Buscar" shows them at the top. */
-  { id: 'pluto_mx', name: 'Pluto TV México', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_mx.m3u', desc: '200+ canales gratis: películas, series, anime, deportes e infantil' },
-  { id: 'pluto_ar', name: 'Pluto TV Argentina', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_ar.m3u', desc: '190+ canales gratis de películas y series en español' },
-  { id: 'plex_mx', name: 'Plex México', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plex_mx.m3u', desc: '270+ canales gratis de películas, series y documentales' },
-  { id: 'samsung_es', name: 'Samsung TV Plus España', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/samsungtvplus_es.m3u', desc: '180+ canales gratis: cine, series, documentales y música' },
+  /* Curated, reliable Spanish & Latin American lists first: FAST platforms
+     (Pluto TV, Plex, Samsung TV Plus) rebuilt daily, TDTChannels with EPG,
+     and clean regional lists. */
+  { id: 'pluto_mx', name: 'Pluto TV México y Latam', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_mx.m3u', desc: '200+ canales gratis en español: cine, series, anime, deportes e infantil' },
+  { id: 'plex_mx', name: 'Plex TV en Español', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plex_mx.m3u', desc: '270+ canales gratis 24/7 de películas, series, acción y documentales' },
+  { id: 'pluto_ar', name: 'Pluto TV Cono Sur', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_ar.m3u', desc: '190+ canales gratis de películas, comedias y series en español' },
+  { id: 'es_tdt', name: 'TDTChannels España (Oficial)', url: 'https://www.tdtchannels.com/lists/tv.m3u8', desc: 'Canales abiertos verificados con guía de programación: La 1, Antena 3, autonómicas y deportes' },
+  { id: 'samsung_es', name: 'Samsung TV Plus', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/samsungtvplus_es.m3u', desc: '180+ canales continuos de cine, series, documentales y música' },
   { id: 'pluto_es', name: 'Pluto TV España', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_es.m3u', desc: '150+ canales gratis: cine, series, policiacas e infantil' },
-  { id: 'pluto_us', name: 'Pluto TV Estados Unidos', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_us.m3u', desc: 'Con una sección En Español; el resto en inglés' },
-  { id: 'tubi_us', name: 'Tubi (EE. UU.)', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/tubi_all.m3u', desc: 'Canales en vivo de Tubi, en inglés: reality, comedia y deportes' },
-  { id: 'roku_us', name: 'The Roku Channel (EE. UU.)', url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/roku_all.m3u', desc: 'Canales en inglés: series, deportes y noticias' },
-  /* Free-to-air channels from iptv-org. */
-  {
-    id: 'es_tdt',
-    name: 'España - Canales Nacionales y TDT',
-    url: 'https://iptv-org.github.io/iptv/countries/es.m3u',
-    desc: '320+ canales: La 1, La 2, Antena 3, Telecinco, laSexta, autonómicas'
-  },
-  {
-    id: 'latam_spa',
-    name: 'Latinoamérica y Deportes (Hispano)',
-    url: 'https://iptv-org.github.io/iptv/languages/spa.m3u',
-    desc: 'Canales en español de Colombia, México, Argentina, Chile y Perú'
-  },
-  {
-    id: 'sports_iptv',
-    name: 'Deportes Internacionales',
-    url: 'https://iptv-org.github.io/iptv/categories/sports.m3u',
-    desc: 'Transmisiones deportivas y canales de competiciones'
-  },
-  {
-    id: 'movies_iptv',
-    name: 'Cine y Series 24/7',
-    url: 'https://iptv-org.github.io/iptv/categories/movies.m3u',
-    desc: 'Cine clásico, cine de acción y canales continuos de series'
-  },
-  /* More free lists from iptv-org, found with "Buscar" in Ajustes → Addons → TV en vivo. */
-  { id: 'mx', name: 'México', url: 'https://iptv-org.github.io/iptv/countries/mx.m3u', desc: 'Canales abiertos y locales de México' },
-  { id: 'ar', name: 'Argentina', url: 'https://iptv-org.github.io/iptv/countries/ar.m3u', desc: 'Canales abiertos y locales de Argentina' },
-  { id: 'co', name: 'Colombia', url: 'https://iptv-org.github.io/iptv/countries/co.m3u', desc: 'Canales abiertos y locales de Colombia' },
-  { id: 'cl', name: 'Chile', url: 'https://iptv-org.github.io/iptv/countries/cl.m3u', desc: 'Canales abiertos y locales de Chile' },
-  { id: 'pe', name: 'Perú', url: 'https://iptv-org.github.io/iptv/countries/pe.m3u', desc: 'Canales abiertos y locales de Perú' },
-  { id: 've', name: 'Venezuela', url: 'https://iptv-org.github.io/iptv/countries/ve.m3u', desc: 'Canales abiertos y locales de Venezuela' },
-  { id: 'ec', name: 'Ecuador', url: 'https://iptv-org.github.io/iptv/countries/ec.m3u', desc: 'Canales abiertos y locales de Ecuador' },
-  { id: 'us', name: 'Estados Unidos', url: 'https://iptv-org.github.io/iptv/countries/us.m3u', desc: 'Canales de EE. UU., muchos en inglés' },
-  { id: 'news', name: 'Noticias', url: 'https://iptv-org.github.io/iptv/categories/news.m3u', desc: 'Canales de noticias de todo el mundo' },
-  { id: 'kids', name: 'Infantil', url: 'https://iptv-org.github.io/iptv/categories/kids.m3u', desc: 'Dibujos y programas para niños' },
-  { id: 'animation', name: 'Animación', url: 'https://iptv-org.github.io/iptv/categories/animation.m3u', desc: 'Canales de dibujos y anime' },
-  { id: 'music', name: 'Música', url: 'https://iptv-org.github.io/iptv/categories/music.m3u', desc: 'Videoclips y radios con imagen' },
-  { id: 'documentary', name: 'Documentales', url: 'https://iptv-org.github.io/iptv/categories/documentary.m3u', desc: 'Naturaleza, historia y ciencia' },
-  { id: 'comedy', name: 'Comedia', url: 'https://iptv-org.github.io/iptv/categories/comedy.m3u', desc: 'Series y programas de humor' }
+  { id: 'latam_spa', name: 'TV Abierta Hispana', url: 'https://iptv-org.github.io/iptv/languages/spa.m3u', desc: 'Canales en español de México, Argentina, Colombia, Chile, Perú y más' },
+  { id: 'cl_m3u', name: 'Chile TV (m3u.cl)', url: 'https://m3u.cl/lista/CL.m3u', desc: 'Lista curada y mantenida de canales nacionales y regionales de Chile' },
+  { id: 'ar_curated', name: 'Argentina TV Plus', url: 'https://raw.githubusercontent.com/nicor1029/Argentina/refs/heads/main/arglo.m3u', desc: 'Canales abiertos, deportivos, noticias y variedades de Argentina' },
+  { id: 'latam_sv', name: 'Centroamérica y Latam TV', url: 'https://raw.githubusercontent.com/JMigue85/IPTV-SV/refs/heads/main/IPTVSV.m3u', desc: 'Canales variados en español de Latinoamérica, cine y entretenimiento' },
+  { id: 'freetv_world', name: 'Free-TV Internacional (HD)', url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8', desc: 'Lista verificada sin canales caídos, con guía EPG por país' },
+  { id: 'sports_iptv', name: 'Deportes en Vivo', url: 'https://iptv-org.github.io/iptv/categories/sports.m3u', desc: 'Canales deportivos, fútbol y transmisiones de competiciones' },
+  { id: 'movies_iptv', name: 'Cine y Series 24/7', url: 'https://iptv-org.github.io/iptv/categories/movies.m3u', desc: 'Cine clásico, cine de acción y canales continuos de películas' },
+  { id: 'kids', name: 'Infantil y Caricaturas', url: 'https://iptv-org.github.io/iptv/categories/kids.m3u', desc: 'Canales de dibujos animados y programación familiar' },
+  { id: 'animation', name: 'Animación y Anime TV', url: 'https://iptv-org.github.io/iptv/categories/animation.m3u', desc: 'Canales continuos de animación y anime' },
+  { id: 'news', name: 'Noticias 24 Horas', url: 'https://iptv-org.github.io/iptv/categories/news.m3u', desc: 'Noticieros en vivo en español e internacionales' },
+  { id: 'documentary', name: 'Documentales y Naturaleza', url: 'https://iptv-org.github.io/iptv/categories/documentary.m3u', desc: 'Naturaleza, historia, ciencia y exploración' },
+  { id: 'music', name: 'Música y Conciertos', url: 'https://iptv-org.github.io/iptv/categories/music.m3u', desc: 'Videoclips, conciertos y canales musicales 24/7' },
+  { id: 'mx', name: 'México (Canales Abiertos)', url: 'https://iptv-org.github.io/iptv/countries/mx.m3u', desc: 'Canales nacionales y regionales de México' },
+  { id: 'co', name: 'Colombia (Canales Abiertos)', url: 'https://iptv-org.github.io/iptv/countries/co.m3u', desc: 'Canales nacionales y regionales de Colombia' },
+  { id: 'pe', name: 'Perú (Canales Abiertos)', url: 'https://iptv-org.github.io/iptv/countries/pe.m3u', desc: 'Canales nacionales y regionales de Perú' }
 ];
 
 function getSavedAddons() {
@@ -273,7 +245,9 @@ var LIVE_GROUP_NAMES = {
 
 function liveListsKey(addons) {
   var key = '';
-  for (var i = 0; i < addons.length; i++) { key += (addons[i] && addons[i].url) + '\n'; }
+  for (var i = 0; i < addons.length; i++) {
+    if (addons[i] && !addons[i].disabled) { key += addons[i].url + '\n'; }
+  }
   return key;
 }
 
@@ -368,13 +342,16 @@ function liveEmptyMessage() {
   if (currentLiveCategory && currentLiveCategory.isSaved === 'recent') { return 'Aquí aparecerán los últimos canales que veas.'; }
   if (liveChannelsPending()) { return 'Cargando canales…'; }
   if (liveListsStatus === 'none') {
-    return 'Aún no tienes listas de TV en vivo. Agrega una lista M3U en Ajustes → Addons → TV en vivo.';
+    return 'Aún no tienes listas de TV en vivo. Agrega una lista M3U en Ajustes → Plugins.';
+  }
+  if (liveListsStatus === 'paused') {
+    return 'Tus listas de TV en vivo están sin usar. Ponlas en uso en Ajustes → Plugins.';
   }
   if (liveListsStatus === 'failed') {
-    return 'No se pudieron cargar tus listas de TV en vivo. Revisa tu conexión o agrega otra lista M3U en Ajustes → Addons → TV en vivo.';
+    return 'No se pudieron cargar tus listas de TV en vivo. Revisa tu conexión o agrega otra lista M3U en Ajustes → Plugins.';
   }
   if (!liveAllChannels.length) {
-    return 'Tus listas no tienen canales. Agrega otra lista M3U en Ajustes → Addons → TV en vivo.';
+    return 'Tus listas no tienen canales. Agrega otra lista M3U en Ajustes → Plugins.';
   }
   return 'No hay canales en esta categoría.';
 }
@@ -389,7 +366,7 @@ function liveNeedsLists() {
   return liveChannelsLoaded && !liveChannelsLoading && !liveAllChannels.length;
 }
 
-/* "Agregar lista M3U": opens Ajustes → Addons, where the TV lists are. */
+/* "Agregar lista M3U": opens Ajustes → Plugins, where the TV lists are. */
 function makeLiveListsButton() {
   var b = el('div', 'fx-btn live-add-lists focusable', 'Agregar lista M3U');
   b.style.display = 'inline-flex';
@@ -456,11 +433,12 @@ function loadAddonChannels(done) { reloadLiveLists(done); }
 
 function reloadLiveLists(done) {
   if (typeof done === 'function') { liveListsWaiting.push(done); }
-  var addons = getSavedAddons();
+  var all = getSavedAddons();
+  var addons = all.filter(function (a) { return a && !a.disabled; });
   var seq = ++liveListsSeq;
-  liveListsLoadedKey = liveListsKey(addons);
+  liveListsLoadedKey = liveListsKey(all);
   liveChannelsLoading = true;
-  if (!addons.length) { finishLiveLists(seq, [], 'none'); return; }
+  if (!addons.length) { finishLiveLists(seq, [], all.length ? 'paused' : 'none'); return; }
   if (!CHANNELS.length) { renderLiveRows(false); renderPlayerChannels(); }
   if (state.screen === 'player' && state.playerMode === 'live' && !CHANNELS.length) { setPlayerStatus('Cargando canales…'); }
   var results = [];

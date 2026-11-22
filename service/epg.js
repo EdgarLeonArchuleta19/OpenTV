@@ -7,6 +7,7 @@
 // asks for the channels it shows:
 //
 //   get(url, ids, done) -> done(err, { id: [ { s, e, t, d }, … ] })   (now and next)
+//   schedule(url, id, done) -> done(err, [ { s, e, t, d }, … ])          (one channel, 12 h)
 //
 // One copy per guide link, kept for EPG_TTL_MS; Android has the same in Epg.java.
 
@@ -21,6 +22,8 @@ var EPG_FAIL_TTL_MS = 10 * 60 * 1000;        /* a guide that failed is tried aga
 var EPG_AHEAD_MS = 12 * 60 * 60 * 1000;      /* programmes kept: from now to 12 h ahead */
 var EPG_PER_CHANNEL = 10;
 var EPG_ANSWER_PER_CHANNEL = 3;              /* now and the next two */
+var EPG_SCHEDULE_MAX = 60;                   /* one channel's day: programmes kept */
+var EPG_SCHEDULE_CACHE = 12;                 /* channels whose day is kept */
 var EPG_MAX_IDS = 4000;
 var EPG_MAX_BYTES = 80 * 1024 * 1024;        /* text after decompressing */
 var EPG_MAX_REDIRECTS = 5;
@@ -57,7 +60,9 @@ function attr(tag, name) {
 /* Reads XMLTV text as it arrives: complete <programme>…</programme>
    blocks go into byId (within [now, now + 12 h]); the rest waits for the
    next piece. */
-function makeReader(byId) {
+function makeReader(byId, opts) {
+  opts = opts || {};
+  var cap = opts.cap || EPG_PER_CHANNEL;
   var buf = '';
   var now = Date.now();
   var until = now + EPG_AHEAD_MS;
@@ -68,10 +73,11 @@ function makeReader(byId) {
     var s = xmltvTime(attr(open[0], 'start'));
     var e = xmltvTime(attr(open[0], 'stop'));
     if (!id || !s || !e || e <= now || s >= until) { return; }
+    if (opts.only && id !== opts.only) { return; }
     var title = /<title\b[^>]*>([\s\S]*?)<\/title>/.exec(block);
     var desc = /<desc\b[^>]*>([\s\S]*?)<\/desc>/.exec(block);
     var list = byId[id] || (byId[id] = []);
-    if (list.length >= EPG_PER_CHANNEL * 2) { return; }
+    if (list.length >= cap * 2) { return; }
     var p = { s: s, e: e, t: clip(unescapeXml(title ? title[1] : ''), TITLE_MAX) || 'Programa' };
     var d = desc ? clip(unescapeXml(desc[1]), DESC_MAX) : '';
     if (d) { p.d = d; }
@@ -94,7 +100,7 @@ function makeReader(byId) {
     end: function () {
       Object.keys(byId).forEach(function (id) {
         byId[id].sort(function (x, y) { return x.s - y.s; });
-        if (byId[id].length > EPG_PER_CHANNEL) { byId[id] = byId[id].slice(0, EPG_PER_CHANNEL); }
+        if (byId[id].length > cap) { byId[id] = byId[id].slice(0, cap); }
       });
     }
   };
@@ -180,4 +186,39 @@ function get(urlStr, ids, done) {
   });
 }
 
-module.exports = { get: get, _xmltvTime: xmltvTime, _makeReader: makeReader, _unescapeXml: unescapeXml };
+/* One channel's programmes for the next 12 h (the "Programación" window).
+   The shared copy keeps few per channel (memory on a 1 GB TV); when those
+   do not reach far enough, the guide is read again keeping only this
+   channel, and that day is kept a while for a few channels. */
+var schedules = {};   /* url + '|' + id -> { at, list } */
+
+function schedule(urlStr, id, done) {
+  id = String(id || '');
+  if (!urlStr || !id) { return done(new Error('url e id requeridos')); }
+  var key = urlStr + '|' + id;
+  var now = Date.now();
+  var hit = schedules[key];
+  if (hit && now - hit.at < EPG_TTL_MS) { return done(null, hit.list.filter(function (p) { return p.e > now; })); }
+  load(urlStr, function (err, g) {
+    if (err) { return done(err); }
+    var have = (g.byId[id] || []).filter(function (p) { return p.e > Date.now(); });
+    var reach = have.length ? have[have.length - 1].e : 0;
+    if (have.length && (have.length < EPG_PER_CHANNEL || reach >= Date.now() + EPG_AHEAD_MS - 60 * 60 * 1000)) {
+      return done(null, have);
+    }
+    var byId = {};
+    download(urlStr, makeReader(byId, { only: id, cap: EPG_SCHEDULE_MAX }), function (dErr) {
+      if (dErr) { return done(null, have); }
+      var list = byId[id] || have;
+      var keys = Object.keys(schedules);
+      if (keys.length >= EPG_SCHEDULE_CACHE) {
+        keys.sort(function (a, b) { return schedules[a].at - schedules[b].at; });
+        delete schedules[keys[0]];
+      }
+      schedules[key] = { at: Date.now(), list: list };
+      done(null, list);
+    });
+  });
+}
+
+module.exports = { get: get, schedule: schedule, _xmltvTime: xmltvTime, _makeReader: makeReader, _unescapeXml: unescapeXml };

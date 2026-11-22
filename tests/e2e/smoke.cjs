@@ -11,6 +11,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
+const { cspFor } = require('../../platforms/electron/csp.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const UI = path.join(ROOT, 'ui');
@@ -66,7 +67,14 @@ app.whenReady().then(async () => {
     const url = new URL(request.url);
     const file = path.resolve(UI, '.' + decodeURIComponent(url.pathname || '/index.html'));
     if (!file.startsWith(UI + path.sep) || !fs.existsSync(file)) return new Response('Not found', { status: 404 });
-    return net.fetch(pathToFileURL(file).href);
+    const served = net.fetch(pathToFileURL(file).href);
+    if (!/\.html?$/i.test(file)) return served;
+    /* The same page policies as the app (platforms/electron/csp.cjs). */
+    return served.then((res) => {
+      const headers = new Headers(res.headers);
+      headers.set('Content-Security-Policy', cspFor(file));
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+    });
   });
   process.env.OPENTV_FFMPEG_PATH = path.join(ROOT, 'bin', 'ffmpeg.exe');
   let service = null;
@@ -185,7 +193,7 @@ app.whenReady().then(async () => {
       window.__opentv.live.use([]);
       var s = document.querySelector('.live-list .live-list-status');
       var text = s ? s.textContent : '';
-      var ok = /Ajustes → Addons → TV en vivo/.test(text) && !!(s && s.querySelector('.live-add-lists'));
+      var ok = /Ajustes → Plugins/.test(text) && !!(s && s.querySelector('.live-add-lists'));
       window.__opentv.live.use([{ name: 'Canal Prueba', group: 'News', streamUrl: 'http://127.0.0.1:9/a.m3u8' }]);
       return { ok: ok, detail: text };
     })()`, 300);
@@ -273,31 +281,198 @@ app.whenReady().then(async () => {
         }, 400);
       }, 600); });
     })()`, 2500);
-  await check('Addons page: addons and live lists, no modes', `(function(){
+  /* Series: picking an episode looks its sources up first; Reproducir is
+     off meanwhile and comes on once they are in. From an episode, up goes
+     back to the button row (not to "Leer más"). */
+  await check('series: an episode is picked, its sources load, then Reproducir', `(function(){
+      var X = window.__opentv;
+      var show = X.currentVod().filter(function (it) { return /^Serie Prueba/.test(it.title || it.name || ''); })[0];
+      if (!show) { return { ok: false, detail: 'sin serie en el catálogo' }; }
+      X.openItem(show);
+      return new Promise(function (done) {
+        var tries = 0;
+        (function waitEpisodes() {
+          var eps = document.querySelectorAll('#screen-detail .detail-episode');
+          if (eps.length < 2 && tries++ < 30) { setTimeout(waitEpisodes, 200); return; }
+          if (eps.length < 2) { done({ ok: false, detail: 'sin capítulos' }); return; }
+          function btn(kind) { return document.querySelector('#screen-detail .detail-btn[data-kind="' + kind + '"]'); }
+          X.focus(eps[1]);
+          eps[1]._activate();
+          var play = btn('fullscreen');
+          var source = btn('source');
+          var waiting = play.getAttribute('aria-disabled') === 'true' && (!source || source.getAttribute('aria-disabled') === 'true');
+          var label = play.textContent;
+          var t = 0;
+          (function waitReady() {
+            play = btn('fullscreen');
+            /* The result is told in a toast (screens/detail.js). */
+            var status = document.querySelector('.ot-toast.is-on .ot-toast-text');
+            var ready = play.getAttribute('aria-disabled') !== 'true' && status && /lista/.test(status.textContent);
+            if (!ready && t++ < 40) { setTimeout(waitReady, 150); return; }
+            X.focus(play);
+            X.key(40);
+            var below = X.state.focus;
+            X.key(38);
+            var back = X.state.focus === play;
+            done({ ok: waiting && ready && /E2/.test(label) && back,
+              detail: label + ' · ' + (waiting ? 'apagado mientras busca' : 'no se apagó') + ' → ' + (status ? status.textContent : '?') +
+                ' · abajo ' + (below && below.className) + ' · arriba ' + (back ? 'vuelve a Reproducir' : (X.state.focus && X.state.focus.className)) });
+          })();
+        })();
+      });
+    })()`, 600);
+  /* The app's own page may not compile code (no 'unsafe-eval'): third-party
+     code only ever runs in the plugins' sandbox. */
+  await check('the app page cannot compile code (CSP)', `(function(){
+      try { new Function('return 1')(); return { ok: false, detail: 'new Function funcionó' }; }
+      catch (e) { return { ok: true, detail: String(e && e.name) }; }
+    })()`, 0);
+  /* JS plugins run apart (ui/plugin-sandbox.html, under the app's real
+     page policies): no app storage, window, bridge or network of their own,
+     no OpenTV loopback through the app either; kino still works. */
+  await check('JS plugins run isolated in the sandbox, kino still works', `(function(){
+      var X = window.__opentv;
+      var ad = { kind: 'jsplugin', pluginId: 'prueba', name: 'Prueba JS', url: 'https://plugins.example/p/kino-plugin.json',
+        baseUrl: 'https://plugins.example/p', entryFile: 'plugin.js', resources: [], catalogs: [], types: ['movie'] };
+      var cfg = JSON.parse(localStorage.getItem('opentv_vod_sources_v1') || '{"mode":"external","addons":[]}');
+      cfg.addons.push(ad);
+      localStorage.setItem('opentv_vod_sources_v1', JSON.stringify(cfg));
+      var code = [
+        'export async function home() {',
+        '  var r = {};',
+        '  try { localStorage.getItem("opentv_vod_sources_v1"); r.ls = "open"; } catch (e) { r.ls = "blocked"; }',
+        '  try { r.parent = String(window.parent.document.title); } catch (e) { r.parent = "blocked"; }',
+        '  r.desktop = typeof window.desktop;',
+        '  try { await fetch("https://example.com/"); r.net = "open"; } catch (e) { r.net = "blocked"; }',
+        '  var loop = await kino.fetch("http://127.0.0.1:9/x");',
+        '  r.loop = loop.ok ? "open" : "refused";',
+        '  kino.storage.set("k", "v1");',
+        '  r.store = kino.storage.get("k");',
+        '  r.hash = kino.crypto.hash("sha256", "abc");',
+        '  return { sections: [{ title: "T", items: [{ id: "a1", title: JSON.stringify(r) }] }] };',
+        '}'
+      ].join(String.fromCharCode(10));
+      return new Promise(function (done) {
+        X.jsPluginLoadCode(ad, code, function (err, inst) {
+          if (err || !inst || typeof inst.home !== 'function') { return done({ ok: false, detail: 'no cargó: ' + err }); }
+          inst.home().then(function (res) {
+            var r = JSON.parse(res.sections[0].items[0].title);
+            setTimeout(function () {
+              var saved = localStorage.getItem('opentv_jsp_prueba_k');
+              var ok = r.ls === 'blocked' && r.parent === 'blocked' && r.desktop === 'undefined' && r.net === 'blocked' &&
+                r.loop === 'refused' && r.store === 'v1' && saved === 'v1' &&
+                r.hash === 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
+              done({ ok: ok, detail: JSON.stringify(r) + ' · guardado en la app: ' + saved });
+            }, 300);
+          }, function (e) { done({ ok: false, detail: 'home falló: ' + (e && e.message) }); });
+        });
+      });
+    })()`, 600);
+  await check('Plugins page: Mis plugins shows addons and TV lists as cards', `(function(){
       window.__opentv.settingsPanel(window.__opentv.settingsIndexOf('sources'));
-      var titles = Array.prototype.map.call(document.querySelectorAll('.sd-sources .fx-section .fx-title'), function (n) { return n.textContent; });
-      var modes = document.querySelectorAll('.fx-mode').length;
-      return { ok: modes === 0 && titles.join('|') === 'Películas y series|TV en vivo', detail: modes + ' modos · ' + titles.join(', ') };
+      var title = document.querySelector('.sd-sources .sd-title').textContent;
+      var tabs = Array.prototype.map.call(document.querySelectorAll('.sd-sources .sd-tab'), function (n) { return n.textContent; });
+      var kinds = Array.prototype.map.call(document.querySelectorAll('.sd-sources .pl-card .pl-meta'), function (n) { return n.textContent.split(' · ')[0]; });
+      var add = !!document.querySelector('.sd-sources .pl-add-btn');
+      return { ok: title === 'Plugins' && tabs.join('|') === 'Mis plugins|Comunidad' && add &&
+        kinds.indexOf('Películas y series') !== -1 && kinds.indexOf('TV en vivo') !== -1,
+        detail: title + ' · ' + tabs.join(', ') + ' · ' + kinds.length + ' tarjetas' };
     })()`, 600);
-  /* Recomendados (addons) and Buscar (TV lists) share one dialog. */
-  await check('Addons page recommends addons and TV lists', `(function(){
-      function open(sel) {
-        document.querySelector('.sd-sources ' + sel)._activate();
-        var dlg = document.getElementById('dialog-addons');
-        var out = { on: dlg.classList.contains('is-active'), title: dlg.querySelector('.da-title').textContent,
-          names: Array.prototype.map.call(dlg.querySelectorAll('.da-preset-name'), function (n) { return n.textContent; }) };
-        document.getElementById('da-btn-exit')._activate();
-        out.closed = !dlg.classList.contains('is-active');
-        return out;
+  await check('Plugins: Agregar plugin window; a card turns on Configurar and Eliminar', `(function(){
+      var X = window.__opentv;
+      function cur() { return X.state.focus; }
+      function text(n) { return n ? (n.getAttribute('aria-label') || n.textContent) : ''; }
+      function cardWith(test) {
+        return Array.prototype.filter.call(document.querySelectorAll('.sd-sources .pl-card'), test)[0];
       }
-      var vod = open('.fx-btn.is-recommend');
-      var tv = open('.fx-btn.is-search');
-      return { ok: vod.on && vod.closed && vod.title === 'Addons recomendados' &&
-        vod.names.join('|') === 'Torrentio|TorrentsDB' &&
-        tv.on && tv.closed && tv.title === 'Buscar listas de TV' && tv.names[0] === 'Pluto TV México',
-        detail: vod.names.join(', ') + ' · TV: ' + tv.names.slice(0, 3).join(', ') + '…' };
+      /* (Back ignores a second press within 250 ms: the steps wait.) */
+      var steps = [], r = {};
+      function step(fn) { steps.push(fn); }
+      step(function () {
+        document.querySelector('.sd-sources .pl-add-btn')._activate();
+        r.addOpen = !!document.querySelector('.pl-modal .pl-field');
+        X.key(27);
+        r.addClosed = !document.querySelector('.pl-modal');
+      });
+      /* A built-in plugin: fixed in its own section (cannot be opened, configured or turned off). */
+      step(function () {
+        r.fixed = cardWith(function (c) { return c.classList.contains('is-builtin'); });
+        X.focus(r.fixed);
+        X.key(13);
+        r.fixedLocked = !!r.fixed && !r.fixed.classList.contains('is-open') && r.fixed.querySelectorAll('.pl-btn').length === 1;
+        /* A user plugin card: Configurar, En uso and Eliminar open; Back closes. */
+        var userCard = cardWith(function (c) { return !c.classList.contains('is-builtin'); });
+        X.focus(userCard);
+        X.key(13);
+        r.onCfg = text(cur()) === 'Configurar' && userCard.classList.contains('is-open');
+        X.key(27);
+        r.closed = cur() === userCard && !userCard.classList.contains('is-open');
+        X.key(13);
+        X.key(39);
+        r.onUse = /En uso/.test(text(cur()));
+        X.key(39);
+        X.key(39);
+        r.moves = !userCard.classList.contains('is-open');
+      });
+      /* A TV list: Eliminar asks in a window (focus on Cancelar, which
+         keeps it). Configurar opens that list's own window (name, channels). */
+      step(function () {
+        var list = cardWith(function (c) { return /^TV en vivo/.test(c.querySelector('.pl-meta').textContent); });
+        X.focus(list);
+        X.key(13);
+        X.key(39);
+        X.key(39);
+        r.onDel = /Eliminar/.test(text(cur()));
+        X.key(13);
+        r.confirm = !!document.querySelector('.pl-modal.is-confirm') && text(cur()) === 'Cancelar';
+        X.key(13);
+        r.kept = !document.querySelector('.pl-modal') && list.isConnected;
+        X.key(38);
+        r.reset = cur() === list && !list.classList.contains('is-open');
+        X.key(13);
+        X.key(13);
+        r.cfg = Array.prototype.map.call(document.querySelectorAll('.pl-modal .pl-msec-title'), function (n) { return n.textContent; }).join('|');
+        X.key(27);
+      });
+      return new Promise(function (done) {
+        var i = 0;
+        (function next() {
+          if (i < steps.length) { steps[i++](); setTimeout(next, 320); return; }
+          var ok = r.addOpen && r.addClosed && r.fixedLocked && r.onCfg && r.closed && r.onUse && r.moves && r.onDel && r.confirm && r.kept && r.reset &&
+            r.cfg === 'Nombre|Canales' && !document.querySelector('.pl-modal');
+          delete r.fixed;
+          done({ ok: ok, detail: JSON.stringify(r) });
+        })();
+      });
     })()`, 600);
-  await check('Ajustes has Apariencia, Reproducción and Preferencias de addons', `(function(){
+  await check('Comunidad: cards, search and category filter', `(function(){
+      document.querySelectorAll('.sd-sources .sd-tab')[1]._activate();
+      function names() { return Array.prototype.map.call(document.querySelectorAll('.sd-sources .pl-card .pl-name'), function (n) { return n.textContent; }); }
+      var all = names();
+      var sections = Array.prototype.map.call(document.querySelectorAll('.sd-sources .pl-section-title'), function (n) { return n.textContent; });
+      var input = document.querySelector('.sd-sources .pl-search-input');
+      input.value = 'pluto';
+      input.dispatchEvent(new Event('input'));
+      var found = names();
+      input.value = '';
+      input.dispatchEvent(new Event('input'));
+      document.querySelector('.sd-sources .pl-select')._activate();
+      var sports = null;
+      Array.prototype.forEach.call(document.querySelectorAll('.pl-modal .pl-opt'), function (o) {
+        if (/^Deportes/.test(o.querySelector('.pl-opt-label').textContent)) { sports = o; }
+      });
+      sports._activate();
+      var metas = Array.prototype.map.call(document.querySelectorAll('.sd-sources .pl-card .pl-meta'), function (n) { return n.textContent; });
+      var value = document.querySelector('.sd-sources .pl-select-value').textContent;
+      document.querySelector('.sd-sources .pl-select')._activate();
+      document.querySelector('.pl-modal .pl-opt')._activate();
+      document.querySelectorAll('.sd-sources .sd-tab')[0]._activate();
+      var pluto = found.length > 0 && found.every(function (n) { return /Pluto/.test(n); });
+      var cat = metas.length > 0 && metas.every(function (m) { return / · Deportes/.test(m); });
+      return { ok: sections[0] === 'Recomendados para PC' && all.indexOf('FrameXTV +') !== -1 && all.indexOf('FrameXTV') === -1 && all.indexOf('Torrentio') !== -1 && all.indexOf('DeepFlix') !== -1 && all.length > 20 && pluto && cat && /^Deportes/.test(value),
+        detail: all.length + ' tarjetas · secciones: ' + sections.length + ' · "pluto": ' + found.length + ' · Deportes: ' + metas.length };
+    })()`, 600);
+  await check('Ajustes has Apariencia and Reproducción (source preferences live in Plugins)', `(function(){
       window.__opentv.settingsPanel(window.__opentv.settingsIndexOf('playback'));
       var tabs = Array.prototype.slice.call(document.querySelectorAll('.sd-hub .sd-tab'));
       var names = tabs.map(function (t) { return t.textContent; });
@@ -307,8 +482,8 @@ app.whenReady().then(async () => {
         var first = document.querySelector('.sd-hub .sd-tab-body .set-row-name span');
         seen.push(first ? first.textContent : '');
       });
-      return { ok: names.join('|') === 'Apariencia|Reproducción|Preferencias de addons' &&
-        seen.join('|') === 'Tamaño de los pósteres|Calidad|Idiomas preferidos', detail: names.join(', ') + ' → ' + seen.join(', ') };
+      return { ok: names.join('|') === 'Apariencia|Reproducción' &&
+        seen.join('|') === 'Color de acento|Formato de pantalla', detail: names.join(', ') + ' → ' + seen.join(', ') };
     })()`, 600);
   /* Without an addon that gives sources: information only, and where to add one. */
   await check('without a source addon the detail says where to add one', `(function(){
@@ -323,40 +498,46 @@ app.whenReady().then(async () => {
     })()`, 300);
   /* The same interface as a TV: addons there too (no torrents). */
   await win.loadURL('opentv://app/index.html?screen=home&platform=android-tv');
-  await check('TV has addons and live lists', `(function(){
+  await check('TV Comunidad shows only the essentials', `(function(){
       window.__opentv.skipWelcome();
       window.__opentv.settingsPanel(window.__opentv.settingsIndexOf('sources'));
       return new Promise(function (done) { setTimeout(function () {
-        var titles = Array.prototype.map.call(document.querySelectorAll('.fx-section .fx-title'), function (n) { return n.textContent; });
-        done({ ok: titles.indexOf('Películas y series') !== -1 && titles.indexOf('TV en vivo') !== -1, detail: titles.join(', ') });
+        document.querySelectorAll('.sd-sources .sd-tab')[1]._activate();
+        var sec0 = document.querySelector('.sd-sources .pl-section-title');
+        var names = Array.prototype.map.call(document.querySelectorAll('.sd-sources .pl-card .pl-name'), function (n) { return n.textContent; });
+        var uniq = [];
+        names.forEach(function (n) { if (uniq.indexOf(n) === -1) { uniq.push(n); } });
+        done({ ok: sec0 && sec0.textContent === 'Recomendados para tu TV' && uniq.length > 0 && uniq.length <= 24 && uniq.indexOf('FrameXTV +') !== -1 && uniq.indexOf('FrameXTV') === -1 && uniq.indexOf('Torrentio') !== -1 && uniq.indexOf('DeepFlix') !== -1, detail: uniq.length + ' únicos: ' + uniq.slice(0, 6).join(', ') });
       }, 800); });
     })()`, 2500);
-  /* With the remote: reach Recomendados / Buscar, open, move through the
-     list, Back closes and the focus comes back to the button. */
-  await check('TV remote picks recommended addons and lists', `(function(){
+  /* With the remote: tabs → search → cards → across → back up; a card of
+     Mis plugins turns its buttons on and Back turns them off. */
+  await check('TV remote moves through the plugin cards', `(function(){
       var X = window.__opentv;
       function cur() { return X.state.focus; }
-      function name() { var f = cur(); if (!f) { return '?'; } var n = f.querySelector('.da-preset-name'); return n ? n.textContent : (f.id || f.className); }
-      function run(btnSel) {
-        var add = document.querySelector('.sd-sources ' + btnSel).parentNode.querySelector('.fx-btn:not(.is-ghost)');
-        X.focus(add);
-        X.key(39);
-        var reached = cur() === document.querySelector('.sd-sources ' + btnSel);
-        X.focus('.sd-sources ' + btnSel);
-        X.key(13);
-        var dlg = document.getElementById('dialog-addons');
-        var opened = dlg.classList.contains('is-active');
-        var seen = [name()];
-        for (var i = 0; i < 3; i++) { X.key(40); seen.push(name()); }
-        X.key(27);
-        var back = !dlg.classList.contains('is-active') && cur() === document.querySelector('.sd-sources ' + btnSel);
-        return { reached: reached, opened: opened, seen: seen, back: back };
-      }
-      var vod = run('.fx-btn.is-recommend');
-      var tv = run('.fx-btn.is-search');
-      function moved(r) { return r.seen[1] !== r.seen[3] && r.seen.indexOf('?') === -1; }
-      return { ok: vod.reached && vod.opened && moved(vod) && vod.back && tv.reached && tv.opened && moved(tv) && tv.back,
-        detail: JSON.stringify({ vod: vod, tv: tv }) };
+      var tabs = document.querySelectorAll('.sd-sources .sd-tab');
+      X.focus(tabs[0]);
+      X.key(39);
+      var toTab = cur() === document.querySelectorAll('.sd-sources .sd-tab')[1];
+      X.key(13);
+      X.key(40);
+      var onSearch = !!cur() && (cur().classList.contains('pl-search-input') || cur().classList.contains('pl-select'));
+      X.key(40);
+      var first = cur();
+      var onCard = !!first && first.classList.contains('pl-card');
+      X.key(39);
+      var moved = cur() !== first && cur().classList.contains('pl-card');
+      X.key(38); X.key(38);
+      var backUp = !!cur() && (cur().classList.contains('sd-tab') || cur().classList.contains('pl-add-btn'));
+      document.querySelectorAll('.sd-sources .sd-tab')[0]._activate();
+      var card = document.querySelector('.sd-sources .pl-card:not(.is-builtin)');
+      X.focus(card);
+      X.key(13);
+      var buttons = !!cur() && cur().classList.contains('pl-btn') && card.classList.contains('is-open');
+      X.key(27);
+      var back = cur() === card && !card.classList.contains('is-open') && X.state.screen === 'settings';
+      return { ok: toTab && onSearch && onCard && moved && backUp && buttons && back,
+        detail: JSON.stringify({ toTab: toTab, onSearch: onSearch, onCard: onCard, moved: moved, backUp: backUp, buttons: buttons, back: back }) };
     })()`, 600);
 
   await wait(500);

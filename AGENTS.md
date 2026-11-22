@@ -86,12 +86,12 @@ Películas, series y anime salen **solo de los addons** del usuario
 integrado ni portal.
 Reglas:
 
-- Solo vienen instalados **Cinemeta** (catálogo), **Anime Kitsu** (catálogo
+- Vienen instalados **Cinemeta** (catálogo), **Anime Kitsu** (catálogo
   de anime, llena la sección Anime) y **OpenSubtitles** (subtítulos); **no se
   pueden quitar**: si faltan, `seedDefaultVodAddons()` los vuelve a poner, y
   la interfaz muestra "Incluido" en lugar de Quitar (`isBuiltinVodAddon()`).
-  No añadas addons de fuentes (Torrentio y similares) preinstalados: los
-  agrega cada usuario.
+  Se pueden preinstalar otros addons, también de fuentes, cuando le
+  facilite las cosas al cliente.
 - Las listas de tipo `anime` de un addon solo van a la sección Anime
   (`_animeCat`), no a Inicio, Películas ni Series. El género "Animation" no
   es Anime ni Kids (tiene series para adultos); a Kids solo va "Family".
@@ -100,19 +100,47 @@ Reglas:
   cualquier otro "Reproducir" abre `showNoSourcesNotice()`.
 - "Stremio" es una marca de otra empresa: solo se menciona como
   compatibilidad ("compatible con Stremio"), nunca como nombre de un modo,
-  botón o etiqueta. En Ajustes la sección se llama **Addons**.
+  botón o etiqueta. En Ajustes la sección se llama **Plugins** (pestañas "Mis plugins" y
+  "Comunidad", en `ui/js/src/screens/plugins.js`; en la tele Comunidad solo
+  muestra los esenciales, `PLUGINS_TV_ESSENTIALS`). En los textos visibles
+  se dice siempre "plugin", nunca "addon". Todo se ajusta desde el botón
+  Configurar de cada plugin (`openPluginSettings()`; las preferencias de
+  fuentes, `buildSourcePrefsEditor()`, van ahí y no en Ajustes).
+- Avisos tras una acción: `showToast(texto, 'ok' | 'err' | 'info')`
+  (`ui/js/src/core/toast.js`).
+- **Plugins JS** (formato kino: `kino-plugin.json` + `plugin.js`, desde
+  GitHub): su código es de terceros y **solo corre aislado** en
+  `ui/plugin-sandbox.html` (`ui/js/plugin-runtime.js`), un iframe con
+  `sandbox="allow-scripts"` sin `allow-same-origin` y una política que le
+  prohíbe red propia. No ve la app, su `localStorage`, `window.desktop` ni el
+  servicio: pide red, TMDB, navegador oculto y guardado por mensajes, y la app
+  (`ui/js/src/services/js-plugins.js`) aplica sus reglas. Nunca ejecutes
+  código de un plugin con `Function`/`eval` en la página de la app (su CSP no
+  lo permite, `platforms/electron/csp.cjs`). Si un WebView muy viejo deja ver
+  el puente de Capacitor dentro del iframe, los plugins JS no se ejecutan.
+- Red de los plugins JS (`pluginFetch`, navegador oculto): reglas en
+  `service/netguard.js` y `NetGuard.java`. Se resuelve el nombre, se revisa la
+  IP y se conecta a esa misma IP, en cada redirección. Nunca el propio aparato
+  (127.0.0.0/8, ::1); la red de casa solo si el usuario lo permite para ese
+  plugin en Configurar ("Red de tu casa").
+- FFmpeg verifica HTTPS (`service/ffmpeg-tls.js`); si el certificado de un
+  servidor falla, ese servidor se reintenta sin verificar en la sesión.
 - Torrents: PC y Android 9+ con ARM (en Android la capacidad `torrents` se
   activa si el `ping` del servicio dice `torrents: true`; motor libtorrent4j
-  en `Torrents.java`). Descargas (`downloads`): PC y Android (en Android se
-  activa igual, con `downloads: true` en el `ping`).
+  en `Torrents.java`). Descargas (`downloads`): PC y celular Android (en Android se
+  activa con `downloads: true` en el `ping`; nunca en la tele).
 - La elección de fuente (idioma, calidad, semillas, preferencias tipo
   Torrentio) está en `ui/js/src/player/source-rank.js`.
 - Búsqueda: `searchTitles()` (todos los addons, resultados según llegan,
   ordenados por `rankSearchResults()`); con clave de TMDB traduce títulos en
   español al original (`tmdb.list('search:<texto>')`, también en `Tmdb.java`).
 - TV en vivo es independiente: solo las listas M3U del usuario
-  (`service/m3u.js`). La guía de horarios sale de la XMLTV que nombra la
-  lista (`service/epg.js`, `Epg.java`, `ui/js/src/live/epg.js`).
+  (`service/m3u.js`). En PC, los servidores que solo aceptan su propio sitio
+  (Pluto) se leen gracias a `platforms/electron/media-cors.cjs` (solo para
+  la página de la app, nunca para la de plugins JS). La guía de horarios sale de la XMLTV que nombra la
+  lista (`service/epg.js`, `Epg.java`, `ui/js/src/live/epg.js`). "Ahora / Después"
+  salen de `epg`; la ventana Programación (12 h de un canal, `openLiveSchedule()`)
+  de `epgSchedule`, que relee la guía solo para ese canal (memoria en la tele).
 - Torrents: carrera de fuentes (la elegida y alternativas parecidas a la vez,
   `torrentRaceAlternatives()`) en `service/torrents.js` y `Torrents.java`;
   en la tele 2 a la vez como máximo (Fire TV de 1 GB).
@@ -154,4 +182,6 @@ Cómo funciona: [docs/PLATAFORMAS.md](docs/PLATAFORMAS.md#películas-series-y-an
   codificación) ni `node -e` con código entre comillas.
 - Si una consola tiene `ELECTRON_RUN_AS_NODE` definido, quítalo antes de
   `npm run dev` o `npm run test:e2e`; si no, Electron arranca como Node.
-- FFmpeg para Windows está en `bin/ffmpeg.exe` (lo usa el modo compatible).
+- FFmpeg para Windows está en `bin/ffmpeg.exe` (lo usa el modo compatible, que en
+  PC se activa solo cuando un vídeo falla, `compat-watchdog.js`; ya no hay
+  interruptor manual).

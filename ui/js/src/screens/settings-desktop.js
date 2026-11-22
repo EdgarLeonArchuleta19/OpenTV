@@ -74,7 +74,7 @@ function buildDesktopFeedbackPanel() {
   var page = desktopSettingsPage('sd-help sd-plain', 'Ayuda', hasKeyboard ? 'Qué hacer si algo no funciona y los atajos de teclado.'
     : 'Qué hacer si algo no funciona y cómo se usa el control remoto.');
   /* The first-launch guide, any time. */
-  var guide = desktopSettingsCard(UI_ICONS.info, 'Guía de inicio', 'Cómo agregar addons para reproducir, listas de TV en vivo y elegir la mejor fuente.');
+  var guide = desktopSettingsCard(UI_ICONS.info, 'Guía de inicio', 'Cómo agregar plugins para reproducir, listas de TV en vivo y elegir la mejor fuente.');
   guide.appendChild(desktopSettingsButton('Ver la guía', UI_ICONS.info, openGuide));
   page.body.appendChild(guide);
   if (window.desktop && window.desktop.openLogs) {
