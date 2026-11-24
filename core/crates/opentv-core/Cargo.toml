@@ -1,0 +1,31 @@
+[package]
+name = "opentv-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+axum = { version = "0.8", features = ["json", "query"] }
+base64 = "0.22"
+bytes = "1"
+encoding_rs = "0.8"
+flate2 = "1"
+futures-util = "0.3"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+librqbit = { version = "9.1.0", default-features = false, features = ["rust-tls"] }
+quick-xml = "0.37"
+rand = "0.8"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots", "http2", "gzip", "deflate", "stream", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "io-util", "fs", "process"] }
+tower-http = { version = "0.6", features = ["cors"] }
+url = "2"
+
+[target.'cfg(windows)'.dependencies]
+libloading = "0.8"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

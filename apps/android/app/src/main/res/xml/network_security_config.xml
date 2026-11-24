@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  IPTV/M3U/EPG/HLS endpoints are user-supplied and frequently plain HTTP.
+  Cleartext is therefore permitted at transport level, but ONLY system CAs are
+  trusted (no user-installed CAs) and the Rust core enforces NetGuard on all
+  proxied/fetched URLs (loopback/LAN/private ranges blocked unless a plugin has
+  explicit LAN permission, with DNS pinning to prevent rebinding).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

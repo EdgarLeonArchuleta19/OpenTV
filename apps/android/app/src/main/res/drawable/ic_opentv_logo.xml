@@ -1,0 +1,36 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="368"
+    android:viewportHeight="372">
+    <group android:translateX="-72" android:translateY="-68">
+        <!-- Antennas -->
+        <path
+            android:pathData="M196,84 L256,144 L316,84"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="24"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <!-- TV rounded screen frame (rect 92,144 328x232 rx=44) -->
+        <path
+            android:pathData="M136,144 L376,144 Q420,144 420,188 L420,332 Q420,376 376,376 L136,376 Q92,376 92,332 L92,188 Q92,144 136,144 Z"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="24"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <!-- Play triangle -->
+        <path
+            android:pathData="M231,224 L231,296 L293,260 Z"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="24"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <!-- TV stand -->
+        <path
+            android:pathData="M188,424 L324,424"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="24"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>

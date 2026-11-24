@@ -1,97 +1,27 @@
 {
   "name": "opentv",
   "productName": "OpenTV",
-  "version": "1.2.1",
-  "description": "OpenTV Desktop — Reproductor de TV en vivo, películas y series para Windows",
+  "version": "2.0.0-alpha.1",
+  "description": "OpenTV v2 — Tauri v2 + React/TS (PC) + Kotlin nativo (Android y TV) + Núcleo unificado Rust",
   "author": "TECHPOINT Software™",
   "license": "SEE LICENSE IN LICENSE",
-  "main": "platforms/electron/main.cjs",
   "scripts": {
-    "build:css": "tailwindcss -c tailwind.config.cjs -i ui/desktop/tw/input.css -o ui/desktop/tailwind.css --minify",
-    "watch:css": "tailwindcss -c tailwind.config.cjs -i ui/desktop/tw/input.css -o ui/desktop/tailwind.css --watch",
-    "start": "electron .",
-    "dev": "electron .",
-    "dist": "electron-builder --win nsis portable",
-    "dist:portable": "electron-builder --win portable",
-    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1",
-    "predist": "npm run build",
-    "predist:portable": "npm run build",
-    "build:js": "node scripts/build-app.cjs",
-    "check:js": "node scripts/build-app.cjs --check",
-    "build": "npm run build:js && npm run build:css",
-    "prestart": "npm run build",
-    "predev": "npm run build",
-    "test": "node --test \"tests/*.test.cjs\"",
-    "test:e2e": "node tests/e2e/run.cjs",
-    "release:github": "node scripts/publish-github.cjs",
-    "build:android": "npm run build && node scripts/build-android.cjs",
-    "build:apk": "npm run build:android && node scripts/build-apk.cjs"
-  },
-  "dependencies": {
-    "electron-updater": "^6.8.11",
-    "hls.js": "^1.5.20",
-    "torrent-stream": "^1.2.1"
+    "dev": "node scripts/run-tauri.cjs dev",
+    "dev:pc": "node scripts/run-tauri.cjs dev",
+    "build:ui": "npm --prefix apps/desktop/frontend run build",
+    "build:pc": "node scripts/run-tauri.cjs build",
+    "build:rust:android": "node scripts/build-rust-android.cjs",
+    "build:android": "node scripts/build-android.cjs",
+    "build:service": "node scripts/build-service.cjs",
+    "test:frontend": "npm --prefix apps/desktop/frontend test",
+    "test:rust": "cargo test --manifest-path core/Cargo.toml",
+    "test:service": "node --test tests/core.test.cjs",
+    "test:android": "node scripts/build-android.cjs --test-only",
+    "test:e2e": "node --test tests/e2e-pc.test.cjs",
+    "test": "npm run test:frontend && npm run test:rust && npm run test:service",
+    "test:all": "npm test && npm run test:android && npm run test:e2e"
   },
   "devDependencies": {
-    "acorn": "^8.15.0",
-    "electron": "^44.10.2",
-    "electron-builder": "^26.0.12",
-    "tailwindcss": "^3.4.17",
-    "terser": "^5.51.2"
-  },
-  "build": {
-    "appId": "com.techpoint.opentv",
-    "productName": "OpenTV",
-    "copyright": "Copyright © 2026 TECHPOINT Software™",
-    "electronDist": "node_modules/electron/dist",
-    "electronVersion": "44.10.2",
-    "asar": false,
-    "files": [
-      "platforms/electron/**/*",
-      "!platforms/electron/installer/**",
-      "service/**/*",
-      "ui/**/*",
-      "bin/**/*",
-      "licenses/**/*",
-      "config/tmdb.json",
-      "LICENSE",
-      "README.md",
-      "package.json",
-      "!ui/desktop/tw/**",
-      "!ui/assets/*.bak",
-      "!ui/js/src/**"
-    ],
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
-      "icon": "ui/images/icon-large.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "OpenTV",
-      "artifactName": "OpenTV-Setup-${version}.${ext}"
-    },
-    "portable": {
-      "artifactName": "OpenTV-Portable-${version}.${ext}"
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "EdgarLeonArchuleta19",
-        "repo": "OpenTV",
-        "releaseType": "release"
-      }
-    ]
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/EdgarLeonArchuleta19/OpenTV.git"
-  },
-  "homepage": "https://github.com/EdgarLeonArchuleta19/OpenTV"
+    "@tauri-apps/cli": "^2.12.6"
+  }
 }

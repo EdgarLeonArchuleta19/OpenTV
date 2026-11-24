@@ -1,0 +1,5 @@
+# App baseline profile (installed by androidx.profileinstaller).
+# The Fire TV Stick (1 GB, armeabi-v7a) runs the app interpreted/JIT on first launches;
+# precompiling our own code removes start-up and scroll jank on the Home rows.
+HSPLcom/techpoint/opentv/**->**(**)**
+Lcom/techpoint/opentv/**;

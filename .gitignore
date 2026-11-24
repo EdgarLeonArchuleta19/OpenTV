@@ -1,8 +1,25 @@
 node_modules/
-out/
+apps/desktop/frontend/node_modules/
 dist/
+core/target/
+apps/desktop/dist-ui/
+apps/desktop/src-tauri/target/
+apps/android/.gradle/
+apps/android/build/
+apps/android/app/build/
+apps/android/app/src/main/jniLibs/
+apps/android/local.properties
+apps/android/keystore.properties
+*.jks
 *.log
 .vscode/
 Thumbs.db
 desktop.ini
 config/tmdb.json
+apps/android/app/src/main/assets/tmdb.bin
+
+# Kotlin / Gradle caches
+.kotlin/
+apps/android/.kotlin/
+.idea/
+*.iml

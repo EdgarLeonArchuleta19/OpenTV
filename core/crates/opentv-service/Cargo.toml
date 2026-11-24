@@ -1,0 +1,13 @@
+[package]
+name = "opentv-service"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "opentv-service"
+path = "src/main.rs"
+
+[dependencies]
+opentv-core = { path = "../opentv-core" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }

@@ -1,0 +1,237 @@
+@import "tailwindcss";
+
+:root {
+  --ot-bg: #0e0e11;
+  --ot-surface: #141418;
+  --ot-surface-alt: #18181d;
+  --ot-accent: #ffffff;
+  --ot-accent-ink: #0e0e11;
+  --ot-text: #ffffff;
+  --ot-muted: rgba(255, 255, 255, 0.55);
+  --ot-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ot-gutter: clamp(20px, 5.2vw, 124px);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--ot-bg);
+  color: var(--ot-text);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-feature-settings: "ss01", "tnum" 0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Monochrome defaults: no Chromium blue focus rings, checkboxes, scrollbars or tap highlights. */
+@layer base {
+  :root {
+    color-scheme: dark;
+    accent-color: var(--ot-accent);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  *:focus {
+    outline: none;
+  }
+
+  /* Keyboard focus keeps a visible ring, but in the selected accent instead of browser blue. */
+  :focus-visible {
+    outline: 2px solid var(--ot-accent);
+    outline-offset: 2px;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+  }
+
+  ::selection {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  img {
+    -webkit-user-drag: none;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.32);
+  }
+}
+
+.font-display {
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+}
+
+/* Text size +12 % toggle (Ajustes -> Apariencia -> Tamaño del texto) */
+body.is-text-large .ot-text-scalable {
+  font-size: 112%;
+}
+
+/* Lite mode disables transitions, Ken Burns and heavy blur */
+body.is-lite *,
+body.is-lite *::before,
+body.is-lite *::after {
+  animation-duration: 0.001ms !important;
+  transition-duration: 0.001ms !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Ken Burns hero artwork animation (exact 22s from 07-inicio-hero-perfiles.css) */
+@keyframes ot-kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.07) translate(-1%, -1%);
+  }
+}
+
+.ot-kenburns {
+  animation: ot-kenburns 22s ease-in-out infinite alternate;
+}
+
+/* Smooth fade-up entry (modals, hover cards, screens) */
+@keyframes ot-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ot-fade-up {
+  animation: ot-fade-up 0.28s var(--ot-ease) both;
+}
+
+/* Exact Hero artwork bottom mask — zero visible hard cut edge */
+.ot-hero-mask {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+}
+
+/* Off-screen carousel rows skip layout/paint work until near viewport */
+.ot-cv-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 340px;
+}
+
+/* Exact horizontal row side fade (`05-filas-busqueda-guia.css`) */
+.ot-row-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+}
+
+/* Exact Detail screen design-8 right backdrop fade (`11-fuentes-stremio.css:283`) */
+.ot-detail-art-mask {
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.3) 20%, rgba(0, 0, 0, 0.8) 42%, #000 62%),
+    linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.55) 22%, #000 50%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.3) 20%, rgba(0, 0, 0, 0.8) 42%, #000 62%),
+    linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.55) 22%, #000 50%);
+  mask-composite: intersect;
+}
+
+/* Clean custom scrollbars (Home hides thumb until hover) */
+.ot-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ot-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ot-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+.ot-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.ot-home-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ot-home-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ot-home-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.ot-home-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.ot-no-scrollbar {
+  scrollbar-width: none;
+}
+.ot-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Player seek / volume custom range */
+.ot-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+.ot-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.ot-range:hover::-webkit-slider-runnable-track {
+  height: 6px;
+}
+.ot-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 999px;
+  background: var(--ot-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  transition: transform 0.15s ease;
+}
+.ot-range:hover::-webkit-slider-thumb {
+  transform: scale(1.2);
+}

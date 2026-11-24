@@ -1,188 +1,37 @@
-# OpenTV por dentro: plataformas y cómo funciona
+# Plataformas y arquitectura de OpenTV v2
 
-Una sola base de código (`ui/` + `service/`) y un envoltorio por plataforma:
+## 1. Núcleo unificado en Rust (`core/`)
 
-| Plataforma | Envoltorio | Carpeta |
-|---|---|---|
-| Windows | Electron 44 | `platforms/electron/` |
-| Android, Android TV, Fire TV | Capacitor 6 + servicio nativo en Java + ExoPlayer | `platforms/android/` |
+Todo el backend vive una sola vez en `core/crates/opentv-core`:
 
-Regla: si algo se puede hacer en `ui/` o `service/`, va ahí; las carpetas de
-`platforms/` solo tienen lo que de verdad es distinto.
+- **Torrents (`torrents.rs`):** motor `librqbit` 9.1 con arranque y carrera de fuentes en paralelo (`tokio::spawn`, máx. 2 en TV), `TcpAndUtp` + DHT persistente, trackers embebidos en el magnet (`&tr=`) y prefetch secuencial cabeza + cola (`moov`/`Cues`).
+- **Proxy multimedia (`proxy.rs`, `resolve.rs`):** cliente HTTP/2 con pool compartido, detección `#EXTM3U` en listas ofuscadas, reescritura de segmentos `/hls/`, cabeceras personalizadas, `forceProxy` para canales con bloqueo CORS (Pluto TV) y cancelación por token (`exceptToken`).
+- **TV en vivo y guía (`m3u.js` → `m3u.rs`, `epg.rs`):** lectura M3U con filtro adulto, EPG "Ahora / Después" y consulta bajo demanda de 12 h (`epgSchedule`).
+- **Seguridad (`netguard.rs`, `dnsx.rs`):** resolución DNS (sistema + DoH de respaldo) con IPv4 primero, bloqueo de loopback (`127.0.0.0/8`, `::1`) y control por plugin de la red local (`Red de tu casa`). `pluginFetch` fija cada conexión a una IP validada y prueba la siguiente si esa no responde, porque hay redes con IPv6 asignado pero sin salida.
+- **Descargas, Subtítulos, TMDB, `/img` y Actualizador:** `downloads.rs`, `subtitles.rs`, `tmdb.rs`, `images.rs` y `app_update.rs`.
 
-## Estructura
+## 2. Windows PC (`apps/desktop/`)
 
-```
-ui/                  interfaz compartida (HTML, CSS, JS ES5)
-  js/platform.js     qué dispositivo es y qué puede hacer (platformHas)
-  js/src/            módulos de la interfaz (ver ui/js/src/README.md)
-  desktop/tw/capas/  estilos por capas; 10-teles.css = diseño de tele
-  mobile/mobile.css  diseño de celular
-service/             servicio local de PC (Node, en 127.0.0.1)
-platforms/
-  electron/          main.cjs, preload, actualizador e instalador de Windows
-  android/           proyecto Capacitor: el servicio portado a Java + ExoPlayer
-scripts/             build y empaquetado por plataforma
-tests/               pruebas compartidas
-```
+- App **Tauri v2** con `opentv-core` compilado e iniciado en el mismo proceso (sin Node, sin Electron, sin ejecutable hijo).
+- Usa **WebView2** del sistema (aceleración GPU + decodificadores Windows Media Foundation para HEVC y E-AC-3/Dolby).
+- Volumen del sistema vía COM Core Audio (`audio_win.rs`), captura aislada (`capture.rs`) y apertura de enlaces vía `ShellExecuteW`.
+- Interfaz moderna en **React 19 + TypeScript + Vite 6 + Tailwind CSS v4 + Zustand** (`apps/desktop/frontend/` → compila a `apps/desktop/dist-ui/` con CSP estricta y división de chunks) conectada vía IPC tipado (`src/services/tauri.ts`).
 
-## Qué hay en cada plataforma
+## 3. Android, Android TV y Fire TV (`apps/android/`)
 
-| Función | PC (Electron) | Android TV / Fire TV / Android |
-|---|---|---|
-| Películas, series y anime de addons (compatibles con Stremio) | ✅ | ✅ |
-| Fuentes con enlace directo (HTTP / HLS) | ✅ | ✅ |
-| Torrents | ✅ torrent-stream | ✅ Android 9+ con ARM, libtorrent4j |
-| Descargas | ✅ | ✅ solo celular, con notificación (no en la tele) |
-| Subtítulos del archivo | ✅ relay FFmpeg | ✅ ExoPlayer |
-| Subtítulos de addons e importados | ✅ | ✅ |
-| TV en vivo (listas M3U) | ✅ | ✅ |
-| Guía de horarios (XMLTV de la lista) | ✅ | ✅ |
-| Carrera de fuentes de torrents | ✅ hasta 4 a la vez | ✅ 2 a la vez |
-| Gente real por torrent en "Cambiar fuente" | ✅ | — |
-| Búsqueda en español (TMDB) y tendencias | ✅ | ✅ |
-| Actualizaciones | ✅ automáticas | ✅ desde la app |
-| Ventana flotante, barra de título, ratón | ✅ | — |
+- App **100 % nativa en Kotlin** (`minSdk 23`, `targetSdk 35`) con **Jetpack Compose + Compose for TV** replicando pixel a pixel el diseño de escritorio de OpenTV (`#0E0E11`, 6 acentos, logo vectorial, Hero, Ficha 2 columnas, Elegir fuente con badges blancos, Guía de canales y Buscador).
+- Se comunica con `libopentv_service.so` vía JNI directo (`callRpcNative`, `startNative`, `stopTorrentNative`, `netguardRefusalNative`).
+- Reproductor **Media3 ExoPlayer** sobre `SurfaceView` directo con passthrough HDMI (AC-3, E-AC-3, Dolby Atmos, TrueHD, DTS), AFR en TV, `DefaultLoadControl` adaptado a 1 GB RAM, subtítulos estilizados y PiP en móvil.
+- Plugins JS (`kino-plugin.json`) ejecutados con el mismo runtime que la PC (`assets/js/plugin-runtime.js`) en un WebView oculto sin red propia (`JsPluginHost.kt`): toda petición pasa por Rust `pluginFetch`.
 
-La interfaz no compara nombres de plataforma: pregunta capacidades con
-`platformHas('addons' | 'torrents' | 'downloads' | 'native-player' | 'mouse' | 'pip' …)`
-y `platformIsTv()`. En Android, `torrents` y `downloads` se activan solo si el
-`ping` del servicio responde `torrents: true` / `downloads: true` (en
-`ui/js/src/main.js`). Para probar otra plataforma en el PC:
-`?platform=android-tv` (tele) o `?platform=android` (celular).
+## 4. Plugins y elección de fuente (PC y TV)
 
-## Películas, series y anime: addons
-
-No hay catálogo integrado: todo sale de los addons del usuario (compatibles
-con Stremio: `manifest.json` → `catalog` / `meta` / `stream` / `subtitles`).
-Código en `ui/js/src/services/vod-api.js` y `ui/js/src/player/stremio-sources.js`.
-
-1. **Addons instalados.** Vienen siempre y no se pueden quitar
-   **Cinemeta** (catálogo), **Anime Kitsu** (catálogo de anime) y
-   **OpenSubtitles** (subtítulos). Ninguno da vídeos; si alguno falta, la app
-   lo vuelve a poner. Se pueden preinstalar más (también de fuentes). El usuario
-   agrega más en **Ajustes →
-   Addons** pegando la URL del `manifest.json`; se guarda lo que ofrece cada
-   uno (catálogos, géneros, recursos, prefijos de id).
-2. **Inicio y secciones.** Una fila por catálogo, en el orden del addon
-   ("Popular · Películas"). Kids pide además las listas por género "Family".
-   Las listas de tipo `anime` (Kitsu: Tendencias, En emisión, Más
-   populares, Mejor valorados) solo van a **Anime**; el género "Animation"
-   no cuenta como anime ni como Kids. Los títulos llevan id `stremio:<id>`.
-3. **Ficha.** Los datos y capítulos los da el primer addon con `meta` para
-   ese id. Sin addon de fuentes (`hasSourceAddons()`) la ficha muestra solo la
-   información y un botón **Ir a Addons**; *Reproducir* desde otro sitio abre
-   el aviso "Agrega un addon para reproducir".
-4. **Elegir fuente.** Las fuentes de todos los addons, agrupadas, con una
-   **Recomendada** (`player/source-rank.js`: idioma > calidad > salud del
-   torrent; CAM solo si no hay otra; penaliza lo que el aparato no decodifica
-   o no cabe). Las **Preferencias de addons** (Ajustes) imitan la página
-   *configure* de Torrentio. La elección se recuerda por película o capítulo.
-5. **Reproducir** (`resolveExternal` en el servicio). HLS, MP4 y WebM tal cual.
-   En PC, MKV/AVI pasan por el relay FFmpeg (`service/ffmpeg-relay.js`): copia
-   el vídeo desde el keyframe, convierte el audio, mide dónde empezó de verdad
-   para no desfasar audio y vídeo, y escribe los subtítulos del archivo como
-   WebVTT. En Android todo lo reproduce ExoPlayer.
-6. **Torrents.** Aviso la primera vez; uno a la vez; se sirven en `127.0.0.1`
-   con Range y se borran al salir, al cambiar de fuente o al cerrar la app.
-   - **Carrera de fuentes:** con la elegida arrancan hasta 3 alternativas
-     parecidas (mismo idioma, sin CAM, puntaje cercano:
-     `torrentRaceAlternatives()` en `source-rank.js`; 1 en la tele). Un
-     torrent está vivo cuando tiene sus datos y una semilla, o la gente
-     conectada tiene entre todos el vídeo completo. La elegida gana en cuanto
-     está viva y tiene 4 s de ventaja; si no, gana la mejor alternativa viva.
-     Las demás se cierran. Si gana otra, la app la recuerda y lo avisa.
-   - **Trackers:** 13 fijos más la lista pública de
-     [ngosang/trackerslist](https://github.com/ngosang/trackerslist) (se
-     renueva como mucho una vez al día) y DHT; libtorrent anuncia a todos.
-   - **"Cambiar fuente" (PC):** `torrentProbe` abre los 6 mejores torrents
-     8 s sin bajar el vídeo y muestra la gente conectada de verdad.
-   - Mientras carga: "Probando 3 fuentes · 12 conexiones · 100 % disponible".
-7. **Subtítulos.** Primero los del archivo, luego los de los addons (con el
-   hash de OpenSubtitles del vídeo para que coincidan), o un archivo propio.
-   El proxy sigue redirecciones, descomprime y corrige la codificación.
-8. **Búsqueda.** En todos los addons a la vez; los resultados salen según
-   contesta cada uno, ordenados por parecido y sin duplicados. Si hay clave de
-   TMDB, el título en español se traduce a su título original
-   (`tmdb.list('search:<texto>')`) y ese título se busca en los addons.
-
-"Stremio" es una marca de otra empresa: en la interfaz solo aparece como
-"compatible con Stremio"; la sección se llama **Plugins**.
-
-## TV en vivo
-
-Independiente de los addons: solo listas M3U (`service/m3u.js`,
-`M3u.java`). La app empieza con una lista pública de
-[iptv-org](https://github.com/iptv-org/iptv) y ofrece más en "Buscar listas";
-el usuario agrega las suyas en **Ajustes → Plugins** (o en el
-celular, **Mi cuenta → Addons y listas**).
-
-**Guía de horarios.** Si la cabecera de la lista nombra una guía XMLTV
-(`#EXTM3U url-tvg="…"`, como las de Pluto TV, Plex y Samsung TV Plus), el
-servicio la baja y la lee por partes (`service/epg.js`, `Epg.java` con el
-lector XML de Android), guarda solo las próximas 12 h y la conserva 6 h. La
-interfaz (`live/epg.js`) pide los canales por `tvg-id` en tandas de 400 y
-muestra qué hay ahora y qué sigue en la guía de canales, en la barra del
-reproductor y debajo del vídeo. Las listas sin guía siguen diciendo
-"En vivo".
-
-## Celular
-
-`ui/js/src/mobile/` dibuja su propia capa táctil encima del lienzo de
-1920×1080, que se oculta hasta que se abre el reproductor. Por eso las
-ventanas de la app (elegir fuente, avisos, guía, descargas) se montan con
-`mountOverlay()`: en PC y tele dentro del lienzo, en el celular sobre el
-`body`, como una hoja que sube desde abajo (`mobile.css`).
-
-## Android
-
-El servicio de Node se portó a Java en lugar de usar nodejs-mobile (pesado
-para 1 GB de RAM): `android/app/src/main/java/com/techpoint/opentv/service`,
-un servidor local en `127.0.0.1:8910` con listas M3U, fuentes de addons,
-proxy de vídeo y subtítulos, hash de vídeo, DoH, TMDB, torrents
-(`Torrents.java`, libtorrent4j, ventana de 8 MB y lectura anticipada),
-descargas (`Downloads.java` + servicio en primer plano con notificación) y
-actualizaciones (`AppUpdate.java`, descarga el APK de la release e instala).
-Si un método nuevo del servicio de Node también hace falta en Android, hay que
-portarlo a Java.
-
-El reproductor es `NativePlayerPlugin.java` (Media3, una SurfaceView detrás
-del WebView transparente) con `ui/js/native-player.js`, que hace que los
-`<video>` hablen con él (capacidad `'native-player'`). Volver a hls.js para
-comparar: `localStorage.opentv_player = 'web'`.
-
-Medido en un Fire TV Stick 3.ª gen. (1 GB): con ExoPlayer la CPU al
-reproducir bajó de ~300 % a ~77 %. La navegación del inicio se queda en unos
-18 ms por fotograma; no baja con zoom, capas ni render a 720p.
-
-### Compilar, firmar e instalar
-
-```bash
-npm run build:apk     # interfaz + cap sync + APK de release → dist/OpenTV-<versión>.apk
-```
-
-- **Requisitos:** JDK 17 en `JAVA_HOME` y el Android SDK (`ANDROID_HOME` o
-  `platforms/android/android/local.properties`).
-- **R8** está activado en el release. Las reglas de OpenTV (incluidas las de
-  libtorrent4j) están en `android/app/proguard-rules.pro`; si algo falla solo
-  en release, falta una regla `-keep`.
-- **Firma:** `platforms/android/android/keystore.properties` (ignorado por git):
-  ```properties
-  storeFile=C:/ruta/fuera/del/repo/opentv-release.jks
-  storePassword=…
-  keyAlias=opentv
-  keyPassword=…
-  ```
-  Sin ese archivo se usa la clave de depuración. Un APK con otra firma no se
-  instala encima del que ya hay: habría que desinstalar y se pierden los datos.
-- **Versiones:** cada release sube `versionCode` en `android/app/build.gradle`;
-  en Fire TV eso también refresca el icono del lanzador.
-- **WebView:** la depuración remota (chrome://inspect) solo está en el build
-  de depuración (`gradlew assembleDebug`).
-- **Instalar en la Fire TV:** ver el README (Downloader o `adb install -r`).
-
-## Pendiente
-
-- macOS y Linux (builds de Electron con el FFmpeg de cada sistema).
-- Android TV de otras marcas y uso largo en el Fire TV (memoria).
-- Una política de seguridad de contenido (CSP) para la ventana de Electron.
+- **Stremio** (`manifest.json`): catálogos, metadatos, fuentes y subtítulos. Se incluyen siempre Cinemeta, Anime Kitsu y OpenSubtitles v3.
+- **Plugins JS** (`kino-plugin.json`): corren en un sandbox con el runtime compartido `plugin-runtime.js` (`apps/desktop/frontend/public/js/` y `apps/android/app/src/main/assets/js/`). Ofrecen `kino.fetch` (vía `pluginFetch`), `kino.storage`, `kino.config`, `kino.crypto` y `kino.plugins.call` para los plugins auxiliares que el manifiesto declara en `consumes`. Las cookies y el `Accept-Language` de cada dominio se conservan para el stream.
+- **Búsqueda progresiva:** Stremio y los plugins JS se consultan en paralelo y cada respuesta se publica en cuanto llega (`sourceSearch.ts` en PC, `PlayerScreen.kt` en TV).
+- **Elección automática** (`sourceRanker.ts` / `SourceRanker.kt`):
+  1. Idioma preferido primero.
+  2. Calidad objetivo según el equipo y la red (`deviceProfile.ts` / `PlaybackProfile.kt`): 1080p en PC capaz con buena red y 720p en equipos modestos. 4K, HEVC y 10-bit no se eligen solos si no se pueden decodificar.
+  3. Una fuente directa gana a los torrents del mismo idioma o peor. Las CAM nunca suben.
+- **Espera:** se elige en cuanto llega una fuente directa en el primer idioma preferido. Si no, se espera unos 10 s en PC (22 s en TV de 1 GB) después de los primeros resultados, o hasta 70 s si no llegó nada.
+- **Reproducción y respaldo:** la carga ocurre dentro del reproductor. Antes de usar una fuente directa se pide un rango de 2 bytes: si el servidor responde 401/403/404/410/429/5xx, se salta. El siguiente intento prefiere otro servidor, con hasta 8 directas y luego el mejor torrent.

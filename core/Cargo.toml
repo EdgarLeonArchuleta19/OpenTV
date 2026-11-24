@@ -1,0 +1,22 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/opentv-core",
+    "crates/opentv-service",
+    "crates/opentv-android",
+]
+
+[workspace.package]
+version = "2.0.0"
+edition = "2021"
+authors = ["TECHPOINT Software"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+# "unwind", not "abort": a panic inside one request (a Tokio task) must end
+# only that request, and on Android the JNI entry points catch it, because the
+# service runs inside the app process and an abort would close the whole app.
+panic = "unwind"
+strip = true

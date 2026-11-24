@@ -1,0 +1,642 @@
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { DownloadItem, Episode, ExternalSubtitle, HomeTabId, MediaItem, StreamSource, UpdateStatus, WatchProgress } from './types/models';
+import { ACCENTS } from './services/catalogs';
+import { desktopApi, getAppVersion } from './services/tauri';
+import { isMandatoryUpdate } from './services/version';
+import { useAppStore } from './store/useAppStore';
+import { ForceUpdateGate } from './components/ForceUpdateGate';
+import { TitleBar } from './components/TitleBar';
+import { TopNavBar } from './components/TopNavBar';
+import { HomeScreen } from './screens/HomeScreen';
+import type { PlayerSession } from './screens/PlayerScreen';
+import type { SettingsSectionId } from './screens/SettingsScreen';
+
+// Lazy-loaded screens keep hls.js (~595 KB) and off-screen views out of the initial boot bundle
+const DetailScreen = lazy(() => import('./screens/DetailScreen').then((m) => ({ default: m.DetailScreen })));
+const PlayerScreen = lazy(() => import('./screens/PlayerScreen').then((m) => ({ default: m.PlayerScreen })));
+const LiveTvScreen = lazy(() => import('./screens/LiveTvScreen').then((m) => ({ default: m.LiveTvScreen })));
+const SearchScreen = lazy(() => import('./screens/SearchScreen').then((m) => ({ default: m.SearchScreen })));
+const PluginsScreen = lazy(() => import('./screens/PluginsScreen').then((m) => ({ default: m.PluginsScreen })));
+const SettingsScreen = lazy(() => import('./screens/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
+const ProfilesScreen = lazy(() => import('./screens/ProfilesScreen').then((m) => ({ default: m.ProfilesScreen })));
+
+const ScreenFallback: React.FC = () => (
+  <div className="flex h-full w-full items-center justify-center bg-[#0e0e11]">
+    <div
+      style={{ borderTopColor: 'var(--ot-accent)' }}
+      className="h-8 w-8 animate-spin rounded-full border-2 border-white/15"
+    />
+  </div>
+);
+
+type ScreenId = 'home' | 'detail' | 'player' | 'search' | 'plugins' | 'settings' | 'profiles';
+
+const SECTION_LABELS: Record<HomeTabId, string> = {
+  live: 'TV en vivo',
+  home: 'Inicio',
+  movies: 'Películas',
+  series: 'Series',
+  kids: 'Kids',
+  anime: 'Anime',
+};
+
+export const App: React.FC = () => {
+  const store = useAppStore();
+  const profile = store.activeProfile();
+  const bucket = store.activeBucket();
+  const hasSourcePlugins = store.hasSourcePlugins();
+
+  const [screen, setScreen] = useState<ScreenId>('home');
+  const [prevScreen, setPrevScreen] = useState<ScreenId>('home');
+  const [activeTab, setActiveTab] = useState<HomeTabId>(profile.kids ? 'kids' : 'home');
+  const [detailStack, setDetailStack] = useState<MediaItem[]>([]);
+  /** Episode a "Seguir viendo" card asked Detail to preselect, by item id. */
+  const [detailResume, setDetailResume] = useState<Record<string, { season: number; episode: number }>>({});
+  const [playerSession, setPlayerSession] = useState<PlayerSession | null>(null);
+  const [settingsSection, setSettingsSection] = useState<SettingsSectionId>('account');
+  const [manageProfilesInitial, setManageProfilesInitial] = useState(false);
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [downloadPct, setDownloadPct] = useState<number | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle', version: getAppVersion() });
+  const [toast, setToast] = useState<string>('');
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const updateLocked = isMandatoryUpdate(updateStatus, getAppVersion());
+
+  const handleSaveProgress = useCallback(
+    (positionMs: number, durationMs: number) => {
+      if (!playerSession || playerSession.item.id.startsWith('local:')) return;
+      const { item, episode } = playerSession;
+      useAppStore.getState().saveWatchProgress({
+        itemId: item.id,
+        type: item.type,
+        title: item.title,
+        poster: item.poster,
+        backdrop: item.backdrop,
+        season: episode?.season || 0,
+        episode: episode?.number || 0,
+        episodeTitle: episode?.title || '',
+        positionMs,
+        durationMs,
+      });
+    },
+    [playerSession],
+  );
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(''), 3200);
+  }, []);
+
+  const myListIds = useMemo(() => new Set(bucket.myList.map((m) => m.id)), [bucket.myList]);
+  const favoriteIds = useMemo(() => new Set(bucket.favorites.map((m) => m.id)), [bucket.favorites]);
+
+  // Apply accent color tokens, large text & lite mode
+  useEffect(() => {
+    const accent = ACCENTS.find((a) => a.id === store.appearance.accentId) || ACCENTS[0];
+    document.documentElement.style.setProperty('--ot-accent', accent.color);
+    document.documentElement.style.setProperty('--ot-accent-ink', accent.ink);
+    document.body.classList.toggle('is-text-large', store.appearance.textLarge);
+    document.body.classList.toggle('is-lite', store.appearance.liteMode);
+  }, [store.appearance.accentId, store.appearance.textLarge, store.appearance.liteMode]);
+
+  useEffect(() => {
+    if (profile.kids && activeTab !== 'kids') setActiveTab('kids');
+  }, [profile.kids, activeTab]);
+
+  const openLocalVideoPath = useCallback(
+    async (filePath: string) => {
+      if (updateLocked) return;
+      const res = await desktopApi.service<{
+        returnValue?: boolean;
+        url?: string;
+        title?: string;
+        name?: string;
+        subtitles?: Array<{ id: string; lang: string; label: string; url: string }>;
+        errorText?: string;
+      }>('localRegister', { path: filePath });
+      if (!res?.returnValue || !res.url) {
+        showToast(res?.errorText || 'No se pudo abrir el archivo de video');
+        return;
+      }
+      const localSubs: ExternalSubtitle[] = Array.isArray(res.subtitles)
+        ? res.subtitles.map((s) => ({
+            id: s.id,
+            lang: s.lang || 'es',
+            label: s.label,
+            url: s.url,
+            source: 'Archivo local',
+          }))
+        : [];
+      const fakeItem: MediaItem = {
+        id: `local:${res.name || Date.now()}`,
+        type: 'movie',
+        title: res.title || res.name || 'Video local',
+        year: 'Archivo local',
+        score: '',
+        duration: '',
+        genres: [],
+        synopsis: '',
+        poster: '',
+        backdrop: '',
+        isAnime: false,
+      };
+      setPlayerSession({
+        item: fakeItem,
+        episode: null,
+        allEpisodes: [],
+        chosen: null,
+        ranked: [],
+        offlineUrl: res.url,
+        initialSubtitles: localSubs,
+      });
+      setScreen('player');
+      if (localSubs.length > 0) {
+        showToast(`Reproduciendo video local · ${localSubs.length} subtítulo(s) detectado(s)`);
+      }
+    },
+    [showToast, updateLocked],
+  );
+
+  const openLocalRef = useRef(openLocalVideoPath);
+  openLocalRef.current = openLocalVideoPath;
+
+  useEffect(() => {
+    void desktopApi.update('status').then((st) => {
+      if (st && st.state) setUpdateStatus(st);
+    });
+    const offFs = desktopApi.listen<boolean>('desktop:fullscreen-changed', (fs) => setIsFullscreen(Boolean(fs)));
+    const offUpd = desktopApi.listen<UpdateStatus>('desktop:update-status', (ev) => {
+      if (ev && ev.state) {
+        setUpdateStatus(ev);
+      }
+    });
+    const offDrop = desktopApi.listen<string[]>('desktop:file-drop', (paths) => {
+      if (!Array.isArray(paths) || paths.length === 0) return;
+      const videoExt = /\.(mp4|m4v|mkv|webm|avi|mov|ts|m2ts|flv|wmv|ogv|mpg|mpeg|3gp)$/i;
+      const firstVideo = paths.find((p) => typeof p === 'string' && videoExt.test(p));
+      if (firstVideo) {
+        void openLocalRef.current(firstVideo);
+      } else {
+        showToast('Arrastra un archivo de video compatible (.mp4, .mkv, .avi, .mov, .webm…)');
+      }
+    });
+    return () => {
+      offFs();
+      offUpd();
+      offDrop();
+    };
+  }, [showToast]);
+
+  // Immediately stop active playback whenever a mandatory update locks the app
+  useEffect(() => {
+    if (updateLocked && playerSession) {
+      setPlayerSession(null);
+      setScreen('home');
+    }
+  }, [updateLocked, playerSession]);
+
+  // Adaptive polling for active background downloads (fast while downloading, low-power when idle/hidden)
+  useEffect(() => {
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const poll = async () => {
+      if (!alive) return;
+      if (document.hidden) {
+        timer = setTimeout(poll, 15_000);
+        return;
+      }
+      const res = await desktopApi.service<{ items?: DownloadItem[] }>('downloadList', {});
+      if (!alive) return;
+      const active = (res?.items || []).filter((d) => d.status === 'downloading' || d.status === 'queued');
+      if (active.length === 0) {
+        setDownloadPct(null);
+        timer = setTimeout(poll, 15_000);
+        return;
+      }
+      const total = active.reduce((acc, d) => acc + (d.total || 0), 0);
+      const done = active.reduce((acc, d) => acc + (d.bytes || 0), 0);
+      setDownloadPct(total > 0 ? Math.min(99, Math.round((done / total) * 100)) : 0);
+      timer = setTimeout(poll, 2_500);
+    };
+    timer = setTimeout(poll, 4_000);
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    desktopApi.fullscreen().then((fs) => setIsFullscreen(Boolean(fs)));
+  }, []);
+
+  const togglePin = useCallback(() => {
+    desktopApi.pin().then((pinned) => {
+      setIsPinned(Boolean(pinned));
+      showToast(pinned ? 'Ventana fijada siempre encima' : 'Ventana desfijada');
+    });
+  }, [showToast]);
+
+  // Global desktop keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F11') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setPrevScreen(screen);
+        setScreen('search');
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        setScreen('home');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        setSettingsSection('prefs');
+        setScreen('settings');
+      } else if (e.key === 'Escape' && screen !== 'player' && !(screen === 'home' && activeTab === 'live')) {
+        if (isFullscreen) {
+          e.preventDefault();
+          toggleFullscreen();
+        } else if (screen === 'detail') {
+          setDetailStack((st) => {
+            if (st.length > 1) return st.slice(0, -1);
+            setScreen('home');
+            return [];
+          });
+        } else if (screen !== 'home') {
+          setScreen('home');
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeTab, isFullscreen, screen, toggleFullscreen]);
+
+  const openDetail = useCallback((item: MediaItem) => {
+    setDetailResume((cur) => {
+      if (!(item.id in cur)) return cur;
+      const next = { ...cur };
+      delete next[item.id];
+      return next;
+    });
+    setDetailStack((st) => [...st, item]);
+    setScreen('detail');
+  }, []);
+
+  const startPlayback = useCallback(
+    (
+      item: MediaItem,
+      episode: Episode | null,
+      allEpisodes: Episode[],
+      chosen: StreamSource | null,
+      ranked: StreamSource[],
+      fromStart = false,
+    ) => {
+      const saved = bucket.watchProgress.find(
+        (w) => w.itemId === item.id && (!episode || (w.season === episode.season && w.episode === episode.number)),
+      );
+      const startPositionMs =
+        !fromStart && saved && saved.durationMs > 60_000 && saved.positionMs / saved.durationMs < 0.92
+          ? saved.positionMs
+          : 0;
+      setPlayerSession({ item, episode, allEpisodes, chosen, ranked, startPositionMs });
+      setScreen('player');
+    },
+    [bucket.watchProgress],
+  );
+
+  const handleHeroPlay = useCallback(
+    (item: MediaItem) => {
+      if (!hasSourcePlugins) {
+        showToast('Para reproducir, agrega un plugin de fuentes en Plugins.');
+        setSettingsSection('plugins');
+        setScreen('settings');
+        return;
+      }
+      if (item.type !== 'movie') {
+        openDetail(item);
+        return;
+      }
+      // The player opens at once and finds the best source inside its loading screen.
+      startPlayback(item, null, [], null, []);
+    },
+    [hasSourcePlugins, openDetail, showToast, startPlayback],
+  );
+
+  // "Seguir viendo" opens the title's Detail (episode kept) instead of playing blindly.
+  const handleResumeEntry = useCallback(
+    (entry: WatchProgress) => {
+      openDetail({
+        id: entry.itemId,
+        type: entry.type,
+        title: entry.title,
+        year: '',
+        score: '',
+        duration: '',
+        genres: [],
+        synopsis: '',
+        poster: entry.poster,
+        backdrop: entry.backdrop,
+        isAnime: entry.type === 'anime',
+      });
+      if (entry.season > 0) {
+        setDetailResume((cur) => ({ ...cur, [entry.itemId]: { season: entry.season, episode: entry.episode } }));
+      }
+    },
+    [openDetail],
+  );
+
+  const sectionLabel = useMemo(() => {
+    if (screen === 'home') return SECTION_LABELS[activeTab];
+    if (screen === 'detail') return detailStack[detailStack.length - 1]?.title || 'Ficha';
+    if (screen === 'player') return playerSession?.item.title || 'Reproductor';
+    if (screen === 'search') return 'Buscar';
+    if (screen === 'plugins') return 'Plugins';
+    if (screen === 'settings') return 'Ajustes';
+    return 'Perfiles';
+  }, [activeTab, detailStack, playerSession?.item.title, screen]);
+
+  const currentDetail = detailStack[detailStack.length - 1] || null;
+  const showTopNav = screen === 'home' && !(activeTab === 'live' && isFullscreen);
+
+  return (
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#0e0e11] text-white">
+      <TitleBar
+        sectionLabel={sectionLabel}
+        isFullscreen={isFullscreen}
+        isPinned={isPinned}
+        activeDownloadPct={downloadPct}
+        onTogglePin={togglePin}
+        onOpenDownloads={() => {
+          setSettingsSection('downloads');
+          setScreen('settings');
+        }}
+        onToggleFullscreen={toggleFullscreen}
+      />
+
+      <div className={`relative min-h-0 flex-1 overflow-hidden ${isFullscreen ? '' : 'pt-9'}`}>
+        <div className="relative h-full w-full overflow-hidden">
+          {showTopNav && (
+            <TopNavBar
+              activeTab={activeTab}
+              profile={profile}
+              scrolled={scrolled || activeTab === 'live'}
+              onSelectTab={(tab) => {
+                setActiveTab(tab);
+                setScrolled(false);
+              }}
+              onOpenSearch={() => {
+                setPrevScreen(screen);
+                setScreen('search');
+              }}
+              onOpenMyList={() => {
+                setSettingsSection('mylist');
+                setScreen('settings');
+              }}
+              onOpenAccount={() => {
+                setSettingsSection('account');
+                setScreen('settings');
+              }}
+            />
+          )}
+
+          {screen === 'home' && activeTab !== 'live' && (
+            <HomeScreen
+              tab={activeTab}
+              plugins={store.plugins}
+              continueWatching={bucket.watchProgress}
+              myListIds={myListIds}
+              compact={store.appearance.uiDensity === 'compact'}
+              liteMode={store.appearance.liteMode}
+              onScrolledChange={setScrolled}
+              onPlayItem={handleHeroPlay}
+              onResumeEntry={handleResumeEntry}
+              onRemoveContinue={(id: string) => store.removeWatchProgress(id)}
+              onOpenDetail={openDetail}
+              onToggleMyList={(it) => {
+                const added = store.toggleMyList(it);
+                showToast(added ? 'Se añadió a Mi lista' : 'Se quitó de Mi lista');
+              }}
+            />
+          )}
+
+          <Suspense fallback={<ScreenFallback />}>
+          {screen === 'home' && activeTab === 'live' && (
+            <LiveTvScreen
+              playlists={store.m3uPlaylists}
+              favoriteUrls={bucket.favoriteChannelUrls}
+              recentChannels={bucket.recentChannels}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+              onToggleFavorite={(url) => store.toggleFavoriteChannel(url)}
+              onRecordRecent={(ch) => store.recordRecentChannel(ch)}
+              onOpenPlugins={() => {
+                setSettingsSection('plugins');
+                setScreen('settings');
+              }}
+              onToast={showToast}
+            />
+          )}
+
+          {screen === 'detail' && currentDetail && (
+            <DetailScreen
+              initialItem={currentDetail}
+              plugins={store.plugins}
+              hasSourcePlugins={hasSourcePlugins}
+              sourcePrefs={store.sourcePrefs}
+              playbackPrefs={store.playback}
+              inMyList={myListIds.has(currentDetail.id)}
+              isFavorite={favoriteIds.has(currentDetail.id)}
+              watchProgress={bucket.watchProgress}
+              resumeEpisode={detailResume[currentDetail.id] ?? null}
+              onBack={() => {
+                setDetailStack((st) => {
+                  if (st.length > 1) return st.slice(0, -1);
+                  setScreen('home');
+                  return [];
+                });
+              }}
+              onToggleMyList={(it) => {
+                const added = store.toggleMyList(it);
+                showToast(added ? 'Se añadió a Mi lista' : 'Se quitó de Mi lista');
+              }}
+              onToggleFavorite={(it) => {
+                const added = store.toggleFavorite(it);
+                showToast(added ? 'Se añadió a favoritos' : 'Se quitó de favoritos');
+              }}
+              onUpdatePlayback={store.updatePlayback}
+              onOpenPlugins={() => {
+                setSettingsSection('plugins');
+                setScreen('settings');
+              }}
+              onOpenRelated={openDetail}
+              onPlayStream={startPlayback}
+              onToast={showToast}
+            />
+          )}
+
+          {screen === 'player' && playerSession && (
+            <PlayerScreen
+              key={`${playerSession.item.id}:${playerSession.episode?.id ?? 'movie'}:${playerSession.startPositionMs ?? 0}`}
+              session={playerSession}
+              plugins={store.plugins}
+              sourcePrefs={store.sourcePrefs}
+              playbackPrefs={store.playback}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+              onSaveProgress={handleSaveProgress}
+              onUpdateSubtitleStyle={(fn) =>
+                store.updatePlayback((p) => ({ ...p, subtitleStyle: fn(p.subtitleStyle) }))
+              }
+              onSwitchSession={(next) => setPlayerSession(next)}
+              onExit={() => {
+                setPlayerSession(null);
+                setScreen(currentDetail ? 'detail' : 'home');
+              }}
+              onToast={showToast}
+            />
+          )}
+
+          {screen === 'search' && (
+            <SearchScreen
+              kidsOnly={profile.kids}
+              plugins={store.plugins}
+              recentSearches={bucket.recentSearches}
+              onAddRecent={store.addRecentSearch}
+              onRemoveRecent={store.removeRecentSearch}
+              onClearRecents={store.clearRecentSearches}
+              onOpenTitle={openDetail}
+              onBack={() => setScreen(prevScreen === 'search' ? 'home' : prevScreen)}
+            />
+          )}
+
+          {screen === 'plugins' && (
+            <PluginsScreen
+              plugins={store.plugins}
+              m3uPlaylists={store.m3uPlaylists}
+              sourcePrefs={store.sourcePrefs}
+              onUpsertPlugin={store.upsertPlugin}
+              onTogglePluginDisabled={store.togglePluginDisabled}
+              onRemovePlugin={store.removePlugin}
+              onSetAllowLan={store.setPluginAllowLan}
+              onAddM3u={store.addM3uPlaylist}
+              onRemoveM3u={store.removeM3uPlaylist}
+              onUpdateSourcePrefs={store.updateSourcePrefs}
+              onBack={() => setScreen('home')}
+              onToast={showToast}
+            />
+          )}
+
+          {screen === 'settings' && (
+            <SettingsScreen
+              initialSection={settingsSection}
+              profile={profile}
+              myList={bucket.myList}
+              favorites={bucket.favorites}
+              watchProgress={bucket.watchProgress}
+              plugins={store.plugins}
+              m3uPlaylists={store.m3uPlaylists}
+              sourcePrefs={store.sourcePrefs}
+              appearance={store.appearance}
+              playback={store.playback}
+              parentalPin={store.parentalPin}
+              parentalLocked={store.parentalLocked}
+              localFolders={store.localFolders}
+              onBack={() => setScreen('home')}
+              onOpenProfiles={(manage) => {
+                setManageProfilesInitial(Boolean(manage));
+                setScreen('profiles');
+              }}
+              onOpenTitle={openDetail}
+              onRemoveFromMyList={(it) => store.toggleMyList(it)}
+              onRemoveFavorite={(it) => store.toggleFavorite(it)}
+              onClearHistory={store.clearHistory}
+              onPlayOffline={(dl: DownloadItem, offlineUrl: string) => {
+                const fakeItem: MediaItem = {
+                  id: dl.id,
+                  type: 'movie',
+                  title: dl.title,
+                  year: dl.subtitle,
+                  score: '',
+                  duration: '',
+                  genres: [],
+                  synopsis: '',
+                  poster: dl.poster,
+                  backdrop: dl.poster,
+                  isAnime: false,
+                };
+                setPlayerSession({
+                  item: fakeItem,
+                  episode: null,
+                  allEpisodes: [],
+                  chosen: null,
+                  ranked: [],
+                  offlineUrl,
+                });
+                setScreen('player');
+              }}
+              onPlayLocalPath={(p: string) => void openLocalVideoPath(p)}
+              onAddLocalFolder={store.addLocalFolder}
+              onRemoveLocalFolder={store.removeLocalFolder}
+              onUpsertPlugin={store.upsertPlugin}
+              onTogglePluginDisabled={store.togglePluginDisabled}
+              onRemovePlugin={store.removePlugin}
+              onSetAllowLan={store.setPluginAllowLan}
+              onAddM3u={store.addM3uPlaylist}
+              onRemoveM3u={store.removeM3uPlaylist}
+              onUpdateSourcePrefs={store.updateSourcePrefs}
+              onUpdateAppearance={store.updateAppearance}
+              onUpdatePlayback={store.updatePlayback}
+              onSetParental={store.setParental}
+              onExportJson={store.exportStateJson}
+              onImportJson={store.importStateJson}
+              onToast={showToast}
+            />
+          )}
+
+          {screen === 'profiles' && (
+            <ProfilesScreen
+              initialManage={manageProfilesInitial}
+              profiles={store.profiles}
+              activeProfileId={store.activeProfileId}
+              parentalPin={store.parentalPin}
+              parentalLocked={store.parentalLocked}
+              onSelectProfile={(id) => {
+                store.selectProfile(id);
+                const chosen = store.profiles.find((p) => p.id === id);
+                setActiveTab(chosen?.kids ? 'kids' : 'home');
+                setScreen('home');
+              }}
+              onAddProfile={store.addProfile}
+              onUpdateProfile={store.updateProfile}
+              onRemoveProfile={store.removeProfile}
+              onToast={showToast}
+            />
+          )}
+          </Suspense>
+
+          {toast && !updateLocked && (
+            <div className="ot-fade-up pointer-events-none fixed bottom-7 left-1/2 z-[120] -translate-x-1/2 rounded-full border border-white/15 bg-[#1a1a20]/95 px-5 py-2.5 text-[13.5px] font-semibold text-white shadow-2xl backdrop-blur-md">
+              {toast}
+            </div>
+          )}
+
+          {updateLocked && (
+            <ForceUpdateGate
+              currentVersion={getAppVersion()}
+              status={updateStatus}
+              onDownload={() => void desktopApi.update('download').then((st) => st?.state && setUpdateStatus(st))}
+              onInstall={() => void desktopApi.update('install').then((st) => st?.state && setUpdateStatus(st))}
+              onRetryCheck={() => void desktopApi.update('check').then((st) => st?.state && setUpdateStatus(st))}
+              onOpenReleases={() => void desktopApi.update('releases')}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

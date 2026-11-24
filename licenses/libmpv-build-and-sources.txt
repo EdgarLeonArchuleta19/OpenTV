@@ -1,0 +1,30 @@
+libmpv (Windows x64, LGPL build) — Build Configuration & Source Attribution
+===========================================================================
+
+OpenTV v2 optionally bundles `bin/mpv-2.dll` (loaded dynamically via
+`libloading`, never statically linked) for hardware-accelerated playback on
+Windows. The user may replace `bin/mpv-2.dll` with any ABI-compatible
+`libmpv-2.dll` build.
+
+Release & Verification:
+- Repository:  https://github.com/media-kit/libmpv-win32-video-build
+- Release tag: 2023-09-24
+- Asset:       mpv-dev-x86_64-20230924-git-652a1dd.7z (8.38 MB compressed)
+- DLL size:    28.39 MB uncompressed (`bin/mpv-2.dll`)
+- Archive SHA-256:
+  dce982222d7a23e4a1c6f0fb6cc39f6e899a6714624b95ea49cff6558ee97572
+
+Licensing:
+- mpv:    GNU Lesser General Public License v2.1 or later (compiled with
+          `-Dgpl=false -Dlibmpv=true`). See `licenses/mpv-LGPLv2.1.txt`.
+- FFmpeg: GNU Lesser General Public License v3.0 (compiled with
+          `--disable-gpl --disable-nonfree --enable-version3 --enable-small`,
+          playback-only decoders/demuxers/hwaccels: D3D11VA, DXVA2, NVDEC,
+          AMF, libvpl, H.264, HEVC, AV1/dav1d, VP8/VP9, AAC, AC3, EAC3, DTS,
+          Opus, FLAC, ASS/SRT/WebVTT, HLS, MKV, MP4, MPEG-TS).
+          See `licenses/LGPLv3.txt`.
+
+Corresponding Source Code:
+- mpv source:        https://github.com/mpv-player/mpv
+- FFmpeg source:     https://github.com/FFmpeg/FFmpeg (commit ea3d24bbe3c58b171e55fe2151fc7ffaca3ab3d2)
+- Build scripts:     https://github.com/media-kit/libmpv-win32-video-build/tree/2023-09-24
