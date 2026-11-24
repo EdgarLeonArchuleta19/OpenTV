@@ -130,12 +130,36 @@ pub fn safe_name(text: &str) -> String {
     let collapsed: String = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
     let trimmed = collapsed.trim_end_matches(['.', ' ']);
     let limited: String = trimmed.chars().take(120).collect();
-    let final_s = limited.trim_end_matches(['.', ' ']);
+    let final_s = limited.trim_start_matches(['.', ' ']).trim_end_matches(['.', ' ']);
     if final_s.is_empty() {
         "Video".to_string()
+    } else if is_windows_reserved_name(final_s) {
+        // `CON`, `NUL.mkv`, `COM1.txt`... open devices instead of files on Windows.
+        format!("_{final_s}")
     } else {
         final_s.to_string()
     }
+}
+
+/// Windows reserved device names (also with any extension, e.g. `aux.mp4`, and the
+/// superscript-digit variants `COM¹`/`LPT²`).
+pub fn is_windows_reserved_name(name: &str) -> bool {
+    let stem = name.split('.').next().unwrap_or("").trim_end_matches(' ');
+    let upper = stem.to_uppercase();
+    if matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$") {
+        return true;
+    }
+    for prefix in ["COM", "LPT"] {
+        if let Some(rest) = upper.strip_prefix(prefix) {
+            let mut chars = rest.chars();
+            if let (Some(c), None) = (chars.next(), chars.next()) {
+                if c.is_ascii_digit() || matches!(c, '\u{b9}' | '\u{b2}' | '\u{b3}') {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }
 
 fn ext_from(text: &str, fallback: &str) -> String {
@@ -1344,6 +1368,31 @@ mod tests {
         );
         assert_eq!(safe_name("   "), "Video");
         assert_eq!(safe_name("Nombre."), "Nombre");
+    }
+
+    #[test]
+    fn safe_name_renames_windows_reserved_device_names() {
+        for (input, expected) in [
+            ("CON", "_CON"),
+            ("con", "_con"),
+            ("NUL.mkv", "_NUL.mkv"),
+            ("aux.mp4", "_aux.mp4"),
+            ("PRN", "_PRN"),
+            ("COM1", "_COM1"),
+            ("lpt9.txt", "_lpt9.txt"),
+            ("COM\u{b9}", "_COM\u{b9}"),
+            ("CON .", "_CON"),
+            ("NUL . . ", "_NUL"),
+        ] {
+            assert_eq!(safe_name(input), expected, "{input}");
+        }
+        // Lookalikes stay untouched.
+        for ok in ["Console", "COM10", "LPT", "Nullify", "Aux Cables", "CONTRA.mkv"] {
+            assert_eq!(safe_name(ok), ok);
+        }
+        // Leading/trailing dots and spaces never survive.
+        assert_eq!(safe_name(" ..Peli. . "), "Peli");
+        assert_eq!(safe_name("..."), "Video");
     }
 
     #[test]

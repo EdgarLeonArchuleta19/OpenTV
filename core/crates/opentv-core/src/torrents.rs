@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::io::SeekFrom;
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -114,6 +114,62 @@ pub struct TorrentEngine {
     race_gen: Arc<AtomicU64>,
     fetched_trackers: Arc<RwLock<Vec<String>>>,
     trackers_checked: Arc<AtomicU64>,
+    /// UPnP port forwarding on the home router is opt-in (default off): it opens an
+    /// inbound port on the router without the user asking for it.
+    upnp: Arc<AtomicBool>,
+}
+
+/// Host of a tracker URL (`udp://`, `http(s)://`, `ws(s)://`).
+fn tracker_host(tracker: &str) -> Option<String> {
+    let parsed = url::Url::parse(tracker).ok()?;
+    if !matches!(parsed.scheme(), "udp" | "http" | "https" | "ws" | "wss") {
+        return None;
+    }
+    parsed
+        .host_str()
+        .map(|h| h.trim_start_matches('[').trim_end_matches(']').to_ascii_lowercase())
+        .filter(|h| !h.is_empty())
+}
+
+/// Cheap NetGuard check that needs no DNS: literal IPs must be public and
+/// `localhost` names are refused. Hostnames pass here (see `tracker_resolves_public`).
+pub fn tracker_literal_allowed(tracker: &str) -> bool {
+    let Some(host) = tracker_host(tracker) else {
+        return false;
+    };
+    match crate::netguard::classify_str(&host) {
+        Some(kind) => kind == "public",
+        None => true,
+    }
+}
+
+/// Resolves a plugin-supplied tracker hostname and accepts it only when every
+/// address is public (no LAN, loopback or reserved trackers).
+async fn tracker_resolves_public(tracker: &str) -> bool {
+    if !tracker_literal_allowed(tracker) {
+        return false;
+    }
+    let Some(host) = tracker_host(tracker) else {
+        return false;
+    };
+    if host.parse::<std::net::IpAddr>().is_ok() {
+        return true;
+    }
+    let lookup = tokio::time::timeout(
+        Duration::from_secs(3),
+        tokio::net::lookup_host((host.as_str(), 80)),
+    )
+    .await;
+    match lookup {
+        Ok(Ok(addrs)) => {
+            let ips: Vec<std::net::IpAddr> = addrs.map(|a| a.ip()).collect();
+            !ips.is_empty()
+                && ips
+                    .iter()
+                    .all(|ip| crate::netguard::classify(*ip) == crate::netguard::IpKind::Public)
+        }
+        _ => false,
+    }
 }
 
 fn now_ms() -> u64 {
@@ -420,6 +476,7 @@ impl TorrentEngine {
             race_gen: Arc::new(AtomicU64::new(0)),
             fetched_trackers: Arc::new(RwLock::new(Vec::new())),
             trackers_checked: Arc::new(AtomicU64::new(0)),
+            upnp: Arc::new(AtomicBool::new(false)),
         };
 
         // Refresh public trackers list early so the very first torrent gets all 40+ trackers.
@@ -459,6 +516,15 @@ impl TorrentEngine {
         engine
     }
 
+    /// Opt-in UPnP port forwarding for sessions created after this call.
+    pub fn set_upnp_enabled(&self, enabled: bool) {
+        self.upnp.store(enabled, Ordering::Relaxed);
+    }
+
+    pub fn upnp_enabled(&self) -> bool {
+        self.upnp.load(Ordering::Relaxed)
+    }
+
     pub fn cache_dir(&self) -> &PathBuf {
         &self.cache_dir
     }
@@ -481,7 +547,7 @@ impl TorrentEngine {
             Some(ListenerOptions {
                 mode: ListenerMode::TcpAndUtp,
                 listen_addr: SocketAddr::from(([0, 0, 0, 0], 0)),
-                enable_upnp_port_forwarding: !self.low_memory,
+                enable_upnp_port_forwarding: self.upnp_enabled() && !self.low_memory,
                 ipv4_only: true,
                 ..Default::default()
             })
@@ -556,11 +622,14 @@ impl TorrentEngine {
         {
             let fetched = self.fetched_trackers.read().await;
             for t in fetched.iter() {
-                if !list.iter().any(|x| x == t) {
+                if tracker_literal_allowed(t) && !list.iter().any(|x| x == t) {
                     list.push(t.clone());
                 }
             }
         }
+        // Trackers named by plugin sources are untrusted: announcing to a LAN or loopback
+        // tracker would let a plugin make the app send requests into the home network.
+        let mut from_sources: Vec<String> = Vec::new();
         for s in sources {
             let trimmed = s.trim();
             if let Some(tr) = trimmed
@@ -568,9 +637,22 @@ impl TorrentEngine {
                 .or_else(|| trimmed.strip_prefix("TRACKER:"))
             {
                 let tr = tr.trim();
-                if !tr.is_empty() && !list.iter().any(|x| x == tr) {
-                    list.push(tr.to_string());
+                if !tr.is_empty()
+                    && !list.iter().any(|x| x == tr)
+                    && !from_sources.iter().any(|x| x == tr)
+                    && from_sources.len() < 32
+                {
+                    from_sources.push(tr.to_string());
                 }
+            }
+        }
+        let checks = futures_util::future::join_all(
+            from_sources.iter().map(|t| tracker_resolves_public(t)),
+        )
+        .await;
+        for (tr, ok) in from_sources.into_iter().zip(checks) {
+            if ok {
+                list.push(tr);
             }
         }
         list
@@ -1439,6 +1521,34 @@ mod tests {
         );
         // Film fallback: biggest video.
         assert_eq!(pick_file(&files, &FileHint::default()), Some(1));
+    }
+
+    #[test]
+    fn tracker_literals_must_be_public() {
+        assert!(tracker_literal_allowed("udp://tracker.opentrackr.org:1337/announce"));
+        assert!(tracker_literal_allowed("http://1.1.1.1:80/announce"));
+        assert!(!tracker_literal_allowed("udp://127.0.0.1:6969/announce"));
+        assert!(!tracker_literal_allowed("http://192.168.1.1/announce"));
+        assert!(!tracker_literal_allowed("http://localhost:8910/ping"));
+        assert!(!tracker_literal_allowed("http://[::1]:80/announce"));
+        assert!(!tracker_literal_allowed("http://169.254.169.254/latest"));
+        assert!(!tracker_literal_allowed("file:///C:/x"));
+    }
+
+    #[tokio::test]
+    async fn plugin_trackers_on_lan_or_loopback_are_dropped() {
+        let dir = std::env::temp_dir().join(format!("opentv-trk-{}", std::process::id()));
+        let engine = TorrentEngine::new(reqwest::Client::new(), dir, true);
+        assert!(!engine.upnp_enabled());
+        let list = engine
+            .build_trackers(&[
+                "tracker:udp://10.0.0.1:6969/announce".to_string(),
+                "tracker:http://127.0.0.1:8910/appUpdate".to_string(),
+                "tracker:udp://8.8.8.8:6969/announce".to_string(),
+            ])
+            .await;
+        assert!(!list.iter().any(|t| t.contains("10.0.0.1") || t.contains("127.0.0.1")));
+        assert!(list.iter().any(|t| t == "udp://8.8.8.8:6969/announce"));
     }
 
     #[test]

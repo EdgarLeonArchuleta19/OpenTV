@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,11 +17,24 @@ use tokio::process::{Child, Command};
 use tokio::sync::{Mutex, OnceCell, RwLock};
 use url::Url;
 
+use crate::netguard;
+use crate::proxy::ProxyStore;
+
 const MAX_COMPAT_SESSIONS: usize = 12;
 const MAX_SUB_CACHE: usize = 32;
 const MAX_SUB_BYTES: usize = 4 * 1024 * 1024;
 const PROBE_TIMEOUT_SECS: u64 = 12;
 const SUB_EXTRACT_TIMEOUT_SECS: u64 = 25;
+
+/// Protocols FFmpeg may open. Every FFmpeg input is a loopback URL served by this
+/// service (`/media`, `/hls`, `/t`, `/d`, `/local`): remote sources are always routed
+/// through the NetGuard-checked, TLS-verifying `/media/{token}` proxy, so FFmpeg never
+/// needs `https`/`tls`, and `file`, `concat`, `subfile`, `data`, `rtmp`, ... stay off.
+/// `crypto` is required for AES-128 HLS segments (`crypto+http://...`).
+pub const FFMPEG_PROTOCOL_WHITELIST: &str = "http,tcp,crypto";
+
+/// Paths of this service that FFmpeg may read from.
+const OWN_MEDIA_PREFIXES: &[&str] = &["/media/", "/hls/", "/t/", "/d/", "/local/"];
 
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -80,7 +93,7 @@ pub struct MediaCompatEngine {
     session_order: Arc<RwLock<VecDeque<String>>>,
     sub_cache: Arc<RwLock<HashMap<String, Vec<u8>>>>,
     sub_order: Arc<RwLock<VecDeque<String>>>,
-    bad_tls_hosts: Arc<RwLock<HashSet<String>>>,
+    proxy: ProxyStore,
     active_child: Arc<Mutex<Option<u32>>>,
     active_kill_tx: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
 }
@@ -108,25 +121,70 @@ fn validate_media_url(raw: &str) -> Result<Url, String> {
     Ok(parsed)
 }
 
+/// Returns `Some(url)` when `url` points at this service itself (allowed only for its
+/// media routes), `None` when it is a remote URL, and an error for any other loopback
+/// target (another local port, the RPC routes, other loopback addresses...).
+fn own_service_input(base_url: &str, url: &Url) -> Result<Option<Url>, String> {
+    let host = url.host_str().unwrap_or("");
+    let is_loopback = netguard::classify_str(host) == Some("loopback");
+    if !is_loopback {
+        return Ok(None);
+    }
+    let base = Url::parse(base_url).map_err(|_| "Servicio no disponible".to_string())?;
+    let same_port = url.port_or_known_default() == base.port_or_known_default();
+    let host_ok = matches!(host.to_ascii_lowercase().as_str(), "127.0.0.1" | "localhost");
+    let path_ok = OWN_MEDIA_PREFIXES.iter().any(|p| url.path().starts_with(p))
+        && !url.path().contains("/../");
+    if url.scheme() == "http" && same_port && host_ok && path_ok {
+        Ok(Some(url.clone()))
+    } else {
+        Err(netguard::refusal_message(netguard::IpKind::Loopback).to_string())
+    }
+}
+
+/// File name used for the `/media/{token}/<name>` path so the proxy (and FFmpeg)
+/// can still tell an HLS playlist from a progressive file.
+fn proxy_file_name(url: &Url) -> String {
+    let last = url.path().rsplit('/').next().unwrap_or("");
+    let ext = last
+        .rsplit_once('.')
+        .map(|(_, e)| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    if matches!(
+        ext.as_str(),
+        "mp4" | "m4v" | "mkv" | "webm" | "avi" | "mov" | "ts" | "m2ts" | "m3u8" | "mpd"
+    ) {
+        format!("stream.{ext}")
+    } else {
+        "stream".to_string()
+    }
+}
+
+/// Only the FFmpeg shipped with the app is ever executed: `<exe dir>/resources/bin`
+/// (Tauri bundle layout). Debug builds also accept `OPENTV_FFMPEG_PATH` and the
+/// repository dev layout `apps/desktop/src-tauri/resources/bin`. Never the current
+/// directory, the user profile, `C:\bin` or `PATH` (binary planting).
 #[cfg(not(target_os = "android"))]
 fn locate_ffmpeg() -> Option<PathBuf> {
-    if let Ok(env_path) = std::env::var("OPENTV_FFMPEG_PATH") {
-        let p = PathBuf::from(env_path.trim());
-        if p.is_file() {
-            return Some(p);
-        }
-    }
     let bin_name = if cfg!(target_os = "windows") {
         "ffmpeg.exe"
     } else {
         "ffmpeg"
     };
+    ffmpeg_candidates(bin_name).into_iter().find(|p| p.is_file())
+}
+
+#[cfg(not(target_os = "android"))]
+fn ffmpeg_candidates(bin_name: &str) -> Vec<PathBuf> {
     let mut candidates: Vec<PathBuf> = Vec::new();
+    #[cfg(debug_assertions)]
+    if let Ok(env_path) = std::env::var("OPENTV_FFMPEG_PATH") {
+        candidates.push(PathBuf::from(env_path.trim()));
+    }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             candidates.push(dir.join("resources").join("bin").join(bin_name));
-            candidates.push(dir.join("bin").join(bin_name));
-            candidates.push(dir.join(bin_name));
+            #[cfg(debug_assertions)]
             for anc in dir.ancestors().take(7) {
                 candidates.push(
                     anc.join("apps")
@@ -136,34 +194,10 @@ fn locate_ffmpeg() -> Option<PathBuf> {
                         .join("bin")
                         .join(bin_name),
                 );
-                candidates.push(anc.join("bin").join(bin_name));
             }
         }
     }
-    if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(
-            cwd.join("apps")
-                .join("desktop")
-                .join("src-tauri")
-                .join("resources")
-                .join("bin")
-                .join(bin_name),
-        );
-        candidates.push(cwd.join("bin").join(bin_name));
-    }
-    if let Some(found) = candidates.into_iter().find(|p| p.is_file()) {
-        return Some(found);
-    }
-    // Check system PATH as last resort
-    if let Ok(path_var) = std::env::var("PATH") {
-        for dir in std::env::split_paths(&path_var) {
-            let cand = dir.join(bin_name);
-            if cand.is_file() {
-                return Some(cand);
-            }
-        }
-    }
-    None
+    candidates
 }
 
 #[cfg(target_os = "android")]
@@ -206,30 +240,23 @@ fn split_ffmpeg_headers(headers: &HashMap<String, String>) -> (Option<String>, S
     (ua, rest)
 }
 
-fn push_input_args(
-    args: &mut Vec<String>,
-    url: &Url,
-    headers: &HashMap<String, String>,
-    skip_tls: bool,
-) {
+/// Input options shared by every FFmpeg run (probe, compat relay, subtitle extraction).
+/// `url` must already be a loopback URL of this service (see `prepare_input`).
+fn push_input_args(args: &mut Vec<String>, url: &Url, headers: &HashMap<String, String>) {
     args.extend([
         "-hide_banner".into(),
         "-loglevel".into(),
         "info".into(),
         "-nostdin".into(),
+        "-protocol_whitelist".into(),
+        FFMPEG_PROTOCOL_WHITELIST.into(),
         "-probesize".into(),
         "3M".into(),
         "-analyzeduration".into(),
         "4M".into(),
     ]);
-    if matches!(url.scheme(), "http" | "https") {
+    if url.scheme() == "http" {
         args.extend(["-rw_timeout".into(), "15000000".into()]);
-        if url.scheme() == "https" {
-            args.extend([
-                "-tls_verify".into(),
-                if skip_tls { "0".into() } else { "1".into() },
-            ]);
-        }
         let (ua, rest) = split_ffmpeg_headers(headers);
         if let Some(u) = ua {
             args.extend(["-user_agent".into(), u]);
@@ -500,7 +527,7 @@ fn build_track_label(
 }
 
 impl MediaCompatEngine {
-    pub fn new() -> Self {
+    pub fn new(proxy: ProxyStore) -> Self {
         Self {
             ffmpeg_path: locate_ffmpeg(),
             hw_encoder: Arc::new(OnceCell::new()),
@@ -508,7 +535,7 @@ impl MediaCompatEngine {
             session_order: Arc::new(RwLock::new(VecDeque::new())),
             sub_cache: Arc::new(RwLock::new(HashMap::new())),
             sub_order: Arc::new(RwLock::new(VecDeque::new())),
-            bad_tls_hosts: Arc::new(RwLock::new(HashSet::new())),
+            proxy,
             active_child: Arc::new(Mutex::new(None)),
             active_kill_tx: Arc::new(Mutex::new(None)),
         }
@@ -568,28 +595,38 @@ impl MediaCompatEngine {
             .clone()
     }
 
-    async fn should_skip_tls(&self, url: &Url) -> bool {
-        if url.scheme() != "https" {
-            return false;
+    /// Turns a user/plugin supplied URL into the URL FFmpeg will open:
+    /// - this service's own media routes are used as-is;
+    /// - any other loopback target is refused;
+    /// - remote http(s) URLs are NetGuard-checked and registered on the `/media/{token}`
+    ///   proxy, so every hop, redirect, HLS child and key is re-checked by NetGuard and TLS
+    ///   is always verified (rustls). The source headers travel with the proxy token.
+    async fn prepare_input(
+        &self,
+        base_url: &str,
+        raw_url: &str,
+        headers: &HashMap<String, String>,
+        allow_lan: bool,
+    ) -> Result<Url, String> {
+        let url = validate_media_url(raw_url)?;
+        if let Some(own) = own_service_input(base_url, &url)? {
+            return Ok(own);
         }
-        let host = url.host_str().unwrap_or("").to_ascii_lowercase();
-        self.bad_tls_hosts.read().await.contains(&host)
-    }
-
-    async fn mark_bad_tls(&self, url: &Url) {
-        if let Some(host) = url.host_str() {
-            self.bad_tls_hosts
-                .write()
-                .await
-                .insert(host.to_ascii_lowercase());
-        }
+        let token = self
+            .proxy
+            .add_media_passive(url.to_string(), headers.clone(), allow_lan)
+            .await?;
+        Url::parse(&format!("{base_url}/media/{token}/{}", proxy_file_name(&url)))
+            .map_err(|_| "Enlace multimedia no válido".to_string())
     }
 
     /// Inspects a stream URL using `ffmpeg -i` (no separate `ffprobe.exe` needed).
     pub async fn probe(
         &self,
+        base_url: &str,
         raw_url: &str,
         headers: &HashMap<String, String>,
+        allow_lan: bool,
     ) -> Result<Value, String> {
         let Some(ref ffmpeg) = self.ffmpeg_path else {
             return Ok(json!({
@@ -599,38 +636,19 @@ impl MediaCompatEngine {
                 "subtitleTracks": []
             }));
         };
-        let url = validate_media_url(raw_url)?;
-        let skip_tls = self.should_skip_tls(&url).await;
+        let url = self.prepare_input(base_url, raw_url, headers, allow_lan).await?;
 
-        let run_probe = |skip: bool| {
-            let ff = ffmpeg.clone();
-            let u = url.clone();
-            let h = headers.clone();
-            async move {
-                let mut args = Vec::new();
-                push_input_args(&mut args, &u, &h, skip);
-                args.extend(["-i".into(), u.as_str().to_string()]);
-                let out = tokio::time::timeout(
-                    Duration::from_secs(PROBE_TIMEOUT_SECS),
-                    configure_cmd(&ff).args(&args).output(),
-                )
-                .await
-                .map_err(|_| "Tiempo de espera agotado analizando el video".to_string())?
-                .map_err(|e| format!("No se pudo ejecutar ffmpeg: {e}"))?;
-                Ok::<String, String>(String::from_utf8_lossy(&out.stderr).into_owned())
-            }
-        };
-
-        let mut stderr = run_probe(skip_tls).await?;
-        let tls_failed = !skip_tls
-            && url.scheme() == "https"
-            && (stderr.contains("certificate")
-                || stderr.contains("TLS")
-                || stderr.contains("SSL"));
-        if tls_failed {
-            self.mark_bad_tls(&url).await;
-            stderr = run_probe(true).await?;
-        }
+        let mut args = Vec::new();
+        push_input_args(&mut args, &url, &HashMap::new());
+        args.extend(["-i".into(), url.as_str().to_string()]);
+        let out = tokio::time::timeout(
+            Duration::from_secs(PROBE_TIMEOUT_SECS),
+            configure_cmd(ffmpeg).args(&args).output(),
+        )
+        .await
+        .map_err(|_| "Tiempo de espera agotado analizando el video".to_string())?
+        .map_err(|e| format!("No se pudo ejecutar ffmpeg: {e}"))?;
+        let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
 
         let parsed = parse_ffmpeg_probe(&stderr);
         let hw = self.hw_encoder().await;
@@ -642,11 +660,13 @@ impl MediaCompatEngine {
         Ok(val)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn start_session(
         &self,
         base_url: &str,
         raw_url: &str,
         headers: HashMap<String, String>,
+        allow_lan: bool,
         hevc: bool,
         audio: usize,
         mode: &str,
@@ -654,7 +674,9 @@ impl MediaCompatEngine {
         if !self.available() {
             return Err("El motor de compatibilidad FFmpeg no está disponible".to_string());
         }
-        let url = validate_media_url(raw_url)?;
+        let url = self.prepare_input(base_url, raw_url, &headers, allow_lan).await?;
+        // The proxy token carries the source headers; FFmpeg talks only to loopback.
+        let headers: HashMap<String, String> = HashMap::new();
         let token = rand_hex(12);
         {
             let mut map = self.sessions.write().await;
@@ -727,7 +749,6 @@ impl MediaCompatEngine {
         // Only one active FFmpeg relay stream at a time so seeks never pile up processes.
         self.stop().await;
 
-        let skip_tls = self.should_skip_tls(&url).await;
         let video_copy = mode == "copy" || mode == "videoCopy";
         let hw = if video_copy {
             "copy".to_string()
@@ -736,7 +757,7 @@ impl MediaCompatEngine {
         };
 
         let mut args: Vec<String> = Vec::new();
-        push_input_args(&mut args, &url, &sess.headers, skip_tls);
+        push_input_args(&mut args, &url, &sess.headers);
         args.extend(["-fflags".into(), "+genpts".into()]);
         if start_sec > 0.1 {
             if video_copy {
@@ -946,10 +967,8 @@ impl MediaCompatEngine {
                 .body(Body::from("URL no válida"))
                 .unwrap();
         };
-        let skip_tls = self.should_skip_tls(&url).await;
-
         let mut args: Vec<String> = Vec::new();
-        push_input_args(&mut args, &url, &sess.headers, skip_tls);
+        push_input_args(&mut args, &url, &sess.headers);
         args.extend([
             "-i".into(),
             url.as_str().to_string(),
@@ -1057,6 +1076,61 @@ Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'https://cdn.example.com/movie.mp4':
 "#;
         let r2 = parse_ffmpeg_probe(mp4);
         assert_eq!(r2.recommendation, "native");
+    }
+
+    #[test]
+    fn every_ffmpeg_input_gets_the_protocol_whitelist_and_no_tls_override() {
+        let url = Url::parse("http://127.0.0.1:8910/media/abc/stream.mkv").unwrap();
+        let mut headers = HashMap::new();
+        headers.insert("User-Agent".to_string(), "UA/1".to_string());
+        headers.insert("Referer".to_string(), "https://site/".to_string());
+        headers.insert("X-Bad".to_string(), "a\r\nHost: evil".to_string());
+        let mut args = Vec::new();
+        push_input_args(&mut args, &url, &headers);
+        let pos = args.iter().position(|a| a == "-protocol_whitelist").expect("whitelist");
+        let i = args.iter().position(|a| a == "-i").unwrap_or(args.len());
+        assert!(pos < i);
+        assert_eq!(args[pos + 1], "http,tcp,crypto");
+        for banned in ["file", "https", "tls", "concat", "subfile", "data"] {
+            assert!(!args[pos + 1].split(',').any(|p| p == banned), "{banned}");
+        }
+        assert!(!args.iter().any(|a| a == "-tls_verify"));
+        assert!(args.windows(2).any(|w| w[0] == "-user_agent" && w[1] == "UA/1"));
+        assert!(!args.iter().any(|a| a.contains("evil")));
+    }
+
+    #[test]
+    fn only_own_media_routes_are_accepted_as_loopback_inputs() {
+        let base = "http://127.0.0.1:8910";
+        let ok = |u: &str| own_service_input(base, &Url::parse(u).unwrap());
+        assert!(ok("http://127.0.0.1:8910/t/abc/movie.mkv").unwrap().is_some());
+        assert!(ok("http://localhost:8910/media/tok/stream.m3u8").unwrap().is_some());
+        assert!(ok("http://127.0.0.1:8910/local/tok/a.mp4").unwrap().is_some());
+        // Remote URLs go through the proxy instead.
+        assert!(ok("https://cdn.example.com/movie.mkv").unwrap().is_none());
+        // Other loopback ports / RPC routes / other loopback IPs are refused.
+        assert!(ok("http://127.0.0.1:9000/t/abc/movie.mkv").is_err());
+        assert!(ok("http://127.0.0.1:8910/ping").is_err());
+        assert!(ok("http://127.0.0.1:8910/appUpdate").is_err());
+        assert!(ok("http://127.0.0.2:8910/t/abc/x.mkv").is_err());
+        assert!(ok("http://[::1]:8910/t/abc/x.mkv").is_err());
+        assert!(ok("https://127.0.0.1:8910/t/abc/x.mkv").is_err());
+    }
+
+    #[test]
+    fn proxy_file_name_keeps_only_known_media_extensions() {
+        let n = |u: &str| proxy_file_name(&Url::parse(u).unwrap());
+        assert_eq!(n("https://a.b/x/master.m3u8?t=1"), "stream.m3u8");
+        assert_eq!(n("https://a.b/x/Movie.MKV"), "stream.mkv");
+        assert_eq!(n("https://a.b/x/play.php?id=1"), "stream");
+        assert_eq!(n("https://a.b/"), "stream");
+    }
+
+    #[test]
+    fn media_urls_must_be_http_or_https() {
+        assert!(validate_media_url("file:///C:/Windows/win.ini").is_err());
+        assert!(validate_media_url("concat:http://a|http://b").is_err());
+        assert!(validate_media_url("https://cdn.example.com/a.mkv").is_ok());
     }
 
     #[test]

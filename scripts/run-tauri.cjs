@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 /*
- * Runs Tauri v2 dev (with Vite React HMR) or production NSIS build from `apps/desktop/`.
+ * Runs Tauri v2 dev (with Vite React HMR), a production preview (no installer) or the
+ * production NSIS build from `apps/desktop/`.
  * On `build`, compiles the React + TypeScript + Tailwind v4 frontend (`apps/desktop/frontend/`)
  * into `apps/desktop/dist-ui/` first, then packages the NSIS installer into `dist/`.
  */
@@ -26,12 +27,34 @@ if (!fs.existsSync(path.join(FRONTEND_DIR, 'node_modules'))) {
   if (inst.status !== 0) process.exit(inst.status || 1);
 }
 
-if (cmd === 'build') {
+if (cmd === 'build' || cmd === 'preview') {
   const prep = runNpm(['run', 'build'], FRONTEND_DIR);
   if (prep.status !== 0) process.exit(prep.status || 1);
 }
 
 const tauriCli = require.resolve('@tauri-apps/cli/tauri.js');
+
+// `preview`: the installed app's exact speed (release core + production React), with no
+// installer, no checksums and nothing published.
+if (cmd === 'preview') {
+  const built = spawnSync(process.execPath, [tauriCli, 'build', '--no-bundle'].concat(extra), {
+    cwd: TAURI_DIR,
+    stdio: 'inherit',
+  });
+  if (built.status !== 0) process.exit(built.status === null ? 1 : built.status);
+  const releaseDir = path.join(TAURI_DIR, 'src-tauri', 'target', 'release');
+  const exe = fs
+    .readdirSync(releaseDir)
+    .find((f) => f.endsWith('.exe') && !/build-script|deps/i.test(f));
+  if (!exe) {
+    console.error('No se encontró el ejecutable en ' + path.relative(ROOT, releaseDir));
+    process.exit(1);
+  }
+  console.log('\nAbriendo ' + path.relative(ROOT, path.join(releaseDir, exe)) + ' (modo vista previa)');
+  spawnSync(path.join(releaseDir, exe), [], { cwd: releaseDir, stdio: 'inherit' });
+  process.exit(0);
+}
+
 const res = spawnSync(process.execPath, [tauriCli, cmd].concat(extra), {
   cwd: TAURI_DIR,
   stdio: 'inherit',

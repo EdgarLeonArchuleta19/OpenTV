@@ -144,6 +144,8 @@ export interface LiveChannel {
   userAgent: string;
   referrer: string;
   playlistId: string;
+  /** The playlist was allowed on the home network: its guide may be too. */
+  allowLan?: boolean;
 }
 
 export interface EpgProgram {

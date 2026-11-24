@@ -58,6 +58,7 @@ import {
   type SubtitleCue,
 } from '../services/subtitles';
 import { SourcePickerModal } from '../components/CommonComponents';
+import { pushNotice, type PlayerNotice } from '../services/playerNotice';
 
 export interface PlayerSession {
   item: MediaItem;
@@ -82,7 +83,8 @@ interface PlayerScreenProps {
   onUpdateSubtitleStyle: (fn: (cur: SubtitleStylePrefs) => SubtitleStylePrefs) => void;
   onSwitchSession: (next: PlayerSession) => void;
   onExit: () => void;
-  onToast: (msg: string) => void;
+  /** App-level info to show inside the player (pin, file drop, local subtitles). */
+  externalNotice?: { id: number; text: string } | null;
 }
 
 function formatTime(sec: number): string {
@@ -116,7 +118,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   onUpdateSubtitleStyle,
   onSwitchSession,
   onExit,
-  onToast,
+  externalNotice,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -190,6 +192,19 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const systemVolRef = useRef(false);
   const [speed, setSpeed] = useState<number>(1);
   const [hudVisible, setHudVisible] = useState<boolean>(true);
+  // In-player notice (replaces the app's global toast while the player is open).
+  const [notice, setNotice] = useState<PlayerNotice | null>(null);
+  const notify = useCallback((msg: string) => {
+    setNotice((prev) => pushNotice(prev, msg, Date.now()));
+  }, []);
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice((cur) => (cur && cur.id === notice.id && cur.until <= Date.now() + 50 ? null : cur)), Math.max(0, notice.until - Date.now()));
+    return () => clearTimeout(t);
+  }, [notice]);
+  useEffect(() => {
+    if (externalNotice?.text) notify(externalNotice.text);
+  }, [externalNotice, notify]);
 
   const [subsOpen, setSubsOpen] = useState<boolean>(false);
   const [episodesOpen, setEpisodesOpen] = useState<boolean>(false);
@@ -406,10 +421,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         if (activeSubIdRef.current !== sub.id) return;
         if (cues.length > 0) subCueCacheRef.current.set(sub.id, cues);
         setSubCues(cues);
-        if (cues.length === 0) onToast('No se pudieron leer las líneas del subtítulo');
+        if (cues.length === 0) notify('No se pudieron leer las líneas del subtítulo');
       } catch {
         if (activeSubIdRef.current !== sub.id) return;
-        onToast('No se pudo descargar el subtítulo');
+        notify('No se pudo descargar el subtítulo');
         activeSubIdRef.current = 'off';
         setActiveSubId('off');
         setSubCues([]);
@@ -419,7 +434,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         }
       }
     },
-    [onToast],
+    [notify],
   );
 
   // Reset subtitles only when the actual media item/episode changes.
@@ -492,13 +507,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   }, [item.id, episode?.id, subPluginsKey, session.initialSubtitles, selectSubtitle]);
 
   useEffect(() => {
-    desktopApi.systemVolume('get').then((v) => {
-      if (typeof v?.level === 'number') setVolume(Math.max(0.05, Math.min(1, v.level)));
-      if (typeof v?.muted === 'boolean') setMuted(v.muted);
-    });
-  }, []);
-
-  useEffect(() => {
     unmountedRef.current = false;
     return () => {
       unmountedRef.current = true;
@@ -510,6 +518,27 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       void desktopApi.service('abortMedia', {});
       void desktopApi.service('torrentStop', {});
     };
+  }, []);
+
+  // One FFmpeg probe per media URL: the pre-play check, the background track probe and the
+  // duration probe used to spawn up to three ffmpeg processes against the same remote file.
+  const probeCacheRef = useRef<Map<string, Promise<MediaProbeResponse | null>>>(new Map());
+  // FFmpeg inputs on the home network need the same per-plugin LAN permission as playback.
+  const allowLanRef = useRef(false);
+  allowLanRef.current = Boolean(
+    activeSource?.isJsPlugin && plugins.find((p) => p.id === activeSource.addonId)?.allowLan,
+  );
+  const probeMedia = useCallback((url: string, headers: Record<string, string>) => {
+    let p = probeCacheRef.current.get(url);
+    if (!p) {
+      p = desktopApi.service<MediaProbeResponse>('mediaProbe', { url, headers, allowLan: allowLanRef.current }).catch(() => null);
+      probeCacheRef.current.set(url, p);
+      // A failed probe may be retried later (e.g. after a proxy fallback).
+      void p.then((r) => {
+        if (!r) probeCacheRef.current.delete(url);
+      });
+    }
+    return p;
   }, []);
 
   const activateCompatMode = useCallback(
@@ -533,6 +562,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         hevc,
         audio: audioIdx,
         mode,
+        allowLan: allowLanRef.current,
       });
       // Cancelled while FFmpeg was starting: never leave it running behind the Detail screen.
       if (unmountedRef.current) {
@@ -646,8 +676,18 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           setStatusMsg(`Conectando con ${src.addonName}…`);
           const hasHeaders = Object.keys(src.headers || {}).length > 0;
           const allowLan = Boolean(src.isJsPlugin && plugins.find((p) => p.id === src.addonId)?.allowLan);
-          // Cheap 2-byte check first: free file hosts often answer 403/429 (expired link or
-          // rate limit). Skip straight to the next source instead of trying FFmpeg on a refusal.
+          // Cheap 2-byte check: free file hosts often answer 403/429 (expired link or rate
+          // limit), so a refusal skips straight to the next source instead of trying FFmpeg.
+          // It runs in parallel with the resolve (both hit the same host) to save a round trip.
+          const resolvePromise = desktopApi.service<{ url?: string; proxyPath?: string; token?: string; isHls?: boolean }>(
+            'resolveExternal',
+            {
+              url: src.url,
+              headers: src.headers || {},
+              forceProxy: hasHeaders,
+              allowLan,
+            },
+          ).catch(() => null);
           if (!allowLan) {
             const check = await desktopApi.service<{ status?: number; code?: string }>('pluginFetch', {
               url: src.url,
@@ -668,15 +708,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               return;
             }
           }
-          const res = await desktopApi.service<{ url?: string; proxyPath?: string; token?: string; isHls?: boolean }>(
-            'resolveExternal',
-            {
-              url: src.url,
-              headers: src.headers || {},
-              forceProxy: hasHeaders,
-              allowLan,
-            },
-          );
+          const res = await resolvePromise;
           if (unmountedRef.current) {
             void desktopApi.service('abortMedia', {});
             return;
@@ -697,10 +729,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
       if (!isHls && hint) {
         setStatusMsg('Preparando el video…');
-        const probe = await desktopApi.service<MediaProbeResponse>('mediaProbe', {
-          url: mediaUrl,
-          headers: activeSource?.headers || {},
-        });
+        const probe = await probeMedia(mediaUrl, activeSource?.headers || {});
         if (!alive) return;
         if (probe?.available) {
           if (probe.durationSec && probe.durationSec > 0) setProbedDuration(probe.durationSec);
@@ -733,11 +762,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       setStatusMsg('Cargando video…');
       setResolvedUrl(mediaUrl);
       if (!isHls) {
-        void desktopApi
-          .service<MediaProbeResponse>('mediaProbe', {
-            url: mediaUrl,
-            headers: activeSource?.headers || {},
-          })
+        void probeMedia(mediaUrl, activeSource?.headers || {})
           .then(async (probe) => {
             if (!alive || !probe?.available) return;
             if (probe.durationSec && probe.durationSec > 0) setProbedDuration(probe.durationSec);
@@ -752,6 +777,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                 hevc: probe.videoCodec === 'hevc',
                 audio: bestAudio,
                 mode: probe.recommendation === 'videoCopy' ? 'copy' : 'transcode',
+                allowLan: allowLanRef.current,
               });
               if (!alive) return;
               if (sess?.subtitleBaseUrl) {
@@ -826,7 +852,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       const fallback = rankedSources[nextIdx];
       triedSourceIdsRef.current.add(fallback.id);
       const q = fallback.quality === 'unknown' ? 'Auto' : fallback.quality;
-      onToast(
+      notify(
         lastFailureRefusedRef.current
           ? `El servidor rechazó la fuente · probando otra (${q})…`
           : `Probando siguiente fuente (${q})…`,
@@ -839,7 +865,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       setErrorMsg(failure);
       setLoading(false);
     }
-  }, [offlineUrl, onToast, rankedSources]);
+  }, [offlineUrl, notify, rankedSources]);
   const tryFallbackSourceRef = useRef(tryFallbackSource);
   tryFallbackSourceRef.current = tryFallbackSource;
 
@@ -1034,7 +1060,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       });
       const found = Array.isArray(res?.subtitles) ? res.subtitles.slice(0, 20) : [];
       if (found.length === 0) {
-        onToast('No se encontraron más subtítulos');
+        notify('No se encontraron más subtítulos');
         return;
       }
       const proxied = await desktopApi.service<{ subtitles?: Array<{ lang: string; url: string | null } | null> }>('proxySubtitles', {
@@ -1053,11 +1079,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         const seen = new Set(prev.map((x) => x.url));
         return [...prev, ...mapped.filter((x) => !seen.has(x.url))];
       });
-      onToast(`${mapped.length} subtítulo(s) encontrados`);
+      notify(`${mapped.length} subtítulo(s) encontrados`);
     } finally {
       setSubSearching(false);
     }
-  }, [episode, item, onToast, subQuery, subSearching]);
+  }, [episode, item, notify, subQuery, subSearching]);
 
   const loadLocalSubtitleFile = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1065,14 +1091,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       e.target.value = '';
       if (!file) return;
       if (file.size > 4 * 1024 * 1024) {
-        onToast('El archivo de subtítulos es demasiado grande');
+        notify('El archivo de subtítulos es demasiado grande');
         return;
       }
       const reader = new FileReader();
       reader.onload = () => {
         const cues = parseSubtitles(decodeSubtitleBytes(reader.result as ArrayBuffer));
         if (cues.length === 0) {
-          onToast('No se pudieron leer las líneas del subtítulo');
+          notify('No se pudieron leer las líneas del subtítulo');
           return;
         }
         const id = `file_${Date.now()}`;
@@ -1081,11 +1107,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         activeSubIdRef.current = id;
         setActiveSubId(id);
         setSubCues(cues);
-        onToast('Subtítulo cargado');
+        notify('Subtítulo cargado');
       };
       reader.readAsArrayBuffer(file);
     },
-    [onToast],
+    [notify],
   );
 
   useEffect(() => {
@@ -1102,17 +1128,16 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     let alive = true;
     const probe = async () => {
       try {
-        const res = await desktopApi.service<MediaProbeResponse>('mediaProbe', {
-          url: resolvedUrl,
-          headers: activeSource?.headers || {},
-        });
+        // HLS reports its own duration; compat URLs are FFmpeg output (duration comes from the source probe).
+        if (isHlsUrl(resolvedUrl, knownHlsRef.current) || resolvedUrl.includes('/compat/')) return;
+        const res = await probeMedia(resolvedUrl, activeSource?.headers || {});
         if (!alive) return;
         if (res && typeof res.durationSec === 'number' && res.durationSec > 0) setProbedDuration(res.durationSec);
       } catch {}
     };
     void probe();
     return () => { alive = false; };
-  }, [activeSource?.headers, offlineUrl, probedDuration, resolvedUrl]);
+  }, [activeSource?.headers, offlineUrl, probeMedia, probedDuration, resolvedUrl]);
 
   // Native-playback watchdog (WebView2 rarely raises an error for these, it just plays badly):
   // - Black screen: the container opened but the video codec (e.g. HEVC without the Windows extension)
@@ -1133,7 +1158,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           (ok) => {
             if (!ok) {
               setLoading(false);
-              onToast('Este video no se puede mostrar en este equipo. Prueba otra fuente.');
+              notify('Este video no se puede mostrar en este equipo. Prueba otra fuente.');
             }
           },
         );
@@ -1145,7 +1170,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
     }, 3200);
     return () => clearTimeout(t);
-  }, [activateCompatMode, activeAudioIdx, activeSource?.isHevc, compatActive, muted, onToast, playing, resolvedUrl, volume]);
+  }, [activateCompatMode, activeAudioIdx, activeSource?.isHevc, compatActive, muted, notify, playing, resolvedUrl, volume]);
 
   useEffect(() => {
     if (nextCountdown === null) return;
@@ -1212,12 +1237,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       } else {
         const ok = await activateCompatMode(rawUrl, 'copy', currentTime, idx);
         if (!ok) {
-          onToast('No se pudo cambiar la pista de audio en este archivo');
+          notify('No se pudo cambiar la pista de audio en este archivo');
           setLoading(false);
         }
       }
     },
-    [activateCompatMode, activeAudioIdx, compatActive, currentTime, onToast, resolvedUrl],
+    [activateCompatMode, activeAudioIdx, compatActive, currentTime, notify, resolvedUrl],
   );
 
   const togglePiP = useCallback(async () => {
@@ -1227,9 +1252,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       if (document.pictureInPictureElement) await document.exitPictureInPicture();
       else if (document.pictureInPictureEnabled) await v.requestPictureInPicture();
     } catch {
-      onToast('Ventana flotante no disponible');
+      notify('Ventana flotante no disponible');
     }
-  }, [onToast]);
+  }, [notify]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1361,6 +1386,20 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             className="max-w-4xl rounded-lg px-4 py-1.5 text-center leading-snug font-semibold whitespace-pre-line shadow-lg"
           >
             {activeCueText}
+          </div>
+        </div>
+      )}
+
+      {/* In-player notice: small pill, top-center, auto-hides (no global toast while playing) */}
+      {notice && (
+        <div className="pointer-events-none absolute inset-x-0 top-7 z-[45] flex justify-center px-40">
+          <div
+            key={notice.id}
+            role="status"
+            aria-live="polite"
+            className="ot-fade-up max-w-[560px] truncate rounded-full border border-white/12 bg-[#141418]/88 px-4 py-2 text-[13px] font-semibold text-white/90 shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
+          >
+            {notice.text}
           </div>
         </div>
       )}
@@ -1635,7 +1674,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           <div className="flex items-center justify-end gap-1.5">
             <button
               type="button"
-              onClick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length])}
+              onClick={() => {
+                const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+                setSpeed(next);
+                notify(`Velocidad ${next}x`);
+              }}
               title="Velocidad"
               className="flex h-10 min-w-[44px] items-center justify-center rounded-full px-2.5 text-[13.5px] font-bold text-white transition hover:bg-white/14 cursor-pointer"
             >
@@ -1740,7 +1783,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               <button
                 key={tr.index}
                 type="button"
-                onClick={() => void selectAudioTrack(tr.index)}
+                onClick={() => {
+                  if (tr.index !== activeAudioIdx) notify(`Audio: ${tr.label}`);
+                  void selectAudioTrack(tr.index);
+                }}
                 className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition cursor-pointer ${
                   activeAudioIdx === tr.index ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/[0.07]'
                 }`}
@@ -1840,7 +1886,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           <div className="ot-scroll flex-1 space-y-1 overflow-y-auto p-4">
             <button
               type="button"
-              onClick={() => void selectSubtitle(null)}
+              onClick={() => {
+                if (activeSubId !== 'off') notify('Subtítulos desactivados');
+                void selectSubtitle(null);
+              }}
               className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-[14px] font-semibold cursor-pointer ${
                 activeSubId === 'off' ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/[0.07]'
               }`}
@@ -1855,7 +1904,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               <button
                 key={s.id}
                 type="button"
-                onClick={() => void selectSubtitle(s)}
+                onClick={() => {
+                  if (activeSubId !== s.id) notify(`Subtítulos: ${s.label}`);
+                  void selectSubtitle(s);
+                }}
                 className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition cursor-pointer ${
                   activeSubId === s.id ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/[0.07]'
                 }`}
@@ -1969,6 +2021,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           loading={searchPending}
           onSelect={(src) => {
             setSourcesOpen(false);
+            if (src.id !== activeSource?.id) notify(`Cambiando a ${src.addonName}…`);
             awaitingPickRef.current = false;
             setErrorMsg('');
             setLoading(true);

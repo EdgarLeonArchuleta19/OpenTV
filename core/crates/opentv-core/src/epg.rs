@@ -309,11 +309,13 @@ impl EpgStore {
         }
     }
 
-    async fn download_bytes(&self, url: &str) -> Result<Vec<u8>, String> {
+    async fn download_bytes(&self, url: &str, allow_lan: bool) -> Result<Vec<u8>, String> {
         if !(url.starts_with("http://") || url.starts_with("https://")) {
             return Err("La guía debe ser una dirección http(s)".to_string());
         }
-        let mut opts = FetchOptions::new(&self.dns, false, Duration::from_secs(30));
+        // `allow_lan` only when the playlist that points at this guide was allowed on the
+        // home network (same per-list permission as fetchM3u).
+        let mut opts = FetchOptions::new(&self.dns, allow_lan, Duration::from_secs(30));
         opts.user_agent = Some("Mozilla/5.0 (OpenTV)".to_string());
         let resp = fetch_url(url, opts)
             .await
@@ -333,7 +335,7 @@ impl EpgStore {
         Ok(out)
     }
 
-    async fn load_guide(&self, url: &str) -> Result<Arc<GuideEntry>, String> {
+    async fn load_guide(&self, url: &str, allow_lan: bool) -> Result<Arc<GuideEntry>, String> {
         {
             let guard = self.guides.read().await;
             if let Some(g) = guard.get(url) {
@@ -348,7 +350,7 @@ impl EpgStore {
         }
 
         let url_owned = url.to_string();
-        match self.download_bytes(url).await {
+        match self.download_bytes(url, allow_lan).await {
             Ok(raw) => {
                 let now = now_ms();
                 let by_id = tokio::task::spawn_blocking(move || {
@@ -380,11 +382,12 @@ impl EpgStore {
         &self,
         url: &str,
         ids: &[String],
+        allow_lan: bool,
     ) -> Result<HashMap<String, Vec<EpgProgramme>>, String> {
         if url.is_empty() {
             return Err("url requerida".to_string());
         }
-        let guide = self.load_guide(url).await?;
+        let guide = self.load_guide(url, allow_lan).await?;
         let now = now_ms();
         let mut out = HashMap::new();
         for id in ids.iter().take(EPG_MAX_IDS) {
@@ -403,7 +406,12 @@ impl EpgStore {
         Ok(out)
     }
 
-    pub async fn schedule(&self, url: &str, id: &str) -> Result<Vec<EpgProgramme>, String> {
+    pub async fn schedule(
+        &self,
+        url: &str,
+        id: &str,
+        allow_lan: bool,
+    ) -> Result<Vec<EpgProgramme>, String> {
         if url.is_empty() || id.is_empty() {
             return Err("url e id requeridos".to_string());
         }
@@ -418,7 +426,7 @@ impl EpgStore {
             }
         }
 
-        let guide = self.load_guide(url).await?;
+        let guide = self.load_guide(url, allow_lan).await?;
         let have: Vec<EpgProgramme> = guide
             .by_id
             .get(id)
@@ -432,7 +440,7 @@ impl EpgStore {
         }
 
         // Re-read stream keeping only this single channel for full 12h schedule
-        let raw = match self.download_bytes(url).await {
+        let raw = match self.download_bytes(url, allow_lan).await {
             Ok(b) => b,
             Err(_) => return Ok(have),
         };

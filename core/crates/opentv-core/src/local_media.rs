@@ -35,6 +35,36 @@ pub struct LocalMediaStore {
     file_order: Arc<RwLock<VecDeque<String>>>,
     subs: Arc<RwLock<HashMap<String, PathBuf>>>,
     sub_order: Arc<RwLock<VecDeque<String>>>,
+    /// Network (UNC) files/folders the user picked in the native dialog. Any other
+    /// `\\server\share` path is refused: opening it makes Windows authenticate to that
+    /// server (NTLM hash leak) just because a request named it.
+    approved_network: Arc<std::sync::RwLock<Vec<String>>>,
+}
+
+/// Normalizes a Windows path for prefix comparisons: `/` to `\`, lower case,
+/// `\\?\UNC\srv\share` to `\\srv\share`, `\\?\C:\` to `C:\`, no trailing `\`.
+pub fn normalize_win_path(raw: &str) -> String {
+    let mut p = raw.trim().replace('/', "\\").to_lowercase();
+    if let Some(rest) = p.strip_prefix("\\\\?\\unc\\") {
+        p = format!("\\\\{rest}");
+    } else if let Some(rest) = p.strip_prefix("\\\\?\\") {
+        p = rest.to_string();
+    }
+    while p.len() > 3 && p.ends_with('\\') {
+        p.pop();
+    }
+    p
+}
+
+/// True for UNC / network paths (`\\server\share\...`, `//server/share`, `\\?\UNC\...`).
+pub fn is_network_path(raw: &str) -> bool {
+    normalize_win_path(raw).starts_with("\\\\")
+}
+
+/// Win32 device namespace (`\\.\PhysicalDrive0`, `\\?\GLOBALROOT`...), never a media file.
+fn is_device_path(raw: &str) -> bool {
+    let p = raw.trim().replace('/', "\\").to_lowercase();
+    p.starts_with("\\\\.\\") || p.starts_with("\\\\?\\globalroot")
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -131,7 +161,53 @@ impl LocalMediaStore {
             file_order: Arc::new(RwLock::new(VecDeque::new())),
             subs: Arc::new(RwLock::new(HashMap::new())),
             sub_order: Arc::new(RwLock::new(VecDeque::new())),
+            approved_network: Arc::new(std::sync::RwLock::new(Vec::new())),
         }
+    }
+
+    /// Called by the desktop shell with a path the user chose in the native file/folder
+    /// picker (or one persisted from an earlier pick). Only network paths need it.
+    pub fn approve_user_path(&self, raw: &str) {
+        if !is_network_path(raw) || raw.contains("..") {
+            return;
+        }
+        let norm = normalize_win_path(raw);
+        if let Ok(mut list) = self.approved_network.write() {
+            if !list.iter().any(|p| *p == norm) {
+                list.push(norm);
+                if list.len() > 64 {
+                    list.remove(0);
+                }
+            }
+        }
+    }
+
+    fn network_path_approved(&self, raw: &str) -> bool {
+        let norm = normalize_win_path(raw);
+        let Ok(list) = self.approved_network.read() else {
+            return false;
+        };
+        list.iter()
+            .any(|root| norm == *root || norm.starts_with(&format!("{root}\\")))
+    }
+
+    /// Refuses device paths, `..` tricks and network paths the user never picked,
+    /// before anything touches the file system.
+    fn check_user_path(&self, raw: &str) -> Result<(), String> {
+        if is_device_path(raw) {
+            return Err("Ruta no permitida".to_string());
+        }
+        if is_network_path(raw) {
+            let has_dotdot = raw
+                .split(['\\', '/'])
+                .any(|c| c == "..");
+            if has_dotdot || !self.network_path_approved(raw) {
+                return Err(
+                    "Por seguridad, elige las carpetas de red con el botón de OpenTV".to_string(),
+                );
+            }
+        }
+        Ok(())
     }
 
     async fn insert_file(&self, path: PathBuf) -> String {
@@ -169,6 +245,7 @@ impl LocalMediaStore {
         if trimmed.is_empty() {
             return Err("No se indicó ningún archivo".to_string());
         }
+        self.check_user_path(trimmed)?;
         let path = PathBuf::from(trimmed);
         let meta = tokio::fs::metadata(&path)
             .await
@@ -180,6 +257,10 @@ impl LocalMediaStore {
             return Err("El archivo no tiene un formato de video compatible".to_string());
         }
         let canonical = tokio::fs::canonicalize(&path).await.unwrap_or(path);
+        // A local junction/symlink may resolve to a network share.
+        if is_network_path(&canonical.to_string_lossy()) {
+            self.check_user_path(&canonical.to_string_lossy())?;
+        }
         let name = canonical
             .file_name()
             .and_then(|s| s.to_str())
@@ -271,6 +352,7 @@ impl LocalMediaStore {
         if trimmed.is_empty() {
             return Err("No se indicó ninguna carpeta".to_string());
         }
+        self.check_user_path(&trimmed)?;
         let result = tokio::task::spawn_blocking(move || scan_dir_blocking(Path::new(&trimmed)))
             .await
             .map_err(|_| "No se pudo leer la carpeta".to_string())??;
@@ -531,5 +613,41 @@ mod tests {
         assert_eq!(scanned["items"].as_array().unwrap().len(), 1);
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn normalizes_and_detects_network_paths() {
+        assert!(is_network_path(r"\\server\share\movie.mkv"));
+        assert!(is_network_path("//server/share/movie.mkv"));
+        assert!(is_network_path(r"\\?\UNC\server\share\movie.mkv"));
+        assert!(!is_network_path(r"C:\Videos\movie.mkv"));
+        assert!(!is_network_path(r"\\?\C:\Videos\movie.mkv"));
+        assert_eq!(
+            normalize_win_path(r"\\?\UNC\Server\Share\"),
+            normalize_win_path(r"\\server\share")
+        );
+    }
+
+    #[tokio::test]
+    async fn refuses_unc_paths_unless_picked_by_the_user() {
+        let store = LocalMediaStore::new();
+        let base = "http://127.0.0.1:9999";
+        for p in [
+            r"\\attacker.example\share\a.mkv",
+            "//attacker.example/share/a.mkv",
+            r"\\?\UNC\attacker.example\share\a.mkv",
+        ] {
+            let err = store.register(base, p).await.unwrap_err();
+            assert!(err.contains("carpetas de red"), "{p}: {err}");
+            assert!(store.scan_folder(p).await.is_err());
+        }
+        assert!(store.register(base, r"\\.\PhysicalDrive0").await.is_err());
+
+        store.approve_user_path(r"\\nas\Videos");
+        assert!(store.check_user_path(r"\\NAS\videos\Peli\a.mkv").is_ok());
+        assert!(store.check_user_path(r"\\?\UNC\nas\videos\a.mkv").is_ok());
+        assert!(store.check_user_path(r"\\nas\videos2\a.mkv").is_err());
+        assert!(store.check_user_path(r"\\nas\videos\..\private\a.mkv").is_err());
+        assert!(store.check_user_path(r"C:\Videos\a.mkv").is_ok());
     }
 }

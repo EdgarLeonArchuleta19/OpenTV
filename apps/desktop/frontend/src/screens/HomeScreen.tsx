@@ -6,6 +6,28 @@ import { formatHeroMeta, localizedGenres } from '../services/locales';
 import { localizeItem, peekLocalized } from '../services/localize';
 import { resizedImageUrl } from '../services/tauri';
 import { ContinueCard, PosterCard, ScrollRow } from '../components/CommonComponents';
+import { whenIdle } from '../services/progressive';
+
+/** Last complete rows per tab (module scope: survives tab switches and screen changes). */
+const lastRowsByTab = new Map<HomeTabId, CatalogRow[]>();
+let prefetched = false;
+// Dev-only timing log (`[perf]` in the console of `npm run dev`).
+const PERF_LOG = (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
+
+/** Warms the catalog cache of the other menus and the lazy screen chunks, once per session. */
+function prefetchOtherTabs(current: HomeTabId, plugins: InstalledPlugin[]): void {
+  if (prefetched) return;
+  prefetched = true;
+  const tabs: HomeTabId[] = current === 'kids' ? [] : ['movies', 'series', 'anime', 'kids', 'home'];
+  for (const t of tabs) {
+    if (t !== current) void loadCatalogSection(t, plugins);
+  }
+  // Screen chunks the user is most likely to open next (Vite dedupes with App's lazy imports).
+  void import('./DetailScreen');
+  void import('./SearchScreen');
+  void import('./LiveTvScreen');
+  setTimeout(() => void import('./PlayerScreen'), 1500);
+}
 
 interface HomeScreenProps {
   tab: HomeTabId;
@@ -38,7 +60,7 @@ const GRID_TITLES: Partial<Record<HomeTabId, string>> = {
  * - Authentic large posters (~6 across), Seguir viendo with titles below, Tendencias de la semana first,
  *   Top 10 hollow numerals, full 6-column catalog grid at end of sections, and Netflix-style HoverCard.
  */
-export const HomeScreen: React.FC<HomeScreenProps> = ({
+const HomeScreenView: React.FC<HomeScreenProps> = ({
   tab,
   plugins,
   continueWatching,
@@ -56,28 +78,50 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const heroBgRef = useRef<HTMLDivElement>(null);
   const heroHoverAtRef = useRef<number>(0);
 
-  const [rows, setRows] = useState<CatalogRow[]>([]);
+  // Seeded from the last rows shown for this tab, so revisiting a tab paints instantly.
+  const [rows, setRows] = useState<CatalogRow[]>(() => lastRowsByTab.get(tab) || []);
   const [loading, setLoading] = useState(true);
   const [heroIdx, setHeroIdx] = useState(0);
   const [swapping, setSwapping] = useState(false);
 
   useEffect(() => {
     let alive = true;
+    const seeded = lastRowsByTab.get(tab);
+    setRows(seeded || []);
     setLoading(true);
     setHeroIdx(0);
     onScrolledChange(false);
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
     if (heroBgRef.current) heroBgRef.current.style.transform = 'translateY(0px)';
 
-    loadCatalogSection(tab, plugins).then((data) => {
+    const t0 = performance.now();
+    let firstPaintLogged = false;
+    // Rows stream in top-down; a seeded tab keeps its rows until the fresh set is complete.
+    void loadCatalogSection(tab, plugins, (partial, done) => {
       if (!alive) return;
-      setRows(data);
-      setLoading(false);
+      if (PERF_LOG && !firstPaintLogged && partial.length > 0) {
+        firstPaintLogged = true;
+        console.debug(`[perf] ${tab}: first row ${Math.round(performance.now() - t0)} ms`);
+      }
+      if (done) {
+        lastRowsByTab.set(tab, partial);
+        setRows(partial);
+        setLoading(false);
+        if (PERF_LOG) console.debug(`[perf] ${tab}: all rows ${Math.round(performance.now() - t0)} ms`);
+      } else if (!seeded) {
+        setRows(partial);
+      }
     });
     return () => {
       alive = false;
     };
   }, [tab, plugins, onScrolledChange]);
+
+  // Once this tab is on screen, warm the other menus (catalog JSON + screen chunks) while idle.
+  useEffect(() => {
+    if (loading) return;
+    return whenIdle(() => prefetchOtherTabs(tab, plugins), 3000);
+  }, [loading, tab, plugins]);
 
   // Hero items: up to 6 items with landscape/backdrop artwork (mixed movies & series on Inicio)
   const heroItems = useMemo(() => {
@@ -188,6 +232,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               key={hero.id}
               src={heroArt}
               alt=""
+              fetchPriority="high"
+              decoding="async"
               className={`absolute inset-0 h-full w-full object-cover object-[center_20%] transition-opacity duration-700 ${
                 liteMode ? '' : 'ot-kenburns'
               }`}
@@ -376,3 +422,5 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     </div>
   );
 };
+
+export const HomeScreen = React.memo(HomeScreenView);

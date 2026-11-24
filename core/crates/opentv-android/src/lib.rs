@@ -158,7 +158,7 @@ fn start_native(
             8910
         },
         auth_token: Some(token),
-        allowed_origins: opentv_core::config::default_allowed_origins(),
+        allowed_origins: opentv_core::config::allowed_origins_for("android"),
         tmdb_config_path: None,
         tmdb_inline_json: tmdb_inline,
         platform: "android".to_string(),

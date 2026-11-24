@@ -51,6 +51,10 @@ pub struct ProxyStore {
     dns: Dnsx,
     media: Arc<RwLock<HashMap<String, MediaEntry>>>,
     media_order: Arc<RwLock<VecDeque<String>>>,
+    /// Tokens used only by the internal FFmpeg compatibility engine. Kept apart so they
+    /// never evict, abort or take over the player's own stream token.
+    passive_media: Arc<RwLock<HashMap<String, MediaEntry>>>,
+    passive_order: Arc<RwLock<VecDeque<String>>>,
     active_token: Arc<RwLock<Option<String>>>,
     subtitles: Arc<RwLock<HashMap<String, SubtitleEntry>>>,
     sub_order: Arc<RwLock<VecDeque<String>>>,
@@ -75,6 +79,8 @@ impl ProxyStore {
             dns,
             media: Arc::new(RwLock::new(HashMap::new())),
             media_order: Arc::new(RwLock::new(VecDeque::new())),
+            passive_media: Arc::new(RwLock::new(HashMap::new())),
+            passive_order: Arc::new(RwLock::new(VecDeque::new())),
             active_token: Arc::new(RwLock::new(None)),
             subtitles: Arc::new(RwLock::new(HashMap::new())),
             sub_order: Arc::new(RwLock::new(VecDeque::new())),
@@ -127,6 +133,61 @@ impl ProxyStore {
             }
         }
         Ok(token)
+    }
+
+    /// Registers a NetGuard-checked upstream for the internal FFmpeg engine. Every
+    /// request FFmpeg makes (ranges, redirects, HLS children, keys) then goes through
+    /// `fetch_url`, which re-checks NetGuard on each hop and verifies TLS. Passive tokens
+    /// do not switch or abort the player's active stream.
+    pub async fn add_media_passive(
+        &self,
+        url: String,
+        headers: HashMap<String, String>,
+        allow_lan: bool,
+    ) -> Result<String, String> {
+        self.validate_target(&url, allow_lan).await?;
+        {
+            let map = self.passive_media.read().await;
+            if let Some((tok, _)) = map
+                .iter()
+                .find(|(_, e)| e.url == url && e.headers == headers && e.allow_lan == allow_lan)
+            {
+                return Ok(tok.clone());
+            }
+        }
+        let token = rand_token(12);
+        let (abort_tx, _rx) = watch::channel(0u64);
+        let mut map = self.passive_media.write().await;
+        let mut ord = self.passive_order.write().await;
+        map.insert(
+            token.clone(),
+            MediaEntry {
+                url,
+                headers,
+                allow_lan,
+                abort_tx: Arc::new(abort_tx),
+            },
+        );
+        ord.push_back(token.clone());
+        while ord.len() > MAX_MEDIA_TOKENS {
+            if let Some(old) = ord.pop_front() {
+                map.remove(&old);
+            }
+        }
+        Ok(token)
+    }
+
+    /// Looks a media token up; the flag is true for an FFmpeg-only (passive) token.
+    async fn lookup_media(&self, token: &str) -> Option<(MediaEntry, bool)> {
+        if let Some(e) = self.media.read().await.get(token).cloned() {
+            return Some((e, false));
+        }
+        self.passive_media
+            .read()
+            .await
+            .get(token)
+            .cloned()
+            .map(|e| (e, true))
     }
 
     pub async fn add_subtitle(&self, url: String, allow_lan: bool) -> Result<String, String> {
@@ -198,10 +259,12 @@ impl ProxyStore {
         rest: &str,
         req_headers: &AxumHeaders,
     ) -> Response {
-        let Some(entry) = self.media.read().await.get(token).cloned() else {
+        let Some((entry, passive)) = self.lookup_media(token).await else {
             return plain_response(StatusCode::GONE, "Stream expirado");
         };
-        self.switch_active_token(token).await;
+        if !passive {
+            self.switch_active_token(token).await;
+        }
         self.forward(
             base_url,
             method,
@@ -224,7 +287,7 @@ impl ProxyStore {
         encoded_url: &str,
         req_headers: &AxumHeaders,
     ) -> Response {
-        let Some(entry) = self.media.read().await.get(token).cloned() else {
+        let Some((entry, passive)) = self.lookup_media(token).await else {
             return plain_response(StatusCode::GONE, "Stream expirado");
         };
         let Ok(raw_bytes) = URL_SAFE_NO_PAD.decode(encoded_url.trim()) else {
@@ -241,7 +304,9 @@ impl ProxyStore {
         if let Err(e) = self.validate_target(&child_url, entry.allow_lan).await {
             return plain_response(StatusCode::FORBIDDEN, &e);
         }
-        self.switch_active_token(token).await;
+        if !passive {
+            self.switch_active_token(token).await;
+        }
         self.forward(
             base_url,
             method,

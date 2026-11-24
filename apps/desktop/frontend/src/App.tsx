@@ -3,6 +3,7 @@ import type { DownloadItem, Episode, ExternalSubtitle, HomeTabId, MediaItem, Str
 import { ACCENTS } from './services/catalogs';
 import { desktopApi, getAppVersion } from './services/tauri';
 import { isMandatoryUpdate } from './services/version';
+import { routeGlobalToast } from './services/playerNotice';
 import { useAppStore } from './store/useAppStore';
 import { ForceUpdateGate } from './components/ForceUpdateGate';
 import { TitleBar } from './components/TitleBar';
@@ -47,9 +48,44 @@ export const App: React.FC = () => {
   const hasSourcePlugins = store.hasSourcePlugins();
 
   const [screen, setScreen] = useState<ScreenId>('home');
-  const [prevScreen, setPrevScreen] = useState<ScreenId>('home');
   const [activeTab, setActiveTab] = useState<HomeTabId>(profile.kids ? 'kids' : 'home');
   const [detailStack, setDetailStack] = useState<MediaItem[]>([]);
+  /**
+   * Screens behind the current one. Home (any tab) is the root, so going there empties it.
+   * Back pops it; the player is never re-entered by Back.
+   */
+  const historyRef = useRef<ScreenId[]>([]);
+  const screenRef = useRef<ScreenId>('home');
+  screenRef.current = screen;
+  const detailCountRef = useRef(0);
+  detailCountRef.current = detailStack.length;
+  const go = useCallback((to: ScreenId) => {
+    const from = screenRef.current;
+    if (to === 'home') historyRef.current = [];
+    else if (from !== to) historyRef.current = [...historyRef.current.slice(-19), from];
+    screenRef.current = to;
+    setScreen(to);
+  }, []);
+  /** Returns to the screen the user was on before, skipping `skip` screens (and the player). */
+  const goBack = useCallback((skip: ScreenId[] = []) => {
+    const h = [...historyRef.current];
+    let to: ScreenId = 'home';
+    while (h.length > 0) {
+      const s = h.pop() as ScreenId;
+      if (s === 'player' || skip.includes(s) || (s === 'detail' && detailCountRef.current === 0)) continue;
+      to = s;
+      break;
+    }
+    historyRef.current = h;
+    screenRef.current = to;
+    setScreen(to);
+  }, []);
+  /** Leaves a title (and the recommendations opened from it) for wherever the user browsed from. */
+  const leaveDetail = useCallback(() => {
+    detailCountRef.current = 0;
+    setDetailStack([]);
+    goBack(['detail']);
+  }, [goBack]);
   /** Episode a "Seguir viendo" card asked Detail to preselect, by item id. */
   const [detailResume, setDetailResume] = useState<Record<string, { season: number; episode: number }>>({});
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(null);
@@ -85,11 +121,33 @@ export const App: React.FC = () => {
     [playerSession],
   );
 
+  // While the player is open it is the only place that shows messages (its own HUD notice).
+  const playerActiveRef = useRef(false);
+  playerActiveRef.current = screen === 'player';
+  const [playerExtNotice, setPlayerExtNotice] = useState<{ id: number; text: string } | null>(null);
+
   const showToast = useCallback((msg: string) => {
+    if (routeGlobalToast(playerActiveRef.current) === 'drop') return;
     setToast(msg);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(''), 3200);
   }, []);
+
+  /** App-level info (pin, file drop): inside the player while it is open, else a toast. */
+  const appNotice = useCallback(
+    (msg: string) => {
+      if (playerActiveRef.current) setPlayerExtNotice((cur) => ({ id: (cur?.id ?? 0) + 1, text: msg }));
+      else showToast(msg);
+    },
+    [showToast],
+  );
+
+  // Entering the player hides any toast still on screen (never two messages at once).
+  useEffect(() => {
+    if (screen !== 'player') return;
+    setToast('');
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, [screen]);
 
   const myListIds = useMemo(() => new Set(bucket.myList.map((m) => m.id)), [bucket.myList]);
   const favoriteIds = useMemo(() => new Set(bucket.favorites.map((m) => m.id)), [bucket.favorites]);
@@ -153,9 +211,13 @@ export const App: React.FC = () => {
         offlineUrl: res.url,
         initialSubtitles: localSubs,
       });
-      setScreen('player');
+      go('player');
       if (localSubs.length > 0) {
-        showToast(`Reproduciendo video local · ${localSubs.length} subtítulo(s) detectado(s)`);
+        // Shown by the player itself once it mounts.
+        setPlayerExtNotice((cur) => ({
+          id: (cur?.id ?? 0) + 1,
+          text: `Reproduciendo video local · ${localSubs.length} subtítulo(s) detectado(s)`,
+        }));
       }
     },
     [showToast, updateLocked],
@@ -181,7 +243,7 @@ export const App: React.FC = () => {
       if (firstVideo) {
         void openLocalRef.current(firstVideo);
       } else {
-        showToast('Arrastra un archivo de video compatible (.mp4, .mkv, .avi, .mov, .webm…)');
+        appNotice('Arrastra un archivo de video compatible (.mp4, .mkv, .avi, .mov, .webm…)');
       }
     });
     return () => {
@@ -189,13 +251,13 @@ export const App: React.FC = () => {
       offUpd();
       offDrop();
     };
-  }, [showToast]);
+  }, [appNotice]);
 
   // Immediately stop active playback whenever a mandatory update locks the app
   useEffect(() => {
     if (updateLocked && playerSession) {
       setPlayerSession(null);
-      setScreen('home');
+      go('home');
     }
   }, [updateLocked, playerSession]);
 
@@ -236,9 +298,9 @@ export const App: React.FC = () => {
   const togglePin = useCallback(() => {
     desktopApi.pin().then((pinned) => {
       setIsPinned(Boolean(pinned));
-      showToast(pinned ? 'Ventana fijada siempre encima' : 'Ventana desfijada');
+      appNotice(pinned ? 'Ventana fijada siempre encima' : 'Ventana desfijada');
     });
-  }, [showToast]);
+  }, [appNotice]);
 
   // Global desktop keyboard shortcuts
   useEffect(() => {
@@ -248,33 +310,28 @@ export const App: React.FC = () => {
         toggleFullscreen();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
-        setPrevScreen(screen);
-        setScreen('search');
+        go('search');
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
         e.preventDefault();
-        setScreen('home');
+        go('home');
       } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault();
         setSettingsSection('prefs');
-        setScreen('settings');
+        go('settings');
       } else if (e.key === 'Escape' && screen !== 'player' && !(screen === 'home' && activeTab === 'live')) {
         if (isFullscreen) {
           e.preventDefault();
           toggleFullscreen();
         } else if (screen === 'detail') {
-          setDetailStack((st) => {
-            if (st.length > 1) return st.slice(0, -1);
-            setScreen('home');
-            return [];
-          });
+          leaveDetail();
         } else if (screen !== 'home') {
-          setScreen('home');
+          goBack();
         }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeTab, isFullscreen, screen, toggleFullscreen]);
+  }, [activeTab, go, goBack, isFullscreen, leaveDetail, screen, toggleFullscreen]);
 
   const openDetail = useCallback((item: MediaItem) => {
     setDetailResume((cur) => {
@@ -284,7 +341,7 @@ export const App: React.FC = () => {
       return next;
     });
     setDetailStack((st) => [...st, item]);
-    setScreen('detail');
+    go('detail');
   }, []);
 
   const startPlayback = useCallback(
@@ -304,7 +361,7 @@ export const App: React.FC = () => {
           ? saved.positionMs
           : 0;
       setPlayerSession({ item, episode, allEpisodes, chosen, ranked, startPositionMs });
-      setScreen('player');
+      go('player');
     },
     [bucket.watchProgress],
   );
@@ -314,7 +371,7 @@ export const App: React.FC = () => {
       if (!hasSourcePlugins) {
         showToast('Para reproducir, agrega un plugin de fuentes en Plugins.');
         setSettingsSection('plugins');
-        setScreen('settings');
+        go('settings');
         return;
       }
       if (item.type !== 'movie') {
@@ -350,6 +407,15 @@ export const App: React.FC = () => {
     [openDetail],
   );
 
+  const handleRemoveContinue = useCallback((id: string) => useAppStore.getState().removeWatchProgress(id), []);
+  const handleToggleMyList = useCallback(
+    (it: MediaItem) => {
+      const added = useAppStore.getState().toggleMyList(it);
+      showToast(added ? 'Se añadió a Mi lista' : 'Se quitó de Mi lista');
+    },
+    [showToast],
+  );
+
   const sectionLabel = useMemo(() => {
     if (screen === 'home') return SECTION_LABELS[activeTab];
     if (screen === 'detail') return detailStack[detailStack.length - 1]?.title || 'Ficha';
@@ -373,7 +439,7 @@ export const App: React.FC = () => {
         onTogglePin={togglePin}
         onOpenDownloads={() => {
           setSettingsSection('downloads');
-          setScreen('settings');
+          go('settings');
         }}
         onToggleFullscreen={toggleFullscreen}
       />
@@ -390,16 +456,15 @@ export const App: React.FC = () => {
                 setScrolled(false);
               }}
               onOpenSearch={() => {
-                setPrevScreen(screen);
-                setScreen('search');
+                go('search');
               }}
               onOpenMyList={() => {
                 setSettingsSection('mylist');
-                setScreen('settings');
+                go('settings');
               }}
               onOpenAccount={() => {
                 setSettingsSection('account');
-                setScreen('settings');
+                go('settings');
               }}
             />
           )}
@@ -415,12 +480,9 @@ export const App: React.FC = () => {
               onScrolledChange={setScrolled}
               onPlayItem={handleHeroPlay}
               onResumeEntry={handleResumeEntry}
-              onRemoveContinue={(id: string) => store.removeWatchProgress(id)}
+              onRemoveContinue={handleRemoveContinue}
               onOpenDetail={openDetail}
-              onToggleMyList={(it) => {
-                const added = store.toggleMyList(it);
-                showToast(added ? 'Se añadió a Mi lista' : 'Se quitó de Mi lista');
-              }}
+              onToggleMyList={handleToggleMyList}
             />
           )}
 
@@ -436,7 +498,7 @@ export const App: React.FC = () => {
               onRecordRecent={(ch) => store.recordRecentChannel(ch)}
               onOpenPlugins={() => {
                 setSettingsSection('plugins');
-                setScreen('settings');
+                go('settings');
               }}
               onToast={showToast}
             />
@@ -453,13 +515,7 @@ export const App: React.FC = () => {
               isFavorite={favoriteIds.has(currentDetail.id)}
               watchProgress={bucket.watchProgress}
               resumeEpisode={detailResume[currentDetail.id] ?? null}
-              onBack={() => {
-                setDetailStack((st) => {
-                  if (st.length > 1) return st.slice(0, -1);
-                  setScreen('home');
-                  return [];
-                });
-              }}
+              onBack={leaveDetail}
               onToggleMyList={(it) => {
                 const added = store.toggleMyList(it);
                 showToast(added ? 'Se añadió a Mi lista' : 'Se quitó de Mi lista');
@@ -471,7 +527,7 @@ export const App: React.FC = () => {
               onUpdatePlayback={store.updatePlayback}
               onOpenPlugins={() => {
                 setSettingsSection('plugins');
-                setScreen('settings');
+                go('settings');
               }}
               onOpenRelated={openDetail}
               onPlayStream={startPlayback}
@@ -495,9 +551,10 @@ export const App: React.FC = () => {
               onSwitchSession={(next) => setPlayerSession(next)}
               onExit={() => {
                 setPlayerSession(null);
-                setScreen(currentDetail ? 'detail' : 'home');
+                setPlayerExtNotice(null);
+                goBack();
               }}
-              onToast={showToast}
+              externalNotice={playerExtNotice}
             />
           )}
 
@@ -510,7 +567,7 @@ export const App: React.FC = () => {
               onRemoveRecent={store.removeRecentSearch}
               onClearRecents={store.clearRecentSearches}
               onOpenTitle={openDetail}
-              onBack={() => setScreen(prevScreen === 'search' ? 'home' : prevScreen)}
+              onBack={() => goBack()}
             />
           )}
 
@@ -526,7 +583,7 @@ export const App: React.FC = () => {
               onAddM3u={store.addM3uPlaylist}
               onRemoveM3u={store.removeM3uPlaylist}
               onUpdateSourcePrefs={store.updateSourcePrefs}
-              onBack={() => setScreen('home')}
+              onBack={() => goBack()}
               onToast={showToast}
             />
           )}
@@ -546,10 +603,10 @@ export const App: React.FC = () => {
               parentalPin={store.parentalPin}
               parentalLocked={store.parentalLocked}
               localFolders={store.localFolders}
-              onBack={() => setScreen('home')}
+              onBack={() => goBack()}
               onOpenProfiles={(manage) => {
                 setManageProfilesInitial(Boolean(manage));
-                setScreen('profiles');
+                go('profiles');
               }}
               onOpenTitle={openDetail}
               onRemoveFromMyList={(it) => store.toggleMyList(it)}
@@ -577,7 +634,7 @@ export const App: React.FC = () => {
                   ranked: [],
                   offlineUrl,
                 });
-                setScreen('player');
+                go('player');
               }}
               onPlayLocalPath={(p: string) => void openLocalVideoPath(p)}
               onAddLocalFolder={store.addLocalFolder}
@@ -609,7 +666,7 @@ export const App: React.FC = () => {
                 store.selectProfile(id);
                 const chosen = store.profiles.find((p) => p.id === id);
                 setActiveTab(chosen?.kids ? 'kids' : 'home');
-                setScreen('home');
+                go('home');
               }}
               onAddProfile={store.addProfile}
               onUpdateProfile={store.updateProfile}

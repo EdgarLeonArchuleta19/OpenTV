@@ -318,10 +318,15 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
       {/* Seamless Right Backdrop Art (`11-fuentes-stremio.css:273` design 8) */}
       {artSrc && (
         <div className="pointer-events-none absolute top-0 right-0 z-0 h-[clamp(340px,48vh,560px)] w-[74%] lg:w-[66%] overflow-hidden">
+          {/* Keyed by address: a new title never keeps the previous title's art on screen. */}
           <img
+            key={artSrc}
             src={artSrc}
             alt=""
-            className="ot-detail-art-mask h-full w-full object-cover object-[center_20%] brightness-[0.84]"
+            decoding="async"
+            fetchPriority="high"
+            onLoad={(e) => e.currentTarget.classList.remove('opacity-0')}
+            className="ot-detail-art-mask h-full w-full object-cover object-[center_20%] brightness-[0.84] opacity-0 transition-opacity duration-300"
           />
         </div>
       )}
@@ -529,7 +534,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                   <ChevronDown className={`h-4 w-4 text-white/70 transition-transform ${seasonSelectOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {seasonSelectOpen && (
-                  <div className="absolute left-0 top-full z-30 mt-2 min-w-[180px] overflow-hidden rounded-xl border border-white/10 bg-[#18181d] py-1 shadow-2xl">
+                  <div className="ot-scroll absolute left-0 top-full z-30 mt-2 max-h-[min(320px,45vh)] min-w-[180px] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-[#18181d] py-1 shadow-2xl">
                     {detail.seasons.map((s) => (
                       <button
                         key={s}
@@ -538,6 +543,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                           setSelectedSeason(s);
                           setSeasonSelectOpen(false);
                         }}
+                        ref={s === selectedSeason ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
                         style={s === selectedSeason ? { color: 'var(--ot-accent)' } : undefined}
                         className={`flex w-full items-center px-4 py-2.5 text-left text-[14px] transition cursor-pointer ${
                           s === selectedSeason ? 'bg-white/[0.06] font-semibold' : 'text-white/85 hover:bg-white/[0.08]'

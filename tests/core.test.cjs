@@ -2,7 +2,7 @@
 /* The Rust service over HTTP, the way the app reaches it: the contract the
    desktop app (Tauri `desktop_service`, apps/desktop/src-tauri/src/commands.rs)
    and Android (RustServiceBridge.kt) rely on. Offline: lists and guides come
-   from a small server on 127.0.0.1. Skipped when the binary is not built
+   from a small server on the LAN address (NetGuard refuses 127.0.0.1). Skipped when the binary is not built
    (`npm run build:service`). */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -26,6 +26,18 @@ let service = null;
 let port = 0;
 let fixtures = null;
 let fixturesPort = 0;
+// NetGuard always refuses this device (127.0.0.1), so the fixtures are served on the
+// machine's LAN address and the calls pass allowLan, like a home-network playlist.
+const FIXTURE_HOST = (() => {
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const a of list || []) {
+      if (a.family === 'IPv4' && !a.internal && /^(10|172\.(1[6-9]|2\d|3[01])|192\.168)\./.test(a.address)) return a.address;
+    }
+  }
+  return '';
+})();
+const lanSkip = FIXTURE_HOST ? false : 'sin dirección de red local para los fixtures';
+const fx = (p) => 'http://' + FIXTURE_HOST + ':' + fixturesPort + p;
 let tmp = '';
 
 function request(pathname, opts) {
@@ -80,7 +92,7 @@ test.before(async () => {
   fixtures = http.createServer((req, res) => {
     if (req.url === '/list.m3u') {
       res.writeHead(200, { 'Content-Type': 'audio/x-mpegurl' });
-      res.end('#EXTM3U url-tvg="http://127.0.0.1:' + fixturesPort + '/guide.xml"\n' +
+      res.end('#EXTM3U url-tvg="' + fx('/guide.xml') + '"\n' +
         '#EXTINF:-1 tvg-id="ch1" tvg-logo="http://img.example/1.png" group-title="Noticias",Canal Uno\n' +
         'http://stream.example/uno.m3u8\n' +
         '#EXTINF:-1 group-title="Deportes",Canal Dos\n' +
@@ -118,7 +130,7 @@ test.before(async () => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('secreto-de-la-red-local');
   });
-  await new Promise((r) => fixtures.listen(0, '127.0.0.1', r));
+  await new Promise((r) => fixtures.listen(0, FIXTURE_HOST || '127.0.0.1', r));
   fixturesPort = fixtures.address().port;
 
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'opentv-rs-test-'));
@@ -211,8 +223,8 @@ test('pluginFetch refuses this device: a plugin never reads local servers', { sk
   assert.doesNotMatch(r.text, /secreto-de-la-red-local/);
 });
 
-test('fetchM3u gives the channels with the fields TV en vivo reads', { skip }, async () => {
-  const r = await call('fetchM3u', { url: 'http://127.0.0.1:' + fixturesPort + '/list.m3u' });
+test('fetchM3u gives the channels with the fields TV en vivo reads', { skip: skip || lanSkip }, async () => {
+  const r = await call('fetchM3u', { url: fx('/list.m3u'), allowLan: true });
   assert.equal(r.json.returnValue, true, r.text);
   const ch = r.json.channels;
   assert.equal(ch.length, 2);
@@ -221,26 +233,26 @@ test('fetchM3u gives the channels with the fields TV en vivo reads', { skip }, a
   assert.equal(ch[0].tvgId, 'ch1');
   assert.equal(ch[0].logo, 'http://img.example/1.png');
   assert.equal(ch[0].streamUrl, 'http://stream.example/uno.m3u8');
-  assert.equal(ch[0].epg, 'http://127.0.0.1:' + fixturesPort + '/guide.xml');
+  assert.equal(ch[0].epg, fx('/guide.xml'));
   assert.equal(ch[1].group, 'Deportes');
 });
 
-test('epg and epgSchedule give now / next for the asked channels', { skip }, async () => {
-  const url = 'http://127.0.0.1:' + fixturesPort + '/guide.xml';
-  const r = await call('epg', { url, ids: ['ch1', 'nada'] });
+test('epg and epgSchedule give now / next for the asked channels', { skip: skip || lanSkip }, async () => {
+  const url = fx('/guide.xml');
+  const r = await call('epg', { url, ids: ['ch1', 'nada'], allowLan: true });
   assert.equal(r.json.returnValue, true, r.text);
   const list = r.json.programmes.ch1;
   assert.ok(Array.isArray(list) && list.length >= 1);
   assert.equal(list[0].t, 'Noticias');
   assert.ok(list[0].s <= Date.now() && list[0].e > Date.now());
-  const s = await call('epgSchedule', { url, id: 'ch1' });
+  const s = await call('epgSchedule', { url, id: 'ch1', allowLan: true });
   assert.equal(s.json.returnValue, true, s.text);
   assert.deepEqual(s.json.programmes.map((p) => p.t), ['Noticias', 'Deportes']);
 });
 
-test('the Android page sends arrays and objects as JSON in the address', { skip }, async () => {
-  const url = 'http://127.0.0.1:' + fixturesPort + '/guide.xml';
-  const q = 'url=' + encodeURIComponent(url) + '&ids=' + encodeURIComponent(JSON.stringify(['ch1'])) + '&__token=' + TOKEN;
+test('the Android page sends arrays and objects as JSON in the address', { skip: skip || lanSkip }, async () => {
+  const url = fx('/guide.xml');
+  const q = 'url=' + encodeURIComponent(url) + '&ids=' + encodeURIComponent(JSON.stringify(['ch1'])) + '&allowLan=true&__token=' + TOKEN;
   const r = await request('/epg?' + q);
   assert.equal(r.json.returnValue, true, r.text);
   assert.ok(r.json.programmes.ch1.length >= 1);
@@ -264,13 +276,14 @@ test('downloadList and torrentStats answer even when nothing is running', { skip
   assert.equal(t.json.returnValue, true, t.text);
 });
 
-test('resolveExternal proxies HLS with headers, survives abortMedia, rewrites segments to /hls/ and sends a single CORS header', { skip }, async () => {
+test('resolveExternal proxies HLS with headers, survives abortMedia, rewrites segments to /hls/ and sends a single CORS header', { skip: skip || lanSkip }, async () => {
   // Real playback always calls abortMedia (stopPlayerVideo) before opening a new stream.
   const ab1 = await call('abortMedia');
   assert.equal(ab1.json.returnValue, true);
 
   const r = await call('resolveExternal', {
-    url: 'http://127.0.0.1:' + fixturesPort + '/hls/master.m3u8',
+    url: fx('/hls/master.m3u8'),
+    allowLan: true,
     headers: { Referer: 'https://plugin.example/' }
   });
   assert.equal(r.json.returnValue, true, r.text);
@@ -299,9 +312,10 @@ test('resolveExternal proxies HLS with headers, survives abortMedia, rewrites se
   assert.equal(seg.headers['access-control-allow-origin'], 'opentv://app');
 });
 
-test('resolveExternal detects obfuscated .txt HLS playlists by #EXTM3U content', { skip }, async () => {
+test('resolveExternal detects obfuscated .txt HLS playlists by #EXTM3U content', { skip: skip || lanSkip }, async () => {
   const r = await call('resolveExternal', {
-    url: 'http://127.0.0.1:' + fixturesPort + '/hls/obfuscated.txt',
+    url: fx('/hls/obfuscated.txt'),
+    allowLan: true,
     headers: { Referer: 'https://plugin.example/' }
   });
   assert.equal(r.json.returnValue, true, r.text);
@@ -312,11 +326,12 @@ test('resolveExternal detects obfuscated .txt HLS playlists by #EXTM3U content',
   assert.match(manifest.text, /\/hls\/[a-f0-9]+\//);
 });
 
-test('downloadStart + downloadOpen saves a direct video and serves it with Range', { skip }, async () => {
+test('downloadStart + downloadOpen saves a direct video and serves it with Range', { skip: skip || lanSkip }, async () => {
   const start = await call('downloadStart', {
     title: 'Prueba Directa',
     targetId: 'movie:test1',
-    url: 'http://127.0.0.1:' + fixturesPort + '/video.mp4',
+    url: fx('/video.mp4'),
+    allowLan: true,
     filename: 'prueba.mp4'
   });
   assert.equal(start.json.returnValue, true, start.text);

@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node scripts/run-tauri.cjs dev",
     "dev:pc": "node scripts/run-tauri.cjs dev",
+    "preview:pc": "node scripts/run-tauri.cjs preview",
     "build:ui": "npm --prefix apps/desktop/frontend run build",
     "build:pc": "node scripts/run-tauri.cjs build",
     "build:rust:android": "node scripts/build-rust-android.cjs",

@@ -48,6 +48,7 @@ pub fn build_router(state: ServiceState) -> Router {
         .route("/mpv/events", get(handle_mpv_events))
         .route("/{method}", any(handle_rpc))
         .layer(middleware::from_fn_with_state(state.clone(), origin_guard))
+        .layer(middleware::from_fn_with_state(state.clone(), host_guard))
         .layer(cors)
         .with_state(state)
 }
@@ -66,6 +67,29 @@ async fn origin_guard(State(state): State<ServiceState>, req: Request, next: Nex
     next.run(req).await
 }
 
+/// Refuses any request whose `Host` is not this service (`127.0.0.1:<port>` or
+/// `localhost:<port>`). Blocks DNS-rebinding: a website whose name resolves to
+/// 127.0.0.1 still sends its own name as `Host`. ExoPlayer, FFmpeg, Coil, WebView2
+/// and reqwest all address the service as `http://127.0.0.1:<port>`.
+async fn host_guard(State(state): State<ServiceState>, req: Request, next: Next) -> Response {
+    let host = req
+        .headers()
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string)
+        .or_else(|| req.uri().authority().map(|a| a.as_str().to_string()))
+        .unwrap_or_default();
+    if !host_allowed(&host, state.bound_port()) {
+        return (StatusCode::FORBIDDEN, Json(fail("Host no permitido"))).into_response();
+    }
+    next.run(req).await
+}
+
+pub fn host_allowed(host: &str, port: u16) -> bool {
+    let host = host.trim().to_ascii_lowercase();
+    host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}")
+}
+
 pub fn origin_allowed(allowed: &[String], origin: &str) -> bool {
     allowed.iter().any(|a| a == origin)
 }
@@ -82,6 +106,17 @@ fn token_matches(expected: &str, got: &str) -> bool {
 /// The session token is mandatory on every route that is not protected by an
 /// unguessable token embedded in its path. Fails closed when no token is set.
 fn token_ok(state: &ServiceState, headers: &HeaderMap, query: &HashMap<String, String>) -> bool {
+    token_ok_with(state, headers, query, false)
+}
+
+/// `allow_short_alias` accepts `?t=` as well as `__token`: only for `/img`, whose URLs
+/// Android's `RustServiceBridge.sizedImageUrl` builds with `&t=<token>`.
+fn token_ok_with(
+    state: &ServiceState,
+    headers: &HeaderMap,
+    query: &HashMap<String, String>,
+    allow_short_alias: bool,
+) -> bool {
     let Some(expected) = state.config.auth_token.as_ref() else {
         return false;
     };
@@ -90,7 +125,13 @@ fn token_ok(state: &ServiceState, headers: &HeaderMap, query: &HashMap<String, S
         .and_then(|v| v.to_str().ok())
         .map(str::to_string)
         .or_else(|| query.get(TOKEN_PARAM).cloned())
-        .or_else(|| query.get("t").cloned())
+        .or_else(|| {
+            if allow_short_alias {
+                query.get("t").cloned()
+            } else {
+                None
+            }
+        })
         .unwrap_or_default();
     token_matches(expected, &got)
 }
@@ -215,7 +256,7 @@ async fn handle_image(
     headers: HeaderMap,
     Query(q): Query<HashMap<String, String>>,
 ) -> Response {
-    if !token_ok(&state, &headers, &q) {
+    if !token_ok_with(&state, &headers, &q, true) {
         return unauthorized();
     }
     let w = q
@@ -255,7 +296,6 @@ async fn handle_rpc(
     }
     let mut query_params = query_params;
     query_params.remove(TOKEN_PARAM);
-    query_params.remove("t");
 
     let params: Value = if !body.is_empty() {
         serde_json::from_slice(&body).unwrap_or_else(|_| Value::Object(Map::new()))
@@ -265,6 +305,35 @@ async fn handle_rpc(
 
     let out = dispatch(&state, &method, &params).await;
     (StatusCode::OK, Json(out)).into_response()
+}
+
+/// libmpv opens whatever URL it is given (any protocol, any host). Only http(s) to a
+/// NetGuard-approved host, or this service's own stream routes, may be loaded.
+async fn check_player_url(
+    state: &ServiceState,
+    base_url: &str,
+    raw: &str,
+    allow_lan: bool,
+) -> Result<(), String> {
+    let parsed = url::Url::parse(raw.trim()).map_err(|_| "Enlace no válido".to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err("Solo se permiten enlaces http(s)".to_string());
+    }
+    let host = parsed.host_str().unwrap_or("");
+    if crate::netguard::classify_str(host) == Some("loopback") {
+        let own = parsed.as_str().starts_with(&format!("{base_url}/"))
+            && ["/media/", "/hls/", "/t/", "/d/", "/local/", "/compat/"]
+                .iter()
+                .any(|p| parsed.path().starts_with(p));
+        return if own {
+            Ok(())
+        } else {
+            Err(crate::netguard::refusal_message(crate::netguard::IpKind::Loopback).to_string())
+        };
+    }
+    crate::netguard::check_all(&state.dns, host, allow_lan)
+        .await
+        .map(|_| ())
 }
 
 fn decode_query_params(raw: HashMap<String, String>) -> Value {
@@ -407,7 +476,9 @@ pub async fn dispatch(state: &ServiceState, method: &str, params: &Value) -> Val
                         .collect()
                 })
                 .unwrap_or_default();
-            match state.epg.get(url, &ids).await {
+            let allow_lan = params["allowLan"].as_bool().unwrap_or(false)
+                || params["allowLan"].as_str() == Some("true");
+            match state.epg.get(url, &ids, allow_lan).await {
                 Ok(programmes) => ok(json!({ "programmes": programmes })),
                 Err(e) => fail(&e),
             }
@@ -416,7 +487,9 @@ pub async fn dispatch(state: &ServiceState, method: &str, params: &Value) -> Val
         "epgSchedule" => {
             let url = params["url"].as_str().unwrap_or("");
             let id = params["id"].as_str().unwrap_or("");
-            match state.epg.schedule(url, id).await {
+            let allow_lan = params["allowLan"].as_bool().unwrap_or(false)
+                || params["allowLan"].as_str() == Some("true");
+            match state.epg.schedule(url, id, allow_lan).await {
                 Ok(programmes) => ok(json!({ "programmes": programmes })),
                 Err(e) => fail(&e),
             }
@@ -533,7 +606,8 @@ pub async fn dispatch(state: &ServiceState, method: &str, params: &Value) -> Val
                     }
                 }
             }
-            match state.transcode.probe(url, &headers).await {
+            let allow_lan = params["allowLan"].as_bool().unwrap_or(false);
+            match state.transcode.probe(&base_url, url, &headers, allow_lan).await {
                 Ok(res) => ok(res),
                 Err(e) => fail(&e),
             }
@@ -551,9 +625,10 @@ pub async fn dispatch(state: &ServiceState, method: &str, params: &Value) -> Val
             let hevc = params["hevc"].as_bool().unwrap_or(false);
             let audio = params["audio"].as_u64().unwrap_or(0) as usize;
             let mode = params["mode"].as_str().unwrap_or("copy");
+            let allow_lan = params["allowLan"].as_bool().unwrap_or(false);
             match state
                 .transcode
-                .start_session(&base_url, url, headers, hevc, audio, mode)
+                .start_session(&base_url, url, headers, allow_lan, hevc, audio, mode)
                 .await
             {
                 Ok(res) => ok(res),
@@ -639,6 +714,13 @@ pub async fn dispatch(state: &ServiceState, method: &str, params: &Value) -> Val
         // Windows libmpv Native Player controls
         "mpvAttach" | "mpvLoad" | "mpvPlay" | "mpvPause" | "mpvSeek" | "mpvSetVolume"
         | "mpvSetRate" | "mpvSelectAudio" | "mpvSelectText" | "mpvSelectQuality" | "mpvStop" => {
+            if method == "mpvLoad" {
+                let url = params["url"].as_str().unwrap_or("");
+                let allow_lan = params["allowLan"].as_bool().unwrap_or(false);
+                if let Err(e) = check_player_url(state, &base_url, url, allow_lan).await {
+                    return fail(&e);
+                }
+            }
             match state.mpv.handle(method, params) {
                 Ok(out) => ok(out),
                 Err(e) => fail(&e),
@@ -646,5 +728,32 @@ pub async fn dispatch(state: &ServiceState, method: &str, params: &Value) -> Val
         }
 
         _ => fail("Operación no disponible"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_loopback_host_headers_for_this_port_pass() {
+        assert!(host_allowed("127.0.0.1:8910", 8910));
+        assert!(host_allowed("LOCALHOST:8910", 8910));
+        assert!(!host_allowed("127.0.0.1:8911", 8910));
+        assert!(!host_allowed("127.0.0.1", 8910));
+        assert!(!host_allowed("evil.example:8910", 8910));
+        assert!(!host_allowed("rebind.attacker.example", 8910));
+        assert!(!host_allowed("", 8910));
+    }
+
+    #[test]
+    fn platform_origins_are_trimmed() {
+        use crate::config::allowed_origins_for;
+        assert!(allowed_origins_for("android").is_empty());
+        let desktop = allowed_origins_for("desktop");
+        assert!(origin_allowed(&desktop, "http://tauri.localhost"));
+        assert!(!origin_allowed(&desktop, "http://localhost"));
+        assert!(!origin_allowed(&desktop, "capacitor://localhost"));
+        assert!(!origin_allowed(&desktop, "null"));
     }
 }

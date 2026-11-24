@@ -12,6 +12,9 @@ import type {
 import { JS_PLUGIN_HOST_MAP, isBuiltinUrl, stremioBaseFromUrl } from './catalogs';
 import { applySpanish, imdbIdOf, localizeEpisodes, spanishInfo } from './localize';
 import { desktopApi } from './tauri';
+import { ANIME_SEASON_LIST, KIDS_LISTS, animeSeasonItem, dailyHeroOrder, kidsTmdbItem, localDayKey } from './sectionContent';
+import { CATALOG_FRESH_MS, PersistentJsonCache, isPersistableCatalogUrl, swrState } from './catalogStore';
+import { settleInOrder } from './progressive';
 
 interface CacheEntry {
   data: Record<string, unknown>;
@@ -22,10 +25,15 @@ const MAX_CACHE_ENTRIES = 200;
 const cache = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<Record<string, unknown> | null>>();
 
+// Last browse-catalog answers persisted across restarts (stale-while-revalidate).
+const persisted = new PersistentJsonCache('opentv_catalog_cache_v1', 90);
+
 /** "Borrar caché": drops cached catalog/meta/stream JSON; rows on screen stay until the next load. */
 export function clearCatalogCache(): void {
   cache.clear();
   inflight.clear();
+  persisted.clear();
+  clearCoreListCache();
 }
 
 async function getJson(url: string, ttlMs = 10 * 60_000): Promise<Record<string, unknown> | null> {
@@ -41,6 +49,25 @@ async function getJson(url: string, ttlMs = 10 * 60_000): Promise<Record<string,
   const pending = inflight.get(url);
   if (pending) return pending;
 
+  // Persisted catalog: fresh -> no network; stale -> answer now and refresh in the background.
+  const persist = ttlMs > 0 && isPersistableCatalogUrl(url);
+  if (persist) {
+    const stored = persisted.get(url);
+    const state = stored ? swrState(now - stored.at) : 'expired';
+    if (stored && state !== 'expired') {
+      cache.set(url, { data: stored.d, expiresAt: state === 'fresh' ? stored.at + CATALOG_FRESH_MS : now + ttlMs });
+      if (state === 'stale') void fetchJson(url, ttlMs, true);
+      return stored.d;
+    }
+  }
+
+  return fetchJson(url, ttlMs, persist);
+}
+
+function fetchJson(url: string, ttlMs: number, persist: boolean): Promise<Record<string, unknown> | null> {
+  const pending = inflight.get(url);
+  if (pending) return pending;
+
   const req = (async () => {
     try {
       const ctrl = new AbortController();
@@ -49,6 +76,7 @@ async function getJson(url: string, ttlMs = 10 * 60_000): Promise<Record<string,
       clearTimeout(timer);
       if (!resp.ok) return null;
       const data = (await resp.json()) as Record<string, unknown>;
+      if (persist && Array.isArray(data.metas) && data.metas.length > 0) persisted.set(url, data);
       if (ttlMs > 0) {
         cache.delete(url);
         cache.set(url, { data, expiresAt: Date.now() + ttlMs });
@@ -288,11 +316,21 @@ function parseMetaSummary(raw: Record<string, unknown>, forceAnime: boolean): Me
   };
 }
 
-export async function loadCatalogSection(section: HomeTabId, plugins: InstalledPlugin[]): Promise<CatalogRow[]> {
+/**
+ * Loads a section's rows in parallel. `onProgress` receives the rows in display order as
+ * soon as the top ones are ready (the first row never waits for the slowest catalog).
+ */
+export async function loadCatalogSection(
+  section: HomeTabId,
+  plugins: InstalledPlugin[],
+  onProgress?: (rows: CatalogRow[], done: boolean) => void,
+): Promise<CatalogRow[]> {
   const cin = 'https://v3-cinemeta.strem.io';
   const kit = 'https://anime-kitsu.strem.fun';
 
-  const specs: Array<{ id: string; title: string; url: string }> =
+  // `list`: row served by the Rust core (TMDB/Kitsu); `url` is then the fallback catalog
+  // (e.g. no TMDB key), shown under `fallbackTitle`.
+  const specs: Array<{ id: string; title: string; url: string; list?: string; fallbackTitle?: string }> =
     section === 'home'
       ? [
           { id: 'trend_movies', title: 'Tendencias de la semana · Películas', url: `${cin}/catalog/movie/top.json` },
@@ -324,15 +362,19 @@ export async function loadCatalogSection(section: HomeTabId, plugins: InstalledP
         ]
       : section === 'kids'
       ? [
-          // Rule: Kids only includes Family genre (never general Animation).
-          { id: 'k_movies', title: 'Películas familiares', url: `${cin}/catalog/movie/top/genre=Family.json` },
-          { id: 'k_series', title: 'Series para toda la familia', url: `${cin}/catalog/series/top/genre=Family.json` },
-          { id: 'k_rating', title: 'Favoritas de la familia', url: `${cin}/catalog/movie/imdbRating/genre=Family.json` },
+          // Rule: Kids = all-ages ratings (MX "AA"/"A", US "G"/"PG" fallback; TV needs the Kids
+          // genre) from TMDB; without a TMDB key, Cinemeta's Family genre (never general Animation).
+          { id: 'k_movies', title: 'Películas para todos', list: KIDS_LISTS.moviesPopular, fallbackTitle: 'Películas familiares', url: `${cin}/catalog/movie/top/genre=Family.json` },
+          { id: 'k_series', title: 'Series infantiles', list: KIDS_LISTS.tvPopular, fallbackTitle: 'Series para toda la familia', url: `${cin}/catalog/series/top/genre=Family.json` },
+          { id: 'k_animated', title: 'Animadas para niños', list: KIDS_LISTS.moviesAnimated, fallbackTitle: 'Favoritas de la familia', url: `${cin}/catalog/movie/imdbRating/genre=Family.json` },
+          { id: 'k_series_top', title: 'Las favoritas de los niños', list: KIDS_LISTS.tvTop, fallbackTitle: 'Series favoritas de la familia', url: `${cin}/catalog/series/imdbRating/genre=Family.json` },
         ]
       : section === 'anime'
       ? [
-          // Rule: Anime comes exclusively from Anime Kitsu / anime-typed catalogs.
-          { id: 'a_trending', title: 'Tendencias del anime', url: `${kit}/catalog/anime/kitsu-anime-trending.json` },
+          // Rule: Anime comes exclusively from Kitsu / anime-typed catalogs. The plugin's
+          // "trending" catalog is an all-time ranking (same as "popular"), so the first row is
+          // this season's most-followed anime from the Kitsu API (fallback: that catalog).
+          { id: 'a_season', title: 'Tendencias de la temporada', list: ANIME_SEASON_LIST, fallbackTitle: 'Tendencias del anime', url: `${kit}/catalog/anime/kitsu-anime-trending.json` },
           { id: 'a_airing', title: 'En emisión', url: `${kit}/catalog/anime/kitsu-anime-airing.json` },
           { id: 'a_popular', title: 'Más populares', url: `${kit}/catalog/anime/kitsu-anime-popular.json` },
           { id: 'a_rated', title: 'Mejor valorados', url: `${kit}/catalog/anime/kitsu-anime-rating.json` },
@@ -359,24 +401,76 @@ export async function loadCatalogSection(section: HomeTabId, plugins: InstalledP
     }
   }
 
-  const settled = await Promise.all(
-    specs.map(async (s): Promise<CatalogRow | null> => {
-      const data = await getJson(s.url);
-      const metas = Array.isArray(data?.metas) ? (data.metas as Array<Record<string, unknown>>) : [];
-      const forceAnime = section === 'anime';
-      let items = metas
-        .map((m) => parseMetaSummary(m, forceAnime))
-        .filter((x): x is MediaItem => x !== null);
-      if (section === 'kids') {
-        items = items.filter((it) => it.genres.length === 0 || it.genres.some((g) => g.toLowerCase() === 'family'));
+  return settleInOrder(
+    specs.map(async (s, index): Promise<CatalogRow | null> => {
+      let title = s.title;
+      let items: MediaItem[] = s.list ? await loadCoreList(s.list) : [];
+      if (items.length === 0) {
+        if (s.list && s.fallbackTitle) title = s.fallbackTitle;
+        const data = await getJson(s.url);
+        const metas = Array.isArray(data?.metas) ? (data.metas as Array<Record<string, unknown>>) : [];
+        const forceAnime = section === 'anime';
+        items = metas
+          .map((m) => parseMetaSummary(m, forceAnime))
+          .filter((x): x is MediaItem => x !== null);
+        if (section === 'kids') {
+          items = items.filter((it) => it.genres.length === 0 || it.genres.some((g) => g.toLowerCase() === 'family'));
+        }
+      }
+      // The first row feeds the hero: rotate its picks once a day.
+      if (index === 0 && (section === 'kids' || section === 'anime')) {
+        items = dailyHeroOrder(items, `${section}:${localDayKey()}`);
       }
       items = items.slice(0, 30);
       if (items.length === 0) return null;
-      return { id: s.id, title: s.title, items };
+      return { id: s.id, title, items };
     }),
+    onProgress,
   );
+}
 
-  return settled.filter((r): r is CatalogRow => r !== null);
+// Titles seen in the all-ages Kids lists: the Kids profile search also accepts them.
+const kidsApprovedIds = new Set<string>();
+
+/** Kids/Anime row served by the Rust core; [] when unavailable (no TMDB key, offline…). */
+// In-memory cache for the Rust TMDB/Kitsu rows (Kids, Anime season): tab switches and the
+// idle prefetch reuse them instead of a ~300 ms IPC + network round trip each time.
+const CORE_LIST_TTL_MS = 30 * 60_000;
+const coreListCache = new Map<string, { at: number; items: MediaItem[] }>();
+const coreListInflight = new Map<string, Promise<MediaItem[]>>();
+
+/** Drops the cached Kids/Anime rows ("Borrar caché"). */
+export function clearCoreListCache(): void {
+  coreListCache.clear();
+}
+
+async function loadCoreList(list: string): Promise<MediaItem[]> {
+  const hit = coreListCache.get(list);
+  if (hit && Date.now() - hit.at < CORE_LIST_TTL_MS) return hit.items;
+  const pending = coreListInflight.get(list);
+  if (pending) return pending;
+  const p = fetchCoreList(list).then((items) => {
+    if (items.length > 0) coreListCache.set(list, { at: Date.now(), items });
+    coreListInflight.delete(list);
+    return items;
+  });
+  coreListInflight.set(list, p);
+  return p;
+}
+
+async function fetchCoreList(list: string): Promise<MediaItem[]> {
+  try {
+    const res = await desktopApi.tmdb<{ items?: Array<Record<string, unknown>> }>(list);
+    const raw = Array.isArray(res?.items) ? res.items : [];
+    const anime = list === ANIME_SEASON_LIST;
+    const items = raw
+      .map((r) => (anime ? animeSeasonItem(r) : kidsTmdbItem(r)))
+      .filter((x): x is MediaItem => x !== null);
+    if (!anime) for (const it of items) kidsApprovedIds.add(it.id);
+    return items;
+  } catch {
+    return [];
+  }
 }
 
 export async function loadTitleDetail(item: MediaItem): Promise<TitleDetail> {
@@ -571,49 +665,66 @@ export async function fetchExternalSubtitles(
 export async function searchAllCatalogs(
   query: string,
   kidsOnly: boolean,
+  onPartial?: (items: MediaItem[]) => void,
 ): Promise<MediaItem[]> {
   const clean = query.trim();
   if (clean.length < 2) return [];
 
-  // Translate Spanish queries to original titles via Rust TMDB if configured
-  const queries = [clean];
-  try {
-    const tmdb = await desktopApi.tmdb<{ items?: Array<{ originalTitle?: string }> }>(`search:${clean}`);
-    for (const hit of (tmdb?.items || []).slice(0, 2)) {
-      if (hit.originalTitle && !queries.some((q) => q.toLowerCase() === hit.originalTitle!.toLowerCase())) {
-        queries.push(hit.originalTitle);
-      }
-    }
-  } catch {
-    /* TMDB optional */
-  }
-
-  const urls: Array<{ url: string; anime: boolean }> = [];
-  for (const q of queries.slice(0, 2)) {
+  const urlsFor = (q: string): Array<{ url: string; anime: boolean }> => {
     const enc = encodeURIComponent(q);
-    urls.push({ url: `https://v3-cinemeta.strem.io/catalog/movie/top/search=${enc}.json`, anime: false });
-    urls.push({ url: `https://v3-cinemeta.strem.io/catalog/series/top/search=${enc}.json`, anime: false });
+    const out = [
+      { url: `https://v3-cinemeta.strem.io/catalog/movie/top/search=${enc}.json`, anime: false },
+      { url: `https://v3-cinemeta.strem.io/catalog/series/top/search=${enc}.json`, anime: false },
+    ];
     if (!kidsOnly) {
-      urls.push({ url: `https://anime-kitsu.strem.fun/catalog/anime/kitsu-anime-trending/search=${enc}.json`, anime: true });
+      out.push({ url: `https://anime-kitsu.strem.fun/catalog/anime/kitsu-anime-trending/search=${enc}.json`, anime: true });
     }
-  }
+    return out;
+  };
+  const fetchBatch = (list: Array<{ url: string; anime: boolean }>) =>
+    Promise.all(
+      list.map(async ({ url, anime }) => {
+        const data = await getJson(url, 5 * 60_000);
+        const metas = Array.isArray(data?.metas) ? (data.metas as Array<Record<string, unknown>>) : [];
+        return metas.map((m) => parseMetaSummary(m, anime)).filter((x): x is MediaItem => x !== null);
+      }),
+    ).then((b) => b.flat());
 
-  const batches = await Promise.all(
-    urls.map(async ({ url, anime }) => {
-      const data = await getJson(url, 5 * 60_000);
-      const metas = Array.isArray(data?.metas) ? (data.metas as Array<Record<string, unknown>>) : [];
-      return metas.map((m) => parseMetaSummary(m, anime)).filter((x): x is MediaItem => x !== null);
-    }),
-  );
+  // The typed text is searched right away; the TMDB lookup (Spanish -> original title) runs in
+  // parallel and only adds a second query, instead of delaying every search.
+  const basePromise = fetchBatch(urlsFor(clean));
+  const tmdbPromise = desktopApi
+    .tmdb<{ items?: Array<{ originalTitle?: string }> }>(`search:${clean}`)
+    .then((tmdb) => {
+      const hit = (tmdb?.items || []).slice(0, 2).find(
+        (h) => h.originalTitle && h.originalTitle.toLowerCase() !== clean.toLowerCase(),
+      );
+      return hit?.originalTitle || '';
+    })
+    .catch(() => ''); /* TMDB optional */
 
+  const base = await basePromise;
+  const rank = (all: MediaItem[]) => rankSearchResults(all, clean, kidsOnly);
+  const original = await Promise.race([
+    tmdbPromise,
+    // Show the direct hits first when TMDB is slower than Cinemeta.
+    new Promise<null>((r) => setTimeout(() => r(null), 0)),
+  ]);
+  if (original === null && onPartial) onPartial(rank(base));
+  const alt = original === null ? await tmdbPromise : original;
+  if (!alt) return rank(base);
+  const extra = await fetchBatch(urlsFor(alt));
+  return rank([...base, ...extra]);
+}
+
+function rankSearchResults(all: MediaItem[], clean: string, kidsOnly: boolean): MediaItem[] {
   const qLower = clean.toLowerCase();
   const seen = new Set<string>();
-  return batches
-    .flat()
+  return all
     .filter((it) => {
       if (seen.has(it.id)) return false;
       seen.add(it.id);
-      if (kidsOnly && !it.genres.some((g) => g.toLowerCase() === 'family')) return false;
+      if (kidsOnly && !it.genres.some((g) => g.toLowerCase() === 'family') && !kidsApprovedIds.has(it.id)) return false;
       return true;
     })
     .sort((a, b) => {

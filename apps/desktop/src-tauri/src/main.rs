@@ -226,6 +226,7 @@ fn main() {
             .expect("No se pudo iniciar el servicio interno de OpenTV")
     });
     let proxy_port = bound_addr.port();
+    commands::load_approved_network_paths(&core_state, &user_data_dir);
     eprintln!("[opentv-tauri] core listo en 127.0.0.1:{proxy_port}");
     append_log(&user_data_dir, &format!("Núcleo Rust listo en 127.0.0.1:{proxy_port}"));
 

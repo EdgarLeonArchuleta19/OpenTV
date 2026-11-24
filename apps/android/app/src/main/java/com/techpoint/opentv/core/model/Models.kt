@@ -163,6 +163,8 @@ data class LiveChannel(
     val userAgent: String = "",
     val referrer: String = "",
     val playlistId: String = "",
+    /** The playlist was allowed on the home network: its guide may be too. */
+    val allowLan: Boolean = false,
 )
 
 @Immutable

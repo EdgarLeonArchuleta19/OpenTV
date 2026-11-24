@@ -59,7 +59,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
       style={{ paddingLeft: 'var(--ot-gutter)', paddingRight: 'var(--ot-gutter)' }}
       className={`absolute top-0 right-0 left-0 z-30 flex h-[68px] lg:h-[76px] items-center justify-between gap-2 transition-colors duration-300 ${
         scrolled
-          ? 'bg-[#0e0e11]/95 shadow-[0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl'
+          ? 'bg-[#0e0e11]/[0.97] shadow-[0_1px_0_rgba(255,255,255,0.06)]'
           : 'bg-gradient-to-b from-[#08080a]/75 via-[#08080a]/30 to-transparent'
       }`}
     >

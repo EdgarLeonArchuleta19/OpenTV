@@ -52,7 +52,11 @@ impl Default for ServiceConfig {
         Self {
             port: 8910,
             auth_token: None,
-            allowed_origins: default_allowed_origins(),
+            allowed_origins: allowed_origins_for(if cfg!(target_os = "android") {
+                "android"
+            } else {
+                "desktop"
+            }),
             tmdb_config_path: None,
             tmdb_inline_json: None,
             platform: if cfg!(target_os = "android") {
@@ -84,8 +88,9 @@ pub fn generate_session_token() -> String {
 }
 
 /// The app's own pages: Electron (`opentv://app`), Tauri v2 (`http://tauri.localhost`
-/// / `https://tauri.localhost`), and the Capacitor WebView (`http://localhost`,
-/// `https://localhost`, `capacitor://localhost`).
+/// / `https://tauri.localhost`), and the legacy Capacitor WebView (`http://localhost`,
+/// `https://localhost`, `capacitor://localhost`). Kept for the standalone
+/// `opentv-service` harness; embedders should prefer [`allowed_origins_for`].
 pub fn default_allowed_origins() -> Vec<String> {
     let mut origins = vec![
         "opentv://app".to_string(),
@@ -100,6 +105,30 @@ pub fn default_allowed_origins() -> Vec<String> {
         origins.push("http://127.0.0.1:5173".to_string());
     }
     origins
+}
+
+/// Origins each shipping platform actually uses.
+/// - `desktop` (Tauri v2 on Windows/WebView2): `http(s)://tauri.localhost`, plus the
+///   Vite dev server only in debug builds.
+/// - `android`: the UI is native Compose and talks to the core through JNI; ExoPlayer,
+///   Coil and OkHttp send no `Origin`, so no web origin is trusted at all.
+/// - anything else: the legacy list.
+pub fn allowed_origins_for(platform: &str) -> Vec<String> {
+    match platform {
+        "android" => Vec::new(),
+        "desktop" => {
+            let mut origins = vec![
+                "http://tauri.localhost".to_string(),
+                "https://tauri.localhost".to_string(),
+            ];
+            if cfg!(debug_assertions) {
+                origins.push("http://localhost:5173".to_string());
+                origins.push("http://127.0.0.1:5173".to_string());
+            }
+            origins
+        }
+        _ => default_allowed_origins(),
+    }
 }
 
 impl ServiceConfig {

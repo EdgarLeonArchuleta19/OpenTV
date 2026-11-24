@@ -46,9 +46,6 @@ class LiveTvRepository {
                         put("allowLan", pl.allowLan)
                     },
                 )
-                val epgUrl = res["epgUrl"]?.jsonPrimitive?.contentOrNull.orEmpty()
-                if (epgUrl.isNotBlank()) synchronized(epgUrls) { epgUrls.add(epgUrl) }
-
                 res["channels"]?.jsonArray.orEmpty().mapIndexedNotNull { idx, el ->
                     val o = el as? JsonObject ?: return@mapIndexedNotNull null
                     val url = o.str("url")
@@ -58,6 +55,9 @@ class LiveTvRepository {
                     if (adultGroupRe.containsMatchIn(group) || adultGroupRe.containsMatchIn(name)) {
                         return@mapIndexedNotNull null
                     }
+                    // The core reports the guide per channel (`epg`, from url-tvg / x-tvg-url).
+                    val epgUrl = o.str("epg").ifBlank { o.str("epgUrl") }
+                    if (epgUrl.isNotBlank()) synchronized(epgUrls) { epgUrls.add(epgUrl) }
                     LiveChannel(
                         id = "${pl.id}_$idx",
                         name = name,
@@ -70,6 +70,7 @@ class LiveTvRepository {
                         userAgent = o.str("userAgent"),
                         referrer = o.str("referrer"),
                         playlistId = pl.id,
+                        allowLan = pl.allowLan,
                     )
                 }
             }
@@ -88,21 +89,26 @@ class LiveTvRepository {
         val ids = channels.mapNotNull { it.tvgId.ifBlank { it.tvgName.ifBlank { null } } }.distinct().take(120)
         if (ids.isEmpty()) return emptyMap()
 
-        val res = RustServiceBridge.callRpc(
-            "epg",
-            buildJsonObject {
-                put("urls", buildJsonArray { epgUrls.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
-                put("ids", buildJsonArray { ids.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
-            },
-        )
-        val programsObj = res["programs"] as? JsonObject ?: return emptyMap()
         val out = mutableMapOf<String, EpgNowNext>()
-        for ((key, value) in programsObj) {
-            val o = value as? JsonObject ?: continue
-            val now = (o["now"] as? JsonObject)?.toProgram()
-            val next = (o["next"] as? JsonObject)?.toProgram()
-            if (now != null || next != null) {
-                out[key.lowercase(Locale.ROOT)] = EpgNowNext(now = now, next = next)
+        val nowMs = System.currentTimeMillis()
+        for (epgUrl in epgUrls.take(4)) {
+            val res = RustServiceBridge.callRpc(
+                "epg",
+                buildJsonObject {
+                    put("url", epgUrl)
+                    put("ids", buildJsonArray { ids.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
+                    put("allowLan", channels.any { it.epgUrl == epgUrl && it.allowLan })
+                },
+            )
+            val programmes = res["programmes"] as? JsonObject ?: continue
+            for ((key, value) in programmes) {
+                val list = value.jsonArrayOrNull()?.mapNotNull { (it as? JsonObject)?.toProgram() }.orEmpty()
+                if (list.isEmpty()) continue
+                val now = list.firstOrNull { it.startMs <= nowMs && it.endMs > nowMs }
+                val next = list.firstOrNull { it.startMs > (now?.startMs ?: nowMs) }
+                if (now != null || next != null) {
+                    out[key.lowercase(Locale.ROOT)] = EpgNowNext(now = now, next = next)
+                }
             }
         }
         return out
@@ -117,12 +123,12 @@ class LiveTvRepository {
         val res = RustServiceBridge.callRpc(
             "epgSchedule",
             buildJsonObject {
-                put("urls", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(epgUrl)) })
+                put("url", epgUrl)
                 put("id", id)
-                put("hours", 12)
+                put("allowLan", channel.allowLan)
             },
         )
-        return res["items"]?.jsonArray.orEmpty().mapNotNull { (it as? JsonObject)?.toProgram() }
+        return res["programmes"].jsonArrayOrNull()?.mapNotNull { (it as? JsonObject)?.toProgram() }.orEmpty()
     }
 
     /** Resolves a live channel URL (proxies via Rust when custom headers or CORS fallback needed). */
@@ -146,15 +152,19 @@ class LiveTvRepository {
     }
 
     private fun JsonObject.toProgram(): EpgProgram? {
-        val title = str("title")
+        val title = str("t").ifBlank { str("title") }
         if (title.isBlank()) return null
         return EpgProgram(
             title = title,
-            description = str("desc").ifBlank { str("description") },
-            startMs = this["start"]?.jsonPrimitive?.longOrNull ?: 0L,
-            endMs = this["stop"]?.jsonPrimitive?.longOrNull ?: this["end"]?.jsonPrimitive?.longOrNull ?: 0L,
+            description = str("d").ifBlank { str("desc").ifBlank { str("description") } },
+            startMs = this["s"]?.jsonPrimitive?.longOrNull ?: this["start"]?.jsonPrimitive?.longOrNull ?: 0L,
+            endMs = this["e"]?.jsonPrimitive?.longOrNull ?: this["stop"]?.jsonPrimitive?.longOrNull
+                ?: this["end"]?.jsonPrimitive?.longOrNull ?: 0L,
         )
     }
+
+    private fun kotlinx.serialization.json.JsonElement?.jsonArrayOrNull(): kotlinx.serialization.json.JsonArray? =
+        this as? kotlinx.serialization.json.JsonArray
 
     private fun JsonObject.str(key: String): String =
         this[key]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()

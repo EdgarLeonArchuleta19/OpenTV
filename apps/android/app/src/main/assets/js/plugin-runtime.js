@@ -13,10 +13,25 @@
   var instances = {};   /* key -> { exports, names } */
   var asks = {};        /* id -> { resolve, reject } */
   var askSeq = 0;
+  /* Each sandbox (iframe on PC, WebView on Android) hosts ONE plugin: the
+     first `load` binds its key and any other key is refused. */
+  var boundKey = null;
   /* The app's own bridges must not reach this frame. A very old Android
      WebView injects Capacitor's bridge into every frame: then nothing runs. */
   var exposed = typeof window.androidBridge !== 'undefined' || typeof window.Capacitor !== 'undefined' ||
-    typeof window.desktop !== 'undefined';
+    typeof window.desktop !== 'undefined' || typeof window.__TAURI_INTERNALS__ !== 'undefined' ||
+    typeof window.__TAURI__ !== 'undefined' || typeof window.__OPENTV_TAURI_INIT__ !== 'undefined';
+  /* Cryptographic randomness when the engine has it (it does on every
+     supported WebView); Math.random only as a last resort. */
+  function randomByte() {
+    var c = window.crypto || window.msCrypto;
+    if (c && typeof c.getRandomValues === 'function') {
+      var a = new Uint8Array(1);
+      c.getRandomValues(a);
+      return a[0];
+    }
+    return Math.floor(Math.random() * 256);
+  }
 
   function post(msg) {
     msg.opentvPlugin = 1;
@@ -59,8 +74,8 @@
 
   /* A per-plugin view of the global object. Bundled plugins read
      `globalThis.kino` (not the `kino` parameter) before using optional APIs,
-     and set flags such as `globalThis.__kinoDropPendingFetches`; with one
-     shared frame those must not leak between plugins. Constructors and
+     and set flags such as `globalThis.__kinoDropPendingFetches`; keep them
+     off the real window (each plugin also has its own frame). Constructors and
      namespaces (URL, Promise, JSON...) come back untouched; plain functions
      (setTimeout, atob...) are bound to the real window. */
   function shadowGlobal(kinoObj) {
@@ -586,12 +601,12 @@
         decrypt: function (alg, params) { return kinoAesCrypt(false, alg, params); },
         randomBytes: function (count, outEnc) {
           var n = Math.min(1024, Math.max(1, Number(count) || 16)), b = [];
-          for (var i = 0; i < n; i++) { b.push(Math.floor(Math.random() * 256)); }
+          for (var i = 0; i < n; i++) { b.push(randomByte()); }
           return bytesToOut(b, outEnc || 'hex');
         },
         uuid: function () {
           return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-            var r = (Math.random() * 16) | 0;
+            var r = randomByte() & 15;
             return (c === 'x' ? r : ((r & 0x3) | 0x8)).toString(16);
           });
         }
@@ -646,8 +661,8 @@
       },
       plugins: {
         /* Calls another plugin's door (`provides.<door>.calls.<fn>`), e.g. the
-           shared "resolver". The app finds the provider and runs it in this
-           same sandbox under its own key: nothing leaves the frame. */
+           shared "resolver". The app finds the provider and runs it in its
+           OWN sandbox under its own key, passing only plain data. */
         call: function (door, fn, args) {
           return ask('pluginCall', key, { door: String(door || ''), fn: String(fn || ''), args: args === undefined ? null : args });
         }
@@ -693,6 +708,10 @@
 
   function load(msg) {
     if (exposed) { return post({ kind: 'reply', id: msg.id, error: 'Este aparato no puede aislar los plugins JS' }); }
+    if (boundKey !== null && msg.key !== boundKey) {
+      return post({ kind: 'reply', id: msg.id, error: 'Cada plugin corre en su propio entorno aislado', code: 'unsupported' });
+    }
+    boundKey = msg.key;
     try {
       if (msg.jar && typeof msg.jar === 'object') { jar = msg.jar; }
       var exportsObj = {};
@@ -734,7 +753,7 @@
       if (!a) { return; }
       delete asks[m.id];
       if (m.jar && typeof m.jar === 'object') { jar = m.jar; }
-      if (m.error) { a.reject(codedError(m.code || 'error', m.error)); } else { a.resolve(m.value); }
+      if (m.error) { a.reject(codedError(m.code || 'error', m.error, m)); } else { a.resolve(m.value); }
     } else if (m.kind === 'load') {
       load(m);
     } else if (m.kind === 'call') {
@@ -744,7 +763,7 @@
     }
   });
 
-  /* (Tests: kino built outside the frame. Plugins share this frame anyway.) */
+  /* (Tests: kino built outside the frame. One plugin per frame.) */
   window.__opentvKino = { build: buildKino };
   post({ kind: 'ready', exposed: exposed });
 }());

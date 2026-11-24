@@ -215,21 +215,33 @@ mod imp {
         if let Some(p) = override_path {
             candidates.push(p);
         }
+        // Only the app's own folders (DLL planting): next to the executable and its
+        // bundled `resources/bin`; debug builds also accept the repository dev layout.
+        // Never the current directory or PATH.
         if let Ok(exe) = std::env::current_exe() {
             if let Some(dir) = exe.parent() {
-                candidates.push(dir.join("mpv-2.dll"));
-                candidates.push(dir.join("libmpv-2.dll"));
-                if let Some(root) = dir.parent().and_then(|p| p.parent()).and_then(|p| p.parent()) {
-                    candidates.push(root.join("bin").join("mpv-2.dll"));
-                    candidates.push(root.join("bin").join("libmpv-2.dll"));
+                for name in ["mpv-2.dll", "libmpv-2.dll"] {
+                    candidates.push(dir.join(name));
+                    candidates.push(dir.join("resources").join("bin").join(name));
+                }
+                #[cfg(debug_assertions)]
+                for anc in dir.ancestors().take(7) {
+                    for name in ["mpv-2.dll", "libmpv-2.dll"] {
+                        candidates.push(
+                            anc.join("apps")
+                                .join("desktop")
+                                .join("src-tauri")
+                                .join("resources")
+                                .join("bin")
+                                .join(name),
+                        );
+                    }
                 }
             }
         }
-        if let Ok(cwd) = std::env::current_dir() {
-            candidates.push(cwd.join("bin").join("mpv-2.dll"));
-            candidates.push(cwd.join("bin").join("libmpv-2.dll"));
-        }
-        candidates.into_iter().find(|p| p.is_file())
+        candidates
+            .into_iter()
+            .find(|p| p.is_absolute() && p.is_file())
     }
 
     impl MpvController {
@@ -367,7 +379,7 @@ mod imp {
             api.set_opt(c, "vo", "gpu");
             api.set_opt(c, "gpu-api", "d3d11");
             api.set_opt(c, "hwdec", "auto-safe");
-            api.set_opt(c, "tls-verify", "no");
+            api.set_opt(c, "tls-verify", "yes");
             api.set_opt(
                 c,
                 "user-agent",

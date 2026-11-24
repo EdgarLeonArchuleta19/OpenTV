@@ -1,7 +1,7 @@
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
-use opentv_core::config::{generate_session_token, ServiceConfig};
+use opentv_core::config::{default_allowed_origins, generate_session_token, ServiceConfig};
 use opentv_core::start_server_with_state;
 
 #[tokio::main]
@@ -10,6 +10,8 @@ async fn main() {
         port: 0,
         platform: "desktop".to_string(),
         low_memory: false,
+        // Standalone harness (contract tests / legacy launchers): keeps the broad origin list.
+        allowed_origins: default_allowed_origins(),
         ..Default::default()
     };
 

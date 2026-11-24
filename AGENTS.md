@@ -23,6 +23,7 @@ OpenTV v2 comparte un solo núcleo en **Rust** (`core/crates/opentv-core`) y ent
 
 ```bash
 npm run dev                # PC en desarrollo (Vite React HMR + Tauri v2)
+npm run preview:pc         # PC con la velocidad real del instalado (núcleo release + React de producción), sin instalador
 npm run build:ui           # Verifica TypeScript (tsc --noEmit) + compila Vite → apps/desktop/dist-ui/
 npm run build:pc           # Compila React/TS + instalador NSIS PC → dist/OpenTV-Setup-<ver>.exe
 npm run build:android      # JUnit + APKs Release (R8) → dist/OpenTV-<ver>.apk (universal), -firetv-armv7.apk, -arm64.apk
@@ -37,7 +38,7 @@ npm run test:android       # Pruebas JUnit Kotlin
 
 - **Textos visibles en español** (siempre decir **"plugin"**, nunca "addon"; mencionar "Stremio" solo como *"compatible con Stremio"*). Comentarios en inglés.
 - **3 plugins incluidos e inborrables:** Cinemeta, Anime Kitsu y OpenSubtitles v3 (`Incluido`).
-- **Secciones:** `anime` solo va a Anime (Kitsu); `Kids` solo incluye género `Family` (nunca `Animation` general).
+- **Secciones:** `anime` solo va a Anime (Kitsu: la primera fila es la temporada actual de la API de Kitsu, ids `kitsu:`; nunca se mezcla anime en Películas/Series/Kids). `Kids` (y el perfil infantil) solo muestra títulos aptos para todo público vía TMDB en el núcleo Rust (`tmdb.rs`): películas con clasificación de México `AA`/`A` (respaldo EE. UU. `G`/`PG` + género Familia, nunca `PG-13`/`B`), series con género Kids (10762) sin animación para adultos; sin clave TMDB, respaldo al género `Family` de Cinemeta (nunca `Animation` general). El hero de Kids y Anime rota una vez al día (`sectionContent.ts` / `SectionContent.kt`).
 - **Seguridad:** el servicio Rust escucha solo en `127.0.0.1` con token por sesión. Los plugins JS (`kino-plugin.json`) corren siempre aislados (`public/plugin-sandbox.html` con `sandbox="allow-scripts"` sin `allow-same-origin` en PC; WebView bajo demanda sin red propia en Android) y pasan por `NetGuard` en Rust.
 - **Secretos:** `config/tmdb.json`, `apps/android/keystore.properties` y `*.jks` están ignorados por git; nunca subirlos ni copiarlos.
 - **Pruebas en TV:** usar un emulador de Android TV (AVD 1080p con poca RAM). Nunca instalar ni controlar builds en el Fire TV real del dueño.

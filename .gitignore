@@ -23,3 +23,9 @@ apps/android/app/src/main/assets/tmdb.bin
 apps/android/.kotlin/
 .idea/
 *.iml
+
+# Signing keys and local secrets
+*.keystore
+*.p12
+.env
+.env.*

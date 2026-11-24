@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 import type { MediaItem, StreamSource, WatchProgress } from '../types/models';
 import { formatContinueSubtitle } from '../services/locales';
 import { formatBytes, languageSummary, sourceHasLang } from '../services/sourceRanker';
-import { resizedImageUrl } from '../services/tauri';
+import { prefetchImage, resizedImageUrl } from '../services/tauri';
 
 /** Exact OpenTV TV-outline + antennas + play-triangle logo (`ui/images/logo-mark.svg`) */
 export const OpenTvLogo: React.FC<{ className?: string }> = ({ className = 'h-6 w-6' }) => (
@@ -126,6 +126,8 @@ export const PosterCard: React.FC<{
     <button
       type="button"
       onClick={onClick}
+      onPointerEnter={() => prefetchImage(item.backdrop || item.poster, 1280)}
+      onFocus={() => prefetchImage(item.backdrop || item.poster, 1280)}
       className={`group relative flex shrink-0 flex-col text-left select-none transition-transform duration-200 hover:z-20 hover:scale-[1.04] focus:outline-none cursor-pointer ${widthClass}`}
     >
       <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[14px] bg-[#18181d] ring-1 ring-inset ring-white/[0.07] transition-shadow duration-200 group-hover:shadow-[0_22px_50px_rgba(0,0,0,0.65)] group-hover:ring-white/25">
@@ -284,11 +286,16 @@ export const ScrollRow: React.FC<{
     setAtEnd(el.scrollLeft >= el.scrollWidth - el.clientWidth - 4);
   }, [ref]);
 
+  // Re-measure only when the number of cards changes: depending on `children` re-ran this
+  // (a forced layout read + listener churn) for every row on every parent render.
+  const childCount = React.Children.count(children);
   useEffect(() => {
     syncBounds();
+  }, [syncBounds, childCount]);
+  useEffect(() => {
     window.addEventListener('resize', syncBounds);
     return () => window.removeEventListener('resize', syncBounds);
-  }, [syncBounds, children]);
+  }, [syncBounds]);
 
   const scroll = (dir: -1 | 1) => {
     const el = ref.current;

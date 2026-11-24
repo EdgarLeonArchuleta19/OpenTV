@@ -79,7 +79,12 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
     setSearching(true);
     setHasSearched(true);
     if (addRecent) onAddRecent(clean);
-    const hits = await searchAllCatalogs(clean, kidsOnly);
+    // Direct hits show at once; the TMDB original-title query merges in when it lands.
+    const hits = await searchAllCatalogs(clean, kidsOnly, (partial) => {
+      if (seq !== searchSeq.current || partial.length === 0) return;
+      setResults(partial);
+      setSearching(false);
+    });
     // Ignore stale responses from earlier keystrokes.
     if (seq !== searchSeq.current) return;
     setResults(hits);

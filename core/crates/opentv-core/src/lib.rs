@@ -97,7 +97,7 @@ impl ServiceState {
         let torrents = TorrentEngine::new(http.clone(), cache_dir.clone(), config.low_memory);
         let downloads = DownloadManager::new(dns.clone(), torrents.clone(), downloads_dir);
         let local_media = LocalMediaStore::new();
-        let transcode = MediaCompatEngine::new();
+        let transcode = MediaCompatEngine::new(proxy.clone());
         let mpv = MpvController::new(config.mpv_dll_path.clone());
         let app_updater = AppUpdater::new(
             http.clone(),

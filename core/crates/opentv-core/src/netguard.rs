@@ -10,29 +10,80 @@ pub enum IpKind {
     Public,
 }
 
-/// Exact port of `service/netguard.js` and `NetGuard.java`.
+/// Port of `service/netguard.js` and `NetGuard.java`, hardened.
 /// - Loopback (127.0.0.0/8, ::1, localhost): never allowed.
 /// - Home network (10/8, 172.16/12, 192.168/16, 169.254/16, 100.64/10, fc00::/7, fe80::/10):
 ///   only when `allow_lan` is true for that plugin.
-/// - 0.0.0.0/8, multicast, unspecified, reserved: never allowed.
+/// - 0.0.0.0/8, multicast, unspecified, reserved, benchmarking (198.18/15), IETF protocol
+///   assignments (192.0.0/24), documentation ranges and cloud metadata endpoints
+///   (169.254.169.254, fd00:ec2::254): never allowed, even with `allow_lan`.
+/// - IPv6 addresses that embed an IPv4 address (IPv4-mapped `::ffff:a.b.c.d`, IPv4-compatible
+///   `::a.b.c.d`, NAT64 `64:ff9b::/96`, 6to4 `2002::/16`) are classified by that IPv4 address.
 pub fn classify(ip: IpAddr) -> IpKind {
     match ip {
         IpAddr::V4(v4) => classify_v4(v4),
         IpAddr::V6(v6) => {
-            if let Some(mapped) = v6.to_ipv4_mapped() {
-                return classify_v4(mapped);
+            if let Some(embedded) = embedded_ipv4(v6) {
+                return classify_v4(embedded);
             }
             classify_v6(v6)
         }
     }
 }
 
+/// Extracts an IPv4 address tunnelled inside an IPv6 one, so `64:ff9b::7f00:1` or
+/// `2002:c0a8:0101::` cannot be used to reach loopback / the home network.
+fn embedded_ipv4(v6: Ipv6Addr) -> Option<Ipv4Addr> {
+    if let Some(mapped) = v6.to_ipv4_mapped() {
+        return Some(mapped);
+    }
+    let seg = v6.segments();
+    let tail = Ipv4Addr::new(
+        (seg[6] >> 8) as u8,
+        (seg[6] & 0xff) as u8,
+        (seg[7] >> 8) as u8,
+        (seg[7] & 0xff) as u8,
+    );
+    // NAT64 well-known prefix 64:ff9b::/96.
+    if seg[0] == 0x0064 && seg[1] == 0xff9b && seg[2..6].iter().all(|s| *s == 0) {
+        return Some(tail);
+    }
+    // 6to4 2002::/16 carries the IPv4 address in bits 16..48.
+    if seg[0] == 0x2002 {
+        return Some(Ipv4Addr::new(
+            (seg[1] >> 8) as u8,
+            (seg[1] & 0xff) as u8,
+            (seg[2] >> 8) as u8,
+            (seg[2] & 0xff) as u8,
+        ));
+    }
+    // Deprecated IPv4-compatible ::a.b.c.d (excluding :: and ::1, handled as IPv6).
+    if seg[..6].iter().all(|s| *s == 0) && !v6.is_unspecified() && !v6.is_loopback() {
+        return Some(tail);
+    }
+    None
+}
+
 fn classify_v4(v4: Ipv4Addr) -> IpKind {
-    let [a, b, _, _] = v4.octets();
+    let [a, b, c, d] = v4.octets();
     if a == 127 {
         return IpKind::Loopback;
     }
     if a == 0 || a >= 224 {
+        return IpKind::Blocked;
+    }
+    // Cloud instance metadata endpoint: never reachable, not even with LAN permission.
+    if [a, b, c, d] == [169, 254, 169, 254] {
+        return IpKind::Blocked;
+    }
+    // 192.0.0.0/24 (IETF protocol assignments), 192.0.2.0/24, 198.51.100.0/24,
+    // 203.0.113.0/24 (documentation) and 198.18.0.0/15 (benchmarking).
+    if (a == 192 && b == 0 && c == 0)
+        || (a == 192 && b == 0 && c == 2)
+        || (a == 198 && b == 51 && c == 100)
+        || (a == 203 && b == 0 && c == 113)
+        || (a == 198 && (b == 18 || b == 19))
+    {
         return IpKind::Blocked;
     }
     if a == 10
@@ -53,7 +104,20 @@ fn classify_v6(v6: Ipv6Addr) -> IpKind {
     if v6.is_unspecified() || v6.is_multicast() {
         return IpKind::Blocked;
     }
-    let first = v6.segments()[0];
+    let seg = v6.segments();
+    let first = seg[0];
+    // AWS IPv6 instance metadata endpoint fd00:ec2::254.
+    if v6 == Ipv6Addr::new(0xfd00, 0x0ec2, 0, 0, 0, 0, 0, 0x0254) {
+        return IpKind::Blocked;
+    }
+    // 2001:db8::/32 (documentation), Teredo 2001::/32 (obfuscated embedded IPv4),
+    // 64:ff9b:1::/48 (local-use NAT64) and the discard prefix 100::/64.
+    if (first == 0x2001 && (seg[1] == 0x0db8 || seg[1] == 0))
+        || (first == 0x0064 && seg[1] == 0xff9b && seg[2] == 0x0001)
+        || (first == 0x0100 && seg[1..4].iter().all(|s| *s == 0))
+    {
+        return IpKind::Blocked;
+    }
     // fc00::/7 (ULA) or fe80::/10 (link-local)
     if (first & 0xfe00) == 0xfc00 || (first & 0xffc0) == 0xfe80 {
         return IpKind::Lan;
@@ -173,5 +237,59 @@ mod tests {
         assert!(!allowed(IpKind::Lan, false));
         assert!(allowed(IpKind::Lan, true));
         assert!(allowed(IpKind::Public, false));
+    }
+
+    fn kind(s: &str) -> IpKind {
+        classify(s.parse().unwrap())
+    }
+
+    #[test]
+    fn classifies_ipv4_embedded_in_ipv6_by_its_ipv4() {
+        // NAT64 64:ff9b::/96
+        assert_eq!(kind("64:ff9b::7f00:1"), IpKind::Loopback);
+        assert_eq!(kind("64:ff9b::c0a8:101"), IpKind::Lan);
+        assert_eq!(kind("64:ff9b::a9fe:a9fe"), IpKind::Blocked);
+        assert_eq!(kind("64:ff9b::101:101"), IpKind::Public);
+        // 6to4 2002::/16
+        assert_eq!(kind("2002:7f00:1::"), IpKind::Loopback);
+        assert_eq!(kind("2002:c0a8:101::1"), IpKind::Lan);
+        assert_eq!(kind("2002:a00:1::"), IpKind::Lan);
+        assert_eq!(kind("2002:808:808::1"), IpKind::Public);
+        // IPv4-compatible ::a.b.c.d
+        assert_eq!(kind("::127.0.0.1"), IpKind::Loopback);
+        assert_eq!(kind("::192.168.0.1"), IpKind::Lan);
+        assert_eq!(kind("::8.8.8.8"), IpKind::Public);
+        // IPv4-mapped still works; :: and ::1 keep their IPv6 meaning.
+        assert_eq!(kind("::ffff:10.0.0.1"), IpKind::Lan);
+        assert_eq!(kind("::"), IpKind::Blocked);
+        assert_eq!(kind("::1"), IpKind::Loopback);
+    }
+
+    #[test]
+    fn blocks_special_purpose_and_metadata_ranges_even_with_lan() {
+        for ip in [
+            "169.254.169.254",
+            "198.18.0.1",
+            "198.19.255.254",
+            "192.0.0.1",
+            "192.0.0.170",
+            "192.0.2.10",
+            "198.51.100.7",
+            "203.0.113.9",
+            "255.255.255.255",
+            "fd00:ec2::254",
+            "2001:db8::1",
+            "2001:0:4136:e378:8000:63bf:3fff:fdd2",
+            "::ffff:169.254.169.254",
+        ] {
+            let k = kind(ip);
+            assert_eq!(k, IpKind::Blocked, "{ip}");
+            assert!(!allowed(k, true), "{ip}");
+        }
+        // The rest of link-local stays LAN-gated, and nearby public ranges stay public.
+        assert_eq!(kind("169.254.1.1"), IpKind::Lan);
+        assert_eq!(kind("198.20.0.1"), IpKind::Public);
+        assert_eq!(kind("192.0.1.1"), IpKind::Public);
+        assert_eq!(kind("2001:4860:4860::8888"), IpKind::Public);
     }
 }

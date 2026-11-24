@@ -330,7 +330,7 @@ class StremioClient(
         )
     }
 
-    /** Fetches curated rows for Home, Movies, Series, Kids (Family only!), or Anime (Kitsu only!). */
+    /** Fetches curated rows for Home, Movies, Series, Kids (all-ages only!), or Anime (Kitsu only!). */
     suspend fun loadCatalogSection(
         section: String,
         plugins: List<InstalledPlugin>,
@@ -354,12 +354,12 @@ class StremioClient(
         val done = BooleanArray(allSpecs.size)
         val lock = Any()
         coroutineScope {
-            allSpecs.mapIndexed { index, (id, title, url) ->
+            allSpecs.mapIndexed { index, spec ->
                 async {
                     val t0 = System.currentTimeMillis()
-                    val row = withTimeoutOrNull(CATALOG_TIMEOUT_MS) { fetchCatalogRow(section, id, title, url) }
+                    val row = withTimeoutOrNull(CATALOG_TIMEOUT_MS) { fetchCatalogRow(section, spec, index) }
                     if (row == null) {
-                        android.util.Log.w("OpenTV-Cat", "$section/$id sin filas tras ${System.currentTimeMillis() - t0} ms")
+                        android.util.Log.w("OpenTV-Cat", "$section/${spec.id} sin filas tras ${System.currentTimeMillis() - t0} ms")
                     }
                     val snapshot = synchronized(lock) {
                         slots[index] = row
@@ -374,75 +374,118 @@ class StremioClient(
         slots.filterNotNull()
     }
 
-    private suspend fun fetchCatalogRow(section: String, id: String, title: String, url: String): CatalogRow? {
-        // ttl 0: CatalogRepository keeps the (much smaller) parsed rows instead of the JSON tree.
-        val obj = getJson(url, ttlMs = 0L) ?: return null
-        val metas = obj["metas"]?.jsonArray.orEmpty()
-        val forceAnime = section == "anime"
-        val items = metas.asSequence()
-            .mapNotNull { parseMetaSummary(it, url, title, forceAnime) }
-            .let { seq ->
-                if (section == "kids") {
-                    seq.filter { it.genres.isEmpty() || it.genres.any { g -> g.equals("Family", ignoreCase = true) } }
-                } else seq
-            }
-            .take(28)
-            .toList()
-        return if (items.isEmpty()) null else CatalogRow(id = id, title = title, items = items)
+    /**
+     * One section row. [CatalogSpec.list] rows come from the Rust core (TMDB all-ages Kids lists,
+     * Kitsu season); [CatalogSpec.url] is then the fallback catalog (e.g. no TMDB key).
+     */
+    private suspend fun fetchCatalogRow(section: String, spec: CatalogSpec, index: Int): CatalogRow? {
+        var title = spec.title
+        var items: List<MediaItem> = spec.list?.let { loadCoreList(it, title) }.orEmpty()
+        if (items.isEmpty()) {
+            if (spec.list != null && spec.fallbackTitle != null) title = spec.fallbackTitle
+            // ttl 0: CatalogRepository keeps the (much smaller) parsed rows instead of the JSON tree.
+            val obj = getJson(spec.url, ttlMs = 0L) ?: return null
+            val metas = obj["metas"]?.jsonArray.orEmpty()
+            val forceAnime = section == "anime"
+            items = metas.asSequence()
+                .mapNotNull { parseMetaSummary(it, spec.url, title, forceAnime) }
+                .let { seq ->
+                    if (section == "kids") {
+                        seq.filter { it.genres.isEmpty() || it.genres.any { g -> g.equals("Family", ignoreCase = true) } }
+                    } else seq
+                }
+                .take(28)
+                .toList()
+        }
+        // The first row feeds the hero: rotate its picks once a day.
+        if (index == 0 && (section == "kids" || section == "anime")) {
+            items = SectionContent.dailyHeroOrder(items, "$section:${SectionContent.localDayKey()}")
+        }
+        return if (items.isEmpty()) null else CatalogRow(id = spec.id, title = title, items = items)
     }
+
+    // Titles seen in the all-ages Kids lists: the Kids profile search also accepts them.
+    private val kidsApprovedIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** Kids/Anime row served by the Rust core; empty when unavailable (no TMDB key, offline...). */
+    private suspend fun loadCoreList(list: String, rowTitle: String): List<MediaItem> {
+        val res = runCatching {
+            RustServiceBridge.callRpc("tmdb", buildJsonObject { put("list", list) })
+        }.getOrNull() ?: return emptyList()
+        val anime = list == SectionContent.ANIME_SEASON
+        val items = (res["items"] as? JsonArray).orEmpty().mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            if (anime) SectionContent.animeSeasonItem(o, rowTitle) else SectionContent.kidsTmdbItem(o, rowTitle)
+        }
+        if (!anime) items.forEach { kidsApprovedIds.add(it.id) }
+        return items.take(28)
+    }
+
+    /** A section row: plain catalog [url], or a Rust-core [list] with [url] as fallback. */
+    private data class CatalogSpec(
+        val id: String,
+        val title: String,
+        val url: String,
+        val list: String? = null,
+        val fallbackTitle: String? = null,
+    )
 
     /** How many rows [loadCatalogSection] asks for (lets the cache tell a partial result). */
     fun catalogRowCount(section: String, plugins: List<InstalledPlugin>): Int = catalogSpecs(section, plugins).size
 
-    private fun catalogSpecs(section: String, plugins: List<InstalledPlugin>): List<Triple<String, String, String>> {
+    private fun catalogSpecs(section: String, plugins: List<InstalledPlugin>): List<CatalogSpec> {
         val cinemeta = "https://v3-cinemeta.strem.io"
         val kitsu = "https://anime-kitsu.strem.fun"
 
-        val specs: List<Triple<String, String, String>> = when (section) {
+        val specs: List<CatalogSpec> = when (section) {
             "home" -> listOf(
-                Triple("home_trend_movies", "Tendencias de la semana · Películas", "$cinemeta/catalog/movie/top.json"),
-                Triple("home_trend_series", "Tendencias de la semana · Series", "$cinemeta/catalog/series/top.json"),
-                Triple("home_pop_movies", "Popular · Películas", "$cinemeta/catalog/movie/imdbRating.json"),
-                Triple("home_pop_series", "Popular · Series", "$cinemeta/catalog/series/imdbRating.json"),
-                Triple("action_movies", "Acción y aventura", "$cinemeta/catalog/movie/top/genre=Action.json"),
-                Triple("scifi_movies", "Ciencia ficción", "$cinemeta/catalog/movie/top/genre=Sci-Fi.json"),
-                Triple("comedy_movies", "Comedia", "$cinemeta/catalog/movie/top/genre=Comedy.json"),
+                CatalogSpec("home_trend_movies", "Tendencias de la semana · Películas", "$cinemeta/catalog/movie/top.json"),
+                CatalogSpec("home_trend_series", "Tendencias de la semana · Series", "$cinemeta/catalog/series/top.json"),
+                CatalogSpec("home_pop_movies", "Popular · Películas", "$cinemeta/catalog/movie/imdbRating.json"),
+                CatalogSpec("home_pop_series", "Popular · Series", "$cinemeta/catalog/series/imdbRating.json"),
+                CatalogSpec("action_movies", "Acción y aventura", "$cinemeta/catalog/movie/top/genre=Action.json"),
+                CatalogSpec("scifi_movies", "Ciencia ficción", "$cinemeta/catalog/movie/top/genre=Sci-Fi.json"),
+                CatalogSpec("comedy_movies", "Comedia", "$cinemeta/catalog/movie/top/genre=Comedy.json"),
             )
             "movies" -> listOf(
-                Triple("m_trend", "Tendencias de la semana", "$cinemeta/catalog/movie/top.json"),
-                Triple("m_rating", "Popular · Películas", "$cinemeta/catalog/movie/imdbRating.json"),
-                Triple("m_action", "Acción", "$cinemeta/catalog/movie/top/genre=Action.json"),
-                Triple("m_horror", "Terror y suspenso", "$cinemeta/catalog/movie/top/genre=Horror.json"),
-                Triple("m_scifi", "Ciencia ficción", "$cinemeta/catalog/movie/top/genre=Sci-Fi.json"),
-                Triple("m_comedy", "Comedia", "$cinemeta/catalog/movie/top/genre=Comedy.json"),
-                Triple("m_drama", "Drama", "$cinemeta/catalog/movie/top/genre=Drama.json"),
+                CatalogSpec("m_trend", "Tendencias de la semana", "$cinemeta/catalog/movie/top.json"),
+                CatalogSpec("m_rating", "Popular · Películas", "$cinemeta/catalog/movie/imdbRating.json"),
+                CatalogSpec("m_action", "Acción", "$cinemeta/catalog/movie/top/genre=Action.json"),
+                CatalogSpec("m_horror", "Terror y suspenso", "$cinemeta/catalog/movie/top/genre=Horror.json"),
+                CatalogSpec("m_scifi", "Ciencia ficción", "$cinemeta/catalog/movie/top/genre=Sci-Fi.json"),
+                CatalogSpec("m_comedy", "Comedia", "$cinemeta/catalog/movie/top/genre=Comedy.json"),
+                CatalogSpec("m_drama", "Drama", "$cinemeta/catalog/movie/top/genre=Drama.json"),
             )
             "series" -> listOf(
-                Triple("s_trend", "Tendencias de la semana", "$cinemeta/catalog/series/top.json"),
-                Triple("s_rating", "Popular · Series", "$cinemeta/catalog/series/imdbRating.json"),
-                Triple("s_drama", "Drama", "$cinemeta/catalog/series/top/genre=Drama.json"),
-                Triple("s_crime", "Crimen y misterio", "$cinemeta/catalog/series/top/genre=Crime.json"),
-                Triple("s_scifi", "Ciencia ficción y fantasía", "$cinemeta/catalog/series/top/genre=Sci-Fi.json"),
-                Triple("s_comedy", "Comedia", "$cinemeta/catalog/series/top/genre=Comedy.json"),
+                CatalogSpec("s_trend", "Tendencias de la semana", "$cinemeta/catalog/series/top.json"),
+                CatalogSpec("s_rating", "Popular · Series", "$cinemeta/catalog/series/imdbRating.json"),
+                CatalogSpec("s_drama", "Drama", "$cinemeta/catalog/series/top/genre=Drama.json"),
+                CatalogSpec("s_crime", "Crimen y misterio", "$cinemeta/catalog/series/top/genre=Crime.json"),
+                CatalogSpec("s_scifi", "Ciencia ficción y fantasía", "$cinemeta/catalog/series/top/genre=Sci-Fi.json"),
+                CatalogSpec("s_comedy", "Comedia", "$cinemeta/catalog/series/top/genre=Comedy.json"),
             )
-            // Rule: Kids only includes Family genre (never general Animation which has adult shows).
+            // Rule: Kids = all-ages ratings (MX "AA"/"A", US "G"/"PG" fallback; TV needs the Kids
+            // genre) from TMDB; without a TMDB key, Cinemeta's Family genre (never general Animation).
             "kids" -> listOf(
-                Triple("k_movies", "Películas familiares", "$cinemeta/catalog/movie/top/genre=Family.json"),
-                Triple("k_series", "Series para toda la familia", "$cinemeta/catalog/series/top/genre=Family.json"),
-                Triple("k_rating", "Favoritas de la familia", "$cinemeta/catalog/movie/imdbRating/genre=Family.json"),
+                CatalogSpec("k_movies", "Películas para todos", "$cinemeta/catalog/movie/top/genre=Family.json", SectionContent.KIDS_MOVIES_POPULAR, "Películas familiares"),
+                CatalogSpec("k_series", "Series infantiles", "$cinemeta/catalog/series/top/genre=Family.json", SectionContent.KIDS_TV_POPULAR, "Series para toda la familia"),
+                CatalogSpec("k_animated", "Animadas para niños", "$cinemeta/catalog/movie/imdbRating/genre=Family.json", SectionContent.KIDS_MOVIES_ANIMATED, "Favoritas de la familia"),
+                CatalogSpec("k_series_top", "Las favoritas de los niños", "$cinemeta/catalog/series/imdbRating/genre=Family.json", SectionContent.KIDS_TV_TOP, "Series favoritas de la familia"),
             )
-            // Rule: Anime catalogs come exclusively from Anime Kitsu / anime-typed catalogs.
+            // Rule: Anime catalogs come exclusively from Kitsu / anime-typed catalogs. The plugin's
+            // "trending" catalog is an all-time ranking (same as "popular"), so the first row is
+            // this season's most-followed anime from the Kitsu API (fallback: that catalog).
             "anime" -> listOf(
-                Triple("a_trending", "Tendencias del anime", "$kitsu/catalog/anime/kitsu-anime-trending.json"),
-                Triple("a_airing", "En emisión", "$kitsu/catalog/anime/kitsu-anime-airing.json"),
-                Triple("a_popular", "Más populares", "$kitsu/catalog/anime/kitsu-anime-popular.json"),
-                Triple("a_rated", "Mejor valorados", "$kitsu/catalog/anime/kitsu-anime-rating.json"),
+                CatalogSpec("a_season", "Tendencias de la temporada", "$kitsu/catalog/anime/kitsu-anime-trending.json", SectionContent.ANIME_SEASON, "Tendencias del anime"),
+                CatalogSpec("a_airing", "En emisión", "$kitsu/catalog/anime/kitsu-anime-airing.json"),
+                CatalogSpec("a_popular", "Más populares", "$kitsu/catalog/anime/kitsu-anime-popular.json"),
+                CatalogSpec("a_rated", "Mejor valorados", "$kitsu/catalog/anime/kitsu-anime-rating.json"),
             )
             else -> emptyList()
         }
 
         // Add extra catalog rows from user-installed third-party Stremio catalog plugins
-        val extraSpecs = mutableListOf<Triple<String, String, String>>()
+        val extraSpecs = mutableListOf<CatalogSpec>()
         for (p in plugins) {
             if (p.disabled || p.kind != "stremio" || p.builtin || p.baseUrl.isBlank()) continue
             for (cat in p.catalogs) {
@@ -457,7 +500,7 @@ class StremioClient(
                 if (matchesSection) {
                     val rowId = "ext_${p.id}_${cat.type}_${cat.id}"
                     val rowTitle = "${cat.name} · ${p.name}"
-                    extraSpecs.add(Triple(rowId, rowTitle, "${p.baseUrl}/catalog/${cat.type}/${cat.id}.json"))
+                    extraSpecs.add(CatalogSpec(rowId, rowTitle, "${p.baseUrl}/catalog/${cat.type}/${cat.id}.json"))
                 }
             }
         }
@@ -728,7 +771,9 @@ class StremioClient(
         results
             .distinctBy { it.id }
             .let { list ->
-                if (kidsOnly) list.filter { it.genres.any { g -> g.equals("Family", ignoreCase = true) } } else list
+                if (kidsOnly) {
+                    list.filter { it.id in kidsApprovedIds || it.genres.any { g -> g.equals("Family", ignoreCase = true) } }
+                } else list
             }
             .sortedByDescending { item ->
                 val t = item.title.lowercase(Locale.ROOT)

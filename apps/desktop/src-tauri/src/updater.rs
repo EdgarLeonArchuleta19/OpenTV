@@ -5,8 +5,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use base64::engine::general_purpose::STANDARD as B64;
+use base64::Engine as _;
+use ed25519_dalek::{Signature, VerifyingKey};
 use opentv_core::app_update::{
-    compare_versions, fetch_expected_sha256, find_checksum_asset_url, is_trusted_release_url,
+    compare_versions, find_checksum_asset_url, is_trusted_release_url, parse_sha256sums,
     sha256_file,
 };
 use serde::{Deserialize, Serialize};
@@ -15,6 +18,115 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
 const REPO: &str = "EdgarLeonArchuleta19/OpenTV";
+
+/// Owner's Ed25519 release public key (raw 32 bytes, base64). `SHA256SUMS.sig` must be a
+/// signature by this key over the exact bytes of `SHA256SUMS` (`scripts/sign-release.cjs`).
+const RELEASE_PUBLIC_KEY_B64: &str = include_str!("../../../../scripts/release-public-key.txt");
+
+const UNSIGNED_UPDATE: &str =
+    "La actualización no está firmada por TECHPOINT; se canceló por seguridad.";
+
+const MAX_SUMS_BYTES: usize = 256 * 1024;
+
+/// Verifies `sig_text` (base64 Ed25519 signature) over `data` with `public_key_b64`.
+pub fn verify_release_signature(
+    data: &[u8],
+    sig_text: &str,
+    public_key_b64: &str,
+) -> Result<(), String> {
+    let pk: [u8; 32] = B64
+        .decode(public_key_b64.trim())
+        .ok()
+        .and_then(|v| v.try_into().ok())
+        .ok_or_else(|| UNSIGNED_UPDATE.to_string())?;
+    let key = VerifyingKey::from_bytes(&pk).map_err(|_| UNSIGNED_UPDATE.to_string())?;
+    let sig: [u8; 64] = B64
+        .decode(sig_text.trim())
+        .ok()
+        .and_then(|v| v.try_into().ok())
+        .ok_or_else(|| UNSIGNED_UPDATE.to_string())?;
+    key.verify_strict(data, &Signature::from_bytes(&sig))
+        .map_err(|_| UNSIGNED_UPDATE.to_string())
+}
+
+/// URL of `SHA256SUMS.sig` (or `SHA256SUMS.txt.sig`) published on the same release.
+fn find_signature_asset_url(assets: Option<&Vec<Value>>) -> Option<String> {
+    for a in assets? {
+        let name = a["name"].as_str().unwrap_or("").to_ascii_lowercase();
+        let url = a["browser_download_url"].as_str().unwrap_or("");
+        if (name == "sha256sums.sig" || name == "sha256sums.txt.sig") && is_trusted_release_url(url) {
+            return Some(url.to_string());
+        }
+    }
+    None
+}
+
+async fn fetch_release_bytes(http: &reqwest::Client, url: &str) -> Result<Vec<u8>, String> {
+    if !is_trusted_release_url(url) {
+        return Err(UNSIGNED_UPDATE.to_string());
+    }
+    let resp = http
+        .get(url)
+        .header("User-Agent", "OpenTV")
+        .timeout(Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|_| "Sin conexión con el servidor de actualizaciones".to_string())?;
+    if !resp.status().is_success() {
+        return Err(UNSIGNED_UPDATE.to_string());
+    }
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(|_| "No se pudo leer la información de actualización".to_string())?;
+    if bytes.len() > MAX_SUMS_BYTES {
+        return Err(UNSIGNED_UPDATE.to_string());
+    }
+    Ok(bytes.to_vec())
+}
+
+/// Downloads `SHA256SUMS` and `SHA256SUMS.sig`, verifies the signature with the embedded
+/// release key and only then returns the checksum listed for `asset_name`.
+async fn fetch_signed_sha256(
+    http: &reqwest::Client,
+    assets: Option<&Vec<Value>>,
+    asset_name: &str,
+) -> Result<String, String> {
+    let sums_url = find_checksum_asset_url(assets).ok_or_else(|| UNSIGNED_UPDATE.to_string())?;
+    let sig_url = find_signature_asset_url(assets).ok_or_else(|| UNSIGNED_UPDATE.to_string())?;
+    let sums = fetch_release_bytes(http, &sums_url).await?;
+    let sig = fetch_release_bytes(http, &sig_url).await?;
+    let sig_text = String::from_utf8(sig).map_err(|_| UNSIGNED_UPDATE.to_string())?;
+    verify_release_signature(&sums, &sig_text, RELEASE_PUBLIC_KEY_B64)?;
+    let text = String::from_utf8(sums).map_err(|_| UNSIGNED_UPDATE.to_string())?;
+    parse_sha256sums(&text, asset_name)
+        .map(|h| h.trim().to_ascii_lowercase())
+        .filter(|h| valid_sha256(h))
+        .ok_or_else(|| "La actualización no incluye una firma SHA-256 válida".to_string())
+}
+
+/// Opens the installer so nobody else can write, rename or delete it while it is hashed
+/// and started (closes the check-then-run window), and returns its SHA-256.
+#[cfg(target_os = "windows")]
+fn open_locked_and_hash(path: &std::path::Path) -> Result<(fs::File, String), String> {
+    use std::os::windows::fs::OpenOptionsExt;
+    const FILE_SHARE_READ: u32 = 0x1;
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ)
+        .open(path)
+        .map_err(|e| format!("No se pudo abrir el instalador: {e}"))?;
+    let hash = opentv_core::app_update::sha256_reader(&file)?;
+    Ok((file, hash))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn open_locked_and_hash(path: &std::path::Path) -> Result<(fs::File, String), String> {
+    let file = fs::File::open(path).map_err(|e| format!("No se pudo abrir el instalador: {e}"))?;
+    let hash = sha256_file(path)?;
+    Ok((file, hash))
+}
+
 
 /// A release is installable only when GitHub published a real 64-hex SHA-256.
 fn valid_sha256(s: &str) -> bool {
@@ -205,18 +317,15 @@ impl DesktopUpdater {
                         .and_then(|a| a["size"].as_u64())
                         .unwrap_or(0);
                     let newer = !tag.is_empty() && compare_versions(&tag, &self.current_version) > 0;
-                    let sha256 = if newer && !asset_name.is_empty() {
-                        if let Some(cs_url) = find_checksum_asset_url(data["assets"].as_array()) {
-                            fetch_expected_sha256(http, &cs_url, &asset_name)
-                                .await
-                                .unwrap_or_default()
-                                .trim()
-                                .to_ascii_lowercase()
-                        } else {
-                            String::new()
+                    let (sha256, sign_error) = if newer && !asset_name.is_empty() {
+                        match fetch_signed_sha256(http, data["assets"].as_array(), &asset_name)
+                            .await
+                        {
+                            Ok(h) => (h, String::new()),
+                            Err(e) => (String::new(), e),
                         }
                     } else {
-                        String::new()
+                        (String::new(), UNSIGNED_UPDATE.to_string())
                     };
                     let verifiable = valid_sha256(&sha256);
 
@@ -243,8 +352,7 @@ impl DesktopUpdater {
                         });
                     } else if newer {
                         // Fail closed: an unsigned release is never offered or locked.
-                        g.error =
-                            "La actualización no incluye una firma SHA-256 válida".to_string();
+                        g.error = sign_error;
                         if !g.mandatory {
                             g.state = "error".to_string();
                         }
@@ -449,21 +557,55 @@ impl DesktopUpdater {
     }
 
     pub async fn launch_installer(&self) -> Result<Value, String> {
-        let path = {
-            let mut g = self.inner.lock().await;
+        let (path, expected) = {
+            let g = self.inner.lock().await;
             let p = g
                 .installer_path
                 .clone()
                 .filter(|p| p.is_file())
                 .ok_or_else(|| "La actualización aún no está descargada".to_string())?;
-            g.state = "installing".to_string();
-            p
+            (p, g.expected_sha256.trim().to_ascii_lowercase())
         };
+        if !valid_sha256(&expected) {
+            return Err(UNSIGNED_UPDATE.to_string());
+        }
 
-        Command::new(&path)
-            .spawn()
-            .map_err(|e| format!("No se pudo iniciar el instalador: {e}"))?;
-        Ok(self.current().await)
+        // Re-hash right before running it, holding a handle that denies writers, so the
+        // file that was verified is the file that starts.
+        let path_c = path.clone();
+        let launched = tokio::task::spawn_blocking(move || -> Result<(), String> {
+            let (guard, actual) = open_locked_and_hash(&path_c)?;
+            if actual != expected {
+                drop(guard);
+                let _ = fs::remove_file(&path_c);
+                return Err(
+                    "La verificación SHA-256 del instalador falló; se descartó por seguridad"
+                        .to_string(),
+                );
+            }
+            let res = Command::new(&path_c)
+                .spawn()
+                .map(|_| ())
+                .map_err(|e| format!("No se pudo iniciar el instalador: {e}"));
+            drop(guard);
+            res
+        })
+        .await
+        .map_err(|_| "No se pudo iniciar el instalador".to_string())?;
+
+        let mut g = self.inner.lock().await;
+        match launched {
+            Ok(()) => {
+                g.state = "installing".to_string();
+                drop(g);
+                Ok(self.current().await)
+            }
+            Err(e) => {
+                g.state = if g.mandatory { "available" } else { "error" }.to_string();
+                g.error = e.clone();
+                Err(e)
+            }
+        }
     }
 }
 
@@ -509,6 +651,77 @@ mod tests {
         assert!(!valid_sha256(""));
         assert!(!valid_sha256(&"g".repeat(64)));
         assert!(!valid_sha256(&"a".repeat(63)));
+    }
+
+    fn test_keypair() -> (ed25519_dalek::SigningKey, String) {
+        let sk = ed25519_dalek::SigningKey::from_bytes(&[7u8; 32]);
+        let pk = B64.encode(sk.verifying_key().to_bytes());
+        (sk, pk)
+    }
+
+    #[test]
+    fn verifies_signed_checksums_and_rejects_tampering() {
+        use ed25519_dalek::Signer;
+        let (sk, pk) = test_keypair();
+        let sums = b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef  OpenTV-Setup-2.0.1.exe\n";
+        let sig = B64.encode(sk.sign(sums).to_bytes());
+        assert!(verify_release_signature(sums, &format!("{sig}\n"), &pk).is_ok());
+
+        // Tampered checksum list.
+        let mut tampered = sums.to_vec();
+        tampered[0] = b'f';
+        assert_eq!(
+            verify_release_signature(&tampered, &sig, &pk).unwrap_err(),
+            UNSIGNED_UPDATE
+        );
+        // Missing / garbage / wrong-key signatures.
+        assert!(verify_release_signature(sums, "", &pk).is_err());
+        assert!(verify_release_signature(sums, "bm90LWEtc2lnbmF0dXJl", &pk).is_err());
+        let other = ed25519_dalek::SigningKey::from_bytes(&[9u8; 32]);
+        let other_sig = B64.encode(other.sign(sums).to_bytes());
+        assert!(verify_release_signature(sums, &other_sig, &pk).is_err());
+    }
+
+    #[test]
+    fn embedded_release_key_is_a_valid_ed25519_key() {
+        let raw = B64.decode(RELEASE_PUBLIC_KEY_B64.trim()).expect("base64");
+        let arr: [u8; 32] = raw.try_into().expect("32 bytes");
+        assert!(VerifyingKey::from_bytes(&arr).is_ok());
+    }
+
+    #[test]
+    fn signature_asset_must_come_from_github() {
+        let assets = vec![
+            json!({"name": "SHA256SUMS.sig", "browser_download_url": "https://evil.example/SHA256SUMS.sig"}),
+        ];
+        assert!(find_signature_asset_url(Some(&assets)).is_none());
+        let assets = vec![
+            json!({"name": "SHA256SUMS.sig", "browser_download_url": "https://github.com/EdgarLeonArchuleta19/OpenTV/releases/download/v2.0.1/SHA256SUMS.sig"}),
+        ];
+        assert!(find_signature_asset_url(Some(&assets)).is_some());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn locked_installer_can_still_be_started_but_not_modified() {
+        let src = std::path::PathBuf::from(r"C:\Windows\System32\whoami.exe");
+        if !src.is_file() {
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("opentv-upd-{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let exe = dir.join("setup-test.exe");
+        fs::copy(&src, &exe).unwrap();
+        let (guard, hash) = open_locked_and_hash(&exe).unwrap();
+        assert_eq!(hash, sha256_file(&exe).unwrap());
+        assert!(fs::OpenOptions::new().write(true).open(&exe).is_err());
+        let status = Command::new(&exe)
+            .stdout(std::process::Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success());
+        drop(guard);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

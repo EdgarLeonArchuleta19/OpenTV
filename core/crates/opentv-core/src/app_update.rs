@@ -371,7 +371,13 @@ pub async fn fetch_expected_sha256(
 }
 
 pub fn sha256_file(path: &Path) -> Result<String, String> {
-    let mut f = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let f = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    sha256_reader(f)
+}
+
+/// SHA-256 (lowercase hex) of everything readable from `f`, streamed in 64 KB chunks.
+/// Lets callers hash through a handle they already hold (e.g. one that denies writers).
+pub fn sha256_reader<R: Read>(mut f: R) -> Result<String, String> {
     let mut hasher = Sha256::new();
     let mut buf = [0u8; 64 * 1024];
     loop {

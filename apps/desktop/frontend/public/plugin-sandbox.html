@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <!-- Where the JS plugins run (js/plugin-runtime.js), inside an iframe with
-     sandbox="allow-scripts" and no allow-same-origin. This policy lets the
+     sandbox="allow-scripts" and no allow-same-origin. The app creates ONE
+     frame per plugin (helpers included) and identifies each plugin by the
+     frame that sent the message, never by its own claims. This policy lets the
      plugin's code compile ('unsafe-eval') and forbids everything else:
      no network, images, frames or forms of its own. The app does the
      network for it through Rust `pluginFetch` (NetGuard). Production builds

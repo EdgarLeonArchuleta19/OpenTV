@@ -122,6 +122,7 @@ async function fetchLiveChannels(playlists: M3uPlaylist[]): Promise<ChannelList>
             userAgent: String(c.userAgent || ''),
             referrer: String(c.referrer || ''),
             playlistId: pl.id,
+            allowLan: Boolean(pl.allowLan),
           };
         })
         .filter((x): x is LiveChannel => x !== null);
@@ -184,7 +185,11 @@ async function fetchEpgNowNext(epgUrls: string[], channels: LiveChannel[]): Prom
 
       const res = await desktopApi.service<{
         programmes?: Record<string, Array<Record<string, unknown>>>;
-      }>('epg', { url: epgUrl, ids });
+      }>('epg', {
+        url: epgUrl,
+        ids,
+        allowLan: channels.some((c) => c.epgUrl === epgUrl && c.allowLan),
+      });
 
       for (const [key, list] of Object.entries(res?.programmes || {})) {
         if (!Array.isArray(list) || list.length === 0) continue;
@@ -208,7 +213,7 @@ export async function loadChannelSchedule12h(channel: LiveChannel): Promise<EpgP
 
   const res = await desktopApi.service<{
     programmes?: Array<Record<string, unknown>>;
-  }>('epgSchedule', { url: channel.epgUrl, id });
+  }>('epgSchedule', { url: channel.epgUrl, id, allowLan: Boolean(channel.allowLan) });
 
   return (res?.programmes || [])
     .map((x) => parseProgram(x))

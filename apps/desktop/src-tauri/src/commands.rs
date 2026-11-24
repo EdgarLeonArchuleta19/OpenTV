@@ -492,24 +492,79 @@ fn win_pick_dialog(_pick_folder: bool) -> Option<String> {
     None
 }
 
-#[tauri::command]
-pub async fn desktop_pick_local_video(window: WebviewWindow) -> Option<String> {
-    if !ensure_main(&window) {
-        return None;
+/// File listing network (UNC) paths the user picked in the native dialog, so linked
+/// NAS folders keep working after a restart. Only the native picker writes it.
+fn approved_network_paths_file(user_data_dir: &Path) -> PathBuf {
+    user_data_dir.join("approved-network-paths.json")
+}
+
+/// Re-approves the network paths picked in earlier sessions (called at startup).
+pub fn load_approved_network_paths(core: &ServiceState, user_data_dir: &Path) {
+    let Ok(raw) = fs::read_to_string(approved_network_paths_file(user_data_dir)) else {
+        return;
+    };
+    if let Ok(list) = serde_json::from_str::<Vec<String>>(&raw) {
+        for p in list.iter().take(64) {
+            core.local_media.approve_user_path(p);
+        }
     }
-    tokio::task::spawn_blocking(|| win_pick_dialog(false))
-        .await
+}
+
+/// A path chosen by the user in the native picker: network paths become allowed for
+/// `localRegister` / `localScanFolder` (and are remembered).
+fn approve_picked_path(ctx: &AppCtx, picked: &str) {
+    if !opentv_core::local_media::is_network_path(picked) {
+        return;
+    }
+    ctx.core.local_media.approve_user_path(picked);
+    let file = approved_network_paths_file(&ctx.user_data_dir);
+    let mut list: Vec<String> = fs::read_to_string(&file)
         .ok()
-        .flatten()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default();
+    if !list.iter().any(|p| p.eq_ignore_ascii_case(picked)) {
+        list.push(picked.to_string());
+        if list.len() > 64 {
+            list.remove(0);
+        }
+        if let Ok(text) = serde_json::to_string_pretty(&list) {
+            let _ = fs::write(&file, text);
+        }
+    }
 }
 
 #[tauri::command]
-pub async fn desktop_pick_local_folder(window: WebviewWindow) -> Option<String> {
+pub async fn desktop_pick_local_video(
+    window: WebviewWindow,
+    ctx: State<'_, AppCtx>,
+) -> Result<Option<String>, String> {
     if !ensure_main(&window) {
-        return None;
+        return Ok(None);
     }
-    tokio::task::spawn_blocking(|| win_pick_dialog(true))
+    let picked = tokio::task::spawn_blocking(|| win_pick_dialog(false))
         .await
         .ok()
-        .flatten()
+        .flatten();
+    if let Some(ref p) = picked {
+        approve_picked_path(&ctx, p);
+    }
+    Ok(picked)
+}
+
+#[tauri::command]
+pub async fn desktop_pick_local_folder(
+    window: WebviewWindow,
+    ctx: State<'_, AppCtx>,
+) -> Result<Option<String>, String> {
+    if !ensure_main(&window) {
+        return Ok(None);
+    }
+    let picked = tokio::task::spawn_blocking(|| win_pick_dialog(true))
+        .await
+        .ok()
+        .flatten();
+    if let Some(ref p) = picked {
+        approve_picked_path(&ctx, p);
+    }
+    Ok(picked)
 }
