@@ -1,6 +1,7 @@
 package com.techpoint.opentv.ui.search
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -51,7 +52,6 @@ private val TVK_ROWS: List<List<String>> = listOf(
 )
 
 private const val TVK_MAX = 60
-private val TvkDark = Color(0xFF0E0E11)
 
 /**
  * On-screen TV keyboard (v1 `makeTvKeyboard`): a display bar with what is typed
@@ -87,19 +87,19 @@ fun TvKeyboard(
                     .weight(1f)
                     .height(displayHeight)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0x14FFFFFF))
+                    .background(OpenTvColors.fg(0.08f))
                     .padding(horizontal = 10.dp),
             ) {
                 Text(
                     text = value.ifEmpty { placeholder },
-                    color = if (value.isEmpty()) OpenTvColors.TextMuted else Color.White,
+                    color = if (value.isEmpty()) OpenTvColors.TextMuted else OpenTvColors.Content,
                     fontSize = displayFontSize,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             if (doneLabel != null) {
-                TvkGoButton(label = doneLabel, height = displayHeight, onClick = { onDone?.invoke() })
+                TvkGoButton(label = doneLabel, height = displayHeight, fontSize = displayFontSize, onClick = { onDone?.invoke() })
             }
         }
         TVK_ROWS.forEachIndexed { r, row ->
@@ -155,7 +155,7 @@ private fun RowScope.TvkKey(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val fg = if (focused) TvkDark else Color.White
+    val fg = if (focused) OpenTvColors.OnContent else OpenTvColors.Content
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
@@ -169,12 +169,12 @@ private fun RowScope.TvkKey(
                 scaleY = s
             }
             .clip(RoundedCornerShape(6.dp))
-            .background(if (focused) Color.White else Color(0x12FFFFFF))
+            .background(if (focused) OpenTvColors.Content else OpenTvColors.fg(0.07f))
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
     ) {
         if (showBackspace) {
-            Icon(Icons.AutoMirrored.Rounded.Backspace, null, tint = fg, modifier = Modifier.size(13.dp))
+            Icon(Icons.AutoMirrored.Rounded.Backspace, null, tint = fg, modifier = Modifier.size(fontSize.value.dp))
             Spacer(Modifier.width(4.dp))
         }
         Text(text = label, color = fg, fontSize = fontSize, fontWeight = FontWeight.SemiBold, maxLines = 1)
@@ -182,7 +182,7 @@ private fun RowScope.TvkKey(
 }
 
 @Composable
-private fun TvkGoButton(label: String, height: Dp, onClick: () -> Unit) {
+private fun TvkGoButton(label: String, height: Dp, fontSize: TextUnit, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     Row(
@@ -198,18 +198,21 @@ private fun TvkGoButton(label: String, height: Dp, onClick: () -> Unit) {
             }
             .clip(RoundedCornerShape(9.dp))
             // Focus ring: a translucent outline around the white pill (fixed padding: no layout jump).
-            .background(if (focused) Color(0x73FFFFFF) else Color.Transparent)
+            .background(if (focused) OpenTvColors.fg(0.45f) else Color.Transparent)
             .padding(2.dp)
             .clip(RoundedCornerShape(7.dp))
-            .background(Color.White)
+            // Filled only while focused, so it never looks focused next to the real focused key.
+            .background(if (focused) OpenTvColors.Content else OpenTvColors.fg(0.10f))
+            .border(1.dp, if (focused) Color.Transparent else OpenTvColors.fg(0.28f), RoundedCornerShape(7.dp))
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 10.dp),
     ) {
-        Icon(Icons.Rounded.Search, null, tint = TvkDark, modifier = Modifier.size(14.dp))
+        val ink = if (focused) OpenTvColors.OnContent else OpenTvColors.Content
+        Icon(Icons.Rounded.Search, null, tint = ink, modifier = Modifier.size((fontSize.value + 2f).dp))
         Text(
             text = label,
-            color = TvkDark,
-            fontSize = 12.sp,
+            color = ink,
+            fontSize = fontSize,
             fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Bold,
             maxLines = 1,
         )

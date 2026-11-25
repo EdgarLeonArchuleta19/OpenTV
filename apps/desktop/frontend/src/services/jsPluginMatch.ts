@@ -132,7 +132,9 @@ export interface RankedHit {
  */
 export function pickSearchHits(hitsRaw: Array<Record<string, unknown>>, q: TitleQuery, max = 2): RankedHit[] {
   const names = [q.title, q.originalTitle || ''].filter(Boolean);
+  const normNames = names.map(normTitle).filter(Boolean);
   const ranked: RankedHit[] = [];
+  let exactFound = false;
   hitsRaw.forEach((hit, index) => {
     const ref = String(hit.ref || hit.id || hit.imdb_id || hit.imdbId || '').trim();
     if (!ref) return;
@@ -143,9 +145,16 @@ export function pickSearchHits(hitsRaw: Array<Record<string, unknown>>, q: Title
     const year = hitYear(hit);
     const yearKnown = Boolean(year && q.year);
     const yearDiff = yearKnown ? Math.abs(year - (q.year || 0)) : 0;
-    // Series years drift (first air date vs. season); movies must match ±1.
-    if (yearKnown && q.kind === 'movie' && yearDiff > 1) return;
+    // Movies must match ±1. Series years drift a little (first air date vs. season), but a
+    // same-named show years apart is a remake ("La oficina" 2015 MX vs "The Office" 2005 US).
+    if (yearKnown && yearDiff > (q.kind === 'movie' ? 1 : 2)) return;
     const sameYear = yearKnown && yearDiff === 0;
+    // "Los juegos del hambre: En llamas" contains "Los juegos del hambre": when one title extends
+    // the other it is usually another film of the saga, so it only counts with the exact same year.
+    const nh = normTitle(title);
+    const extendsQuery = sim < 1 && normNames.some((n) => isLongerTitleOf(nh, n) || isLongerTitleOf(n, nh));
+    if (extendsQuery && !sameYear) return;
+    if (sim === 1) exactFound = true;
     const accepted = sim >= 0.6 || (index === 0 && sameYear) || (index < 3 && sameYear && sim >= 0.34);
     // Cards without a year (e.g. Cuevana) and a translated title: the site's
     // first answer is kept, but only after its detail page confirms the year.
@@ -154,7 +163,15 @@ export function pickSearchHits(hitsRaw: Array<Record<string, unknown>>, q: Title
     const score = verify ? 0.2 : sim + (sameYear ? 0.3 : yearKnown && yearDiff <= 1 ? 0.1 : 0) - index * 0.02;
     ranked.push({ ref, score, title, verify });
   });
-  return ranked.sort((a, b) => b.score - a.score).slice(0, max);
+  // Streams of every kept hit are merged, so once the site lists the exact title, other
+  // similar titles (another film of the saga) are dropped.
+  const kept = exactFound ? ranked.filter((h) => !h.verify && names.some((n) => titleSimilarity(n, h.title) === 1)) : ranked;
+  return kept.sort((a, b) => b.score - a.score).slice(0, max);
+}
+
+/** `hit` is `query` plus extra words ("x y z" extends "x y"). */
+function isLongerTitleOf(hit: string, query: string): boolean {
+  return hit.length > query.length && ` ${hit} `.includes(` ${query} `);
 }
 
 /** Whether a `details()`/`episodes().series` answer confirms the opened title's year. */

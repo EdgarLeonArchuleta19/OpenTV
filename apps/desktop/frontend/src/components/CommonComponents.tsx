@@ -1,8 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 import type { MediaItem, StreamSource, WatchProgress } from '../types/models';
 import { formatContinueSubtitle } from '../services/locales';
-import { formatBytes, languageSummary, sourceHasLang } from '../services/sourceRanker';
+import {
+  formatBytes,
+  isDirectSource,
+  matchesLangFilter,
+  matchesQualityFilter,
+  matchesTypeFilter,
+  pickerFilterOptions,
+  plainLanguageLabel,
+  qualityLabel,
+  sourceDetailLine,
+  typeLabel,
+  type PickerOption,
+} from '../services/sourceRanker';
 import { prefetchImage, resizedImageUrl } from '../services/tauri';
 
 /** Exact OpenTV TV-outline + antennas + play-triangle logo (`ui/images/logo-mark.svg`) */
@@ -130,7 +142,7 @@ export const PosterCard: React.FC<{
       onFocus={() => prefetchImage(item.backdrop || item.poster, 1280)}
       className={`group relative flex shrink-0 flex-col text-left select-none transition-transform duration-200 hover:z-20 hover:scale-[1.04] focus:outline-none cursor-pointer ${widthClass}`}
     >
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[14px] bg-[#18181d] ring-1 ring-inset ring-white/[0.07] transition-shadow duration-200 group-hover:shadow-[0_22px_50px_rgba(0,0,0,0.65)] group-hover:ring-white/25">
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[14px] bg-surface-alt ring-1 ring-inset ring-fg/[0.07] transition-shadow duration-200 group-hover:shadow-[0_22px_50px_rgba(0,0,0,0.65)] group-hover:ring-fg/25">
         {hasArt ? (
           <img
             src={src}
@@ -173,9 +185,9 @@ export const PosterCard: React.FC<{
 
       {captionMode !== 'none' && (
         <div className="mt-2 px-0.5">
-          <div className="truncate text-[13.5px] font-semibold text-white/90 group-hover:text-white">{item.title}</div>
+          <div className="truncate text-[13.5px] font-semibold text-fg/90 group-hover:text-fg">{item.title}</div>
           {captionMode === 'full' && (
-            <div className="mt-0.5 truncate text-[12px] text-white/50">
+            <div className="mt-0.5 truncate text-[12px] text-fg/50 light:text-muted">
               {[item.year || null, kindLabel].filter(Boolean).join(' · ')}
             </div>
           )}
@@ -205,7 +217,7 @@ export const ContinueCard: React.FC<{
     <div className={`group relative shrink-0 select-none ${compact ? 'w-[clamp(210px,18vw,270px)]' : 'w-[clamp(230px,20vw,340px)]'}`}>
       <div
         onClick={onResume}
-        className="relative aspect-video w-full cursor-pointer overflow-hidden rounded-[14px] bg-[#1a1a1f] ring-1 ring-inset ring-white/[0.08] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_22px_50px_rgba(0,0,0,0.6)] group-hover:ring-white/20"
+        className="relative aspect-video w-full cursor-pointer overflow-hidden rounded-[14px] bg-[#1a1a1f] light:bg-surface-alt ring-1 ring-inset ring-fg/[0.08] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_22px_50px_rgba(0,0,0,0.6)] group-hover:ring-fg/20"
       >
         {src && !failed ? (
           <img
@@ -217,8 +229,8 @@ export const ContinueCard: React.FC<{
             className="pointer-events-none h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#2b2b33] to-[#141418]">
-            <OpenTvLogo className="h-10 w-10 text-white/25" />
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#2b2b33] to-surface light:from-elev-hi light:to-surface-alt">
+            <OpenTvLogo className="h-10 w-10 text-fg/25 light:text-faint" />
           </div>
         )}
 
@@ -257,8 +269,8 @@ export const ContinueCard: React.FC<{
 
       {/* Title & remaining subtitle BELOW frame (`cc-title` / `cc-sub`) */}
       <div className="mt-2.5 px-1">
-        <div className="truncate text-[15.5px] font-semibold text-white">{entry.title}</div>
-        {subtitle && <div className="mt-0.5 truncate text-[13px] text-white/55">{subtitle}</div>}
+        <div className="truncate text-[15.5px] font-semibold text-fg">{entry.title}</div>
+        {subtitle && <div className="mt-0.5 truncate text-[13px] text-fg/55 light:text-muted">{subtitle}</div>}
       </div>
     </div>
   );
@@ -310,7 +322,7 @@ export const ScrollRow: React.FC<{
       className="ot-cv-row group/row relative space-y-2.5"
     >
       {title && (
-        <h2 className="font-display text-[clamp(18px,1.4vw,24px)] font-semibold tracking-[-0.015em] text-white">
+        <h2 className="font-display text-[clamp(18px,1.4vw,24px)] font-semibold tracking-[-0.015em] text-fg">
           {title}
         </h2>
       )}
@@ -321,7 +333,7 @@ export const ScrollRow: React.FC<{
             type="button"
             aria-label="Anterior"
             onClick={() => scroll(-1)}
-            className="absolute top-1/2 left-1 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#16161a]/88 text-white opacity-0 shadow-[0_10px_30px_rgba(0,0,0,0.55)] backdrop-blur-md transition duration-200 hover:scale-105 hover:bg-white/20 group-hover/row:opacity-100 cursor-pointer"
+            className="absolute top-1/2 left-1 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-fg/15 bg-[#16161a]/88 light:bg-surface/95 text-fg opacity-0 shadow-[0_10px_30px_rgba(0,0,0,0.55)] backdrop-blur-md transition duration-200 hover:scale-105 hover:bg-fg/20 group-hover/row:opacity-100 cursor-pointer"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -344,7 +356,7 @@ export const ScrollRow: React.FC<{
             type="button"
             aria-label="Siguiente"
             onClick={() => scroll(1)}
-            className="absolute top-1/2 right-1 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#16161a]/88 text-white opacity-0 shadow-[0_10px_30px_rgba(0,0,0,0.55)] backdrop-blur-md transition duration-200 hover:scale-105 hover:bg-white/20 group-hover/row:opacity-100 cursor-pointer"
+            className="absolute top-1/2 right-1 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-fg/15 bg-[#16161a]/88 light:bg-surface/95 text-fg opacity-0 shadow-[0_10px_30px_rgba(0,0,0,0.55)] backdrop-blur-md transition duration-200 hover:scale-105 hover:bg-fg/20 group-hover/row:opacity-100 cursor-pointer"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
@@ -355,7 +367,128 @@ export const ScrollRow: React.FC<{
 };
 
 /**
- * Exact 1:1 replica of OpenTV v1 "Elegir fuente" modal (`docs/screenshots/fuentes.jpg`)
+ * Dark dropdown used by the source picker filters ("Calidad", "Idioma", "Tipo").
+ * Keyboard: arrows move, Enter picks, Esc closes and gives focus back to the button.
+ */
+const PickerSelect: React.FC<{
+  label: string;
+  value: string;
+  options: PickerOption[];
+  onChange: (value: string) => void;
+}> = ({ label, value, options, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const current = options.find((o) => o.value === value) ?? options[0];
+  const active = value !== 'all';
+
+  useEffect(() => {
+    if (!open) return;
+    const idx = Math.max(0, options.findIndex((o) => o.value === value));
+    itemRefs.current[idx]?.focus();
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+    // Focus the current value only when the list opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const close = () => {
+    setOpen(false);
+    buttonRef.current?.focus();
+  };
+
+  const onListKey = (e: React.KeyboardEvent) => {
+    const idx = itemRefs.current.findIndex((el) => el === document.activeElement);
+    let next = -1;
+    if (e.key === 'ArrowDown') next = Math.min(options.length - 1, idx + 1);
+    else if (e.key === 'ArrowUp') next = Math.max(0, idx - 1);
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = options.length - 1;
+    else if (e.key === 'Escape' || e.key === 'Tab') {
+      if (e.key === 'Escape') e.preventDefault();
+      e.stopPropagation();
+      close();
+      return;
+    } else if (e.key !== 'Enter' && e.key !== ' ') return;
+    // Keep the player's global shortcuts (arrows, space, Esc) out of the open list.
+    e.stopPropagation();
+    if (next >= 0) {
+      e.preventDefault();
+      itemRefs.current[next]?.focus();
+    }
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(true);
+          }
+        }}
+        className={`flex h-11 min-w-[150px] items-center gap-2 rounded-xl border px-3.5 text-left transition cursor-pointer ${
+          open || active
+            ? 'border-[var(--ot-accent)] bg-fg/[0.09]'
+            : 'border-fg/10 bg-fg/[0.05] hover:bg-fg/[0.09]'
+        }`}
+      >
+        <span className="text-[12.5px] text-fg/50 light:text-muted">{label}</span>
+        <span className="flex-1 truncate text-[14px] font-semibold text-fg">{current?.label}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-fg/60 transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          aria-label={label}
+          onKeyDown={onListKey}
+          className="ot-scroll absolute top-full left-0 z-30 mt-1.5 max-h-[320px] min-w-full overflow-y-auto rounded-xl border border-fg/10 bg-[#1b1b20] p-1 shadow-[0_18px_50px_rgba(0,0,0,0.7)] light:bg-surface light:shadow-[0_18px_50px_rgba(0,0,0,0.18)]"
+        >
+          {options.map((o, i) => {
+            const selected = o.value === value;
+            return (
+              <button
+                key={o.value}
+                ref={(el) => {
+                  itemRefs.current[i] = el;
+                }}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => {
+                  onChange(o.value);
+                  close();
+                }}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[14px] whitespace-nowrap transition cursor-pointer hover:bg-fg/[0.08] focus:bg-fg/[0.1] focus:outline-none ${
+                  selected ? 'font-bold text-fg' : 'text-fg/80'
+                }`}
+              >
+                <Check className={`h-4 w-4 shrink-0 ${selected ? 'text-[var(--ot-accent)]' : 'opacity-0'}`} />
+                <span className="flex-1">{o.label}</span>
+                <span className="pl-3 text-[12.5px] text-fg/40 light:text-muted">{o.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * "Elegir fuente": simple list for everyone. Three dropdown filters (Calidad / Idioma / Tipo),
+ * the ranker's best pick on top as "Recomendada", and one plain row per source
+ * (quality badge, language, Directo/Torrent, size, plugin). Same design as Android `SourcePickerDialog`.
  */
 export const SourcePickerModal: React.FC<{
   title: string;
@@ -366,64 +499,23 @@ export const SourcePickerModal: React.FC<{
   onOpenPrefs?: () => void;
 }> = ({ title, sources, loading, onSelect, onClose, onOpenPrefs }) => {
   const [qualityFilter, setQualityFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'direct' | 'torrent'>('all');
   const [langFilter, setLangFilter] = useState('all');
-  const [sortMode, setSortMode] = useState<'rec' | 'heavy' | 'light' | 'seeds'>('rec');
+  const [typeFilter, setTypeFilter] = useState('all');
 
-  const counts = useMemo(
-    () => ({
-      q4k: sources.filter((s) => s.quality === '4K').length,
-      q1080: sources.filter((s) => s.quality === '1080p').length,
-      q720: sources.filter((s) => s.quality === '720p').length,
-      qSd: sources.filter((s) => s.quality === 'SD').length,
-      direct: sources.filter((s) => Boolean(s.url || s.isJsPlugin)).length,
-      torrent: sources.filter((s) => Boolean(s.infoHash && !s.url)).length,
-      latino: sources.filter((s) => sourceHasLang(s, 'latino') || sourceHasLang(s, 'es')).length,
-      castellano: sources.filter((s) => sourceHasLang(s, 'castellano')).length,
-      en: sources.filter((s) => sourceHasLang(s, 'en')).length,
-    }),
-    [sources],
+  const options = useMemo(() => pickerFilterOptions(sources), [sources]);
+
+  const filtered = useMemo(
+    () =>
+      sources.filter(
+        (s) =>
+          matchesQualityFilter(s, qualityFilter) && matchesLangFilter(s, langFilter) && matchesTypeFilter(s, typeFilter),
+      ),
+    [sources, qualityFilter, langFilter, typeFilter],
   );
 
-  const filtered = useMemo(() => {
-    const base = sources.filter((s) => {
-      if (qualityFilter !== 'all' && s.quality !== qualityFilter) return false;
-      const isDirect = Boolean(s.url || s.isJsPlugin);
-      if (typeFilter === 'direct' && !isDirect) return false;
-      if (typeFilter === 'torrent' && isDirect) return false;
-      if (langFilter === 'latino' && !(sourceHasLang(s, 'latino') || sourceHasLang(s, 'es'))) return false;
-      if (langFilter === 'castellano' && !sourceHasLang(s, 'castellano')) return false;
-      if (langFilter === 'en' && !sourceHasLang(s, 'en')) return false;
-      return true;
-    });
-    if (sortMode === 'heavy') return [...base].sort((a, b) => b.sizeBytes - a.sizeBytes);
-    if (sortMode === 'light') return [...base].sort((a, b) => (a.sizeBytes || 1e15) - (b.sizeBytes || 1e15));
-    if (sortMode === 'seeds') return [...base].sort((a, b) => b.seeders - a.seeders);
-    return base;
-  }, [sources, qualityFilter, typeFilter, langFilter, sortMode]);
-
   const recommended = filtered[0] || null;
-
-  // Group sources by plugin name exactly like `fuentes.jpg`
-  const grouped = useMemo(() => {
-    const map = new Map<string, StreamSource[]>();
-    for (const s of filtered) {
-      const k = s.addonName || 'Plugin';
-      const arr = map.get(k);
-      if (arr) arr.push(s);
-      else map.set(k, [s]);
-    }
-    return Array.from(map.entries());
-  }, [filtered]);
-
-  const pillClass = (on: boolean, empty = false) =>
-    `rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition cursor-pointer ${
-      on
-        ? 'bg-[var(--ot-accent)] text-[var(--ot-accent-ink)]'
-        : empty
-        ? 'bg-white/[0.05] text-white/35 hover:bg-white/[0.08]'
-        : 'bg-white/[0.07] text-white/80 hover:bg-white/[0.13] hover:text-white'
-    }`;
+  const others = filtered.slice(1);
+  const anyFilter = qualityFilter !== 'all' || langFilter !== 'all' || typeFilter !== 'all';
 
   return (
     <div
@@ -432,168 +524,95 @@ export const SourcePickerModal: React.FC<{
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="ot-fade-up flex max-h-[85vh] w-full max-w-[780px] flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#141418]/98 shadow-[0_40px_120px_rgba(0,0,0,0.82),inset_0_1px_0_rgba(255,255,255,0.06)]"
+        className="ot-fade-up flex max-h-[85vh] w-full max-w-[760px] flex-col overflow-hidden rounded-[22px] border border-fg/10 bg-surface/98 shadow-[0_40px_120px_rgba(0,0,0,0.82),inset_0_1px_0_rgba(255,255,255,0.06)]"
       >
-        {/* Header & 3 filter rows (exact `fuentes.jpg`) */}
-        <div className="space-y-2.5 border-b border-white/[0.08] px-7 pt-6 pb-4">
-          <div>
-            <h2 className="font-display text-[25px] font-bold tracking-[-0.02em] text-white">Elegir fuente</h2>
-            <p className="mt-0.5 truncate text-[14px] text-white/55">{title}</p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <button type="button" onClick={() => setQualityFilter('all')} className={pillClass(qualityFilter === 'all')}>
-              Todas
-            </button>
-            <button
-              type="button"
-              onClick={() => setQualityFilter('4K')}
-              className={pillClass(qualityFilter === '4K', counts.q4k === 0)}
-            >
-              4K · {counts.q4k}
-            </button>
-            <button
-              type="button"
-              onClick={() => setQualityFilter('1080p')}
-              className={pillClass(qualityFilter === '1080p', counts.q1080 === 0)}
-            >
-              Full HD · {counts.q1080}
-            </button>
-            <button
-              type="button"
-              onClick={() => setQualityFilter('720p')}
-              className={pillClass(qualityFilter === '720p', counts.q720 === 0)}
-            >
-              HD · {counts.q720}
-            </button>
-            <button
-              type="button"
-              onClick={() => setQualityFilter('SD')}
-              className={pillClass(qualityFilter === 'SD', counts.qSd === 0)}
-            >
-              SD · {counts.qSd}
-            </button>
-            <span className="mx-1.5" />
-            <button type="button" onClick={() => setTypeFilter('all')} className={pillClass(typeFilter === 'all')}>
-              Todo
-            </button>
-            <button
-              type="button"
-              onClick={() => setTypeFilter('direct')}
-              className={pillClass(typeFilter === 'direct', counts.direct === 0)}
-            >
-              Directo · {counts.direct}
-            </button>
-            <button
-              type="button"
-              onClick={() => setTypeFilter('torrent')}
-              className={pillClass(typeFilter === 'torrent', counts.torrent === 0)}
-            >
-              Torrent · {counts.torrent}
-            </button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-[12.5px] text-white/45">Idioma</span>
-            <button type="button" onClick={() => setLangFilter('all')} className={pillClass(langFilter === 'all')}>
-              Todos
-            </button>
-            <button
-              type="button"
-              onClick={() => setLangFilter('latino')}
-              className={pillClass(langFilter === 'latino', counts.latino === 0)}
-            >
-              Latino · {counts.latino}
-            </button>
-            <button
-              type="button"
-              onClick={() => setLangFilter('castellano')}
-              className={pillClass(langFilter === 'castellano', counts.castellano === 0)}
-            >
-              Castellano · {counts.castellano}
-            </button>
-            <button
-              type="button"
-              onClick={() => setLangFilter('en')}
-              className={pillClass(langFilter === 'en', counts.en === 0)}
-            >
-              Inglés · {counts.en}
-            </button>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[12.5px] text-white/45">Ordenar</span>
-              <button type="button" onClick={() => setSortMode('rec')} className={pillClass(sortMode === 'rec')}>
-                Recomendado
-              </button>
-              <button type="button" onClick={() => setSortMode('heavy')} className={pillClass(sortMode === 'heavy')}>
-                Más pesadas
-              </button>
-              <button type="button" onClick={() => setSortMode('light')} className={pillClass(sortMode === 'light')}>
-                Más ligeras
-              </button>
-              <button type="button" onClick={() => setSortMode('seeds')} className={pillClass(sortMode === 'seeds')}>
-                Más semillas
-              </button>
+        {/* Header + dropdown filters */}
+        <div className="relative z-20 border-b border-fg/[0.08] px-7 pt-6 pb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="font-display text-[25px] font-bold tracking-[-0.02em] text-fg">Elegir fuente</h2>
+              <p className="mt-0.5 truncate text-[14px] text-fg/55 light:text-muted">{title}</p>
             </div>
-            {onOpenPrefs && (
-              <button type="button" onClick={onOpenPrefs} className={pillClass(false)}>
-                Preferencias
+            <button
+              type="button"
+              aria-label="Cerrar"
+              onClick={onClose}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-fg/[0.06] text-fg/80 transition hover:bg-fg/15 hover:text-fg cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <PickerSelect label="Calidad" value={qualityFilter} options={options.quality} onChange={setQualityFilter} />
+            <PickerSelect label="Idioma" value={langFilter} options={options.lang} onChange={setLangFilter} />
+            <PickerSelect label="Tipo" value={typeFilter} options={options.type} onChange={setTypeFilter} />
+            {anyFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQualityFilter('all');
+                  setLangFilter('all');
+                  setTypeFilter('all');
+                }}
+                className="h-11 rounded-xl px-3 text-[13.5px] font-semibold text-fg/60 transition hover:bg-fg/[0.06] hover:text-fg cursor-pointer"
+              >
+                Quitar filtros
               </button>
             )}
           </div>
         </div>
 
         {/* Source list */}
-        <div className="ot-scroll flex-1 overflow-y-auto px-5 py-3">
+        <div className="ot-scroll flex-1 overflow-y-auto px-5 py-4">
           {loading && sources.length === 0 ? (
-            <div className="py-16 text-center text-white/60">Buscando fuentes en tus plugins…</div>
+            <div className="py-16 text-center text-fg/60">Buscando fuentes en tus plugins…</div>
           ) : filtered.length === 0 ? (
-            <div className="py-16 text-center text-white/60">No hay fuentes con esos filtros.</div>
+            <div className="py-16 text-center text-fg/60">
+              {sources.length === 0 ? 'No se encontraron fuentes.' : 'No hay fuentes con esos filtros.'}
+            </div>
           ) : (
-            <div className="space-y-4">
-              {recommended && (
-                <div className="border-b border-white/[0.08] pb-3">
-                  <div className="mb-1 flex items-baseline justify-between px-3">
-                    <span className="text-[15px] font-bold text-white">Recomendada</span>
-                    <span className="text-[12.5px] text-white/45">{recommended.addonName}</span>
-                  </div>
-                  <SourceRow source={recommended} isRecommended onClick={() => onSelect(recommended)} />
+            <div className="space-y-1.5">
+              {recommended && <SourceRow source={recommended} isRecommended onClick={() => onSelect(recommended)} />}
+              {others.length > 0 && (
+                <div className="flex items-baseline justify-between px-3 pt-3 pb-1">
+                  <span className="text-[14px] font-bold text-fg/85">Más opciones</span>
+                  <span className="text-[12.5px] text-fg/45 light:text-muted">
+                    {others.length} {others.length === 1 ? 'fuente' : 'fuentes'}
+                  </span>
                 </div>
               )}
-
-              {grouped.map(([groupName, items]) => (
-                <div key={groupName}>
-                  <div className="mb-1 flex items-baseline justify-between px-3">
-                    <span className="text-[15px] font-bold text-white">{groupName}</span>
-                    <span className="text-[12.5px] text-white/45">
-                      {items.length} {items.length === 1 ? 'fuente' : 'fuentes'}
-                    </span>
-                  </div>
-                  <div className="space-y-0.5">
-                    {items.map((s) => (
-                      <SourceRow key={s.id} source={s} isRecommended={false} onClick={() => onSelect(s)} />
-                    ))}
-                  </div>
-                </div>
+              {others.map((s) => (
+                <SourceRow key={s.id} source={s} isRecommended={false} onClick={() => onSelect(s)} />
               ))}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-white/[0.08] px-7 py-3.5">
-          <span className="text-[13.5px] text-white/50">
+        <div className="flex items-center justify-between gap-3 border-t border-fg/[0.08] px-7 py-3.5">
+          <span className="text-[13.5px] text-fg/50 light:text-muted">
             {filtered.length} {filtered.length === 1 ? 'fuente' : 'fuentes'}
+            {loading && sources.length > 0 ? ' · buscando más…' : ''}
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl bg-white/[0.06] px-5 py-2 text-[14px] font-semibold text-white transition hover:bg-white/15 cursor-pointer"
-          >
-            Cancelar
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenPrefs && (
+              <button
+                type="button"
+                onClick={onOpenPrefs}
+                className="rounded-xl px-4 py-2 text-[14px] font-semibold text-fg/70 transition hover:bg-fg/[0.08] hover:text-fg cursor-pointer"
+              >
+                Preferencias
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl bg-fg/[0.06] px-5 py-2 text-[14px] font-semibold text-fg transition hover:bg-fg/15 cursor-pointer"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -605,58 +624,49 @@ const SourceRow: React.FC<{ source: StreamSource; isRecommended: boolean; onClic
   isRecommended,
   onClick,
 }) => {
-  const isTorrent = Boolean(source.infoHash && !source.url);
-  const qText = source.quality === 'unknown' ? 'Auto' : source.quality;
-  const hasQ = source.quality !== 'unknown';
-  const displayName =
-    source.filename || source.title.split('\n')[0]?.trim() || source.name.replace(/\n/g, ' ').trim();
-  const lang = languageSummary(source);
+  const quality = qualityLabel(source);
+  const hasQuality = source.quality !== 'unknown';
   const size = formatBytes(source.sizeBytes);
-  const metaParts = [
-    lang || 'Idioma original',
-    isTorrent ? 'Torrent' : 'Directo',
-    size || null,
-    isTorrent && source.seeders > 0 ? `${source.seeders} semillas` : null,
-    source.provider || source.addonName,
-  ].filter(Boolean);
+  const isDirect = isDirectSource(source);
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-4 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.07] cursor-pointer"
+      className={`group flex w-full items-center gap-4 rounded-2xl border px-4 py-3.5 text-left transition cursor-pointer ${
+        isRecommended
+          ? 'border-[#7ee2a8]/30 bg-[#7ee2a8]/[0.06] hover:bg-[#7ee2a8]/[0.11]'
+          : 'border-transparent hover:bg-fg/[0.06]'
+      }`}
     >
       <div
-        className={`flex h-9 w-[66px] shrink-0 items-center justify-center rounded-[10px] text-[13.5px] font-extrabold ${
-          source.isCam
-            ? 'bg-[#ffcf7a] text-[#0e0e11]'
-            : hasQ
-            ? 'bg-white text-[#0e0e11]'
-            : 'bg-white/10 text-white/60'
-        } ${isRecommended ? 'ring-2 ring-[#7ee2a8]' : ''}`}
+        className={`flex h-11 w-[74px] shrink-0 items-center justify-center rounded-xl text-[15px] font-extrabold ${
+          hasQuality ? 'bg-fg text-page' : 'bg-fg/10 text-fg/70'
+        }`}
       >
-        {qText}
+        {quality}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[14.5px] font-semibold text-white">{displayName}</div>
-        <div className="truncate text-[12.5px] text-white/55">
-          {isTorrent ? '⇅ ' : ''}
-          {metaParts.join(' · ')}
+        <div className="flex items-center gap-2">
+          <span className="truncate text-[16px] font-semibold text-fg">{plainLanguageLabel(source)}</span>
+          {isRecommended && (
+            <span className="shrink-0 rounded-full bg-[#7ee2a8] px-2.5 py-0.5 text-[11.5px] font-bold text-[#0e0e11]">
+              Recomendada
+            </span>
+          )}
         </div>
-        {isRecommended && (
-          <div className="mt-0.5 truncate text-[12.5px] font-medium text-[#7ee2a8]">
-            {[
-              lang || null,
-              source.quality === '1080p' ? 'Full HD' : qText,
-              source.isHdr ? 'HDR' : null,
-              source.isAtmos ? 'Dolby Atmos' : null,
-              source.seeders > 0 ? `${source.seeders} semillas` : null,
-              size || null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </div>
-        )}
+        <div className="mt-0.5 truncate text-[12.5px] text-fg/45 light:text-muted">{sourceDetailLine(source)}</div>
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        {size && <span className="text-[13px] text-fg/55 light:text-muted tabular-nums">{size}</span>}
+        <span
+          className={`rounded-lg px-2.5 py-1 text-[12.5px] font-semibold ${
+            isDirect ? 'bg-fg/[0.12] text-fg' : 'bg-fg/[0.05] text-fg/65'
+          }`}
+        >
+          {typeLabel(source)}
+        </span>
+        <Play className="h-4 w-4 fill-current text-fg/0 transition group-hover:text-fg/80" />
       </div>
     </button>
   );

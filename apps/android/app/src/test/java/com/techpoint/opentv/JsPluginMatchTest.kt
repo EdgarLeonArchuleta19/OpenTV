@@ -30,6 +30,31 @@ class JsPluginMatchTest {
     }
 
     @Test
+    fun `never takes a same-named remake of a series from another decade`() {
+        val hits = objs(
+            """[{"ref":"s:la-oficina-mx","title":"La oficina","kind":"series","year":"2015"},
+               {"ref":"s:the-office","title":"La oficina","kind":"series","year":"2005"}]""",
+        )
+        val q = TitleQuery("La oficina", originalTitle = "The Office", year = 2005, kind = "series")
+        assertEquals(listOf("s:the-office"), JsPluginMatch.pickSearchHits(hits, q).map { it.ref })
+        assertTrue(JsPluginMatch.pickSearchHits(hits.take(1), q).isEmpty())
+    }
+
+    @Test
+    fun `never mixes another film of the saga into the opened one`() {
+        val saga = objs(
+            """[{"ref":"m:en-llamas","title":"Los juegos del hambre: En llamas","kind":"movie","year":"2013"},
+               {"ref":"m:original","title":"Los juegos del hambre","kind":"movie","year":"2012"},
+               {"ref":"m:sinsajo","title":"Los juegos del hambre: Sinsajo - Parte 1","kind":"movie","year":"2014"}]""",
+        )
+        val first = TitleQuery("Los juegos del hambre", originalTitle = "The Hunger Games", year = 2012, kind = "movie")
+        assertEquals(listOf("m:original"), JsPluginMatch.pickSearchHits(saga, first).map { it.ref })
+        assertTrue(JsPluginMatch.pickSearchHits(saga.take(1), first).isEmpty())
+        val sequel = TitleQuery("Los juegos del hambre: En llamas", year = 2013, kind = "movie")
+        assertEquals(listOf("m:en-llamas"), JsPluginMatch.pickSearchHits(saga, sequel).map { it.ref })
+    }
+
+    @Test
     fun `yearless translated first hit needs confirmation`() {
         val q = TitleQuery("Inception", year = 2010, kind = "movie")
         val hits = JsPluginMatch.pickSearchHits(objs("""[{"ref":"m:el-origen","title":"El Origen","kind":"movie"}]"""), q)

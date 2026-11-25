@@ -28,6 +28,7 @@ import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import com.techpoint.opentv.core.model.StreamSource
 import com.techpoint.opentv.core.ranking.SourceRanker
 import com.techpoint.opentv.service.RustServiceBridge
+import com.techpoint.opentv.ui.player.EpisodeFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,12 +41,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
@@ -122,6 +124,11 @@ class OpenTvPlayer(
     // since free file hosts rate-limit every link at once.
     private val failedHosts = HashSet<String>()
     private var lastFailureRefused = false
+    // Wrong-content guard: TMDB runtime of the episode being played (0 = off) and the sources
+    // already checked against it, kept per episode so a manual re-pick of the same source sticks.
+    private var expectedRuntimeMin: Int = 0
+    private var runtimeKey: String = ""
+    private val runtimeCheckedIds = HashSet<String>()
     private var startResumeMs: Long = 0L
     private var startSeason: Int = 0
     private var startEpisode: Int = 0
@@ -218,6 +225,7 @@ class OpenTvPlayer(
 
         val l = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY && switchIfWrongContent(player)) return
                 val buffering = playbackState == Player.STATE_BUFFERING
                 val ended = playbackState == Player.STATE_ENDED
                 if (playbackState == Player.STATE_READY) {
@@ -358,8 +366,15 @@ class OpenTvPlayer(
         resumeMs: Long = 0L,
         season: Int = 0,
         episode: Int = 0,
+        runtimeMin: Int = 0,
     ) {
         currentIsLive = false
+        val key = "$season:$episode:$runtimeMin"
+        if (key != runtimeKey) {
+            runtimeKey = key
+            runtimeCheckedIds.clear()
+        }
+        expectedRuntimeMin = if (episode > 0) runtimeMin else 0
         currentSource = source
         startResumeMs = resumeMs
         startSeason = season
@@ -378,7 +393,8 @@ class OpenTvPlayer(
                 ended = false,
                 isBuffering = true,
                 firstFrameReady = false,
-                statusBanner = if (source.isTorrent) "Conectando torrent…" else "Conectando con ${source.addonName}…",
+                // Neutral text: the loading screen never names the plugin/server or the quality.
+                statusBanner = "Cargando…",
                 activeSourceLabel = sourceLabel(source),
             )
         }
@@ -604,7 +620,7 @@ class OpenTvPlayer(
                 val firstObj = res["subtitles"]?.let { el ->
                     runCatching { (el as kotlinx.serialization.json.JsonArray).firstOrNull() as? kotlinx.serialization.json.JsonObject }.getOrNull()
                 }
-                firstObj?.get("url")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: subUrl
+                (firstObj?.get("url") as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } ?: subUrl
             } else subUrl
 
             val p = exo ?: return@launch
@@ -715,10 +731,10 @@ class OpenTvPlayer(
             },
         )
 
-        val streamUrl = res["url"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val streamUrl = (res["url"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         if (currentSource?.id != source.id) return
         if (streamUrl.isBlank()) {
-            val err = res["errorText"]?.jsonPrimitive?.contentOrNull ?: "No se encontraron semillas disponibles"
+            val err = (res["errorText"] as? JsonPrimitive)?.contentOrNull ?: "No se encontraron semillas disponibles"
             if (!tryNextFallback()) {
                 _state.update { it.copy(isBuffering = false, errorMessage = err, statusBanner = "") }
             }
@@ -734,9 +750,9 @@ class OpenTvPlayer(
         torrentPollJob = scope.launch {
             while (isActive) {
                 val stats = RustServiceBridge.callRpc("torrentStats")
-                val peers = stats["peers"]?.jsonPrimitive?.intOrNull ?: 0
-                val bps = stats["downloadSpeed"]?.jsonPrimitive?.longOrNull ?: 0L
-                val pct = stats["available"]?.jsonPrimitive?.intOrNull ?: 0
+                val peers = (stats["peers"] as? JsonPrimitive)?.intOrNull ?: 0
+                val bps = (stats["downloadSpeed"] as? JsonPrimitive)?.longOrNull ?: 0L
+                val pct = (stats["available"] as? JsonPrimitive)?.intOrNull ?: 0
                 val mbps = (bps * 8.0) / 1_000_000.0
                 _state.update {
                     it.copy(
@@ -769,8 +785,8 @@ class OpenTvPlayer(
         // `proxyPath` is the URL the local proxy can actually serve (headers,
         // redirects and HLS rewrites already applied). The original `url` is
         // only a fallback when the resolver did not produce a proxied path.
-        val proxyPath = res["proxyPath"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-        val token = res["token"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+        val proxyPath = (res["proxyPath"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+        val token = (res["token"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
             ?: proxyPath?.let { Regex("/media/([^/]+)/").find(it)?.groupValues?.getOrNull(1) }
         if (!token.isNullOrBlank()) {
             val prev = activeMediaToken
@@ -779,7 +795,7 @@ class OpenTvPlayer(
                 RustServiceBridge.callRpc("abortMedia", buildJsonObject { put("exceptToken", token) })
             }
         }
-        return proxyPath ?: res["url"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: url
+        return proxyPath ?: (res["url"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } ?: url
     }
 
     private fun loadUrl(url: String, resumeMs: Long, isLive: Boolean) {
@@ -814,8 +830,8 @@ class OpenTvPlayer(
                 )
             },
         )
-        val status = res["status"]?.jsonPrimitive?.intOrNull ?: 0
-        val code = res["code"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val status = (res["status"] as? JsonPrimitive)?.intOrNull ?: 0
+        val code = (res["code"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         // A LAN/blocked host is NetGuard's call, not the server's: let the normal path report it.
         if (code == "host_not_allowed") return false
         return isRefusalStatus(status) || code == "timeout" || code == "network"
@@ -827,6 +843,48 @@ class OpenTvPlayer(
             errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ->
             "Este video usa un formato que este aparato no puede reproducir. Elige otra fuente."
         else -> "No se pudo reproducir esta fuente. Elige otra."
+    }
+
+    /**
+     * Wrong-content guard, run once per direct source when it first gets READY: a duration far
+     * from the episode's TMDB runtime means another version/show (e.g. a remake matched by its
+     * Spanish title), so the next fallback (same language first) takes over with a neutral
+     * status. Torrents (extended cuts are common), live TV and offline files are never checked;
+     * with nothing else to try the current source keeps playing. True when it switched.
+     */
+    private fun switchIfWrongContent(player: ExoPlayer): Boolean {
+        val src = currentSource ?: return false
+        if (currentIsLive || src.isTorrent || expectedRuntimeMin <= 0 || src.id in runtimeCheckedIds) return false
+        val durMs = player.duration
+        if (durMs == C.TIME_UNSET || durMs <= 0L) return false
+        runtimeCheckedIds.add(src.id)
+        val durSec = durMs / 1000.0
+        if (!EpisodeFlow.runtimeMismatch(durSec, expectedRuntimeMin)) return false
+        val next = pickSameLanguage(fallbackQueue, src, failedHosts)
+        if (next == null) {
+            Log.w(TAG, "runtime mismatch (${durSec.toInt()} s vs $expectedRuntimeMin min) but no other source: keeping ${src.addonName}")
+            return false
+        }
+        Log.w(TAG, "runtime mismatch: ${src.addonName} ${durSec.toInt()} s vs $expectedRuntimeMin min (TMDB), trying ${next.addonName}")
+        startupWatchdog?.cancel()
+        player.stop()
+        fallbackQueue = fallbackQueue.filter { it.id != next.id }
+        currentSource = next
+        triedSourceIds.add(next.id)
+        _state.update {
+            it.copy(
+                isBuffering = true,
+                isPlaying = false,
+                errorMessage = "",
+                firstFrameReady = false,
+                durationMs = 0L,
+                positionMs = 0L,
+                statusBanner = "Buscando otra fuente…",
+                activeSourceLabel = sourceLabel(next),
+            )
+        }
+        startSource(next, startResumeMs)
+        return true
     }
 
     private fun tryNextFallback(): Boolean {
@@ -844,8 +902,7 @@ class OpenTvPlayer(
                 isBuffering = true,
                 errorMessage = "",
                 firstFrameReady = it.firstFrameReady && pos > 0L,
-                statusBanner = if (lastFailureRefused) "El servidor rechazó la fuente · probando otra (${next.addonName})…"
-                else "Probando otra fuente (${next.addonName})…",
+                statusBanner = "Probando otra fuente…",
                 activeSourceLabel = sourceLabel(next),
             )
         }
@@ -935,6 +992,18 @@ class OpenTvPlayer(
         /** HTTP statuses meaning the source server refused us (expired link, rate limit, removed file). */
         fun isRefusalStatus(status: Int): Boolean =
             status == 401 || status == 403 || status == 404 || status == 410 || status == 429 || status >= 500
+
+        /**
+         * Next fallback after a wrong-content source: an untried one sharing a language with
+         * [current] on a server that has not failed, else any on a healthy server, else the next.
+         */
+        fun pickSameLanguage(queue: List<StreamSource>, current: StreamSource, failedHosts: Set<String>): StreamSource? {
+            val healthy = queue.filter { f -> hostOf(f.url).let { it == null || it !in failedHosts } }
+            val wanted = current.langs.mapTo(HashSet()) { it.lowercase() }
+            return healthy.firstOrNull { f -> wanted.isNotEmpty() && f.langs.any { it.lowercase() in wanted } }
+                ?: healthy.firstOrNull()
+                ?: queue.firstOrNull()
+        }
 
         fun hostOf(url: String): String? =
             runCatching { java.net.URI(url).host?.lowercase() }.getOrNull()?.takeIf { it.isNotBlank() }

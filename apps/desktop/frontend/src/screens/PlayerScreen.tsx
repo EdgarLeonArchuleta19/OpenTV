@@ -43,6 +43,7 @@ import {
   isHlsUrl,
   isRefusalStatus,
   pickNextSourceIndex,
+  pickSameLanguageSourceIndex,
   playbackFailureMessage,
   SOURCES_REFUSED_MESSAGE,
   streamHost,
@@ -53,12 +54,30 @@ import {
   cueTextAt,
   decodeSubtitleBytes,
   maybeGunzip,
+  orderSubtitles,
   parseSubtitles,
   pickAutoSubtitle,
   type SubtitleCue,
 } from '../services/subtitles';
 import { SourcePickerModal } from '../components/CommonComponents';
 import { pushNotice, type PlayerNotice } from '../services/playerNotice';
+import {
+  autoNextCountdown,
+  creditsStartSec,
+  endPhaseAt,
+  endScreenActions,
+  episodeLabel,
+  fetchSkipData,
+  loadFollowingEpisodes,
+  type MediaChapter,
+  mergeEpisodes,
+  mergeSkipData,
+  nextEpisodeAfter,
+  runtimeMismatch,
+  segmentsFromChapters,
+  type SkipData,
+  skipPromptAt,
+} from '../services/episodeFlow';
 
 export interface PlayerSession {
   item: MediaItem;
@@ -131,6 +150,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const triedSourceIdsRef = useRef<Set<string>>(new Set());
   const failedHostsRef = useRef<Set<string>>(new Set());
   const lastFailureRefusedRef = useRef<boolean>(false);
+  // Wrong-content guard: sources whose duration was already checked against the TMDB runtime,
+  // and whether the current swap came from it (neutral "Buscando otra fuente…" status).
+  const runtimeCheckedIdsRef = useRef<Set<string>>(new Set());
+  const searchingOtherRef = useRef<boolean>(false);
   const compatOffsetRef = useRef<number>(0);
   const compatBaseUrlRef = useRef<string>('');
   const compatModeRef = useRef<'copy' | 'transcode'>('copy');
@@ -152,11 +175,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     session.offlineUrl
       ? 'Abriendo descarga local…'
       : session.chosen
-        ? `Conectando con ${session.chosen.addonName}…`
+        ? 'Cargando…'
         : 'Buscando la mejor fuente…',
   );
-  /** Secondary loading line ("0 directas · 499 torrents · esperando a Pelispedia"). */
-  const [statusDetail, setStatusDetail] = useState<string>('');
   /** True while the in-player search has not picked a source yet. */
   const awaitingPickRef = useRef<boolean>(!session.chosen && !session.offlineUrl);
   /** Plugins still answering (the source picker shows its loading state meanwhile). */
@@ -222,26 +243,37 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const [loadingSub, setLoadingSub] = useState<boolean>(false);
 
   const [nextCountdown, setNextCountdown] = useState<number | null>(null);
-  const nextDismissedRef = useRef<boolean>(false);
+  /** Seconds the current auto-next countdown started from (fills the button). */
+  const nextCountdownStartRef = useRef(1);
+  /** "Seguir viendo" on the next-episode card: no card, no auto-next for this episode. */
+  const [nextDismissed, setNextDismissed] = useState<boolean>(false);
   // Next episode whose source search was already started in the last 35 s (no torrent is started until played).
   const preloadingNextRef = useRef<string>('');
-  const [introSkipped, setIntroSkipped] = useState<boolean>(false);
+  /** Segments already skipped (or auto-skipped) in this episode: 'intro' / 'recap'. */
+  const [skippedKinds, setSkippedKinds] = useState<string[]>([]);
+  // Real intro/credits data: container chapters (probe) and the core's online lookup.
+  const [chapters, setChapters] = useState<MediaChapter[]>([]);
+  const [remoteSkip, setRemoteSkip] = useState<SkipData | null>(null);
+  const skipLookupRef = useRef<string>('');
+  // Episodes of the current/next season loaded here when the session's list ends (lazy seasons).
+  const [extraEpisodes, setExtraEpisodes] = useState<Episode[]>([]);
+  /** `ended` event of the <video>; cleared on play/seek. */
+  const [endedEvent, setEndedEvent] = useState<boolean>(false);
+  const endButtonsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const [subQuery, setSubQuery] = useState<string>('');
   const [subSearching, setSubSearching] = useState<boolean>(false);
   const subFileInputRef = useRef<HTMLInputElement>(null);
 
-  const { item, episode, allEpisodes, offlineUrl } = session;
+  const { item, episode, offlineUrl } = session;
+  const allEpisodes = useMemo(() => mergeEpisodes(session.allEpisodes, extraEpisodes), [extraEpisodes, session.allEpisodes]);
 
   const seasons = useMemo(
     () => Array.from(new Set(allEpisodes.map((e) => e.season))).sort((a, b) => a - b),
     [allEpisodes],
   );
 
-  const nextEpisode = useMemo(() => {
-    if (!episode || allEpisodes.length === 0) return null;
-    const idx = allEpisodes.findIndex((e) => e.season === episode.season && e.number === episode.number);
-    return idx >= 0 && idx + 1 < allEpisodes.length ? allEpisodes[idx + 1] : null;
-  }, [allEpisodes, episode]);
+  // By (season, number), so it also crosses into a lazily loaded next season.
+  const nextEpisode = useMemo(() => nextEpisodeAfter(allEpisodes, episode), [allEpisodes, episode]);
 
   const titleHeading = episode ? `${item.title} · T${episode.season} E${episode.number}` : item.title;
   const loadingArt = useMemo(() => resizedImageUrl(item.backdrop || item.poster, 1280), [item.backdrop, item.poster]);
@@ -256,10 +288,30 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     triedSourceIdsRef.current = new Set(session.chosen ? [session.chosen.id] : []);
     failedHostsRef.current = new Set();
     lastFailureRefusedRef.current = false;
-    nextDismissedRef.current = false;
+    setNextDismissed(false);
     setNextCountdown(null);
-    setIntroSkipped(false);
+    setSkippedKinds([]);
+    setChapters([]);
+    setRemoteSkip(null);
+    setEndedEvent(false);
+    skipLookupRef.current = '';
     preloadingNextRef.current = '';
+  }, [session]);
+
+  // The player's episode list ends here (seasons load lazily in the detail): fetch the rest of
+  // this season and the next one so "Siguiente episodio" also crosses a season boundary.
+  useEffect(() => {
+    setExtraEpisodes([]);
+    const cur = session.episode;
+    if (!cur || session.item.id.startsWith('local:')) return;
+    if (nextEpisodeAfter(session.allEpisodes, cur)) return;
+    let alive = true;
+    void loadFollowingEpisodes(session.item, cur).then((eps) => {
+      if (alive && eps.length > 0) setExtraEpisodes(eps);
+    });
+    return () => {
+      alive = false;
+    };
   }, [session]);
 
   // In-player source search: Stremio + JS plugins arrive progressively, the auto-pick waits a
@@ -295,13 +347,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       const prog = describeSearch(st, sourcePrefsRef.current, isEpisode, Date.now(), capable, ranked);
       if (!prog.ready) {
         setStatusMsg(prog.status);
-        setStatusDetail(prog.detail);
         return;
       }
       awaitingPickRef.current = false;
       if (timer) clearInterval(timer);
       timer = null;
-      setStatusDetail('');
       const best = prog.ranked[0];
       if (!best) {
         const why = st.failures.slice(0, 2).map((f) => f.message).join(' · ');
@@ -312,7 +362,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       setRankedSources(prog.ranked);
       sourceIndexRef.current = 0;
       triedSourceIdsRef.current = new Set([best.id]);
-      setStatusMsg(`Conectando con ${best.addonName}…`);
+      setStatusMsg('Cargando…');
       setActiveSource(best);
     };
 
@@ -467,37 +517,55 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   );
 
   // Fetch external subtitles without clobbering a subtitle the user already activated.
+  // Plugin subtitles (OpenSubtitles) arrive first, SubDL (through the core) right after.
   useEffect(() => {
-    if (item.id.startsWith('local:') || !subPluginsKey) return;
+    if (item.id.startsWith('local:')) return;
     let alive = true;
-    void fetchExternalSubtitles(item, episode, pluginsRef.current)
-      .then(async (subs) => {
-        if (!alive || subs.length === 0) return;
-        const proxied = await desktopApi
-          .service<{ subtitles?: Array<{ lang: string; url: string | null } | null> }>('proxySubtitles', {
-            subtitles: subs.map((s) => ({ lang: s.lang, url: s.url })),
-            allowLan: false,
-          })
-          .catch(() => null);
-        if (!alive) return;
-        const mapped: ExternalSubtitle[] = subs.map((s, idx) => ({
-          ...s,
-          url: proxied?.subtitles?.[idx]?.url || s.url,
-          directUrl: s.url,
-        }));
-        setExtSubs((prev) => {
-          const seen = new Set(prev.map((x) => x.id));
-          return [...prev, ...mapped.filter((x) => !seen.has(x.id))];
-        });
+    const added = new Set<string>();
+    const apply = async (all: ExternalSubtitle[]) => {
+      const subs = all.filter((s) => !added.has(s.id));
+      if (!alive || subs.length === 0) return;
+      subs.forEach((s) => added.add(s.id));
+      // SubDL files are already served by the local core: only remote URLs go through the proxy.
+      const remote = subs.filter((s) => s.origin !== 'subdl');
+      const proxied =
+        remote.length > 0
+          ? await desktopApi
+              .service<{ subtitles?: Array<{ lang: string; url: string | null } | null> }>('proxySubtitles', {
+                subtitles: remote.map((s) => ({ lang: s.lang, url: s.url })),
+                allowLan: false,
+              })
+              .catch(() => null)
+          : null;
+      if (!alive) return;
+      const proxiedUrl = new Map(remote.map((s, idx) => [s.id, proxied?.subtitles?.[idx]?.url || s.url]));
+      const mapped: ExternalSubtitle[] = subs.map((s) => ({
+        ...s,
+        url: proxiedUrl.get(s.id) || s.url,
+        directUrl: s.url,
+      }));
+      setExtSubs((prev) => {
+        const seen = new Set(prev.map((x) => x.id));
+        return [...prev, ...mapped.filter((x) => !seen.has(x.id))];
+      });
 
-        // Auto-select only when the user has no active subtitle selection.
-        if (activeSubIdRef.current === 'off' && playbackPrefsRef.current.subtitlesEnabled) {
-          const seeded = session.initialSubtitles || [];
-          if (seeded.length === 0) {
-            const autoSub = pickAutoSubtitle(mapped, playbackPrefsRef.current.preferredSubLang);
-            if (autoSub && alive) void selectSubtitle(autoSub);
-          }
+      // Auto-select only when the user has no active subtitle selection.
+      if (activeSubIdRef.current === 'off' && playbackPrefsRef.current.subtitlesEnabled) {
+        const seeded = session.initialSubtitles || [];
+        if (seeded.length === 0) {
+          const autoSub = pickAutoSubtitle(orderSubtitles(mapped), playbackPrefsRef.current.preferredSubLang);
+          if (autoSub && alive) void selectSubtitle(autoSub);
         }
+      }
+    };
+    // Sequential: the final list only adds what the partial one did not have.
+    let chain = Promise.resolve();
+    void fetchExternalSubtitles(item, episode, pluginsRef.current, (partial) => {
+      chain = chain.then(() => apply(partial));
+    })
+      .then((subs) => {
+        chain = chain.then(() => apply(subs));
+        return chain;
       })
       .catch(() => {});
     return () => {
@@ -533,6 +601,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     if (!p) {
       p = desktopApi.service<MediaProbeResponse>('mediaProbe', { url, headers, allowLan: allowLanRef.current }).catch(() => null);
       probeCacheRef.current.set(url, p);
+      // Container chapters ("Opening", "Ending"...) give exact intro/credits for this file.
+      void p.then((r) => {
+        if (unmountedRef.current || url !== rawStreamUrlRef.current) return;
+        setChapters(Array.isArray(r?.chapters) ? r.chapters.slice(0, 256) : []);
+      });
       // A failed probe may be retried later (e.g. after a proxy fallback).
       void p.then((r) => {
         if (!r) probeCacheRef.current.delete(url);
@@ -619,6 +692,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     setCompatBadge('');
     setCompatActive(false);
     setProbedDuration(0);
+    // The <video> duration belongs to the previous source until the new one reports its own.
+    setDuration(0);
     setAudioTracks([]);
     setActiveAudioIdx(0);
     setEmbeddedSubs([]);
@@ -641,7 +716,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         }
 
         if (src.infoHash && !src.url) {
-          setStatusMsg(`Conectando con ${src.addonName}…`);
+          setStatusMsg(searchingOtherRef.current ? 'Buscando otra fuente…' : 'Cargando…');
           const alts = torrentRaceAlternatives(src, rankedSources, 3).map((a) => ({
             infoHash: a.infoHash,
             fileIdx: a.fileIdx,
@@ -673,7 +748,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             return;
           }
         } else {
-          setStatusMsg(`Conectando con ${src.addonName}…`);
+          setStatusMsg(searchingOtherRef.current ? 'Buscando otra fuente…' : 'Cargando…');
           const hasHeaders = Object.keys(src.headers || {}).length > 0;
           const allowLan = Boolean(src.isJsPlugin && plugins.find((p) => p.id === src.addonId)?.allowLan);
           // Cheap 2-byte check: free file hosts often answer 403/429 (expired link or rate
@@ -1021,6 +1096,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const playNextEpisode = useCallback(() => {
     if (!nextEpisode) return;
     setNextCountdown(null);
+    setEndedEvent(false);
     // The next player instance reuses the search preloaded in the last 35 s (if any).
     onSwitchSession({ item, episode: nextEpisode, allEpisodes, chosen: null, ranked: [] });
   }, [allEpisodes, item, nextEpisode, onSwitchSession]);
@@ -1030,6 +1106,42 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     if (Number.isFinite(duration) && duration > 0) return duration;
     return 0;
   }, [duration, probedDuration]);
+
+  // Wrong-content guard: a direct link whose real duration is far from the episode's TMDB
+  // runtime is another version/show (e.g. a remake matched by its Spanish title). Checked once
+  // per source; never for torrents (extended cuts), movies, local files or offline downloads.
+  useEffect(() => {
+    const src = activeSource;
+    const runtimeMin = episode?.runtimeMin || 0;
+    if (!src || !episode || runtimeMin <= 0 || offlineUrl || item.id.startsWith('local:')) return;
+    if (!src.url) return; // torrent (no direct link)
+    if (!resolvedUrl || runtimeCheckedIdsRef.current.has(src.id)) return;
+    // In compat mode the <video> element only sees an FFmpeg segment: trust the probe only.
+    const dur = probedDuration > 0 ? probedDuration : compatActive ? 0 : duration;
+    if (!Number.isFinite(dur) || dur <= 0) return;
+    runtimeCheckedIdsRef.current.add(src.id);
+    if (!runtimeMismatch(dur, runtimeMin)) return;
+    triedSourceIdsRef.current.add(src.id);
+    const nextIdx = pickSameLanguageSourceIndex(rankedSources, src, triedSourceIdsRef.current, failedHostsRef.current);
+    if (nextIdx < 0) {
+      console.info(
+        `[player] ${src.addonName || src.provider}: duración ${Math.round(dur)} s vs ${runtimeMin} min (TMDB); sin otra fuente, se mantiene`,
+      );
+      return;
+    }
+    const next = rankedSources[nextIdx];
+    console.info(
+      `[player] ${src.addonName || src.provider}: duración ${Math.round(dur)} s vs ${runtimeMin} min (TMDB), parece otra versión; probando ${next.addonName || next.provider}`,
+    );
+    triedSourceIdsRef.current.add(next.id);
+    sourceIndexRef.current = nextIdx;
+    searchingOtherRef.current = true;
+    mediaErrorCodeRef.current = null;
+    videoRef.current?.pause();
+    setStatusMsg('Buscando otra fuente…');
+    setLoading(true);
+    setActiveSource(next);
+  }, [activeSource, compatActive, duration, episode, item.id, offlineUrl, probedDuration, rankedSources, resolvedUrl]);
 
   // Start the next episode's source search once during the last 35 s (no torrent is started).
   useEffect(() => {
@@ -1041,7 +1153,47 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTime >= effectiveDuration - 35, nextEpisode?.id, effectiveDuration > 120]);
 
-  const showIntroSkip = Boolean(episode) && !introSkipped && currentTime >= 15 && currentTime <= 240 && effectiveDuration > 600;
+  // Online intro/credits timestamps once the duration is known (AniSkip / IntroDB / TheIntroDB via the core).
+  const durationKnown = effectiveDuration > 0;
+  useEffect(() => {
+    if (!episode || !durationKnown || item.id.startsWith('local:')) return;
+    const key = `${item.id}|${episode.id}`;
+    if (skipLookupRef.current === key) return;
+    skipLookupRef.current = key;
+    let alive = true;
+    let settled = false;
+    void fetchSkipData(item, episode, effectiveDuration).then((d) => {
+      settled = true;
+      if (alive && d) setRemoteSkip(d);
+    });
+    return () => {
+      alive = false;
+      // A source swap resets the duration while the lookup is in flight: allow it to run again
+      // (the per-episode cache answers instantly) instead of dropping the result for good.
+      if (!settled && skipLookupRef.current === key) skipLookupRef.current = '';
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [durationKnown, episode, item]);
+
+  const skipData = useMemo(
+    () => mergeSkipData(segmentsFromChapters(chapters, effectiveDuration), remoteSkip),
+    [chapters, effectiveDuration, remoteSkip],
+  );
+  const creditsStart = episode ? creditsStartSec(effectiveDuration, skipData) : null;
+  // The credits time came from real data (chapters / skip databases), not the end-of-file guess.
+  const realCredits = creditsStart !== null && skipData?.credits != null && creditsStart === skipData.credits.start;
+  const endPhase =
+    episode && (started || Boolean(offlineUrl)) ? endPhaseAt(currentTime, effectiveDuration, creditsStart, endedEvent) : 'playing';
+  const showNextCard = Boolean(nextEpisode) && endPhase === 'credits' && !nextDismissed && !errorMsg;
+  const showEndScreen = endPhase === 'ended' && !errorMsg;
+  const endActions = useMemo(() => endScreenActions(Boolean(nextEpisode)), [nextEpisode]);
+  const rawSkipPrompt = episode ? skipPromptAt(currentTime, effectiveDuration, skipData, false) : null;
+  const skipPrompt =
+    rawSkipPrompt && !skippedKinds.includes(rawSkipPrompt.kind) && endPhase === 'playing' ? rawSkipPrompt : null;
+  const nextStill = useMemo(
+    () => (nextEpisode?.thumbnail ? resizedImageUrl(nextEpisode.thumbnail, 480) : ''),
+    [nextEpisode?.thumbnail],
+  );
 
   // Manual subtitle search (SubtitleCat via Rust) — runs only when the user presses "Buscar".
   const searchMoreSubtitles = useCallback(async () => {
@@ -1074,6 +1226,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         lang: s.lang || 'es',
         label: (s.lang || '').toLowerCase().startsWith('es') ? 'Español' : (s.lang || '').toLowerCase().startsWith('en') ? 'Inglés' : s.lang || 'Subtítulo',
         source: 'Búsqueda manual',
+        origin: 'subtitlecat',
       }));
       setExtSubs((prev) => {
         const seen = new Set(prev.map((x) => x.url));
@@ -1114,13 +1267,37 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     [notify],
   );
 
+  // Auto-next: a short countdown starts when the "Siguiente episodio" button appears at REAL
+  // credits; seeking back (or Esc) cancels it. Without real credits data the button shows with no
+  // countdown, so the actual ending is never cut — auto-next then happens at the real end.
   useEffect(() => {
-    if (!nextEpisode || !playbackPrefs.autoNextEpisode || nextDismissedRef.current || effectiveDuration < 60 || currentTime <= 0) {
+    if (!showNextCard || !playbackPrefs.autoNextEpisode || !realCredits) {
+      if (nextCountdown !== null) setNextCountdown(null);
       return;
     }
-    const remaining = effectiveDuration - currentTime;
-    if (remaining <= 15 && remaining > 0 && nextCountdown === null) setNextCountdown(5);
-  }, [currentTime, effectiveDuration, nextCountdown, nextEpisode, playbackPrefs.autoNextEpisode]);
+    if (nextCountdown === null) {
+      const secs = autoNextCountdown(effectiveDuration - currentTime);
+      nextCountdownStartRef.current = secs;
+      setNextCountdown(secs);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showNextCard, playbackPrefs.autoNextEpisode, realCredits]);
+
+  // Reaching the end with auto-next on (and not dismissed) goes straight to the next episode;
+  // otherwise the end screen stays over the last frame (never a silent exit).
+  const reachedEnd = endPhase === 'ended';
+  useEffect(() => {
+    if (!reachedEnd || !nextEpisode || !playbackPrefs.autoNextEpisode || nextDismissed) return;
+    playNextEpisode();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reachedEnd]);
+
+  // The end screen focuses its primary button.
+  useEffect(() => {
+    if (!showEndScreen) return;
+    const t = setTimeout(() => endButtonsRef.current[0]?.focus(), 30);
+    return () => clearTimeout(t);
+  }, [showEndScreen]);
 
   // Probe duration for sources where HTML5 reports unknown/Infinity (common in torrents/MKV).
   useEffect(() => {
@@ -1178,9 +1355,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       void playNextEpisode();
       return;
     }
+    // Paused = the countdown waits too.
+    if (!playing) return;
     const t = setTimeout(() => setNextCountdown((c) => (c !== null ? c - 1 : null)), 1000);
     return () => clearTimeout(t);
-  }, [nextCountdown, playNextEpisode]);
+  }, [nextCountdown, playNextEpisode, playing]);
 
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
@@ -1221,6 +1400,44 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     [currentTime, seekTo],
   );
 
+  const skipSegment = useCallback(
+    (kind: string, target: number) => {
+      setSkippedKinds((k) => (k.includes(kind) ? k : [...k, kind]));
+      seekTo(target);
+    },
+    [seekTo],
+  );
+
+  // Exact intro timestamps + "Omitir intro automáticamente" (off by default): skip once per episode.
+  useEffect(() => {
+    if (!playbackPrefs.autoSkipIntro || !skipPrompt || !skipPrompt.exact || skipPrompt.kind !== 'intro') return;
+    skipSegment('intro', skipPrompt.target);
+    notify('Intro omitida');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skipPrompt?.kind, skipPrompt?.exact, playbackPrefs.autoSkipIntro]);
+
+  const dismissNextCard = useCallback(() => {
+    setNextDismissed(true);
+    setNextCountdown(null);
+  }, []);
+
+  const replayEpisode = useCallback(() => {
+    setEndedEvent(false);
+    setNextDismissed(false);
+    setSkippedKinds([]);
+    seekTo(0);
+    videoRef.current?.play().catch(() => {});
+  }, [seekTo]);
+
+  const runEndAction = useCallback(
+    (a: 'next' | 'exit' | 'replay') => {
+      if (a === 'next') playNextEpisode();
+      else if (a === 'replay') replayEpisode();
+      else onExit();
+    },
+    [onExit, playNextEpisode, replayEpisode],
+  );
+
   const selectAudioTrack = useCallback(
     async (idx: number) => {
       setAudioOpen(false);
@@ -1259,6 +1476,39 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // End screen: arrows move between its buttons, Enter/Space press the focused one, Esc = Salir.
+      if (showEndScreen && !sourcesOpen) {
+        const btns = endButtonsRef.current.filter((b): b is HTMLButtonElement => Boolean(b));
+        const idx = btns.findIndex((b) => b === document.activeElement);
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Tab') {
+          e.preventDefault();
+          const dir = e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey) ? -1 : 1;
+          btns[(Math.max(0, idx) + dir + btns.length) % btns.length]?.focus();
+        } else if (e.key === 'Enter' && idx < 0) {
+          e.preventDefault();
+          btns[0]?.click();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          onExit();
+        } else if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          onToggleFullscreen();
+        }
+        return;
+      }
+      // Next-episode card: Enter plays it, Esc dismisses it and keeps watching.
+      if (showNextCard && !sourcesOpen && !subsOpen && !audioOpen && !episodesOpen) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          playNextEpisode();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          dismissNextCard();
+          return;
+        }
+      }
       if (e.key === ' ' || e.key === 'k' || e.key === 'K') {
         e.preventDefault();
         togglePlay();
@@ -1305,14 +1555,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [applyVolume, audioOpen, episodesOpen, isFullscreen, onExit, onToggleFullscreen, seekBy, sourcesOpen, subsOpen, toggleMute, togglePiP, togglePlay, volume, wakeHud]);
+  }, [applyVolume, audioOpen, dismissNextCard, episodesOpen, isFullscreen, onExit, onToggleFullscreen, playNextEpisode, seekBy, showEndScreen, showNextCard, sourcesOpen, subsOpen, toggleMute, togglePiP, togglePlay, volume, wakeHud]);
 
   const activeCueText = useMemo(() => {
     if (activeSubId === 'off' || subCues.length === 0) return '';
     return cueTextAt(subCues, currentTime - playbackPrefs.subtitleStyle.delayMs / 1000);
   }, [activeSubId, currentTime, playbackPrefs.subtitleStyle.delayMs, subCues]);
 
-  const allSubs = useMemo(() => [...embeddedSubs, ...extSubs], [embeddedSubs, extSubs]);
+  // Embedded first, then OpenSubtitles, SubDL and SubtitleCat (Latin-American Spanish first in each).
+  const allSubs = useMemo(() => orderSubtitles([...embeddedSubs, ...extSubs]), [embeddedSubs, extSubs]);
 
   const progressPct = effectiveDuration > 0 ? Math.min(100, (currentTime / effectiveDuration) * 100) : 0;
   const bufferedPct = effectiveDuration > 0 ? Math.min(100, (bufferedEnd / effectiveDuration) * 100) : 0;
@@ -1343,9 +1594,18 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         onDoubleClick={onToggleFullscreen}
         onPlay={() => {
           setPlaying(true);
+          setEndedEvent(false);
           wakeHud();
         }}
+        onSeeking={() => setEndedEvent(false)}
+        onEnded={() => {
+          // Compat (FFmpeg) streams end per segment too: only the real end of the episode counts.
+          const v = videoRef.current;
+          const pos = (compatActive ? compatOffsetRef.current : 0) + (v?.currentTime || 0);
+          if (effectiveDuration <= 0 || pos >= effectiveDuration - 5) setEndedEvent(true);
+        }}
         onPlaying={() => {
+          searchingOtherRef.current = false;
           setStarted(true);
           setLoading(false);
         }}
@@ -1425,7 +1685,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                 className="mt-5 h-10 w-10 animate-spin rounded-full border-[3px] border-white/20"
               />
               <div className="mt-2 text-[15px] font-semibold text-white">{statusMsg}</div>
-              {statusDetail && <div className="max-w-2xl text-[12.5px] text-white/55">{statusDetail}</div>}
             </div>
           )}
           {!errorMsg && (
@@ -1476,50 +1735,81 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         </div>
       )}
 
-      {/* "Omitir intro" pill (+85 s) for series/anime episodes */}
-      {showIntroSkip && nextCountdown === null && (
+      {/* "Omitir intro" / "Omitir resumen": only with real timestamps */}
+      {skipPrompt && !showEndScreen && (
         <button
           type="button"
-          onClick={() => {
-            setIntroSkipped(true);
-            seekBy(85);
-          }}
-          className="ot-fade-up absolute right-10 bottom-32 z-30 flex h-11 items-center gap-2 rounded-xl border border-white/25 bg-[#0e0e11]/80 px-5 text-[14px] font-bold text-white shadow-2xl hover:bg-white hover:text-[#0e0e11] cursor-pointer"
+          onClick={() => skipSegment(skipPrompt.kind, skipPrompt.target)}
+          className={`ot-fade-up absolute right-10 z-30 flex h-11 items-center gap-2 rounded-xl border border-white/25 bg-[#0e0e11]/80 px-5 text-[14px] font-bold text-white shadow-2xl transition-[bottom] hover:bg-white hover:text-[#0e0e11] cursor-pointer ${
+            showHud ? 'bottom-36' : 'bottom-12'
+          }`}
         >
           <SkipForward className="h-4 w-4" />
-          <span>Omitir intro</span>
+          <span>{skipPrompt.label}</span>
         </button>
       )}
 
-      {/* Auto-next Episode Prompt (`04-en-vivo-ajustes-posteres.css:322`) */}
-      {nextCountdown !== null && nextEpisode && (
-        <div className="ot-fade-up absolute right-10 bottom-32 z-30 w-[390px] rounded-[22px] border border-white/14 bg-[#0e0e11]/86 p-5 shadow-[0_30px_80px_rgba(0,0,0,0.65)] backdrop-blur-xl">
-          <div className="text-[11.5px] font-bold tracking-[0.14em] text-white/55 uppercase">
-            Siguiente episodio en {nextCountdown} s
-          </div>
-          <div className="mt-1.5 line-clamp-2 font-display text-[19px] font-semibold text-white">
-            T{nextEpisode.season}·E{nextEpisode.number} · {nextEpisode.title}
-          </div>
-          <div className="mt-3.5 flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => void playNextEpisode()}
-              style={{ backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' }}
-              className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl text-[14px] font-bold cursor-pointer"
-            >
-              <Play className="h-4 w-4 fill-current" />
-              <span>Reproducir ahora</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                nextDismissedRef.current = true;
-                setNextCountdown(null);
-              }}
-              className="h-10 rounded-xl border border-white/16 bg-white/[0.08] px-4 text-[13.5px] font-semibold text-white/85 hover:bg-white/15 cursor-pointer"
-            >
-              Cancelar
-            </button>
+      {/* "Siguiente episodio" at the credits: one pill like "Omitir intro" (Enter = play it,
+          Esc = keep watching); with auto-next its fill shows the countdown. */}
+      {showNextCard && nextEpisode && !showEndScreen && (
+        <button
+          type="button"
+          onClick={() => playNextEpisode()}
+          className={`ot-fade-up absolute right-10 z-30 flex h-11 items-center gap-2 overflow-hidden rounded-xl border border-white/25 bg-[#0e0e11]/80 px-5 text-[14px] font-bold text-white shadow-2xl transition-[bottom] hover:bg-white hover:text-[#0e0e11] cursor-pointer ${
+            showHud ? 'bottom-36' : 'bottom-12'
+          }`}
+        >
+          {nextCountdown !== null && (
+            <span
+              aria-hidden="true"
+              style={{ width: `${Math.round((1 - nextCountdown / Math.max(1, nextCountdownStartRef.current)) * 100)}%` }}
+              className="absolute inset-y-0 left-0 bg-white/20 transition-[width] duration-1000 ease-linear"
+            />
+          )}
+          <SkipForward className="relative h-4 w-4 fill-current" />
+          <span className="relative">Siguiente episodio</span>
+        </button>
+      )}
+
+      {/* End screen over the last frame: next episode / exit / watch again (never a silent exit) */}
+      {showEndScreen && (
+        <div className="ot-fade-up absolute inset-0 z-40 flex items-end bg-gradient-to-t from-black/95 via-black/70 to-black/35 px-14 pb-16">
+          <div className="flex w-full max-w-5xl items-end gap-8">
+            {nextEpisode && nextStill && (
+              <img src={nextStill} alt="" className="hidden aspect-video w-[340px] shrink-0 rounded-2xl border border-white/12 object-cover shadow-2xl md:block" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-bold tracking-[0.16em] text-white/55 uppercase">
+                {nextEpisode ? 'Siguiente episodio' : 'Has llegado al final'}
+              </div>
+              <div className="mt-2 line-clamp-2 font-display text-[30px] leading-tight font-extrabold text-white">
+                {nextEpisode ? episodeLabel(nextEpisode) : item.title}
+              </div>
+              {!nextEpisode && episode && (
+                <div className="mt-1 text-[14px] text-white/65">{`Último episodio disponible · ${episodeLabel(episode)}`}</div>
+              )}
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                {endActions.map((a, i) => (
+                  <button
+                    key={a}
+                    ref={(el) => {
+                      endButtonsRef.current[i] = el;
+                    }}
+                    type="button"
+                    onClick={() => runEndAction(a)}
+                    style={i === 0 ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined}
+                    className={`flex h-12 items-center gap-2 rounded-xl px-6 text-[15px] font-bold outline-none focus-visible:ring-4 focus-visible:ring-white/70 cursor-pointer ${
+                      i === 0 ? 'focus:ring-4 focus:ring-white/70' : 'border border-white/20 bg-white/[0.08] text-white hover:bg-white/15 focus:bg-white focus:text-[#0e0e11]'
+                    }`}
+                  >
+                    {a === 'next' && <SkipForward className="h-5 w-5 fill-current" />}
+                    {a === 'replay' && <RotateCcw className="h-5 w-5" />}
+                    {a === 'exit' && <ArrowLeft className="h-5 w-5" />}
+                    <span>{a === 'next' ? 'Siguiente episodio' : a === 'replay' ? 'Volver a ver' : 'Salir'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -2021,7 +2311,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           loading={searchPending}
           onSelect={(src) => {
             setSourcesOpen(false);
-            if (src.id !== activeSource?.id) notify(`Cambiando a ${src.addonName}…`);
+            if (src.id !== activeSource?.id) notify('Cambiando de fuente…');
             awaitingPickRef.current = false;
             setErrorMsg('');
             setLoading(true);

@@ -3,8 +3,6 @@ import Hls from 'hls.js';
 import {
   ArrowLeft,
   CalendarClock,
-  Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -25,14 +23,25 @@ import {
 } from 'lucide-react';
 import type { EpgNowNext, EpgProgram, LiveChannel, M3uPlaylist } from '../types/models';
 import {
+  epgKeyOf,
   loadChannelSchedule12h,
   loadEpgNowNext,
   loadLiveChannels,
+  loadSupplementNowNext,
+  nowNextFromSchedule,
   peekEpgNowNext,
   peekLiveChannels,
   resolveLiveStream,
 } from '../services/liveTv';
+import {
+  buildProgrammeCards,
+  channelMonogram,
+  fmtHour,
+  isPlaceholderGuide,
+  programmeProgress,
+} from '../services/liveSchedule';
 import { resizedImageUrl } from '../services/tauri';
+import { LiveSelect, type LiveSelectOption } from '../components/LiveSelect';
 
 interface LiveTvScreenProps {
   playlists: M3uPlaylist[];
@@ -46,23 +55,20 @@ interface LiveTvScreenProps {
   onToast: (msg: string) => void;
 }
 
-function fmtHour(ms: number): string {
-  if (!ms) return '';
-  return new Date(ms).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false });
+function programProgress(p: EpgProgram | undefined): number {
+  return programmeProgress(p, Date.now());
 }
 
-function programProgress(p: EpgProgram | undefined): number {
-  if (!p || !p.startMs || !p.endMs || p.endMs <= p.startMs) return 0;
-  return Math.max(0, Math.min(100, ((Date.now() - p.startMs) / (p.endMs - p.startMs)) * 100));
-}
+const SCHEDULE_TTL_MS = 10 * 60_000;
+const ALL_PLAYLISTS = 'all';
+const NO_PROGRAMMES: EpgProgram[] = [];
 
 /**
- * Exact 1:1 replica of OpenTV v1 Live TV Design "3A" (`home/live-page.js` + `11-fuentes-stremio.css:512-774`)
- * AND full "Guía de canales" modal (`docs/screenshots/guia.jpg`):
- * - LEFT column: Search box + Category Dropdown + clean logo+name channel rows
- * - RIGHT stage: 16:9 rounded video card with red `EN VIVO` pill (no controls covering picture)
- *   + single bottom row (`live-bar3a`): Channel logo/name/EPG on left + round controls on right
- * - Fullscreen mode (`pi-v2`): red `En directo` live line + 3-group bottom bar + slide-in channels drawer.
+ * Live TV, design "C":
+ * - LEFT: 16:9 player (max 540 px tall, red `EN VIVO` pill) and, under it, the current channel's
+ *   header with the playback controls plus today's programme cards (AHORA · DESPUÉS · next two).
+ * - RIGHT: channel panel (playlist/category selects, search, numbered channel rows with `VIENDO`).
+ * - Fullscreen: the same player fills the screen with the `pi-v2` HUD and slide-in channel drawer.
  */
 export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
   playlists,
@@ -81,6 +87,9 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
   const retryCountRef = useRef<number>(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fsHudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const scheduleCacheRef = useRef(new Map<string, { at: number; items: EpgProgram[] }>());
+  const scheduleReqRef = useRef<string>('');
 
   // Seed from the in-memory cache so re-entering the tab renders instantly.
   const [channels, setChannels] = useState<LiveChannel[]>(() => peekLiveChannels(playlists)?.channels || []);
@@ -95,8 +104,8 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
   const [paused, setPaused] = useState<boolean>(false);
   const [reloadNonce, setReloadNonce] = useState<number>(0);
 
+  const [selectedPlaylist, setSelectedPlaylist] = useState<string>(ALL_PLAYLISTS);
   const [selectedGroup, setSelectedGroup] = useState<string>('Todos');
-  const [catMenuOpen, setCatMenuOpen] = useState<boolean>(false);
   const [query, setQuery] = useState<string>('');
   const [volume, setVolume] = useState<number>(0.85);
   const [muted, setMuted] = useState<boolean>(false);
@@ -108,6 +117,9 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
   const [scheduleOpen, setScheduleOpen] = useState<boolean>(false);
   const [scheduleItems, setScheduleItems] = useState<EpgProgram[]>([]);
   const [loadingSchedule, setLoadingSchedule] = useState<boolean>(false);
+  // Today's schedule of the playing channel (programme cards under the player).
+  const [channelSchedule, setChannelSchedule] = useState<{ url: string; items: EpgProgram[] } | null>(null);
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   const [fsDrawerOpen, setFsDrawerOpen] = useState<boolean>(false);
   const [fsHudVisible, setFsHudVisible] = useState<boolean>(true);
@@ -128,7 +140,11 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
       }
       if (epgUrls.length > 0 && list.length > 0) {
         const epg = await loadEpgNowNext(epgUrls, list, force);
-        if (alive) setEpgMap(epg);
+        if (!alive) return;
+        setEpgMap(epg);
+        // Placeholder-only guides ("Azteca UNO -1" every hour) get the supplementary guide.
+        const patch = await loadSupplementNowNext(list, epg).catch(() => ({}));
+        if (alive && Object.keys(patch).length > 0) setEpgMap((m) => ({ ...m, ...patch }));
       }
     });
     return () => {
@@ -136,12 +152,61 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
     };
   }, [playlists, listReloadNonce]);
 
+  // Keeps the "AHORA" progress bar and the card roll-over current.
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => {
+      clearInterval(id);
+      // The fullscreen HUD auto-hide timer must not outlive the screen.
+      if (fsHudTimerRef.current) clearTimeout(fsHudTimerRef.current);
+    };
+  }, []);
+
+  // Load (debounced, cached) the schedule of the playing channel for the programme cards.
+  useEffect(() => {
+    if (!activeChannel) return;
+    const ch = activeChannel;
+    const hit = scheduleCacheRef.current.get(ch.url);
+    if (hit && Date.now() - hit.at < SCHEDULE_TTL_MS) {
+      setChannelSchedule({ url: ch.url, items: hit.items });
+      return;
+    }
+    let alive = true;
+    const timer = setTimeout(() => {
+      loadChannelSchedule12h(ch)
+        .then((items) => {
+          scheduleCacheRef.current.set(ch.url, { at: Date.now(), items });
+          if (!alive) return;
+          setChannelSchedule({ url: ch.url, items });
+          // Without its own (real) now/next, the channel row shows the schedule's (supplementary) one.
+          const pair = nowNextFromSchedule(items);
+          if (pair) {
+            const key = epgKeyOf(ch);
+            setEpgMap((m) => {
+              const own = m[key];
+              const names = [ch.name, ch.tvgName].filter(Boolean);
+              if (own && !isPlaceholderGuide(names, [own.now, own.next])) return m;
+              if (own && isPlaceholderGuide(names, [pair.now, pair.next])) return m;
+              return { ...m, [key]: pair };
+            });
+          }
+        })
+        .catch(() => {
+          if (alive) setChannelSchedule({ url: ch.url, items: [] });
+        });
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [activeChannel]);
+
   const epgFor = useCallback(
     (ch: LiveChannel | null): EpgNowNext | undefined => {
       if (!ch) return undefined;
       const k1 = ch.tvgId.toLowerCase();
       const k2 = ch.tvgName.toLowerCase();
-      return (k1 && epgMap[k1]) || (k2 && epgMap[k2]) || undefined;
+      return (k1 && epgMap[k1]) || (k2 && epgMap[k2]) || epgMap[`url:${ch.url.toLowerCase()}`] || undefined;
     },
     [epgMap],
   );
@@ -248,21 +313,64 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
     v.muted = muted;
   }, [volume, muted]);
 
-  const m3uGroups = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of channels) set.add(c.group);
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [channels]);
+  // Playlist scope: only offered when more than one list is enabled.
+  const enabledPlaylists = useMemo(() => playlists.filter((p) => p.enabled && p.url), [playlists]);
+  const playlistScope = enabledPlaylists.length > 1 && enabledPlaylists.some((p) => p.id === selectedPlaylist)
+    ? selectedPlaylist
+    : ALL_PLAYLISTS;
+
+  const scopedChannels = useMemo(
+    () => (playlistScope === ALL_PLAYLISTS ? channels : channels.filter((c) => c.playlistId === playlistScope)),
+    [channels, playlistScope],
+  );
+  const scopedRecents = useMemo(
+    () => (playlistScope === ALL_PLAYLISTS ? recentChannels : recentChannels.filter((c) => c.playlistId === playlistScope)),
+    [playlistScope, recentChannels],
+  );
+
+  const groupCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of scopedChannels) counts.set(c.group, (counts.get(c.group) || 0) + 1);
+    return counts;
+  }, [scopedChannels]);
+
+  const m3uGroups = useMemo(
+    () => Array.from(groupCounts.keys()).sort((a, b) => a.localeCompare(b, 'es')),
+    [groupCounts],
+  );
 
   const allGroups = useMemo(() => ['Todos', 'Favoritos', 'Recientes', ...m3uGroups], [m3uGroups]);
+  const groupScope = allGroups.includes(selectedGroup) ? selectedGroup : 'Todos';
+
+  const groupOptions = useMemo<LiveSelectOption[]>(
+    () => [
+      { value: 'Todos', label: 'Todos', count: scopedChannels.length },
+      { value: 'Favoritos', label: 'Favoritos', count: scopedChannels.filter((c) => favoriteUrls.includes(c.url)).length },
+      { value: 'Recientes', label: 'Recientes', count: scopedRecents.length },
+      ...m3uGroups.map((g) => ({ value: g, label: g, count: groupCounts.get(g) || 0 })),
+    ],
+    [favoriteUrls, groupCounts, m3uGroups, scopedChannels, scopedRecents.length],
+  );
+
+  const playlistOptions = useMemo<LiveSelectOption[] | null>(() => {
+    if (enabledPlaylists.length < 2) return null;
+    return [
+      { value: ALL_PLAYLISTS, label: 'Todas las listas', count: channels.length },
+      ...enabledPlaylists.map((p) => ({
+        value: p.id,
+        label: p.name || 'Lista M3U',
+        count: channels.filter((c) => c.playlistId === p.id).length,
+      })),
+    ];
+  }, [channels, enabledPlaylists]);
 
   const filterList = useCallback(
     (grp: string, q: string) => {
       const ql = q.trim().toLowerCase();
-      let base = channels;
-      if (grp === 'Favoritos') base = channels.filter((c) => favoriteUrls.includes(c.url));
-      else if (grp === 'Recientes') base = recentChannels;
-      else if (grp !== 'Todos') base = channels.filter((c) => c.group === grp);
+      let base = scopedChannels;
+      if (grp === 'Favoritos') base = scopedChannels.filter((c) => favoriteUrls.includes(c.url));
+      else if (grp === 'Recientes') base = scopedRecents;
+      else if (grp !== 'Todos') base = scopedChannels.filter((c) => c.group === grp);
       if (!ql) return base;
       return base.filter(
         (c) =>
@@ -271,11 +379,25 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
           Boolean(epgFor(c)?.now?.title?.toLowerCase().includes(ql)),
       );
     },
-    [channels, epgFor, favoriteUrls, recentChannels],
+    [epgFor, favoriteUrls, scopedChannels, scopedRecents],
   );
 
-  const visibleChannels = useMemo(() => filterList(selectedGroup, query), [filterList, query, selectedGroup]);
+  const visibleChannels = useMemo(() => filterList(groupScope, query), [filterList, groupScope, query]);
   const guideChannels = useMemo(() => filterList(guideGroup, guideQuery), [filterList, guideGroup, guideQuery]);
+
+  // Stable channel numbers: position in the full (all playlists) list.
+  const channelNumbers = useMemo(() => new Map(channels.map((c, i) => [c.url, i + 1])), [channels]);
+  const numberWidth = `${Math.max(2, String(channels.length).length) * 7 + 2}px`;
+
+  const activeSchedule = channelSchedule && activeChannel && channelSchedule.url === activeChannel.url
+    ? channelSchedule.items
+    : NO_PROGRAMMES;
+  const scheduleLoading = Boolean(activeChannel && channelSchedule?.url !== activeChannel.url);
+  const activeEpg = epgFor(activeChannel);
+  const programmeCards = useMemo(
+    () => buildProgrammeCards(activeSchedule, activeEpg, nowMs),
+    [activeEpg, activeSchedule, nowMs],
+  );
 
   const zapChannel = useCallback(
     (dir: -1 | 1) => {
@@ -307,7 +429,45 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
     }, 3200);
   }, []);
 
-  // Keyboard shortcuts (G = Guide, M = mute, Space = pause, Up/Down = zap in fullscreen)
+  const channelRows = useCallback(
+    () => Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('button[data-ch]') ?? []),
+    [],
+  );
+
+  // Moves keyboard focus into the channel list (playing row, else the first one).
+  const focusChannelList = useCallback(() => {
+    const rows = channelRows();
+    const target = rows.find((r) => r.dataset.ch === activeChannel?.url) || rows[0];
+    target?.focus();
+  }, [activeChannel, channelRows]);
+
+  // Up/Down/Home/End move between channel rows; Enter (native button click) plays.
+  const onListKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) return;
+    const rows = channelRows();
+    if (rows.length === 0) return;
+    const idx = rows.indexOf(document.activeElement as HTMLButtonElement);
+    let next = idx;
+    if (e.key === 'ArrowDown') next = Math.min(rows.length - 1, idx + 1);
+    else if (e.key === 'ArrowUp') next = Math.max(0, idx - 1);
+    else if (e.key === 'PageDown') next = Math.min(rows.length - 1, idx + 8);
+    else if (e.key === 'PageUp') next = Math.max(0, idx - 8);
+    else if (e.key === 'Home') next = 0;
+    else next = rows.length - 1;
+    e.preventDefault();
+    e.stopPropagation();
+    rows[next]?.focus();
+    rows[next]?.scrollIntoView({ block: 'nearest' });
+  };
+
+  // Keep the playing channel visible in the list (zapping, guide, recents).
+  useEffect(() => {
+    if (isFullscreen || !activeChannel) return;
+    const row = channelRows().find((r) => r.dataset.ch === activeChannel.url);
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [activeChannel, channelRows, isFullscreen, groupScope, playlistScope]);
+
+  // Keyboard shortcuts (G = Guide, M = mute, Space = pause, Up/Down = zap in fullscreen / list in window)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -328,23 +488,37 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
         e.preventDefault();
         zapChannel(e.key === 'ArrowDown' ? 1 : -1);
         wakeFsHud();
+      } else if (!isFullscreen && !guideOpen && !scheduleOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        if (listRef.current?.contains(document.activeElement)) return;
+        e.preventDefault();
+        focusChannelList();
       } else if (e.key === 'Escape') {
         if (guideOpen) setGuideOpen(false);
         else if (scheduleOpen) setScheduleOpen(false);
         else if (fsDrawerOpen) setFsDrawerOpen(false);
-        else if (catMenuOpen) setCatMenuOpen(false);
         else if (isFullscreen) onToggleFullscreen();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [catMenuOpen, fsDrawerOpen, guideOpen, isFullscreen, onToggleFullscreen, prevChannel, scheduleOpen, selectChannel, togglePause, wakeFsHud, zapChannel]);
+  }, [focusChannelList, fsDrawerOpen, guideOpen, isFullscreen, onToggleFullscreen, prevChannel, scheduleOpen, selectChannel, togglePause, wakeFsHud, zapChannel]);
 
   const openSchedule = async () => {
     if (!activeChannel) return;
+    const ch = activeChannel;
     setScheduleOpen(true);
+    scheduleReqRef.current = ch.url;
+    const hit = scheduleCacheRef.current.get(ch.url);
+    if (hit && Date.now() - hit.at < SCHEDULE_TTL_MS) {
+      setScheduleItems(hit.items);
+      setLoadingSchedule(false);
+      return;
+    }
     setLoadingSchedule(true);
-    const items = await loadChannelSchedule12h(activeChannel);
+    const items = await loadChannelSchedule12h(ch).catch(() => [] as EpgProgram[]);
+    scheduleCacheRef.current.set(ch.url, { at: Date.now(), items });
+    // A later request (another channel's guide) wins over this one.
+    if (scheduleReqRef.current !== ch.url) return;
     setScheduleItems(items);
     setLoadingSchedule(false);
   };
@@ -354,7 +528,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
       <div className="flex h-full w-full items-center justify-center">
         <div
           style={{ borderTopColor: 'var(--ot-accent)' }}
-          className="h-9 w-9 animate-spin rounded-full border-2 border-white/15"
+          className="h-9 w-9 animate-spin rounded-full border-2 border-fg/15"
         />
       </div>
     );
@@ -364,11 +538,11 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
     const hasEnabled = playlists.some((p) => p.enabled && p.url);
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-8 text-center">
-        <Tv className="h-12 w-12 text-white/35" />
-        <div className="font-display text-[22px] font-bold text-white">
+        <Tv className="h-12 w-12 text-fg/35 light:text-faint" />
+        <div className="font-display text-[22px] font-bold text-fg">
           {hasEnabled ? 'No se pudieron cargar los canales' : 'Sin listas de TV en vivo'}
         </div>
-        <p className="max-w-md text-[14px] text-white/55">
+        <p className="max-w-md text-[14px] text-fg/55 light:text-muted">
           {hasEnabled
             ? 'Revisa tu conexión o vuelve a intentar cargar tus listas M3U configuradas.'
             : 'Agrega una lista M3U gratuita o propia desde Plugins para ver canales en vivo con guía de programación.'}
@@ -378,7 +552,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
             <button
               type="button"
               onClick={() => setListReloadNonce((n) => n + 1)}
-              className="rounded-xl border border-white/15 bg-white/[0.08] px-5 py-2.5 text-[14px] font-semibold text-white transition hover:bg-white/15 cursor-pointer"
+              className="rounded-xl border border-fg/15 bg-fg/[0.08] px-5 py-2.5 text-[14px] font-semibold text-fg transition hover:bg-fg/15 cursor-pointer"
             >
               Reintentar
             </button>
@@ -396,136 +570,53 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
     );
   }
 
-  const activeEpg = epgFor(activeChannel);
-  const activeChannelIndex = activeChannel ? channels.findIndex((c) => c.url === activeChannel.url) + 1 : 0;
+  const activeChannelIndex = activeChannel ? channelNumbers.get(activeChannel.url) || 0 : 0;
   const isFav = activeChannel ? favoriteUrls.includes(activeChannel.url) : false;
+  const nowCard = programmeCards.find((c) => c.kind === 'now');
+  const nextCard = programmeCards.find((c) => c.kind === 'next');
   const epgLine = [
-    activeEpg?.now ? `Ahora: ${activeEpg.now.title}` : null,
-    activeEpg?.next ? `Después: ${activeEpg.next.title}` : null,
+    nowCard ? `Ahora: ${nowCard.title}` : activeEpg?.now ? `Ahora: ${activeEpg.now.title}` : null,
+    nextCard ? `Después: ${nextCard.title}` : activeEpg?.next ? `Después: ${activeEpg.next.title}` : null,
   ]
     .filter(Boolean)
     .join('  ·  ');
+  // Vertical room kept under the player for the programme header + cards (or the quiet empty line).
+  const programmeReserve = programmeCards.length > 0 ? 182 : 86;
+  const ctrlBtn =
+    'flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fg/[0.08] text-fg transition hover:bg-fg/[0.16] cursor-pointer';
 
   return (
     <div
       style={
         isFullscreen
           ? undefined
-          : { paddingLeft: 'var(--ot-gutter)', paddingRight: 'var(--ot-gutter)' }
+          : {
+              paddingLeft: 'var(--ot-gutter)',
+              paddingRight: 'var(--ot-gutter)',
+              gridTemplateColumns: 'minmax(0, 1fr) clamp(280px, 28vw, 400px)',
+            }
       }
-      className={`flex h-full w-full overflow-hidden ${isFullscreen ? 'bg-black' : 'gap-4 lg:gap-7 pt-[78px] lg:pt-[86px] pb-5 lg:pb-6'}`}
+      className={`h-full w-full overflow-hidden ${
+        isFullscreen ? 'bg-black' : 'grid grid-rows-[minmax(0,1fr)] gap-[18px] xl:gap-[22px] pt-[78px] lg:pt-[86px] pb-5 lg:pb-6'
+      }`}
     >
-      {/* =========================================================
-          LEFT COLUMN (Design 3A): Search + Category Dropdown + Clean Channel List
-          ========================================================= */}
-      {!isFullscreen && (
-        <aside className="relative flex w-[clamp(220px,24vw,368px)] shrink-0 flex-col gap-3">
-          {/* Search box */}
-          <div className="relative flex h-[46px] items-center gap-2.5 rounded-[14px] border border-white/[0.12] bg-white/[0.06] px-3.5 focus-within:border-white/45 focus-within:bg-white/[0.09]">
-            <Search className="h-4 w-4 shrink-0 text-white/50" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar canal"
-              className="h-full min-w-0 flex-1 bg-transparent text-[14.5px] text-white placeholder-white/45 outline-none"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery('')}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-white/12 text-white/80 hover:bg-white/25 cursor-pointer"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Category Dropdown (`live-cat-btn` / `live-cat-menu`) */}
-          <div className="relative z-40">
-            <button
-              type="button"
-              onClick={() => setCatMenuOpen((o) => !o)}
-              className={`flex h-[46px] w-full items-center justify-between gap-2 rounded-[14px] border px-4 text-left text-[14.5px] font-semibold text-white transition cursor-pointer ${
-                catMenuOpen
-                  ? 'border-white/25 bg-white/[0.12]'
-                  : 'border-white/[0.1] bg-white/[0.07] hover:bg-white/[0.11]'
-              }`}
-            >
-              <span className="truncate">{selectedGroup}</span>
-              <ChevronDown
-                className={`h-4 w-4 shrink-0 text-white/75 transition-transform duration-200 ${
-                  catMenuOpen ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
-
-            {catMenuOpen && (
-              <>
-                <div onClick={() => setCatMenuOpen(false)} className="fixed inset-0 z-30" />
-                <div className="ot-scroll ot-fade-up absolute top-[54px] right-0 left-0 z-40 max-h-[380px] overflow-y-auto rounded-[16px] border border-white/12 bg-[#1c1c22] p-2 shadow-[0_24px_60px_rgba(0,0,0,0.68)]">
-                  {allGroups.map((g) => {
-                    const active = g === selectedGroup;
-                    return (
-                      <button
-                        key={g}
-                        type="button"
-                        onClick={() => {
-                          setSelectedGroup(g);
-                          setCatMenuOpen(false);
-                        }}
-                        className={`flex h-10 w-full items-center justify-between gap-2 rounded-[10px] px-3 text-left text-[14px] transition cursor-pointer ${
-                          active ? 'font-bold text-white' : 'text-white/80 hover:bg-white/[0.08] hover:text-white'
-                        }`}
-                      >
-                        <span className="truncate">{g}</span>
-                        {active && <Check className="h-4 w-4 shrink-0 text-white" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Clean Channel Rows (logo + name only, exact `11-fuentes-stremio.css:589`) */}
-          <div className="ot-scroll min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
-            {visibleChannels.map((ch) => {
-              const isCur = activeChannel?.url === ch.url;
-              return (
-                <button
-                  key={ch.id}
-                  type="button"
-                  onClick={() => selectChannel(ch)}
-                  className={`flex h-[60px] w-full items-center gap-3.5 rounded-[14px] px-3 text-left transition cursor-pointer ${
-                    isCur ? 'bg-white/[0.13] text-white' : 'text-white/88 hover:bg-white/[0.06]'
-                  }`}
-                >
-                  <ChannelThumb channel={ch} size="sm" />
-                  <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{ch.name}</span>
-                </button>
-              );
-            })}
-            {visibleChannels.length === 0 && (
-              <div className="py-10 text-center text-[13.5px] text-white/45">Sin canales en esta categoría.</div>
-            )}
-          </div>
-        </aside>
-      )}
-
-      {/* =========================================================
-          RIGHT STAGE (Design 3A): 16:9 Video Card + Under-bar (`live-bar3a`)
-          ========================================================= */}
+      {/* LEFT: player + programme of the current channel. The <video> keeps its tree position in fullscreen. */}
       <div
-        onMouseMove={isFullscreen ? wakeFsHud : undefined}
-        className={`relative flex min-w-0 flex-1 flex-col ${isFullscreen ? 'h-full w-full bg-black' : 'justify-center'}`}
+        style={isFullscreen ? undefined : { containerType: 'size' }}
+        className={isFullscreen ? 'h-full w-full' : 'flex min-h-0 min-w-0 flex-col gap-[18px]'}
       >
-        {/* 16:9 Rounded Video Frame */}
-        <div
-          className={`relative w-full overflow-hidden bg-black ${
+        {/* The live player and its fullscreen HUD keep the dark palette in every theme. */}
+        <section
+          aria-label="Reproductor"
+          data-theme="dark"
+          onMouseMove={isFullscreen ? wakeFsHud : undefined}
+          style={
             isFullscreen
-              ? 'h-full'
-              : 'aspect-video max-h-[calc(100%-86px)] rounded-[20px] shadow-[0_30px_70px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.07]'
+              ? undefined
+              : { height: `min(540px, calc(100cqh - ${programmeReserve}px), calc(100cqw * 0.5625))` }
+          }
+          className={`relative w-full shrink-0 overflow-hidden bg-black text-white ${
+            isFullscreen ? 'h-full' : 'rounded-[18px] border border-fg/[0.06]'
           }`}
         >
           <video
@@ -543,7 +634,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
 
           {/* Solid Red EN VIVO badge (top-left in windowed mode) */}
           {!isFullscreen && (
-            <span className="pointer-events-none absolute top-4 left-4 z-10 rounded-[7px] bg-[#e5383b] px-2.5 py-1 text-[11.5px] font-extrabold tracking-[0.08em] text-white uppercase">
+            <span className="pointer-events-none absolute top-[18px] left-[18px] z-10 rounded-[6px] bg-[#e50914] px-[9px] py-1 text-[11.5px] font-extrabold tracking-[0.6px] text-white uppercase">
               EN VIVO
             </span>
           )}
@@ -553,7 +644,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
             <button
               type="button"
               onClick={togglePause}
-              className="absolute top-1/2 left-1/2 z-10 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-[#0e0e11]/60 text-white backdrop-blur-md transition hover:bg-[#0e0e11]/80 cursor-pointer"
+              className="absolute top-1/2 left-1/2 z-10 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-fg/25 bg-page/60 text-fg backdrop-blur-md transition hover:bg-page/80 cursor-pointer"
             >
               <Play className="ml-1 h-9 w-9 fill-current" />
             </button>
@@ -564,13 +655,13 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/35">
               <div
                 style={{ borderTopColor: 'var(--ot-accent)' }}
-                className="h-9 w-9 animate-spin rounded-full border-2 border-white/20"
+                className="h-9 w-9 animate-spin rounded-full border-2 border-fg/20"
               />
             </div>
           )}
           {streamStatus === 'error' && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/75 p-6 text-center">
-              <div className="text-[15.5px] font-bold text-white">Señal temporalmente no disponible</div>
+              <div className="text-[15.5px] font-bold text-fg">Señal temporalmente no disponible</div>
               <button
                 type="button"
                 onClick={() => setReloadNonce((n) => n + 1)}
@@ -599,11 +690,11 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                   type="button"
                   onClick={onToggleFullscreen}
                   aria-label="Salir de pantalla completa"
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-[#141418]/65 text-white backdrop-blur-md hover:bg-white/20 cursor-pointer"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-fg/20 bg-surface/65 text-fg backdrop-blur-md hover:bg-fg/20 cursor-pointer"
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </button>
-                <span className="truncate font-display text-[24px] font-extrabold text-white drop-shadow">
+                <span className="truncate font-display text-[24px] font-extrabold text-fg drop-shadow">
                   {activeChannel.name}
                 </span>
                 <span className="rounded-[7px] bg-[#e5383b] px-2.5 py-1 text-[11.5px] font-extrabold tracking-[0.08em] text-white uppercase">
@@ -616,10 +707,10 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                 <div className="flex items-center gap-4">
                   <ChannelThumb channel={activeChannel} size="lg" />
                   <div className="min-w-0">
-                    <div className="truncate font-display text-[28px] leading-tight font-extrabold text-white">
+                    <div className="truncate font-display text-[28px] leading-tight font-extrabold text-fg">
                       {activeChannel.name}
                     </div>
-                    <div className="truncate text-[14.5px] text-white/75">
+                    <div className="truncate text-[14.5px] text-fg/75">
                       Canal {activeChannelIndex} · {activeChannel.group}
                       {epgLine ? ` · ${epgLine}` : ''}
                     </div>
@@ -631,7 +722,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                   <div className="relative h-[4px] flex-1 rounded-full bg-[#e5383b]">
                     <span className="absolute top-1/2 -right-1 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-[#e5383b] shadow-[0_0_0_5px_rgba(229,56,59,0.3)]" />
                   </div>
-                  <span className="text-[13.5px] font-bold text-white">En directo</span>
+                  <span className="text-[13.5px] font-bold text-fg">En directo</span>
                 </div>
 
                 {/* 3-Group Buttons */}
@@ -641,7 +732,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                     <button
                       type="button"
                       onClick={() => setMuted((m) => !m)}
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 cursor-pointer"
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-fg/10 text-fg hover:bg-fg/20 cursor-pointer"
                     >
                       {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                     </button>
@@ -658,7 +749,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                       }}
                       className="ot-range w-28 cursor-pointer"
                     />
-                    <span className="text-[13px] tabular-nums text-white/75">
+                    <span className="text-[13px] tabular-nums text-fg/75">
                       {muted || volume === 0 ? '0%' : `${Math.round(volume * 100)}%`}
                     </span>
                   </div>
@@ -669,7 +760,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                       type="button"
                       onClick={() => zapChannel(-1)}
                       title="Canal anterior"
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 cursor-pointer"
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-fg/10 text-fg hover:bg-fg/20 cursor-pointer"
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </button>
@@ -685,7 +776,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                       type="button"
                       onClick={() => zapChannel(1)}
                       title="Canal siguiente"
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 cursor-pointer"
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-fg/10 text-fg hover:bg-fg/20 cursor-pointer"
                     >
                       <ChevronRight className="h-5 w-5" />
                     </button>
@@ -700,8 +791,8 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                         onToast(isFav ? 'Quitado de favoritos' : 'Canal guardado en favoritos');
                       }}
                       title="Favorito"
-                      className={`flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/15 cursor-pointer ${
-                        isFav ? 'text-[#ffd34d]' : 'text-white'
+                      className={`flex h-11 w-11 items-center justify-center rounded-full hover:bg-fg/15 cursor-pointer ${
+                        isFav ? 'text-[#ffd34d] light:text-[#b45309]' : 'text-fg'
                       }`}
                     >
                       <Star className={`h-5 w-5 ${isFav ? 'fill-current' : ''}`} />
@@ -710,7 +801,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                       type="button"
                       onClick={() => setGuideOpen(true)}
                       title="Guía de canales (G)"
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/15 cursor-pointer"
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-fg hover:bg-fg/15 cursor-pointer"
                     >
                       <LayoutGrid className="h-5 w-5" />
                     </button>
@@ -718,7 +809,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                       type="button"
                       onClick={() => void openSchedule()}
                       title="Programación 12 h"
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/15 cursor-pointer"
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-fg hover:bg-fg/15 cursor-pointer"
                     >
                       <CalendarClock className="h-5 w-5" />
                     </button>
@@ -726,7 +817,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                       type="button"
                       onClick={() => setFsDrawerOpen((o) => !o)}
                       title="Lista de canales"
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/15 cursor-pointer"
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-fg hover:bg-fg/15 cursor-pointer"
                     >
                       <List className="h-5 w-5" />
                     </button>
@@ -734,7 +825,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                       type="button"
                       onClick={() => setReloadNonce((n) => n + 1)}
                       title="Reintentar"
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/15 cursor-pointer"
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-fg hover:bg-fg/15 cursor-pointer"
                     >
                       <RefreshCw className="h-4 w-4" />
                     </button>
@@ -742,7 +833,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                       type="button"
                       onClick={onToggleFullscreen}
                       title="Salir de pantalla completa"
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/15 cursor-pointer"
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-fg hover:bg-fg/15 cursor-pointer"
                     >
                       <Minimize2 className="h-5 w-5" />
                     </button>
@@ -754,13 +845,13 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
 
           {/* Fullscreen Slide-In Channel Drawer */}
           {isFullscreen && fsDrawerOpen && (
-            <div className="ot-fade-up absolute top-0 right-0 bottom-0 z-30 flex w-96 flex-col border-l border-white/10 bg-[#111114]/95 backdrop-blur-xl">
-              <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4">
-                <span className="font-display text-[17px] font-bold text-white">Canales ({visibleChannels.length})</span>
+            <div className="ot-fade-up absolute top-0 right-0 bottom-0 z-30 flex w-96 flex-col border-l border-fg/10 bg-[#111114]/95 backdrop-blur-xl">
+              <div className="flex items-center justify-between border-b border-fg/[0.08] px-5 py-4">
+                <span className="font-display text-[17px] font-bold text-fg">Canales ({visibleChannels.length})</span>
                 <button
                   type="button"
                   onClick={() => setFsDrawerOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-white/65 hover:bg-white/10 cursor-pointer"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-fg/65 hover:bg-fg/10 cursor-pointer"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -778,13 +869,13 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                         setFsDrawerOpen(false);
                       }}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition cursor-pointer ${
-                        isCur ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/[0.07]'
+                        isCur ? 'bg-fg/15 text-fg' : 'text-fg/80 hover:bg-fg/[0.07]'
                       }`}
                     >
                       <ChannelThumb channel={ch} size="sm" />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[14px] font-semibold">{ch.name}</div>
-                        {epg?.now && <div className="truncate text-[12px] text-white/50">{epg.now.title}</div>}
+                        {epg?.now && <div className="truncate text-[12px] text-fg/50 light:text-muted">{epg.now.title}</div>}
                       </div>
                     </button>
                   );
@@ -792,138 +883,247 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
               </div>
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Windowed Bottom Row (`live-bar3a`): Channel Info on Left + Round Controls on Right */}
+        {/* Programme of the current channel: header + controls, then AHORA · DESPUÉS · next two */}
         {!isFullscreen && activeChannel && (
-          <div className="mt-4 flex items-center justify-between gap-6">
-            <div className="flex min-w-0 flex-1 items-center gap-4">
-              <ChannelThumb channel={activeChannel} size="md" />
-              <div className="min-w-0">
-                <div className="truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.01em] text-white">
+          <section aria-label="Programación" className="flex min-h-0 flex-1 flex-col gap-2.5">
+            <div className="flex items-center gap-3">
+              <ChannelThumb channel={activeChannel} size="xs" />
+              <div className="flex min-w-0 flex-1 items-baseline gap-3">
+                <span className="truncate text-[17px] font-bold text-fg">
+                  {activeChannelIndex > 0 ? `${activeChannelIndex} · ` : ''}
                   {activeChannel.name}
+                </span>
+                <span className="hidden shrink-0 text-[13px] text-fg/55 light:text-muted xl:inline">Programación de hoy</span>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button type="button" onClick={() => zapChannel(-1)} title="Canal anterior" className={ctrlBtn}>
+                  <ChevronLeft className="h-[18px] w-[18px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={togglePause}
+                  title={paused ? 'Reproducir' : 'Pausar'}
+                  style={{ backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' }}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-90 cursor-pointer"
+                >
+                  {paused ? <Play className="ml-0.5 h-4 w-4 fill-current" /> : <Pause className="h-4 w-4 fill-current" />}
+                </button>
+                <button type="button" onClick={() => zapChannel(1)} title="Canal siguiente" className={ctrlBtn}>
+                  <ChevronRight className="h-[18px] w-[18px]" />
+                </button>
+
+                {/* Volume button with hover popup slider */}
+                <div className="group/vol relative ml-1 border-l border-fg/[0.12] pl-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setMuted((m) => !m)}
+                    title={muted ? 'Activar sonido (M)' : 'Silenciar (M)'}
+                    className={ctrlBtn}
+                  >
+                    {muted || volume === 0 ? <VolumeX className="h-[18px] w-[18px]" /> : <Volume2 className="h-[18px] w-[18px]" />}
+                  </button>
+                  <div className="pointer-events-none absolute bottom-[44px] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 rounded-[14px] bg-elev px-4 py-3 opacity-0 shadow-[0_16px_40px_rgba(0,0,0,0.55)] ring-1 ring-fg/10 transition group-hover/vol:pointer-events-auto group-hover/vol:opacity-100 group-focus-within/vol:pointer-events-auto group-focus-within/vol:opacity-100">
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={muted ? 0 : volume}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setVolume(v);
+                        setMuted(v === 0);
+                      }}
+                      aria-label="Volumen"
+                      className="ot-range w-28 cursor-pointer"
+                    />
+                    <span className="w-8 text-right text-[12px] font-semibold tabular-nums text-fg/80">
+                      {muted ? 0 : Math.round(volume * 100)}%
+                    </span>
+                  </div>
                 </div>
-                <div className="truncate text-[13.5px] text-white/65">
-                  Canal {activeChannelIndex} · {activeChannel.group}
-                </div>
-                {epgLine && <div className="mt-0.5 truncate text-[13.5px] text-white/85">{epgLine}</div>}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleFavorite(activeChannel.url);
+                    onToast(isFav ? 'Quitado de favoritos' : 'Canal guardado en favoritos');
+                  }}
+                  title={isFav ? 'Quitar de favoritos' : 'Guardar canal en favoritos'}
+                  className={`${ctrlBtn} ${isFav ? '!text-[#ffd34d] light:!text-[#b45309]' : ''}`}
+                >
+                  <Star className={`h-[18px] w-[18px] ${isFav ? 'fill-current' : ''}`} />
+                </button>
+
+                {prevChannel && prevChannel.url !== activeChannel.url && (
+                  <button
+                    type="button"
+                    onClick={() => selectChannel(prevChannel)}
+                    title={`Volver a ${prevChannel.name} (0)`}
+                    className={ctrlBtn}
+                  >
+                    <Undo2 className="h-[18px] w-[18px]" />
+                  </button>
+                )}
+
+                <button type="button" onClick={() => void openSchedule()} title="Programación (12 h)" className={ctrlBtn}>
+                  <CalendarClock className="h-[18px] w-[18px]" />
+                </button>
+                <button type="button" onClick={() => setGuideOpen(true)} title="Guía de canales (G)" className={ctrlBtn}>
+                  <LayoutGrid className="h-[18px] w-[18px]" />
+                </button>
+                <button type="button" onClick={onToggleFullscreen} title="Pantalla completa" className={ctrlBtn}>
+                  <Maximize2 className="h-[18px] w-[18px]" />
+                </button>
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => zapChannel(-1)}
-                title="Canal anterior"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/18 cursor-pointer"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={togglePause}
-                title={paused ? 'Reproducir' : 'Pausar'}
-                style={{ backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' }}
-                className="flex h-[52px] w-[52px] items-center justify-center rounded-full transition hover:brightness-90 cursor-pointer"
-              >
-                {paused ? <Play className="ml-0.5 h-5 w-5 fill-current" /> : <Pause className="h-5 w-5 fill-current" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => zapChannel(1)}
-                title="Canal siguiente"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/18 cursor-pointer"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-
-              {/* Volume button with hover popup slider (`11-fuentes-stremio.css:664`) */}
-              <div className="group/vol relative ml-1.5 border-l border-white/15 pl-3">
-                <button
-                  type="button"
-                  onClick={() => setMuted((m) => !m)}
-                  title={muted ? 'Activar sonido (M)' : 'Silenciar (M)'}
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/18 cursor-pointer"
-                >
-                  {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                </button>
-                <div className="pointer-events-none absolute bottom-[52px] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 rounded-[14px] bg-[#16161a]/96 px-4 py-3 opacity-0 shadow-[0_16px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/10 transition group-hover/vol:pointer-events-auto group-hover/vol:opacity-100">
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={muted ? 0 : volume}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      setVolume(v);
-                      setMuted(v === 0);
-                    }}
-                    className="ot-range w-28 cursor-pointer"
-                  />
-                  <span className="w-8 text-right text-[12px] font-semibold tabular-nums text-white/80">
-                    {muted ? 0 : Math.round(volume * 100)}%
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onToggleFavorite(activeChannel.url);
-                  onToast(isFav ? 'Quitado de favoritos' : 'Canal guardado en favoritos');
-                }}
-                title={isFav ? 'Quitar de favoritos' : 'Guardar canal en favoritos'}
-                className={`flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/18 cursor-pointer ${
-                  isFav ? 'text-[#ffd34d]' : 'text-white'
+            {programmeCards.length > 0 ? (
+              <div
+                className={`grid max-h-[200px] min-h-[116px] flex-1 grid-rows-[minmax(0,1fr)] gap-3 ${
+                  programmeCards[0].kind === 'now'
+                    ? 'grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))] max-[1100px]:grid-cols-[minmax(0,1.5fr)_repeat(2,minmax(0,1fr))]'
+                    : 'grid-cols-[repeat(4,minmax(0,1fr))] max-[1100px]:grid-cols-[repeat(3,minmax(0,1fr))]'
                 }`}
               >
-                <Star className={`h-5 w-5 ${isFav ? 'fill-current' : ''}`} />
-              </button>
-
-              {prevChannel && prevChannel.url !== activeChannel.url && (
-                <button
-                  type="button"
-                  onClick={() => selectChannel(prevChannel)}
-                  title={`Volver a ${prevChannel.name} (0)`}
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/18 cursor-pointer"
-                >
-                  <Undo2 className="h-5 w-5" />
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => void openSchedule()}
-                title="Programación (12 h)"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/18 cursor-pointer"
-              >
-                <CalendarClock className="h-5 w-5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setGuideOpen(true)}
-                title="Guía de canales (G)"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/18 cursor-pointer"
-              >
-                <LayoutGrid className="h-5 w-5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={onToggleFullscreen}
-                title="Pantalla completa"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/18 cursor-pointer"
-              >
-                <Maximize2 className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
+                {programmeCards.map((card, i) => {
+                  const isNow = card.kind === 'now';
+                  return (
+                    <article
+                      key={card.key}
+                      style={isNow ? { borderColor: 'var(--ot-accent)' } : undefined}
+                      className={`flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-[14px] px-4 py-3.5 ${
+                        isNow ? 'border-[1.5px] bg-fg/[0.09]' : 'border border-fg/[0.07] bg-surface'
+                      } ${i === 3 ? 'max-[1100px]:hidden' : ''}`}
+                    >
+                      <span
+                        style={isNow ? { color: 'var(--ot-accent)' } : undefined}
+                        className={`text-[11px] font-extrabold tracking-[0.5px] tabular-nums ${isNow ? '' : 'text-fg/55 light:text-muted'}`}
+                      >
+                        {card.label}
+                      </span>
+                      <span className="line-clamp-2 text-[15px] leading-[1.25] font-bold text-fg" title={card.title}>
+                        {card.title}
+                      </span>
+                      <span className="truncate text-[12.5px] tabular-nums text-fg/[0.58] light:text-muted">{card.time}</span>
+                      {isNow && (
+                        <span className="mt-auto block h-1 shrink-0 overflow-hidden rounded-full bg-fg/[0.18]">
+                          <span
+                            style={{ width: `${card.progress}%`, backgroundColor: 'var(--ot-accent)' }}
+                            className="block h-full rounded-full"
+                          />
+                        </span>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-[13.5px] text-fg/50 light:text-muted">
+                {scheduleLoading ? 'Cargando programación…' : 'Sin programación para este canal'}
+              </div>
+            )}
+          </section>
         )}
       </div>
+
+      {/* RIGHT: channel panel (playlist + category selects, search, numbered rows) */}
+      {!isFullscreen && (
+        <aside
+          aria-label="Canales"
+          className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[18px] border border-fg/[0.07] bg-surface"
+        >
+          <div className="relative z-20 flex flex-col gap-2.5 border-b border-fg/[0.06] p-3.5">
+            {playlistOptions && (
+              <LiveSelect
+                ariaLabel="Lista de canales"
+                value={playlistScope}
+                options={playlistOptions}
+                onChange={setSelectedPlaylist}
+              />
+            )}
+            <LiveSelect ariaLabel="Categoría" value={groupScope} options={groupOptions} onChange={setSelectedGroup} />
+            <label className="flex h-[38px] items-center gap-2 rounded-[10px] border border-transparent bg-elev px-3 text-fg/55 light:text-muted focus-within:border-fg/25">
+              <Search className="h-4 w-4 shrink-0" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    focusChannelList();
+                  } else if (e.key === 'Escape' && query) {
+                    e.stopPropagation();
+                    setQuery('');
+                  }
+                }}
+                placeholder="Buscar canal"
+                aria-label="Buscar canal"
+                className="h-full min-w-0 flex-1 bg-transparent text-[13.5px] text-fg placeholder-fg/45 light:placeholder-faint outline-none"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Borrar búsqueda"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-fg/12 text-fg/80 hover:bg-fg/25 cursor-pointer"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </label>
+          </div>
+
+          <div ref={listRef} onKeyDown={onListKeyDown} className="ot-scroll min-h-0 flex-1 overflow-y-auto p-2">
+            {visibleChannels.map((ch) => {
+              const isCur = activeChannel?.url === ch.url;
+              return (
+                <button
+                  key={ch.id}
+                  data-ch={ch.url}
+                  type="button"
+                  onClick={() => selectChannel(ch)}
+                  title={ch.name}
+                  aria-current={isCur ? 'true' : undefined}
+                  style={isCur ? { borderColor: 'var(--ot-accent)' } : undefined}
+                  className={`mb-[3px] flex w-full items-center gap-3 rounded-[12px] border-[1.5px] px-2.5 py-[7px] text-left text-fg transition cursor-pointer focus:outline-none [contain-intrinsic-size:auto_53px] [content-visibility:auto] ${
+                    isCur
+                      ? 'bg-fg/[0.09] focus-visible:bg-fg/[0.14]'
+                      : 'border-transparent hover:bg-fg/[0.05] focus-visible:border-fg/30 focus-visible:bg-fg/[0.07]'
+                  }`}
+                >
+                  <span
+                    style={{ width: numberWidth }}
+                    className="shrink-0 text-right text-[12px] tabular-nums text-fg/50 light:text-muted"
+                  >
+                    {channelNumbers.get(ch.url) || ''}
+                  </span>
+                  <ChannelThumb channel={ch} size="row" />
+                  <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{ch.name}</span>
+                  {favoriteUrls.includes(ch.url) && <Star className="h-3.5 w-3.5 shrink-0 fill-current text-[#ffd34d] light:text-[#b45309]" />}
+                  {isCur && (
+                    <span
+                      style={{ color: 'var(--ot-accent)' }}
+                      className="shrink-0 text-[10.5px] font-extrabold tracking-[0.5px]"
+                    >
+                      VIENDO
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            {visibleChannels.length === 0 && (
+              <div className="py-10 text-center text-[13.5px] text-fg/45 light:text-muted">
+                {query ? 'Sin resultados para tu búsqueda.' : 'Sin canales en esta categoría.'}
+              </div>
+            )}
+          </div>
+        </aside>
+      )}
 
       {/* =========================================================
           Exact 1:1 Replica of "Guía de canales" Modal (`docs/screenshots/guia.jpg`)
@@ -935,32 +1135,32 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="ot-fade-up flex h-[86vh] w-full max-w-[1220px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#141418]/98 shadow-[0_40px_120px_rgba(0,0,0,0.68)]"
+            className="ot-fade-up flex h-[86vh] w-full max-w-[1220px] flex-col overflow-hidden rounded-[24px] border border-fg/10 bg-surface/98 shadow-[0_40px_120px_rgba(0,0,0,0.68)]"
           >
             {/* Header (`guia.jpg`) */}
-            <div className="flex items-center justify-between gap-4 border-b border-white/[0.07] px-8 py-5">
+            <div className="flex items-center justify-between gap-4 border-b border-fg/[0.07] px-8 py-5">
               <div>
-                <h2 className="font-display text-[26px] font-bold tracking-[-0.02em] text-white">Guía de canales</h2>
-                <p className="mt-0.5 text-[14px] text-white/50">
+                <h2 className="font-display text-[26px] font-bold tracking-[-0.02em] text-fg">Guía de canales</h2>
+                <p className="mt-0.5 text-[14px] text-fg/50 light:text-muted">
                   {guideGroup} · {guideChannels.length} {guideChannels.length === 1 ? 'canal' : 'canales'}
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="relative w-80">
-                  <Search className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-white/45" />
+                  <Search className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-fg/45 light:text-muted" />
                   <input
                     type="text"
                     value={guideQuery}
                     onChange={(e) => setGuideQuery(e.target.value)}
                     placeholder="Buscar canal"
-                    className="h-11 w-full rounded-[14px] border border-white/12 bg-white/[0.06] pr-4 pl-11 text-[15px] text-white placeholder-white/45 outline-none focus:border-white/50 focus:bg-white/[0.09]"
+                    className="h-11 w-full rounded-[14px] border border-fg/12 bg-fg/[0.06] pr-4 pl-11 text-[15px] text-fg placeholder-fg/45 light:placeholder-faint outline-none focus:border-fg/50 focus:bg-fg/[0.09]"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={() => setGuideOpen(false)}
                   aria-label="Cerrar guía"
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.06] text-white hover:bg-white/16 cursor-pointer"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-fg/12 bg-fg/[0.06] text-fg hover:bg-fg/16 cursor-pointer"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -969,7 +1169,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
 
             <div className="flex min-h-0 flex-1">
               {/* Left Category Rail (exact `guia.jpg`: white active pill, ☆ Favoritos, ↺ Recientes, CATEGORÍAS) */}
-              <div className="ot-scroll w-[225px] shrink-0 overflow-y-auto border-r border-white/[0.07] px-3.5 py-4">
+              <div className="ot-scroll w-[225px] shrink-0 overflow-y-auto border-r border-fg/[0.07] px-3.5 py-4">
                 <div className="space-y-1">
                   {(
                     [
@@ -988,7 +1188,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                           active ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined
                         }
                         className={`flex h-10 w-full items-center gap-2.5 rounded-[12px] px-3.5 text-left text-[15px] transition cursor-pointer ${
-                          active ? 'font-bold' : 'text-white/78 hover:bg-white/[0.07] hover:text-white'
+                          active ? 'font-bold' : 'text-fg/78 hover:bg-fg/[0.07] hover:text-fg'
                         }`}
                       >
                         {item.icon}
@@ -1000,7 +1200,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
 
                 {m3uGroups.length > 0 && (
                   <>
-                    <div className="mt-5 mb-2 px-3.5 text-[11.5px] font-bold tracking-[0.1em] text-white/40 uppercase">
+                    <div className="mt-5 mb-2 px-3.5 text-[11.5px] font-bold tracking-[0.1em] text-fg/40 light:text-muted uppercase">
                       CATEGORÍAS
                     </div>
                     <div className="space-y-0.5">
@@ -1015,7 +1215,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                               active ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined
                             }
                             className={`flex h-9 w-full items-center rounded-[12px] px-3.5 text-left text-[14.5px] transition cursor-pointer ${
-                              active ? 'font-bold' : 'text-white/75 hover:bg-white/[0.07] hover:text-white'
+                              active ? 'font-bold' : 'text-fg/75 hover:bg-fg/[0.07] hover:text-fg'
                             }`}
                           >
                             <span className="truncate">{g}</span>
@@ -1043,8 +1243,8 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                         }}
                         className={`group relative flex h-[88px] cursor-pointer items-center gap-3.5 rounded-[16px] border px-3.5 transition hover:-translate-y-0.5 ${
                           isCur
-                            ? 'border-white/55 bg-white/[0.1]'
-                            : 'border-white/[0.07] bg-white/[0.045] hover:border-white/18 hover:bg-white/[0.09]'
+                            ? 'border-fg/55 bg-fg/[0.1]'
+                            : 'border-fg/[0.07] bg-fg/[0.045] hover:border-fg/18 hover:bg-fg/[0.09]'
                         }`}
                       >
                         {/* Dark rectangular logo box (`lg-logo`) */}
@@ -1064,19 +1264,19 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                         </div>
 
                         <div className="min-w-0 flex-1 pr-6">
-                          <div className="line-clamp-2 text-[14.5px] leading-tight font-semibold text-white">
+                          <div className="line-clamp-2 text-[14.5px] leading-tight font-semibold text-fg">
                             {ch.name}
                           </div>
                           <div className="mt-1 flex items-center gap-2 text-[12px]">
                             <span className="inline-flex items-center gap-1.5">
                               <span className="h-2 w-2 rounded-full bg-[#ff4d4f] shadow-[0_0_0_2.5px_rgba(255,77,79,0.2)]" />
-                              <span className={isCur ? 'font-semibold text-white' : 'text-white/55'}>
+                              <span className={isCur ? 'font-semibold text-fg' : 'text-fg/55 light:text-muted'}>
                                 {isCur ? 'Viendo ahora' : 'En vivo'}
                               </span>
                             </span>
                           </div>
                           {epg?.now && (
-                            <div className="mt-0.5 truncate text-[11.5px] text-white/70">{epg.now.title}</div>
+                            <div className="mt-0.5 truncate text-[11.5px] text-fg/70">{epg.now.title}</div>
                           )}
                         </div>
 
@@ -1088,8 +1288,8 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                             onToggleFavorite(ch.url);
                           }}
                           title="Favorito"
-                          className={`absolute top-1/2 right-2.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/25 cursor-pointer ${
-                            fav ? 'text-[#ffd34d] opacity-100' : 'text-white opacity-0 group-hover:opacity-100'
+                          className={`absolute top-1/2 right-2.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-fg/10 transition hover:bg-fg/25 cursor-pointer ${
+                            fav ? 'text-[#ffd34d] light:text-[#b45309] opacity-100' : 'text-fg opacity-0 group-hover:opacity-100'
                           }`}
                         >
                           <Star className={`h-4 w-4 ${fav ? 'fill-current' : ''}`} />
@@ -1098,7 +1298,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                     );
                   })}
                   {guideChannels.length === 0 && (
-                    <div className="col-span-full py-16 text-center text-[15px] text-white/50">
+                    <div className="col-span-full py-16 text-center text-[15px] text-fg/50 light:text-muted">
                       No hay canales para mostrar.
                     </div>
                   )}
@@ -1117,17 +1317,17 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="ot-fade-up flex max-h-[82vh] w-full max-w-[680px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#141418] shadow-2xl"
+            className="ot-fade-up flex max-h-[82vh] w-full max-w-[680px] flex-col overflow-hidden rounded-[24px] border border-fg/10 bg-surface shadow-2xl"
           >
-            <div className="flex items-center justify-between border-b border-white/[0.08] px-7 py-5">
+            <div className="flex items-center justify-between border-b border-fg/[0.08] px-7 py-5">
               <div>
-                <h3 className="font-display text-[22px] font-bold text-white">Programación · 12 horas</h3>
-                <p className="text-[13.5px] text-white/55">{activeChannel.name}</p>
+                <h3 className="font-display text-[22px] font-bold text-fg">Programación · 12 horas</h3>
+                <p className="text-[13.5px] text-fg/55 light:text-muted">{activeChannel.name}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setScheduleOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-white/65 hover:bg-white/10 cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-fg/65 hover:bg-fg/10 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1135,9 +1335,9 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
 
             <div className="ot-scroll flex-1 space-y-1 overflow-y-auto p-5">
               {loadingSchedule ? (
-                <div className="py-12 text-center text-white/55">Cargando horarios…</div>
+                <div className="py-12 text-center text-fg/55 light:text-muted">Cargando horarios…</div>
               ) : scheduleItems.length === 0 ? (
-                <div className="py-12 text-center text-white/55">
+                <div className="py-12 text-center text-fg/55 light:text-muted">
                   Este canal no tiene guía XMLTV disponible.
                 </div>
               ) : (
@@ -1148,27 +1348,27 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
                     <div
                       key={`${p.startMs}_${i}`}
                       className={`flex gap-4 rounded-[14px] px-4 py-3.5 ${
-                        isNow ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
+                        isNow ? 'bg-fg/[0.08]' : 'hover:bg-fg/[0.04]'
                       }`}
                     >
                       <div className="w-[68px] shrink-0 pt-0.5">
-                        <div className="text-[15.5px] font-bold tabular-nums text-white">{fmtHour(p.startMs)}</div>
-                        <div className="text-[12px] tabular-nums text-white/40">{fmtHour(p.endMs)}</div>
+                        <div className="text-[15.5px] font-bold tabular-nums text-fg">{fmtHour(p.startMs)}</div>
+                        <div className="text-[12px] tabular-nums text-fg/40 light:text-muted">{fmtHour(p.endMs)}</div>
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2.5">
-                          <span className="truncate text-[15px] font-semibold text-white">{p.title}</span>
+                          <span className="truncate text-[15px] font-semibold text-fg">{p.title}</span>
                           {isNow && (
-                            <span className="shrink-0 rounded-full bg-[#e9e7e2] px-2.5 py-0.5 text-[10.5px] font-bold tracking-wider text-[#15151a] uppercase">
+                            <span className="shrink-0 rounded-full bg-[#e9e7e2] px-2.5 py-0.5 text-[10.5px] font-bold tracking-wider text-[#15151a] uppercase light:bg-fg light:text-page">
                               Ahora
                             </span>
                           )}
                         </div>
                         {p.description && (
-                          <p className="mt-1 line-clamp-2 text-[13px] text-white/55">{p.description}</p>
+                          <p className="mt-1 line-clamp-2 text-[13px] text-fg/55 light:text-muted">{p.description}</p>
                         )}
                         {isNow && (
-                          <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-white/12">
+                          <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-fg/12">
                             <div style={{ width: `${pct}%`, backgroundColor: 'var(--ot-accent)' }} className="h-full" />
                           </div>
                         )}
@@ -1185,30 +1385,34 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({
   );
 };
 
-const ChannelThumb: React.FC<{ channel: LiveChannel; size: 'sm' | 'md' | 'lg' }> = ({ channel, size }) => {
-  const [failed, setFailed] = useState(false);
+const THUMB_SIZES = {
+  xs: 'h-[34px] w-[34px] rounded-[9px] text-[11px] p-1',
+  row: 'h-9 w-9 rounded-[9px] text-[11px] p-1',
+  sm: 'h-[44px] w-[44px] rounded-[11px] text-[13px] p-1.5',
+  lg: 'h-[66px] w-[66px] rounded-[16px] text-[20px] p-1.5',
+} as const;
+
+const ChannelThumb: React.FC<{ channel: LiveChannel; size: keyof typeof THUMB_SIZES }> = ({ channel, size }) => {
+  const [failedSrc, setFailedSrc] = useState<string>('');
   const src = useMemo(() => resizedImageUrl(channel.logo, 128), [channel.logo]);
-  const cls =
-    size === 'lg'
-      ? 'h-[66px] w-[66px] rounded-[16px] text-[22px]'
-      : size === 'md'
-      ? 'h-[54px] w-[54px] rounded-[14px] text-[19px]'
-      : 'h-[44px] w-[44px] rounded-[11px] text-[14px]';
+  const cls = THUMB_SIZES[size];
+  const failed = Boolean(src) && failedSrc === src;
 
   if (!src || failed) {
     return (
-      <div className={`flex shrink-0 items-center justify-center bg-white/[0.08] font-extrabold text-white/80 ${cls}`}>
-        {channel.name.charAt(0).toUpperCase()}
+      <div className={`flex shrink-0 items-center justify-center bg-[#23232b] font-extrabold text-white/85 ${cls}`}>
+        {channelMonogram(channel.name)}
       </div>
     );
   }
   return (
-    <div className={`flex shrink-0 items-center justify-center overflow-hidden bg-white/[0.08] p-1.5 ${cls}`}>
+    <div className={`flex shrink-0 items-center justify-center overflow-hidden bg-[#23232b] ${cls}`}>
       <img
         src={src}
-        alt={channel.name}
+        alt=""
         loading="lazy"
-        onError={() => setFailed(true)}
+        decoding="async"
+        onError={() => setFailedSrc(src)}
         className="h-full w-full object-contain"
       />
     </div>

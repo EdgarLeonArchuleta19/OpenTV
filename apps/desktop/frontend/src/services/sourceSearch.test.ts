@@ -64,7 +64,7 @@ describe('SourceSearch', () => {
     await tick();
     p = describeSearch(search.state, PREFS, false, clock + 2_500, true);
     expect(p.ready).toBe(false);
-    expect(p.status).toBe('Consultando Pelispedia…');
+    expect(p.status).toBe('Buscando la mejor fuente…');
     expect(p.detail).toBe('0 directas · 1 torrents · esperando a Pelispedia, Cuevana Pro');
 
     // Pelispedia answers with a Latino HLS: picked at once, ahead of the torrent.

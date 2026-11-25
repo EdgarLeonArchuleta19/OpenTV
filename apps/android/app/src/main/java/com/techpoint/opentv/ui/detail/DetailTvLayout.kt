@@ -46,6 +46,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -92,8 +93,8 @@ import com.techpoint.opentv.ui.theme.LocalOpenTvUi
 import com.techpoint.opentv.ui.theme.OpenTvColors
 
 // v1 TV detail draws a 1920x1080 canvas; 1 v1 px = 0.5 dp here.
-private val TvBg = Color(0xFF0E0E11)
-private val TvPillFill = Color(0x21FFFFFF) // white @ 13%
+private val TvBg: Color @Composable @ReadOnlyComposable get() = OpenTvColors.BgCanvas
+private val TvPillFill: Color @Composable @ReadOnlyComposable get() = OpenTvColors.fg(0.129f) // white @ 13%
 private val TvPillShape = RoundedCornerShape(percent = 50)
 private val TvSeasonShape = RoundedCornerShape(9.dp)
 private val TvThumbShape = RoundedCornerShape(10.dp)
@@ -205,8 +206,23 @@ internal fun DetailTvContent(
             .fillMaxSize()
             .background(TvBg),
     ) {
-        // Title art, top-right, square corners, blended into the canvas.
-        Box(
+        if (LocalOpenTvUi.current.liteMode) {
+            // Lite mode: the poster (same small file as the home cards) instead of the backdrop.
+            val posterShape = RoundedCornerShape(12.dp)
+            OpenTvImage(
+                url = item.poster.ifBlank { item.backdrop },
+                contentDescription = null,
+                targetWidthPx = 280,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 28.dp, end = TvSidePad)
+                    .width(134.dp)
+                    .aspectRatio(2f / 3f)
+                    .clip(posterShape)
+                    .border(1.dp, OpenTvColors.fg(0.102f), posterShape),
+            )
+        } else Box(
+            // Title art, top-right, square corners, blended into the canvas.
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .width(630.dp)
@@ -296,7 +312,7 @@ internal fun DetailTvContent(
                     .padding(horizontal = 3.dp)
                     .width(1.dp)
                     .height(22.dp)
-                    .background(Color(0x2EFFFFFF)),
+                    .background(OpenTvColors.fg(0.18f)),
             )
             TvGlassButton(
                 icon = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
@@ -340,7 +356,7 @@ internal fun DetailTvContent(
                             text = "Episodios",
                             fontSize = 19.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = OpenTvColors.Content,
                         )
                         if (seasonMenuOpen) {
                             LazyRow(
@@ -427,7 +443,7 @@ internal fun DetailTvContent(
                         text = "Quizás te guste",
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = OpenTvColors.Content,
                         modifier = Modifier
                             .padding(start = TvSidePad)
                             .height(36.dp)
@@ -493,8 +509,8 @@ private fun TvInfoBlock(item: MediaItem, seasonsCount: Int) {
                 fontSize = titleSize,
                 lineHeight = titleSize * 1.12f,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
-                shadow = Shadow(color = Color(0x8C000000), offset = Offset(0f, 2f), blurRadius = 18f),
+                color = OpenTvColors.Content,
+                shadow = Shadow(color = if (OpenTvColors.isLight) Color.Transparent else Color(0x8C000000), offset = Offset(0f, 2f), blurRadius = 18f),
             ),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -512,7 +528,7 @@ private fun TvInfoBlock(item: MediaItem, seasonsCount: Int) {
                 text = meta.joinToString(" · "),
                 fontSize = 13.5.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xB3FFFFFF),
+                color = OpenTvColors.fg(0.702f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -523,7 +539,7 @@ private fun TvInfoBlock(item: MediaItem, seasonsCount: Int) {
                 text = item.synopsis,
                 fontSize = 13.sp,
                 lineHeight = 18.8.sp,
-                color = Color(0xD1FFFFFF), // white @ 82%
+                color = OpenTvColors.fg(0.82f), // white @ 82%
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -536,10 +552,10 @@ private fun TvInfoBlock(item: MediaItem, seasonsCount: Int) {
                     Box(
                         modifier = Modifier
                             .clip(TvPillShape)
-                            .background(Color(0x1AFFFFFF))
+                            .background(OpenTvColors.fg(0.102f))
                             .padding(horizontal = 9.dp, vertical = 3.dp),
                     ) {
-                        Text(g, fontSize = 10.5.sp, color = Color(0xCCFFFFFF), maxLines = 1)
+                        Text(g, fontSize = 10.5.sp, color = OpenTvColors.fg(0.8f), maxLines = 1)
                     }
                 }
             }
@@ -559,7 +575,7 @@ private fun TvActionButton(
     val ui = LocalOpenTvUi.current
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val fg = if (focused) ui.accent.onAccent else Color.White
+    val fg = if (focused) ui.accent.onAccent else OpenTvColors.Content
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
@@ -617,9 +633,9 @@ private fun TvSplitPlayButton(
     val pickFocused by pickInteraction.collectIsFocusedAsState()
     val leftShape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
     val rightShape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp)
-    val idleFill = Color(0x2EFFFFFF)
-    val playFg = if (playFocused) ui.accent.onAccent else Color.White
-    val pickFg = if (pickFocused) ui.accent.onAccent else Color.White
+    val idleFill = OpenTvColors.fg(0.18f)
+    val playFg = if (playFocused) ui.accent.onAccent else OpenTvColors.Content
+    val pickFg = if (pickFocused) ui.accent.onAccent else OpenTvColors.Content
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.graphicsLayer {
@@ -656,7 +672,7 @@ private fun TvSplitPlayButton(
             Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = playFg, maxLines = 1)
         }
         // 1 dp hairline between the halves.
-        Box(Modifier.width(1.dp).height(42.dp).background(Color(0x1FFFFFFF)))
+        Box(Modifier.width(1.dp).height(42.dp).background(OpenTvColors.fg(0.122f)))
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -689,8 +705,8 @@ private fun TvGlassButton(
     val shape = if (label == null) CircleShape else RoundedCornerShape(12.dp)
     val fg = when {
         focused -> ui.accent.onAccent
-        active || label != null -> Color.White
-        else -> Color(0xD9FFFFFF)
+        active || label != null -> OpenTvColors.Content
+        else -> OpenTvColors.fg(0.851f)
     }
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -708,16 +724,16 @@ private fun TvGlassButton(
             .background(
                 when {
                     focused -> ui.accent.color
-                    active -> Color(0x26FFFFFF)
-                    else -> Color(0x0FFFFFFF)
+                    active -> OpenTvColors.fg(0.149f)
+                    else -> OpenTvColors.fg(0.059f)
                 },
             )
             .border(
                 1.dp,
                 when {
                     focused -> ui.accent.color
-                    active -> Color(0x4DFFFFFF)
-                    else -> Color(0x17FFFFFF)
+                    active -> OpenTvColors.fg(0.302f)
+                    else -> OpenTvColors.fg(0.09f)
                 },
                 shape,
             )
@@ -805,11 +821,11 @@ private fun TvLanguageDialog(
             modifier = Modifier
                 .width(540.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(Color(0xFF141418))
-                .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(18.dp))
+                .background(if (OpenTvColors.isLight) OpenTvColors.Sheet else Color(0xFF141418))
+                .border(1.dp, OpenTvColors.fg(0.102f), RoundedCornerShape(18.dp))
                 .padding(horizontal = 26.dp, vertical = 22.dp),
         ) {
-            Text("Audio y subtítulos", fontSize = tsp(20f), fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Audio y subtítulos", fontSize = tsp(20f), fontWeight = FontWeight.Bold, color = OpenTvColors.Content)
             TvLangRow(
                 name = "Audio preferido",
                 options = langLabels,
@@ -853,13 +869,13 @@ private fun TvSeasonButton(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val fg = if (focused) TvBg else Color.White
+    val fg = if (focused) OpenTvColors.OnContent else OpenTvColors.Content
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .height(34.dp)
             .clip(TvSeasonShape)
-            .background(if (focused) Color.White else TvPillFill)
+            .background(if (focused) OpenTvColors.Content else TvPillFill)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(start = 15.dp, end = 13.dp),
     ) {
@@ -873,7 +889,7 @@ private fun TvSeasonButton(
             Icon(
                 Icons.Rounded.KeyboardArrowDown,
                 contentDescription = null,
-                tint = if (focused) TvBg else Color(0xCCFFFFFF),
+                tint = if (focused) OpenTvColors.OnContent else OpenTvColors.fg(0.8f),
                 modifier = Modifier.size(15.dp),
             )
         }
@@ -890,6 +906,10 @@ private fun TvEpisodeCard(
     modifier: Modifier = Modifier,
 ) {
     val ui = LocalOpenTvUi.current
+    if (ui.liteMode) {
+        TvLiteEpisodeCard(episode, progress, onPlay, onPickSource, modifier)
+        return
+    }
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     Column(
@@ -917,7 +937,7 @@ private fun TvEpisodeCard(
             )
             if (focused) {
                 // Frame drawn above the image.
-                Box(Modifier.fillMaxSize().border(2.dp, Color.White, TvThumbShape))
+                Box(Modifier.fillMaxSize().border(2.dp, OpenTvColors.Content, TvThumbShape))
             }
             if (progress > 0.02f) {
                 Box(
@@ -925,7 +945,7 @@ private fun TvEpisodeCard(
                         .align(Alignment.BottomStart)
                         .fillMaxWidth()
                         .height(3.dp)
-                        .background(Color(0x55FFFFFF)),
+                        .background(Color(0x55FFFFFF)), // over artwork
                 ) {
                     Box(
                         modifier = Modifier
@@ -941,7 +961,7 @@ private fun TvEpisodeCard(
             text = "${episode.number}. ${episode.title}",
             fontSize = 11.5.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (focused) Color.White else Color(0xD9FFFFFF),
+            color = if (focused) OpenTvColors.Content else OpenTvColors.fg(0.851f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -954,6 +974,80 @@ private fun TvEpisodeCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+    }
+}
+
+/** Lite mode episode card: same row and size, designed without a picture (label, title, synopsis). */
+@Composable
+private fun TvLiteEpisodeCard(
+    episode: Episode,
+    progress: Float,
+    onPlay: () -> Unit,
+    onPickSource: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val ui = LocalOpenTvUi.current
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    Box(
+        modifier = modifier
+            .width(200.dp)
+            .height(150.dp)
+            .clip(TvThumbShape)
+            .background(if (focused) OpenTvColors.fg(0.122f) else OpenTvColors.fg(0.051f))
+            .border(if (focused) 2.dp else 1.dp, if (focused) OpenTvColors.Content else OpenTvColors.fg(0.09f), TvThumbShape)
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = null,
+                onLongClick = onPickSource,
+                onClick = onPlay,
+            ),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(
+                text = "EPISODIO ${episode.number}",
+                fontSize = 9.5.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp,
+                color = ui.accent.color,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(OpenTvColors.fg(0.071f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+            Text(
+                text = episode.title,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (focused) OpenTvColors.Content else OpenTvColors.fg(0.902f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (episode.overview.isNotBlank()) {
+                Text(
+                    text = episode.overview,
+                    fontSize = 9.5.sp,
+                    lineHeight = 12.5.sp,
+                    color = OpenTvColors.TextMuted,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (progress > 0.02f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(OpenTvColors.fg(0.2f)),
+            ) {
+                Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).fillMaxHeight().background(ui.accent.color))
+            }
         }
     }
 }
@@ -987,14 +1081,14 @@ private fun TvRelatedPoster(
                 modifier = Modifier.fillMaxSize(),
             )
             if (focused) {
-                Box(Modifier.fillMaxSize().border(2.dp, Color.White, shape))
+                Box(Modifier.fillMaxSize().border(2.dp, OpenTvColors.Content, shape))
             }
         }
         Spacer(Modifier.height(5.dp))
         Text(
             text = item.title,
             fontSize = 10.5.sp,
-            color = if (focused) Color.White else Color(0xB3FFFFFF),
+            color = if (focused) OpenTvColors.Content else OpenTvColors.fg(0.702f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

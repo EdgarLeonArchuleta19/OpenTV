@@ -71,6 +71,21 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.techpoint.opentv.R
@@ -89,14 +104,18 @@ fun OpenTvImage(
     modifier: Modifier = Modifier,
     targetWidthPx: Int = 340,
     contentScale: ContentScale = ContentScale.Crop,
+    // Fill behind the picture; logos with transparency pass Color.Transparent so they keep
+    // their tile color (the card surface is white in the light theme).
+    background: Color = OpenTvColors.CardSurface,
 ) {
     val ctx = LocalContext.current
-    val resolved = remember(url, targetWidthPx) {
+    val widthPx = liteWidth(targetWidthPx, LocalOpenTvUi.current.liteMode)
+    val resolved = remember(url, widthPx) {
         if (url.isNullOrBlank()) null
-        else RustServiceBridge.resizedImageUrl(url, targetWidthPx) ?: url
+        else RustServiceBridge.resizedImageUrl(url, widthPx) ?: url
     }
     if (resolved == null) {
-        Box(modifier = modifier.background(OpenTvColors.CardSurface))
+        Box(modifier = modifier.background(background))
         return
     }
     AsyncImage(
@@ -107,7 +126,7 @@ fun OpenTvImage(
         },
         contentDescription = contentDescription,
         contentScale = contentScale,
-        modifier = modifier.background(OpenTvColors.CardSurface),
+        modifier = modifier.background(background),
     )
 }
 
@@ -187,6 +206,7 @@ fun PosterCard(
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_opentv_logo),
+                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(OpenTvColors.Content),
                         contentDescription = null,
                         modifier = Modifier.size(34.dp).alpha(0.32f),
                     )
@@ -219,7 +239,7 @@ fun PosterCard(
             Spacer(Modifier.height(7.dp))
             Text(
                 text = item.title,
-                color = if (focused) Color.White else OpenTvColors.TextSecondary,
+                color = if (focused) OpenTvColors.Content else OpenTvColors.TextSecondary,
                 fontSize = 12.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -322,6 +342,7 @@ fun ContinueWatchingCard(
                 Text(
                     text = entry.title,
                     style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -330,6 +351,7 @@ fun ContinueWatchingCard(
                         text = "T${entry.season} · E${entry.episode}" +
                             if (entry.episodeTitle.isNotBlank()) " · ${entry.episodeTitle}" else "",
                         style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xB8FFFFFF),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -377,6 +399,7 @@ fun HeroBanner(
     val ui = LocalOpenTvUi.current
     val inList = isInMyList(item.id)
     val heroHeight = if (ui.isTv) 388.dp else 435.dp
+    val heroBg = OpenTvColors.BgCanvas
 
     Box(
         modifier = modifier
@@ -385,7 +408,8 @@ fun HeroBanner(
             .background(OpenTvColors.BgCanvas),
     ) {
         OpenTvImage(
-            url = item.backdrop.ifBlank { item.poster },
+            // Lite mode: the hero keeps its text and buttons, without the big artwork.
+            url = if (ui.liteMode) null else item.backdrop.ifBlank { item.poster },
             contentDescription = item.title,
             targetWidthPx = if (ui.isTv) 1280 else 1080,
             modifier = Modifier
@@ -399,9 +423,9 @@ fun HeroBanner(
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
-                        0.0f to OpenTvColors.BgCanvas,
-                        0.28f to Color(0xD90E0E11),
-                        0.58f to Color(0x380E0E11),
+                        0.0f to heroBg,
+                        0.28f to heroBg.copy(alpha = 0xD9 / 255f),
+                        0.58f to heroBg.copy(alpha = 0x38 / 255f),
                         0.82f to Color.Transparent,
                     ),
                 ),
@@ -411,10 +435,10 @@ fun HeroBanner(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.0f to Color(0x880E0E11),
+                        0.0f to heroBg.copy(alpha = 0x88 / 255f),
                         0.20f to Color.Transparent,
-                        0.66f to Color(0xAA0E0E11),
-                        1.0f to OpenTvColors.BgCanvas,
+                        0.66f to heroBg.copy(alpha = 0xAA / 255f),
+                        1.0f to heroBg,
                     ),
                 ),
         )
@@ -453,7 +477,7 @@ fun HeroBanner(
                 lineHeight = titleSize * 1.06f,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = (-0.6).sp,
-                color = Color.White,
+                color = OpenTvColors.Content,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -468,7 +492,7 @@ fun HeroBanner(
             }.joinToString(" · ")
             Text(
                 text = metaLine,
-                color = Color(0xE8FFFFFF),
+                color = OpenTvColors.fg(0xE8 / 255f),
                 fontSize = 13.5.sp,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -489,7 +513,7 @@ fun HeroBanner(
                 Text(
                     text = item.synopsis,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xD4FFFFFF),
+                    color = OpenTvColors.fg(0xD4 / 255f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -535,7 +559,7 @@ fun HeroBanner(
                             .width(if (active) 28.dp else 12.dp)
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(if (active) ui.accent.color else Color(0x4DFFFFFF))
+                            .background(if (active) ui.accent.color else OpenTvColors.Content.copy(alpha = 0.3f))
                             .clickable { onSelectIndex(idx) },
                     )
                 }
@@ -569,7 +593,7 @@ fun OpenTvPrimaryButton(
             }
             .clip(shape)
             .background(ui.accent.color)
-            .then(if (focused) Modifier.border(3.dp, Color.White, shape) else Modifier)
+            .then(if (focused) Modifier.border(3.dp, OpenTvColors.FocusRing, shape) else Modifier)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 20.dp),
     ) {
@@ -608,9 +632,9 @@ fun OpenTvGlassButton(
         focused && ui.isTv -> ui.accent.color
         focused -> OpenTvColors.GlassFillFocus
         selected -> OpenTvColors.GlassFillFocus
-        else -> Color(0x88383840)
+        else -> if (OpenTvColors.isLight) OpenTvColors.fg(0.07f) else Color(0x88383840)
     }
-    val fg = if (focused && ui.isTv) ui.accent.onAccent else Color.White
+    val fg = if (focused && ui.isTv) ui.accent.onAccent else OpenTvColors.Content
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -656,13 +680,13 @@ fun OpenTvRoundIconButton(
     val focused by interaction.collectIsFocusedAsState()
     val bg = when {
         focused -> ui.accent.color
-        selected -> Color(0x30FFFFFF)
-        else -> Color(0x80141418)
+        selected -> OpenTvColors.Content.copy(alpha = 0x30 / 255f)
+        else -> if (OpenTvColors.isLight) OpenTvColors.CardSurface else Color(0x80141418)
     }
     val fg = when {
         focused -> ui.accent.onAccent
         tintOverride != null -> tintOverride
-        else -> Color.White
+        else -> OpenTvColors.Content
     }
 
     Box(
@@ -673,7 +697,7 @@ fun OpenTvRoundIconButton(
             .background(bg)
             .border(
                 width = if (focused) 2.5.dp else 1.dp,
-                color = if (focused) ui.accent.color else Color(0x66FFFFFF),
+                color = if (focused) ui.accent.color else OpenTvColors.Content.copy(alpha = 0.4f),
                 shape = CircleShape,
             )
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
@@ -702,7 +726,7 @@ fun OpenTvChip(
         },
         label = "chipBg",
     )
-    val fg = if (selected) ui.accent.onAccent else Color.White
+    val fg = if (selected) ui.accent.onAccent else OpenTvColors.Content
 
     Box(
         contentAlignment = Alignment.Center,
@@ -730,13 +754,12 @@ fun OpenTvChip(
 }
 
 /**
- * Exact 1:1 replica of OpenTV v1 "Elegir fuente" modal (`docs/screenshots/fuentes.jpg`):
- * - Row 1: Quality pills with counts (`Todas`, `4K · N`, `Full HD · N`, `HD · N`, `SD · N`) + Type (`Todo`, `Directo`, `Torrent`)
- * - Row 2: `Idioma` pills with counts (`Todos`, `Latino · N`, `Castellano · N`, `Inglés · N`)
- * - Row 3: `Ordenar` (`Recomendado`, `Más pesadas`, `Más ligeras`, `Más semillas`)
- * - Highlighted `Recomendada` top card with mint-green `#7EE2A8` summary line
- * - Bold solid-white left quality badge (`1080p`, `4K`, `720p`) + `⇅` torrent meta prefix
- * - Clean footer (`N fuentes` + `Cancelar`).
+ * "Elegir fuente": simple list for everyone, same design as the PC `SourcePickerModal`.
+ * - Three dropdown filters (`Calidad`, `Idioma`, `Tipo`) that only list values present.
+ * - The ranker's best pick on top, marked `Recomendada` (mint `#7EE2A8`).
+ * - One plain row per source: quality badge, language in Spanish, Directo/Torrent, size, plugin.
+ * On TV focus starts on the recommended row; each dropdown opens a small D-pad list
+ * (focus on the current value, Back closes it and focus returns to the button). No blur.
  */
 @Composable
 fun SourcePickerDialog(
@@ -748,64 +771,50 @@ fun SourcePickerDialog(
 ) {
     val ui = LocalOpenTvUi.current
     var qualityFilter by remember { mutableStateOf("all") }
-    var typeFilter by remember { mutableStateOf("all") }
     var langFilter by remember { mutableStateOf("all") }
-    var sortMode by remember { mutableStateOf("rec") }
+    var typeFilter by remember { mutableStateOf("all") }
 
-    val q4k = remember(sources) { sources.count { it.quality == "4K" } }
-    val q1080 = remember(sources) { sources.count { it.quality == "1080p" } }
-    val q720 = remember(sources) { sources.count { it.quality == "720p" } }
-    val qSd = remember(sources) { sources.count { it.quality == "SD" } }
-    val directCount = remember(sources) { sources.count { it.isDirect } }
-    val torrentCount = remember(sources) { sources.count { it.isTorrent } }
-    val latCount = remember(sources) { sources.count { SourceRanker.hasLang(it, "latino") || SourceRanker.hasLang(it, "es") } }
-    val castCount = remember(sources) { sources.count { SourceRanker.hasLang(it, "castellano") } }
-    val enCount = remember(sources) { sources.count { SourceRanker.hasLang(it, "en") } }
-
-    val filtered = remember(sources, qualityFilter, typeFilter, langFilter, sortMode) {
+    val options = remember(sources) { SourceRanker.pickerFilterOptions(sources) }
+    val filtered = remember(sources, qualityFilter, langFilter, typeFilter) {
         sources.filter { s ->
-            val qOk = qualityFilter == "all" || s.quality == qualityFilter
-            val tOk = when (typeFilter) {
-                "direct" -> s.isDirect
-                "torrent" -> s.isTorrent
-                else -> true
-            }
-            val lOk = when (langFilter) {
-                "latino" -> SourceRanker.hasLang(s, "latino") || SourceRanker.hasLang(s, "es")
-                "castellano" -> SourceRanker.hasLang(s, "castellano")
-                "en" -> SourceRanker.hasLang(s, "en")
-                else -> true
-            }
-            qOk && tOk && lOk
-        }.let { list ->
-            when (sortMode) {
-                "heavy" -> list.sortedByDescending { it.sizeBytes }
-                "light" -> list.sortedBy { if (it.sizeBytes > 0L) it.sizeBytes else Long.MAX_VALUE }
-                "seeds" -> list.sortedByDescending { it.seeders }
-                else -> list
-            }
+            SourceRanker.matchesQualityFilter(s, qualityFilter) &&
+                SourceRanker.matchesLangFilter(s, langFilter) &&
+                SourceRanker.matchesTypeFilter(s, typeFilter)
         }
+            // Rows are keyed by id: two installs of the same plugin can yield the same id.
+            .distinctBy { it.id }
     }
-
     val recommended = filtered.firstOrNull()
     val others = if (filtered.size > 1) filtered.drop(1) else emptyList()
+    val anyFilter = qualityFilter != "all" || langFilter != "all" || typeFilter != "all"
+
+    // TV: land on the recommended source once, so OK plays the best pick right away.
+    val recFocus = remember { FocusRequester() }
+    var initialFocusDone by remember { mutableStateOf(false) }
+    LaunchedEffect(recommended != null) {
+        if (ui.isTv && recommended != null && !initialFocusDone) {
+            initialFocusDone = true
+            withFrameNanos { }
+            runCatching { recFocus.requestFocus() }
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
-            color = Color(0xF5111114),
+            color = if (OpenTvColors.isLight) OpenTvColors.Sheet else Color(0xF5111114),
             shape = RoundedCornerShape(20.dp),
             border = BorderStroke(1.dp, OpenTvColors.GlassBorderStrong),
             modifier = Modifier
-                .fillMaxWidth(if (ui.isTv) 0.78f else 0.95f)
+                .fillMaxWidth(if (ui.isTv) 0.74f else 0.95f)
                 .fillMaxHeight(0.86f),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Header + Filter chips (`srcp-head`)
+                // Header + dropdown filters
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
                 ) {
                     Row(
@@ -820,85 +829,69 @@ fun SourcePickerDialog(
                         OpenTvRoundIconButton(Icons.Rounded.Close, "Cerrar", onDismiss, size = 36.dp)
                     }
 
-                    // Row 1: Quality + Type
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        item { OpenTvChip("Todas", qualityFilter == "all", { qualityFilter = "all" }) }
-                        item { OpenTvChip("4K · $q4k", qualityFilter == "4K", { qualityFilter = "4K" }, dimmed = q4k == 0) }
-                        item { OpenTvChip("Full HD · $q1080", qualityFilter == "1080p", { qualityFilter = "1080p" }, dimmed = q1080 == 0) }
-                        item { OpenTvChip("HD · $q720", qualityFilter == "720p", { qualityFilter = "720p" }, dimmed = q720 == 0) }
-                        item { OpenTvChip("SD · $qSd", qualityFilter == "SD", { qualityFilter = "SD" }, dimmed = qSd == 0) }
-                        item { Spacer(Modifier.width(8.dp)) }
-                        item { OpenTvChip("Todo", typeFilter == "all", { typeFilter = "all" }) }
-                        item { OpenTvChip("Directo · $directCount", typeFilter == "direct", { typeFilter = "direct" }, dimmed = directCount == 0) }
-                        item { OpenTvChip("Torrent · $torrentCount", typeFilter == "torrent", { typeFilter = "torrent" }, dimmed = torrentCount == 0) }
-                    }
-
-                    // Row 2: Idioma
-                    LazyRow(
+                    Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     ) {
-                        item { Text("Idioma", color = OpenTvColors.TextMuted, fontSize = 12.sp, modifier = Modifier.padding(end = 4.dp)) }
-                        item { OpenTvChip("Todos", langFilter == "all", { langFilter = "all" }) }
-                        item { OpenTvChip("Latino · $latCount", langFilter == "latino", { langFilter = "latino" }, dimmed = latCount == 0) }
-                        item { OpenTvChip("Castellano · $castCount", langFilter == "castellano", { langFilter = "castellano" }, dimmed = castCount == 0) }
-                        item { OpenTvChip("Inglés · $enCount", langFilter == "en", { langFilter = "en" }, dimmed = enCount == 0) }
-                    }
-
-                    // Row 3: Ordenar
-                    LazyRow(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        item { Text("Ordenar", color = OpenTvColors.TextMuted, fontSize = 12.sp, modifier = Modifier.padding(end = 4.dp)) }
-                        item { OpenTvChip("Recomendado", sortMode == "rec", { sortMode = "rec" }) }
-                        item { OpenTvChip("Más pesadas", sortMode == "heavy", { sortMode = "heavy" }) }
-                        item { OpenTvChip("Más ligeras", sortMode == "light", { sortMode = "light" }) }
-                        item { OpenTvChip("Más semillas", sortMode == "seeds", { sortMode = "seeds" }) }
+                        PickerSelect("Calidad", qualityFilter, options.quality, { qualityFilter = it })
+                        PickerSelect("Idioma", langFilter, options.lang, { langFilter = it })
+                        PickerSelect("Tipo", typeFilter, options.type, { typeFilter = it })
+                        if (anyFilter) {
+                            OpenTvGlassButton(
+                                text = "Quitar filtros",
+                                onClick = {
+                                    qualityFilter = "all"
+                                    langFilter = "all"
+                                    typeFilter = "all"
+                                },
+                            )
+                        }
                     }
                 }
 
                 HorizontalDivider(color = OpenTvColors.SubtleDivider)
 
-                // Body (`srcp-body`)
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     when {
                         loading && sources.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("Buscando fuentes en tus plugins…", style = MaterialTheme.typography.bodyLarge)
                         }
                         filtered.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No hay fuentes con esos filtros.", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                if (sources.isEmpty()) "No se encontraron fuentes." else "No hay fuentes con esos filtros.",
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
                         }
                         else -> LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(6.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                         ) {
                             if (recommended != null) {
-                                item(key = "hdr_rec") {
-                                    Row(
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
-                                    ) {
-                                        Text("Recomendada", style = MaterialTheme.typography.titleMedium)
-                                        Text(recommended.addonName, style = MaterialTheme.typography.labelMedium)
-                                    }
-                                }
                                 item(key = "rec_${recommended.id}") {
-                                    V1SourceRow(source = recommended, isRecommended = true, onClick = { onSelect(recommended) })
+                                    PickerSourceRow(
+                                        source = recommended,
+                                        isRecommended = true,
+                                        onClick = { onSelect(recommended) },
+                                        modifier = Modifier.focusRequester(recFocus),
+                                    )
                                 }
                             }
                             if (others.isNotEmpty()) {
-                                item(key = "hdr_all") {
+                                item(key = "hdr_more") {
                                     Row(
                                         horizontalArrangement = Arrangement.SpaceBetween,
-                                        modifier = Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 10.dp, bottom = 4.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 2.dp),
                                     ) {
-                                        Text("Todas las fuentes", style = MaterialTheme.typography.titleMedium)
-                                        Text("${filtered.size} fuentes", style = MaterialTheme.typography.labelMedium)
+                                        Text("Más opciones", style = MaterialTheme.typography.titleMedium)
+                                        Text(
+                                            "${others.size} ${if (others.size == 1) "fuente" else "fuentes"}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                        )
                                     }
                                 }
                                 items(others, key = { it.id }) { src ->
-                                    V1SourceRow(source = src, isRecommended = false, onClick = { onSelect(src) })
+                                    PickerSourceRow(source = src, isRecommended = false, onClick = { onSelect(src) })
                                 }
                             }
                         }
@@ -907,13 +900,16 @@ fun SourcePickerDialog(
 
                 HorizontalDivider(color = OpenTvColors.SubtleDivider)
 
-                // Footer (`srcp-foot`)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                 ) {
-                    Text("${filtered.size} fuentes", style = MaterialTheme.typography.labelMedium)
+                    val count = "${filtered.size} ${if (filtered.size == 1) "fuente" else "fuentes"}"
+                    Text(
+                        if (loading && sources.isNotEmpty()) "$count · buscando más…" else count,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
                     OpenTvGlassButton(text = "Cancelar", onClick = onDismiss)
                 }
             }
@@ -921,52 +917,173 @@ fun SourcePickerDialog(
     }
 }
 
+/** Filter dropdown: a focusable button that opens a small list anchored below it. */
 @Composable
-private fun V1SourceRow(
+private fun PickerSelect(
+    label: String,
+    value: String,
+    options: List<SourceRanker.PickerOption>,
+    onChange: (String) -> Unit,
+) {
+    val ui = LocalOpenTvUi.current
+    var open by remember { mutableStateOf(false) }
+    var wasOpen by remember { mutableStateOf(false) }
+    val buttonFocus = remember { FocusRequester() }
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val current = options.firstOrNull { it.value == value } ?: options.firstOrNull()
+    val shape = RoundedCornerShape(12.dp)
+    val density = LocalDensity.current
+
+    // Focus goes back to the button once the list closes (pick or Back).
+    LaunchedEffect(open) {
+        if (open) {
+            wasOpen = true
+        } else if (wasOpen) {
+            withFrameNanos { }
+            runCatching { buttonFocus.requestFocus() }
+        }
+    }
+
+    Box {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .height(44.dp)
+                .widthIn(min = 140.dp)
+                .clip(shape)
+                .background(if (focused || open) OpenTvColors.GlassFillFocus else OpenTvColors.GlassFill)
+                .border(
+                    width = if (focused) 2.5.dp else 1.dp,
+                    color = if (focused || open || value != "all") ui.accent.color else OpenTvColors.GlassBorder,
+                    shape = shape,
+                )
+                .focusRequester(buttonFocus)
+                .clickable(interactionSource = interaction, indication = null) { open = true }
+                .padding(horizontal = 14.dp),
+        ) {
+            Text(label, color = OpenTvColors.TextMuted, fontSize = 12.5.sp, maxLines = 1)
+            Text(
+                current?.label.orEmpty(),
+                color = OpenTvColors.Content,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                maxLines = 1,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Icon(
+                Icons.Rounded.KeyboardArrowDown,
+                contentDescription = null,
+                tint = OpenTvColors.TextSecondary,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        if (open) {
+            Popup(
+                alignment = Alignment.TopStart,
+                offset = IntOffset(0, with(density) { 50.dp.roundToPx() }),
+                onDismissRequest = { open = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                PickerOptionList(
+                    options = options,
+                    value = value,
+                    onPick = {
+                        onChange(it)
+                        open = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PickerOptionList(
+    options: List<SourceRanker.PickerOption>,
+    value: String,
+    onPick: (String) -> Unit,
+) {
+    val ui = LocalOpenTvUi.current
+    val selectedFocus = remember { FocusRequester() }
+    val shape = RoundedCornerShape(12.dp)
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        runCatching { selectedFocus.requestFocus() }
+    }
+    Column(
+        modifier = Modifier
+            .widthIn(min = 200.dp, max = 320.dp)
+            .heightIn(max = 300.dp)
+            .clip(shape)
+            .background(if (OpenTvColors.isLight) OpenTvColors.Sheet else Color(0xFF1B1B20))
+            .border(1.dp, OpenTvColors.GlassBorderStrong, shape)
+            .verticalScroll(rememberScrollState())
+            .padding(4.dp),
+    ) {
+        options.forEach { o ->
+            val selected = o.value == value
+            val interaction = remember(o.value) { MutableInteractionSource() }
+            val focused by interaction.collectIsFocusedAsState()
+            val itemShape = RoundedCornerShape(9.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clip(itemShape)
+                    .background(if (focused) OpenTvColors.GlassFillFocus else Color.Transparent)
+                    .then(if (focused) Modifier.border(2.dp, ui.accent.color, itemShape) else Modifier)
+                    .then(if (selected) Modifier.focusRequester(selectedFocus) else Modifier)
+                    .clickable(interactionSource = interaction, indication = null) { onPick(o.value) }
+                    .padding(horizontal = 12.dp),
+            ) {
+                Icon(
+                    Icons.Rounded.Check,
+                    contentDescription = null,
+                    tint = if (selected) ui.accent.color else Color.Transparent,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    o.label,
+                    color = if (selected) OpenTvColors.Content else OpenTvColors.TextSecondary,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                Text("${o.count}", color = OpenTvColors.TextSubtle, fontSize = 12.5.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PickerSourceRow(
     source: StreamSource,
     isRecommended: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val ui = LocalOpenTvUi.current
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val shape = RoundedCornerShape(12.dp)
-
-    val qualityText = when (source.quality) {
-        "4K" -> "4K"
-        "1080p" -> "1080p"
-        "720p" -> "720p"
-        "SD" -> "SD"
-        // Unknown = adaptive/undetected (most plugin HLS streams); the player picks the rendition.
-        else -> "Auto"
-    }
+    val shape = RoundedCornerShape(14.dp)
     val hasQuality = source.quality != "unknown"
-
-    val metaParts = buildList {
-        val lang = SourceRanker.languageSummary(source)
-        add(lang.ifBlank { "Idioma original" })
-        add(if (source.isDirect) "Directo" else "Torrent")
-        val size = SourceRanker.formatSize(source.sizeBytes)
-        if (size.isNotBlank()) add(size)
-        if (source.isTorrent && source.seeders > 0) add("${source.seeders} semillas")
-        add(source.addonName)
-    }
-    val metaLine = (if (source.isTorrent) "⇅ " else "") + metaParts.joinToString(" · ")
-
-    val displayName = source.filename.ifBlank {
-        source.title.lineSequence().firstOrNull()?.trim().orEmpty()
-    }.ifBlank { source.name.replace('\n', ' ').trim() }
+    val size = SourceRanker.formatSize(source.sizeBytes)
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(shape)
             .background(
                 when {
-                    focused -> Color(0x20FFFFFF)
-                    isRecommended -> Color(0x147EE2A8)
+                    focused -> OpenTvColors.Content.copy(alpha = 0x20 / 255f)
+                    isRecommended -> Color(0x0F7EE2A8)
                     else -> Color.Transparent
                 },
             )
@@ -978,58 +1095,75 @@ private fun V1SourceRow(
                 },
             )
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
-        // Signature OpenTV v1 white quality pill box (`.srcp-q`)
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .width(64.dp)
-                .height(34.dp)
-                .clip(RoundedCornerShape(9.dp))
-                .background(if (hasQuality) Color.White else Color(0x1AFFFFFF)),
+                .width(74.dp)
+                .height(44.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(if (hasQuality) OpenTvColors.Content else OpenTvColors.Content.copy(alpha = 0x1A / 255f)),
         ) {
             Text(
-                text = qualityText,
-                color = if (hasQuality) OpenTvColors.BgCanvas else OpenTvColors.TextSecondary,
+                text = SourceRanker.qualityLabel(source),
+                color = if (hasQuality) OpenTvColors.OnContent else OpenTvColors.TextSecondary,
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 13.sp,
+                fontSize = 15.sp,
             )
         }
 
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = displayName,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = metaLine,
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (isRecommended) {
-                val recSummary = buildList {
-                    val lang = SourceRanker.languageSummary(source)
-                    if (lang.isNotBlank()) add(lang)
-                    add(if (source.quality == "1080p") "Full HD" else qualityText)
-                    if (source.isHdr) add("HDR")
-                    if (source.isAtmos) add("Dolby Atmos")
-                    if (source.seeders > 0) add("${source.seeders} semillas")
-                    val sz = SourceRanker.formatSize(source.sizeBytes)
-                    if (sz.isNotBlank()) add(sz)
-                }.joinToString(" · ")
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = recSummary,
-                    color = OpenTvColors.MintGreen,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Medium,
+                    text = SourceRanker.plainLanguageLabel(source),
+                    color = OpenTvColors.Content,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
+                if (isRecommended) {
+                    Text(
+                        text = "Recomendada",
+                        color = Color(0xFF0E0E11),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.5.sp,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(OpenTvColors.MintGreen)
+                            .padding(horizontal = 9.dp, vertical = 2.dp),
+                    )
+                }
             }
+            Text(
+                text = SourceRanker.sourceDetailLine(source),
+                color = OpenTvColors.TextMuted,
+                fontSize = 12.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
+
+        if (size.isNotBlank()) {
+            Text(size, color = OpenTvColors.TextSecondary, fontSize = 13.sp, maxLines = 1)
+        }
+        Text(
+            text = SourceRanker.typeLabel(source),
+            color = if (source.isDirect) OpenTvColors.Content else OpenTvColors.TextSecondary,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.5.sp,
+            maxLines = 1,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(OpenTvColors.Content.copy(alpha = if (source.isDirect) 0x1F / 255f else 0x0D / 255f))
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+        )
     }
 }
+
+/** Lite mode asks for ~60 % of the usual width: sharp enough, far fewer bytes and less RAM. */
+internal fun liteWidth(widthPx: Int, lite: Boolean): Int =
+    if (lite) (widthPx * 0.6f).toInt().coerceAtLeast(160) else widthPx

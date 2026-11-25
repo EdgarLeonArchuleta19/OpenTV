@@ -106,91 +106,6 @@ internal fun BoxScope.LiveBufferingSpinner(player: OpenTvPlayer, size: Int = 30)
     }
 }
 
-/**
- * TV channel row (PC `h-[60px] rounded-[14px]` row scaled to 10 ft): logo, name and the
- * "now" EPG line; focused = white fill, playing = soft fill + red dot. Single focus target.
- */
-@Composable
-internal fun LiveTvChannelRow(
-    channel: LiveChannel,
-    epg: EpgNowNext?,
-    active: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    rightFocus: FocusRequester? = null,
-) {
-    val scale = LocalOpenTvUi.current.textScale
-    val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
-    val now = epg?.now?.title?.takeIf { it.isNotBlank() }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(54.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(
-                when {
-                    focused -> Color.White
-                    active -> Color(0x21FFFFFF)
-                    else -> Color.Transparent
-                },
-            )
-            .focusProperties { if (rightFocus != null) right = rightFocus }
-            .rememberFocus()
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(start = 7.dp, end = 10.dp),
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(width = 52.dp, height = 40.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (focused) Color(0x14000000) else Color(0xFF0E0E11)),
-        ) {
-            if (channel.logo.isNotBlank()) {
-                OpenTvImage(
-                    url = channel.logo,
-                    contentDescription = channel.name,
-                    targetWidthPx = 120,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize().padding(4.dp),
-                )
-            } else {
-                Icon(Icons.Rounded.LiveTv, null, tint = if (focused) LiveDark else OpenTvColors.TextMuted, modifier = Modifier.size(18.dp))
-            }
-        }
-        Spacer(Modifier.width(11.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = channel.name,
-                color = if (focused) LiveDark else Color.White,
-                fontSize = (14.5f * scale).sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (now != null) {
-                Text(
-                    text = now,
-                    color = if (focused) Color(0x990E0E11) else OpenTvColors.TextMuted,
-                    fontSize = (11.5f * scale).sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        if (active) {
-            Spacer(Modifier.width(6.dp))
-            Box(
-                Modifier
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(OpenTvColors.LiveRed),
-            )
-        }
-    }
-}
 
 /** PC search box (46 px, radius 14): non-editable display on TV; OK opens the TV keyboard. */
 @Composable
@@ -209,19 +124,19 @@ internal fun LiveTvSearchBox(
             .fillMaxWidth()
             .height(40.dp)
             .clip(shape)
-            .background(if (focused) Color.White else Color(0x0FFFFFFF))
-            .border(1.dp, if (focused) Color.White else Color(0x1FFFFFFF), shape)
+            .background(if (focused) OpenTvColors.Content else OpenTvColors.fg(0.06f))
+            .border(1.dp, if (focused) OpenTvColors.Content else OpenTvColors.fg(0.12f), shape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 12.dp),
     ) {
-        Icon(Icons.Rounded.Search, null, tint = if (focused) LiveDark else OpenTvColors.TextMuted, modifier = Modifier.size(16.dp))
+        Icon(Icons.Rounded.Search, null, tint = if (focused) OpenTvColors.OnContent else OpenTvColors.TextMuted, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(9.dp))
         Text(
             text = text.ifEmpty { "Buscar canal" },
             color = when {
-                focused -> LiveDark
+                focused -> OpenTvColors.OnContent
                 text.isEmpty() -> OpenTvColors.TextMuted
-                else -> Color.White
+                else -> OpenTvColors.Content
             },
             fontSize = (13.5f * scale).sp,
             maxLines = 1,
@@ -230,177 +145,9 @@ internal fun LiveTvSearchBox(
     }
 }
 
-/** PC category dropdown button (46 px, radius 14); focused = white fill. */
-@Composable
-internal fun LiveTvCategoryButton(
-    label: String,
-    expanded: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val scale = LocalOpenTvUi.current.textScale
-    val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
-    val fg = if (focused) LiveDark else Color.White
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(40.dp)
-            .clip(shape)
-            .background(
-                when {
-                    focused -> Color.White
-                    expanded -> Color(0x1FFFFFFF)
-                    else -> Color(0x12FFFFFF)
-                },
-            )
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(start = 14.dp, end = 10.dp),
-    ) {
-        Text(
-            text = label,
-            color = fg,
-            fontSize = (13.5f * scale).sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        Icon(
-            imageVector = Icons.Rounded.ExpandMore,
-            contentDescription = null,
-            tint = fg,
-            modifier = Modifier
-                .size(18.dp)
-                .graphicsLayer { rotationZ = if (expanded) 180f else 0f },
-        )
-    }
-}
-
-/**
- * PC `live-bar3a` under the video: logo, name, "Canal N · grupo", Ahora/Después with the
- * programme progress, and round controls (anterior, pausa, siguiente, favorito, guía,
- * pantalla completa). ← from the first control returns to the last focused channel row.
- */
-@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
-@Composable
-internal fun LiveTvInfoBar(
-    channel: LiveChannel?,
-    number: Int,
-    epg: EpgNowNext?,
-    player: OpenTvPlayer,
-    isFavorite: Boolean,
-    playFocus: FocusRequester,
-    leftExit: () -> FocusRequester,
-    onPrev: () -> Unit,
-    onNext: () -> Unit,
-    onToggleFavorite: () -> Unit,
-    onGuide: () -> Unit,
-    onFullscreen: () -> Unit,
-) {
-    val ui = LocalOpenTvUi.current
-    val scale = ui.textScale
-    // Two lines: channel info uses the full width (names were cut to "ADN No…" when the
-    // six round controls shared the row), controls sit underneath.
-    Column(Modifier.fillMaxWidth()) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(width = 64.dp, height = 46.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0x12FFFFFF)),
-        ) {
-            if (channel != null && channel.logo.isNotBlank()) {
-                OpenTvImage(
-                    url = channel.logo,
-                    contentDescription = channel.name,
-                    targetWidthPx = 160,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize().padding(5.dp),
-                )
-            } else {
-                Icon(Icons.Rounded.LiveTv, null, tint = OpenTvColors.TextMuted, modifier = Modifier.size(20.dp))
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = channel?.name ?: "Elige un canal",
-                color = Color.White,
-                fontSize = (19f * scale).sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (channel != null) {
-                Text(
-                    text = if (number > 0) "Canal $number · ${channel.group}" else channel.group,
-                    color = Color(0xA6FFFFFF),
-                    fontSize = (12f * scale).sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            val nowP = epg?.now
-            val line = listOfNotNull(
-                nowP?.title?.takeIf { it.isNotBlank() }?.let { "Ahora: $it" },
-                epg?.next?.title?.takeIf { it.isNotBlank() }?.let { "Después: $it" },
-            ).joinToString("  ·  ")
-            if (line.isNotEmpty()) {
-                Text(
-                    text = line,
-                    color = Color(0xD9FFFFFF),
-                    fontSize = (12f * scale).sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (nowP != null && nowP.endMs > nowP.startMs) {
-                val p = remember(nowP) { nowP.progressAt(System.currentTimeMillis()) }
-                Box(
-                    Modifier
-                        .padding(top = 5.dp)
-                        .width(180.dp)
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color(0x33FFFFFF)),
-                ) {
-                    Box(Modifier.fillMaxWidth(p.coerceIn(0.02f, 1f)).fillMaxHeight().background(OpenTvColors.LiveRed))
-                }
-            }
-        }
-    }
-        Spacer(Modifier.height(12.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .padding(start = 76.dp)
-                .focusProperties {
-                    exit = { dir -> if (dir == FocusDirection.Left) leftExit() else FocusRequester.Default }
-                }
-                .focusGroup(),
-        ) {
-            LiveRoundButton(Icons.Rounded.SkipPrevious, "Canal anterior", onPrev)
-            LivePlayPauseButton(player, playFocus)
-            LiveRoundButton(Icons.Rounded.SkipNext, "Canal siguiente", onNext)
-            LiveRoundButton(
-                if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                "Favorito",
-                onToggleFavorite,
-                tint = if (isFavorite) OpenTvColors.StarGold else null,
-            )
-            LiveRoundButton(Icons.AutoMirrored.Rounded.List, "Guía", onGuide)
-            LiveRoundButton(Icons.Rounded.Fullscreen, "Pantalla completa", onFullscreen)
-        }
-    }
-}
 
 @Composable
-private fun LiveRoundButton(
+internal fun LiveRoundButton(
     icon: ImageVector,
     description: String,
     onClick: () -> Unit,
@@ -423,14 +170,14 @@ private fun LiveRoundButton(
                 scaleY = s
             }
             // Ring outside the circle so focus is visible even when the accent is white.
-            .border(2.dp, if (focused) Color.White else Color.Transparent, CircleShape)
+            .border(2.dp, if (focused) OpenTvColors.Content else Color.Transparent, CircleShape)
             .padding(3.dp)
             .clip(CircleShape)
             .background(
                 when {
-                    focused -> Color.White
+                    focused -> OpenTvColors.Content
                     filled -> ui.accent.color
-                    else -> Color(0x1AFFFFFF)
+                    else -> OpenTvColors.fg(0.1f)
                 },
             )
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
@@ -439,9 +186,9 @@ private fun LiveRoundButton(
             imageVector = icon,
             contentDescription = description,
             tint = when {
-                focused -> LiveDark
+                focused -> OpenTvColors.OnContent
                 filled -> ui.accent.onAccent
-                else -> tint ?: Color.White
+                else -> tint ?: OpenTvColors.Content
             },
             modifier = Modifier.size(size * 0.4f),
         )
@@ -450,7 +197,7 @@ private fun LiveRoundButton(
 
 /** Accent play/pause; observes only `isPlaying` so position ticks never recompose the bar. */
 @Composable
-private fun LivePlayPauseButton(player: OpenTvPlayer, focus: FocusRequester) {
+internal fun LivePlayPauseButton(player: OpenTvPlayer, focus: FocusRequester? = null, size: Dp = 56.dp, filled: Boolean = true) {
     val playing by remember(player) {
         player.state.map { it.isPlaying }.distinctUntilChanged()
     }.collectAsState(initial = player.state.value.isPlaying)
@@ -458,107 +205,9 @@ private fun LivePlayPauseButton(player: OpenTvPlayer, focus: FocusRequester) {
         icon = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
         description = if (playing) "Pausa" else "Reanudar",
         onClick = { player.togglePlayPause() },
-        modifier = Modifier.focusRequester(focus),
-        size = 56.dp,
-        filled = true,
-    )
-}
-/** v1 `.live-cat-menu`: the category list drawn over the channel list. */
-@Composable
-internal fun LiveTvCategoryMenu(
-    categories: List<String>,
-    selected: String,
-    selectedRequester: FocusRequester,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val startIdx = remember(categories, selected) { categories.indexOf(selected).coerceAtLeast(0) }
-    val state = rememberLazyListState(initialFirstVisibleItemIndex = startIdx)
-    LazyColumn(
-        state = state,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFA16161A))
-            .border(1.dp, OpenTvColors.GlassBorderStrong, RoundedCornerShape(10.dp))
-            .padding(5.dp),
-    ) {
-        items(categories, key = { it }) { cat ->
-            val interaction = remember { MutableInteractionSource() }
-            val focused by interaction.collectIsFocusedAsState()
-            val isSel = cat == selected
-            val fg = if (focused) LiveDark else Color.White
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(if (focused) Color.White else Color.Transparent)
-                    .stableFocusRequester(isSel, selectedRequester)
-                    .clickable(interactionSource = interaction, indication = null, onClick = { onSelect(cat) })
-                    .padding(start = 10.dp, end = 8.dp),
-            ) {
-                Text(
-                    text = cat,
-                    color = fg,
-                    fontSize = (13.5f * LocalOpenTvUi.current.textScale).sp,
-                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (isSel) {
-                    Icon(Icons.Rounded.Check, null, tint = fg, modifier = Modifier.size(16.dp))
-                }
-            }
-        }
-    }
-}
-
-/** v1 `.live-dock-btn` (TV): 30dp pill; focused = white fill and scale 1.08. */
-@Composable
-internal fun LiveTvPill(
-    text: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    iconTint: Color? = null,
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
-    val fg = if (focused) LiveDark else Color.White
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = modifier
-            .height(30.dp)
-            .zIndex(if (focused) 1f else 0f)
-            .graphicsLayer {
-                val s = if (focused) 1.08f else 1f
-                scaleX = s
-                scaleY = s
-            }
-            .clip(RoundedCornerShape(999.dp))
-            .background(if (focused) Color.White else Color(0x1AFFFFFF))
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = 13.dp),
-    ) {
-        Icon(icon, null, tint = if (focused) LiveDark else (iconTint ?: Color.White), modifier = Modifier.size(15.dp))
-        Text(text, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-    }
-}
-
-/** Pause pill that observes only `isPlaying`. */
-@Composable
-internal fun LiveTvPausePill(player: OpenTvPlayer) {
-    val playing by remember(player) {
-        player.state.map { it.isPlaying }.distinctUntilChanged()
-    }.collectAsState(initial = player.state.value.isPlaying)
-    LiveTvPill(
-        text = if (playing) "Pausa" else "Reanudar",
-        icon = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-        onClick = { player.togglePlayPause() },
+        modifier = if (focus != null) Modifier.focusRequester(focus) else Modifier,
+        size = size,
+        filled = filled,
     )
 }
 
@@ -575,9 +224,9 @@ internal fun LiveTvCategoryPill(label: String, selected: Boolean, onClick: () ->
             .clip(RoundedCornerShape(999.dp))
             .background(
                 when {
-                    focused -> Color.White
+                    focused -> OpenTvColors.Content
                     selected -> ui.accent.color
-                    else -> Color(0x14FFFFFF)
+                    else -> OpenTvColors.fg(0.08f)
                 },
             )
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
@@ -586,9 +235,9 @@ internal fun LiveTvCategoryPill(label: String, selected: Boolean, onClick: () ->
         Text(
             text = label,
             color = when {
-                focused -> LiveDark
+                focused -> OpenTvColors.OnContent
                 selected -> ui.accent.onAccent
-                else -> Color.White
+                else -> OpenTvColors.Content
             },
             fontSize = 12.sp,
             fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.Medium,
@@ -628,6 +277,7 @@ internal fun BoxScope.LiveTvBanner(
                 if (channel.logo.isNotBlank()) {
                     OpenTvImage(
                         url = channel.logo,
+                        background = Color.Transparent,
                         contentDescription = channel.name,
                         targetWidthPx = 200,
                         contentScale = ContentScale.Fit,
@@ -734,14 +384,14 @@ internal fun ScheduleRow(
             .fillMaxWidth()
             .clip(shape)
             .background(if (focused) OpenTvColors.GlassFillFocus else OpenTvColors.GlassFill)
-            .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier)
+            .then(if (focused) Modifier.border(2.dp, OpenTvColors.Content, shape) else Modifier)
             .then(if (ui.isTv) Modifier.focusable(interactionSource = interaction) else Modifier)
             .padding(12.dp),
     ) {
         if (range.isNotBlank()) {
             Text(range, fontSize = 12.sp, color = ui.accent.color, fontWeight = FontWeight.Bold)
         }
-        Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text(title, color = OpenTvColors.Content, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         if (description.isNotBlank()) {
             Text(description, color = OpenTvColors.TextMuted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }

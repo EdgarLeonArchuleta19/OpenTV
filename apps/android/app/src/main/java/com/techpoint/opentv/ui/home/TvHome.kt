@@ -41,6 +41,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -114,7 +115,7 @@ class HomeFocusMemory {
     val focus = FocusMemory()
 }
 
-private val TvBg = Color(0xFF0E0E11)
+private val TvBg: Color @Composable @ReadOnlyComposable get() = OpenTvColors.BgCanvas
 
 // v1 TV metrics (1920x1080 canvas halved to dp).
 private val ContentStart = 120.dp
@@ -265,6 +266,9 @@ fun TvHomeCatalog(
                 item(key = "hero_${tab.id}", contentType = "hero") {
                     val heroItem = heroItems.getOrNull(heroIndex.coerceIn(0, heroItems.lastIndex))
                     val heroEs by produceState<StremioClient.SpanishInfo?>(null, heroItem?.id) {
+                        // produceState keeps its value across key changes: clear it first so the
+                        // previous hero's Spanish title/synopsis never shows on the next item.
+                        value = null
                         value = heroItem?.let { stremio.spanishInfo(it.id) }
                     }
                     TvHero(
@@ -356,7 +360,7 @@ fun TvHomeCatalog(
  */
 @Composable
 private fun TvHomeSkeleton(modifier: Modifier = Modifier) {
-    val block = Color(0x0DFFFFFF)
+    val block = OpenTvColors.fg(0.051f)
     val shape = RoundedCornerShape(8.dp)
     Column(modifier.fillMaxSize().padding(top = TopBarSpace)) {
         Column(
@@ -415,7 +419,7 @@ private fun TvRow(
     ) {
         Text(
             text = title,
-            color = Color.White,
+            color = OpenTvColors.Content,
             fontSize = 19.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = (-0.01).em,
@@ -441,9 +445,10 @@ private fun TvRow(
 @Composable
 private fun rememberResizedModel(url: String, widthPx: Int): Any? {
     val ctx = LocalContext.current
-    return remember(url, widthPx) {
+    val w = com.techpoint.opentv.ui.components.liteWidth(widthPx, LocalOpenTvUi.current.liteMode)
+    return remember(url, w) {
         if (url.isBlank()) null
-        else ImageRequest.Builder(ctx).data(RustServiceBridge.resizedImageUrl(url, widthPx) ?: url).build()
+        else ImageRequest.Builder(ctx).data(RustServiceBridge.resizedImageUrl(url, w) ?: url).build()
     }
 }
 
@@ -506,6 +511,7 @@ fun TvPosterCard(
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_opentv_logo),
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(OpenTvColors.Content),
                     contentDescription = null,
                     modifier = Modifier.size(28.dp).alpha(0.32f),
                 )
@@ -536,7 +542,7 @@ fun TvPosterCard(
             ) {
                 Text(
                     text = item.title,
-                    color = Color.White,
+                    color = Color.White, // over artwork + dark scrim
                     fontSize = 10.5.sp,
                     lineHeight = 13.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -550,7 +556,7 @@ fun TvPosterCard(
                 .fillMaxSize()
                 .border(
                     width = if (focused) 2.dp else 1.dp,
-                    color = if (focused) ui.accent.color else Color(0x0FFFFFFF),
+                    color = if (focused) ui.accent.color else OpenTvColors.fg(0.059f),
                     shape = shape,
                 ),
         )
@@ -622,14 +628,14 @@ private fun TvContinueCard(
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
                 .height(3.dp)
-                .background(Color(0x3DFFFFFF)),
+                .background(Color(0x3DFFFFFF)), // over artwork
         ) {
             Box(Modifier.fillMaxWidth(entry.progress.coerceIn(0.03f, 1f)).fillMaxHeight().background(ui.accent.color))
         }
         Box(
             Modifier
                 .fillMaxSize()
-                .border(if (focused) 2.dp else 1.dp, if (focused) ui.accent.color else Color(0x0FFFFFFF), shape),
+                .border(if (focused) 2.dp else 1.dp, if (focused) ui.accent.color else OpenTvColors.fg(0.059f), shape),
         )
     }
 }
@@ -668,7 +674,8 @@ private fun TvHero(
                 .width(750.dp)
                 .height(330.dp + TopBarSpace),
         ) {
-            val model = rememberResizedModel(item.backdrop, 1280)
+            // Lite mode: no hero artwork.
+            val model = rememberResizedModel(if (LocalOpenTvUi.current.liteMode) "" else item.backdrop, 1280)
             if (model != null) {
                 AsyncImage(
                     model = model,
@@ -715,7 +722,7 @@ private fun TvHero(
                     item.isSeries -> "SERIE"
                     else -> "PELÍCULA"
                 },
-                color = Color(0xB3FFFFFF),
+                color = OpenTvColors.fg(0.702f),
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.22.em,
@@ -727,7 +734,7 @@ private fun TvHero(
             }
             Text(
                 text = item.title,
-                color = Color.White,
+                color = OpenTvColors.Content,
                 fontSize = titleSize,
                 lineHeight = titleSize * 1.02f,
                 fontWeight = FontWeight.ExtraBold,
@@ -742,12 +749,12 @@ private fun TvHero(
                 if (dur.isNotBlank()) add(dur)
                 add(if (item.isAnime) "Anime" else if (item.isSeries) "Serie" else "Película")
             }.joinToString(" · ")
-            Text(meta, color = Color(0xE6FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(meta, color = OpenTvColors.fg(0.902f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             val heroGenres = formatHeroGenres(item.genres, max = 3)
             if (heroGenres.isNotBlank()) {
                 Text(
                     heroGenres,
-                    color = Color(0xA6FFFFFF),
+                    color = OpenTvColors.fg(0.651f),
                     fontSize = 11.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -756,7 +763,7 @@ private fun TvHero(
             if (item.synopsis.isNotBlank()) {
                 Text(
                     item.synopsis,
-                    color = Color(0xD1FFFFFF),
+                    color = OpenTvColors.fg(0.82f),
                     fontSize = 13.sp,
                     lineHeight = (13 * 1.45).sp,
                     maxLines = 2,
@@ -792,7 +799,7 @@ private fun TvHero(
                             .width(if (active) 27.dp else 13.dp)
                             .height(3.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(if (active) accentColor else Color(0x4DFFFFFF)),
+                            .background(if (active) accentColor else OpenTvColors.fg(0.302f)),
                     )
                 }
             }
@@ -801,13 +808,13 @@ private fun TvHero(
 }
 
 /** Draws v1's focus ring: 2dp dark gap + 2dp white ring outside the button bounds. */
-private fun Modifier.tvFocusRing(focused: Boolean, radius: Dp): Modifier = drawWithContent {
+private fun Modifier.tvFocusRing(focused: Boolean, radius: Dp, color: Color): Modifier = drawWithContent {
     drawContent()
     if (focused) {
         val gap = 4.dp.toPx()
         val w = 2.dp.toPx()
         drawRoundRect(
-            color = Color.White,
+            color = color,
             topLeft = Offset(-gap + w / 2, -gap + w / 2),
             size = Size(size.width + 2 * gap - w, size.height + 2 * gap - w),
             cornerRadius = CornerRadius((radius + 4.dp).toPx()),
@@ -829,7 +836,7 @@ private fun TvHeroButton(
     val focused by interaction.collectIsFocusedAsState()
     val shape = RoundedCornerShape(6.dp)
     val bg = if (primary) ui.accent.color else Color(0x806D6D73)
-    val fg = if (primary) ui.accent.onAccent else Color.White
+    val fg = if (primary) ui.accent.onAccent else OpenTvColors.Content
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -839,7 +846,7 @@ private fun TvHeroButton(
                 scaleX = s
                 scaleY = s
             }
-            .tvFocusRing(focused, 6.dp)
+            .tvFocusRing(focused, 6.dp, OpenTvColors.FocusRing)
             .height(38.dp)
             .clip(shape)
             .background(bg)
@@ -864,15 +871,15 @@ private fun TvHeroRoundButton(icon: ImageVector, description: String, onClick: (
                 scaleX = s
                 scaleY = s
             }
-            .tvFocusRing(focused, 19.dp)
+            .tvFocusRing(focused, 19.dp, OpenTvColors.FocusRing)
             .size(38.dp)
             .clip(CircleShape)
-            .background(Color(0x80141418))
-            .border(1.dp, Color(0x8CFFFFFF), CircleShape)
+            .background(if (OpenTvColors.isLight) OpenTvColors.fg(0.06f) else Color(0x80141418))
+            .border(1.dp, OpenTvColors.fg(0.549f), CircleShape)
             .rememberFocus()
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
     ) {
-        Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(17.dp))
+        Icon(icon, contentDescription = description, tint = OpenTvColors.Content, modifier = Modifier.size(17.dp))
     }
 }
 

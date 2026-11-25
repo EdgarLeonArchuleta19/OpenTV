@@ -21,12 +21,14 @@ import type {
   TitleDetail,
   WatchProgress,
 } from '../types/models';
-import { loadTitleDetail } from '../services/stremio';
+import { loadSeasonEpisodes, loadTitleDetail } from '../services/stremio';
+import { mergeSeasonEpisodes } from '../services/tmdbDetail';
 import { peekLocalized } from '../services/localize';
 import { getSourceSearch, type SourceSearch } from '../services/sourceSearch';
 import { formatDuration, localizedGenres } from '../services/locales';
 import { rankSources } from '../services/sourceRanker';
 import { desktopApi, resizedImageUrl } from '../services/tauri';
+import { isLiteMode } from '../services/liteMode';
 import { PosterCard, ScrollRow, SourcePickerModal, useDragScroll } from '../components/CommonComponents';
 
 interface DetailScreenProps {
@@ -71,7 +73,7 @@ const reportedFailures = new WeakSet<SourceSearch>();
 /**
  * Exact 1:1 replica of OpenTV v1 Detail screen (`ficha.jpg` + `detail.js` + `11-fuentes-stremio.css` design 8):
  * - Floating top-left round `( < )` back button (`top-4 left-4`)
- * - Seamless right-side artwork fading softly into `#0e0e11` (`.ot-detail-art-mask`)
+ * - Seamless right-side artwork fading softly into the page colour (`.ot-detail-art-mask`)
  * - Compact left info: Title + inline `★ score` pill, inline `Year · Duration · HD` + translated genre chips,
  *   Credits (`Dirección · Reparto`), `SINOPSIS` + `Leer más` modal
  * - Exact 2-group action bar (`detail.js:358-395`):
@@ -111,6 +113,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
   const [detail, setDetail] = useState<TitleDetail>({ item: peekLocalized(initialItem), episodes: [], seasons: [], related: [] });
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [selectedSeason, setSelectedSeason] = useState(1);
+  const [loadingSeason, setLoadingSeason] = useState(false);
   const [seasonSelectOpen, setSeasonSelectOpen] = useState(false);
   const seasonSelectRef = useRef<HTMLDivElement>(null);
 
@@ -138,18 +141,40 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
     unwatchRef.current = null;
   }, []);
 
+  // Esc closes the open overlay first (capture phase, before App's "leave the title" shortcut).
+  // An open filter list inside the source picker handles its own Esc.
+  const overlayOpen = pickerOpen || synopsisOpen || langDialogOpen || seasonSelectOpen;
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (e.target instanceof Element && e.target.closest('[role="listbox"]')) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (pickerOpen) {
+        setPickerOpen(false);
+        stopWatching();
+      } else if (langDialogOpen) setLangDialogOpen(false);
+      else if (synopsisOpen) setSynopsisOpen(false);
+      else setSeasonSelectOpen(false);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [langDialogOpen, overlayOpen, pickerOpen, seasonSelectOpen, stopWatching, synopsisOpen]);
+
   useEffect(() => {
     let alive = true;
     setLoadingMeta(true);
     setDetail({ item: peekLocalized(initialItem), episodes: [], seasons: [], related: [] });
     setSynopsisOpen(false);
-    loadTitleDetail(initialItem).then((loaded) => {
+    const saved = resumeEpisode?.season
+      ? { season: resumeEpisode.season }
+      : watchProgress.find((w) => w.itemId === initialItem.id && w.season > 0);
+    // The saved season loads first; the rest come on demand from the season selector.
+    loadTitleDetail(initialItem, saved?.season).then((loaded) => {
       if (!alive) return;
       setDetail(loaded);
       if (loaded.seasons.length > 0) {
-        const saved = resumeEpisode?.season
-          ? { season: resumeEpisode.season }
-          : watchProgress.find((w) => w.itemId === initialItem.id && w.season > 0);
         setSelectedSeason(saved && loaded.seasons.includes(saved.season) ? saved.season : loaded.seasons[0]);
       }
       setLoadingMeta(false);
@@ -161,7 +186,14 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
   }, [initialItem.id]);
 
   const item = detail.item;
-  const artSrc = useMemo(() => resizedImageUrl(item.backdrop || item.poster, 1280), [item.backdrop, item.poster]);
+  const lite = isLiteMode();
+  // Lite mode skips the big backdrop: the title opens with text only.
+  const artSrc = useMemo(
+    () => (lite ? '' : resizedImageUrl(item.backdrop || item.poster, 1280)),
+    [item.backdrop, item.poster, lite],
+  );
+  // Same width as the poster cards, so the file is usually already in the browser cache.
+  const posterSrc = useMemo(() => (lite ? resizedImageUrl(item.poster, 400) : ''), [item.poster, lite]);
   const genres = useMemo(() => localizedGenres(item.genres, 6), [item.genres]);
 
   const defaultEpisode = useMemo(() => {
@@ -201,6 +233,45 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
     () => detail.episodes.filter((e) => e.season === selectedSeason),
     [detail.episodes, selectedSeason],
   );
+
+  // TMDB episodes load per season: fetch the selected one if missing, then prefetch the next
+  // one in the background (so "next episode" in the player can cross into it).
+  const detailRef = useRef(detail);
+  detailRef.current = detail;
+  useEffect(() => {
+    const d = detailRef.current;
+    if (!d.tmdbTvId || !d.seasons.includes(selectedSeason)) return;
+    let alive = true;
+    const itemId = d.item.id;
+    const merge = (season: number, eps: Episode[]) => {
+      if (!alive || eps.length === 0) return;
+      setDetail((cur) =>
+        cur.item.id === itemId ? { ...cur, episodes: mergeSeasonEpisodes(cur.episodes, season, eps) } : cur,
+      );
+    };
+    const prefetchNext = () => {
+      const next = d.seasons[d.seasons.indexOf(selectedSeason) + 1];
+      if (next !== undefined && !detailRef.current.episodes.some((e) => e.season === next)) {
+        void loadSeasonEpisodes(d, next).then((eps) => merge(next, eps));
+      }
+    };
+    if (d.episodes.some((e) => e.season === selectedSeason)) {
+      prefetchNext();
+    } else {
+      setLoadingSeason(true);
+      void loadSeasonEpisodes(d, selectedSeason).then((eps) => {
+        merge(selectedSeason, eps);
+        if (alive) {
+          setLoadingSeason(false);
+          prefetchNext();
+        }
+      });
+    }
+    return () => {
+      alive = false;
+      setLoadingSeason(false);
+    };
+  }, [detail.tmdbTvId, detail.item.id, selectedSeason]);
 
   useEffect(() => {
     syncEpBounds();
@@ -303,13 +374,13 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
       : 'text-[clamp(30px,3.2vw,46px)] leading-[1.08]';
 
   return (
-    <div className="ot-scroll relative h-full w-full overflow-x-hidden overflow-y-auto bg-[#0e0e11] pb-16">
+    <div className="ot-scroll relative h-full w-full overflow-x-hidden overflow-y-auto bg-page pb-16">
       {/* Floating top-left round Back button (`ficha.jpg` + `02-busqueda-menu-componentes.css:159`) */}
       <button
         type="button"
         onClick={onBack}
         aria-label="Volver"
-        className="fixed top-[50px] left-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-[#141418]/70 text-white backdrop-blur-xl transition hover:border-white/40 hover:bg-white/15 cursor-pointer"
+        className="fixed top-[50px] left-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-fg/20 bg-surface/70 text-fg backdrop-blur-xl transition hover:border-fg/40 hover:bg-fg/15 cursor-pointer"
       >
         <ChevronLeft className="h-5 w-5" />
       </button>
@@ -326,7 +397,24 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
             decoding="async"
             fetchPriority="high"
             onLoad={(e) => e.currentTarget.classList.remove('opacity-0')}
-            className="ot-detail-art-mask h-full w-full object-cover object-[center_20%] brightness-[0.84] opacity-0 transition-opacity duration-300"
+            className="ot-detail-art-mask h-full w-full object-cover object-[center_20%] brightness-[0.84] light:brightness-100 opacity-0 transition-opacity duration-300"
+          />
+        </div>
+      )}
+
+      {/* Lite mode: the poster (same small file the card already loaded) instead of the backdrop. */}
+      {lite && posterSrc && (
+        <div
+          style={{ right: 'var(--ot-gutter)' }}
+          className="pointer-events-none absolute top-14 z-0 hidden w-[clamp(150px,15vw,230px)] md:block"
+        >
+          <img
+            key={posterSrc}
+            src={posterSrc}
+            alt=""
+            decoding="async"
+            onLoad={(e) => e.currentTarget.classList.remove('opacity-0')}
+            className="aspect-[2/3] w-full rounded-[16px] object-cover opacity-0 shadow-[0_24px_60px_rgba(0,0,0,0.6)] ring-1 ring-fg/10 transition-opacity duration-200"
           />
         </div>
       )}
@@ -339,9 +427,9 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
         {/* Top Metadata Column */}
         <div className="max-w-[660px] space-y-3">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className={`font-display font-bold tracking-[-0.025em] text-white ${titleClass}`}>{item.title}</h1>
+            <h1 className={`font-display font-bold tracking-[-0.025em] text-fg ${titleClass}`}>{item.title}</h1>
             {item.score && !/^[\s—–-]*$/.test(item.score) && (
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[13.5px] font-bold text-white">
+              <span className="inline-flex items-center rounded-full border border-fg/10 bg-fg/10 px-3 py-1 text-[13.5px] font-bold text-fg">
                 ★ {item.score}
               </span>
             )}
@@ -349,11 +437,11 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
 
           {/* Inline meta + translated genre chips (`detail.js:254-258`) */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-[14.5px] font-medium text-white/70">{metaLine}</span>
+            <span className="mr-1 text-[14.5px] font-medium text-fg/70">{metaLine}</span>
             {genres.map((g) => (
               <span
                 key={g}
-                className="rounded-full border border-white/[0.08] bg-white/[0.06] px-3 py-0.5 text-[12.5px] text-white/80"
+                className="rounded-full border border-fg/[0.08] bg-fg/[0.06] px-3 py-0.5 text-[12.5px] text-fg/80"
               >
                 {g}
               </span>
@@ -362,17 +450,17 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
 
           {/* Single-line credits (`Dirección · Reparto`) */}
           {(item.director || (item.cast && item.cast.length > 0)) && (
-            <div className="truncate text-[13.5px] text-white/60">
+            <div className="truncate text-[13.5px] text-fg/60">
               {item.director && (
                 <>
-                  <span className="font-semibold text-white/80">Dirección </span>
+                  <span className="font-semibold text-fg/80">Dirección </span>
                   <span>{item.director}</span>
                 </>
               )}
-              {item.director && item.cast?.length ? <span className="mx-2 text-white/30">·</span> : null}
+              {item.director && item.cast?.length ? <span className="mx-2 text-fg/30 light:text-faint">·</span> : null}
               {item.cast && item.cast.length > 0 && (
                 <>
-                  <span className="font-semibold text-white/80">Reparto </span>
+                  <span className="font-semibold text-fg/80">Reparto </span>
                   <span>{item.cast.slice(0, 5).join(', ')}</span>
                 </>
               )}
@@ -382,15 +470,15 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
           {/* Sinopsis + Leer más */}
           {item.synopsis && (
             <div className="space-y-1 pt-1">
-              <div className="text-[11px] font-bold tracking-[0.14em] text-white/45 uppercase">SINOPSIS</div>
-              <p className="ot-text-scalable line-clamp-3 text-[14.5px] leading-relaxed text-white/82">
+              <div className="text-[11px] font-bold tracking-[0.14em] text-fg/45 light:text-muted uppercase">SINOPSIS</div>
+              <p className="line-clamp-3 text-[14.5px] leading-relaxed text-fg/82">
                 {item.synopsis}
               </p>
               {item.synopsis.length > 150 && (
                 <button
                   type="button"
                   onClick={() => setSynopsisOpen(true)}
-                  className="text-[13.5px] font-bold text-white underline underline-offset-4 hover:text-white/80 cursor-pointer"
+                  className="text-[13.5px] font-bold text-fg underline underline-offset-4 hover:text-fg/80 cursor-pointer"
                 >
                   Leer más
                 </button>
@@ -402,8 +490,8 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
         {/* Exact 2-Group Action Bar (`detail.js:358-395` + `ficha.jpg`) */}
         <div className="mt-7 flex flex-wrap items-center gap-2.5">
           {!hasSourcePlugins ? (
-            <div className="flex flex-wrap items-center gap-4 rounded-[16px] border border-white/10 bg-white/[0.07] py-2 pr-2.5 pl-5">
-              <span className="text-[14.5px] text-white/85">Para reproducir, agrega un plugin de fuentes.</span>
+            <div className="flex flex-wrap items-center gap-4 rounded-[16px] border border-fg/10 bg-fg/[0.07] py-2 pr-2.5 pl-5">
+              <span className="text-[14.5px] text-fg/85">Para reproducir, agrega un plugin de fuentes.</span>
               <button
                 type="button"
                 onClick={onOpenPlugins}
@@ -420,7 +508,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => triggerPlay(defaultEpisode, false)}
-                  className="relative flex h-[48px] items-center gap-2.5 overflow-hidden rounded-l-[14px] border border-r-0 border-white/[0.09] bg-white/[0.06] pr-5 pl-6 text-[15px] font-bold text-white transition hover:border-white/20 hover:bg-white/[0.12] cursor-pointer"
+                  className="relative flex h-[48px] items-center gap-2.5 overflow-hidden rounded-l-[14px] border border-r-0 border-fg/[0.09] bg-fg/[0.06] pr-5 pl-6 text-[15px] font-bold text-fg transition hover:border-fg/20 hover:bg-fg/[0.12] cursor-pointer"
                 >
                   <Play className="h-5 w-5 fill-current" />
                   <span>
@@ -433,7 +521,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                       : 'Reproducir'}
                   </span>
                   {canResume && activeProgress && (
-                    <span className="pointer-events-none absolute inset-x-5 bottom-[6px] h-[3px] overflow-hidden rounded-full bg-white/15">
+                    <span className="pointer-events-none absolute inset-x-5 bottom-[6px] h-[3px] overflow-hidden rounded-full bg-fg/15">
                       <span
                         style={{
                           width: `${Math.min(100, (activeProgress.positionMs / activeProgress.durationMs) * 100)}%`,
@@ -449,7 +537,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                   onClick={() => triggerPlay(defaultEpisode, true)}
                   title="Cambiar fuente"
                   aria-label="Cambiar fuente"
-                  className="flex h-[48px] w-[46px] items-center justify-center rounded-r-[14px] border border-white/[0.09] bg-white/[0.06] text-white transition hover:border-white/20 hover:bg-white/[0.12] cursor-pointer"
+                  className="flex h-[48px] w-[46px] items-center justify-center rounded-r-[14px] border border-fg/[0.09] bg-fg/[0.06] text-fg transition hover:border-fg/20 hover:bg-fg/[0.12] cursor-pointer"
                 >
                   <ListFilter className="h-4 w-4" />
                 </button>
@@ -459,7 +547,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setLangDialogOpen(true)}
-                className="flex h-[48px] items-center gap-2.5 rounded-[14px] border border-white/[0.09] bg-white/[0.06] px-5 text-[14.5px] font-semibold text-white transition hover:border-white/20 hover:bg-white/[0.12] cursor-pointer"
+                className="flex h-[48px] items-center gap-2.5 rounded-[14px] border border-fg/[0.09] bg-fg/[0.06] px-5 text-[14.5px] font-semibold text-fg transition hover:border-fg/20 hover:bg-fg/[0.12] cursor-pointer"
               >
                 <Captions className="h-4 w-4" />
                 <span>Idioma y subtítulos</span>
@@ -468,7 +556,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
           )}
 
           {/* Vertical separator between Watch and Mine */}
-          <span className="mx-1.5 h-7 w-px bg-white/18" />
+          <span className="mx-1.5 h-7 w-px bg-fg/18" />
 
           {/* Favorito ♡ (`ficha.jpg`) */}
           <button
@@ -477,8 +565,8 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
             title={isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}
             className={`flex h-[48px] w-[48px] items-center justify-center rounded-full border transition cursor-pointer ${
               isFavorite
-                ? 'border-white/30 bg-white/15 text-white'
-                : 'border-white/[0.09] bg-white/[0.06] text-white/85 hover:border-white/20 hover:bg-white/[0.12]'
+                ? 'border-fg/30 bg-fg/15 text-fg'
+                : 'border-fg/[0.09] bg-fg/[0.06] text-fg/85 hover:border-fg/20 hover:bg-fg/[0.12]'
             }`}
           >
             <Heart className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
@@ -491,8 +579,8 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
             title={inMyList ? 'Quitar de Mi lista' : 'Añadir a Mi lista'}
             className={`flex h-[48px] w-[48px] items-center justify-center rounded-full border transition cursor-pointer ${
               inMyList
-                ? 'border-white/30 bg-white/15 text-white'
-                : 'border-white/[0.09] bg-white/[0.06] text-white/85 hover:border-white/20 hover:bg-white/[0.12]'
+                ? 'border-fg/30 bg-fg/15 text-fg'
+                : 'border-fg/[0.09] bg-fg/[0.06] text-fg/85 hover:border-fg/20 hover:bg-fg/[0.12]'
             }`}
           >
             <Bookmark className={`h-5 w-5 ${inMyList ? 'fill-current' : ''}`} />
@@ -504,7 +592,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
               type="button"
               onClick={() => void triggerDownload(defaultEpisode)}
               title="Descargar para ver sin conexión"
-              className="flex h-[48px] w-[48px] items-center justify-center rounded-full border border-white/[0.09] bg-white/[0.06] text-white/85 transition hover:border-white/20 hover:bg-white/[0.12] cursor-pointer"
+              className="flex h-[48px] w-[48px] items-center justify-center rounded-full border border-fg/[0.09] bg-fg/[0.06] text-fg/85 transition hover:border-fg/20 hover:bg-fg/[0.12] cursor-pointer"
             >
               <Download className="h-5 w-5" />
             </button>
@@ -515,7 +603,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
           <div className="flex justify-center py-6">
             <div
               style={{ borderTopColor: 'var(--ot-accent)' }}
-              className="h-7 w-7 animate-spin rounded-full border-2 border-white/15"
+              className="h-7 w-7 animate-spin rounded-full border-2 border-fg/15"
             />
           </div>
         )}
@@ -528,13 +616,13 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => setSeasonSelectOpen((v) => !v)}
-                  className="flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2 text-[14px] font-semibold text-white transition hover:bg-white/[0.12] cursor-pointer"
+                  className="flex items-center gap-2 rounded-xl border border-fg/[0.12] bg-fg/[0.06] px-4 py-2 text-[14px] font-semibold text-fg transition hover:bg-fg/[0.12] cursor-pointer"
                 >
                   <span>Temporada {selectedSeason}</span>
-                  <ChevronDown className={`h-4 w-4 text-white/70 transition-transform ${seasonSelectOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 text-fg/70 transition-transform ${seasonSelectOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {seasonSelectOpen && (
-                  <div className="ot-scroll absolute left-0 top-full z-30 mt-2 max-h-[min(320px,45vh)] min-w-[180px] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-[#18181d] py-1 shadow-2xl">
+                  <div className="ot-scroll absolute left-0 top-full z-30 mt-2 max-h-[min(320px,45vh)] min-w-[180px] overflow-y-auto overscroll-contain rounded-xl border border-fg/10 bg-surface-alt py-1 shadow-2xl">
                     {detail.seasons.map((s) => (
                       <button
                         key={s}
@@ -546,7 +634,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                         ref={s === selectedSeason ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
                         style={s === selectedSeason ? { color: 'var(--ot-accent)' } : undefined}
                         className={`flex w-full items-center px-4 py-2.5 text-left text-[14px] transition cursor-pointer ${
-                          s === selectedSeason ? 'bg-white/[0.06] font-semibold' : 'text-white/85 hover:bg-white/[0.08]'
+                          s === selectedSeason ? 'bg-fg/[0.06] font-semibold' : 'text-fg/85 hover:bg-fg/[0.08]'
                         }`}
                       >
                         Temporada {s}
@@ -555,7 +643,9 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                   </div>
                 )}
               </div>
-              <span className="text-[13px] text-white/45">{seasonEpisodes.length} episodios</span>
+              <span className="text-[13px] text-fg/45 light:text-muted">
+                {loadingSeason && seasonEpisodes.length === 0 ? 'Cargando episodios…' : `${seasonEpisodes.length} episodios`}
+              </span>
             </div>
 
             <div className="group/ep relative -mx-2" onMouseEnter={syncEpBounds}>
@@ -564,7 +654,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                   type="button"
                   aria-label="Episodios anteriores"
                   onClick={() => epRowRef.current?.scrollBy({ left: -640, behavior: 'smooth' })}
-                  className="absolute top-1/2 left-1 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#16161a]/90 text-white opacity-0 shadow-xl backdrop-blur-md transition hover:bg-white/20 group-hover/ep:opacity-100 cursor-pointer"
+                  className="absolute top-1/2 left-1 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-fg/15 bg-[#16161a]/90 light:bg-surface/95 text-fg opacity-0 shadow-xl backdrop-blur-md transition hover:bg-fg/20 group-hover/ep:opacity-100 cursor-pointer"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -584,14 +674,56 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                     (w) => w.itemId === item.id && w.season === ep.season && w.episode === ep.number,
                   );
                   const pct = prog && prog.durationMs > 0 ? Math.min(100, (prog.positionMs / prog.durationMs) * 100) : 0;
+                  if (lite) {
+                    // Lite mode: same horizontal row of cards, designed without a picture.
+                    return (
+                      <div
+                        key={ep.id}
+                        onClick={() => triggerPlay(ep, false)}
+                        className="group relative flex min-h-[148px] w-[clamp(240px,22vw,320px)] shrink-0 cursor-pointer flex-col gap-2 overflow-hidden rounded-[16px] border border-fg/[0.08] bg-fg/[0.04] p-4 select-none transition hover:border-fg/20 hover:bg-fg/[0.08]"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            style={{ color: 'var(--ot-accent)' }}
+                            className="rounded-md bg-fg/[0.07] px-2 py-0.5 text-[11.5px] font-bold tracking-wide uppercase"
+                          >
+                            Episodio {ep.number}
+                          </span>
+                          <button
+                            type="button"
+                            title="Elegir fuente"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              triggerPlay(ep, true);
+                            }}
+                            className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-fg/50 light:text-muted opacity-0 hover:bg-fg/15 hover:text-fg group-hover:opacity-100 cursor-pointer"
+                          >
+                            <ListFilter className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fg/[0.08] text-fg transition group-hover:bg-fg group-hover:text-black light:group-hover:text-white">
+                            <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
+                          </span>
+                        </div>
+                        <span className="line-clamp-1 text-[15px] font-semibold text-fg">{ep.title}</span>
+                        {ep.overview && (
+                          <p className="line-clamp-3 text-[12.5px] leading-snug text-fg/55 light:text-muted">{ep.overview}</p>
+                        )}
+                        {pct > 2 && (
+                          <div className="absolute inset-x-0 bottom-0 h-[3px] bg-fg/15">
+                            <div style={{ width: `${pct}%`, backgroundColor: 'var(--ot-accent)' }} className="h-full" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
                   const thumb = resizedImageUrl(ep.thumbnail, 440);
                   return (
                     <div
                       key={ep.id}
                       onClick={() => triggerPlay(ep, false)}
-                      className="group flex w-[clamp(240px,22vw,320px)] shrink-0 cursor-pointer flex-col overflow-hidden rounded-[16px] border border-white/[0.08] bg-white/[0.04] select-none transition hover:border-white/20 hover:bg-white/[0.09]"
+                      className="group flex w-[clamp(240px,22vw,320px)] shrink-0 cursor-pointer flex-col overflow-hidden rounded-[16px] border border-fg/[0.08] bg-fg/[0.04] select-none transition hover:border-fg/20 hover:bg-fg/[0.09]"
                     >
-                      <div className="relative aspect-video w-full overflow-hidden bg-[#1c1c22]">
+                      <div className="relative aspect-video w-full overflow-hidden bg-elev">
                         {thumb && (
                           <img
                             src={thumb}
@@ -614,7 +746,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                       </div>
                       <div className="flex flex-1 flex-col gap-1 p-3.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-[15px] font-semibold text-white">
+                          <span className="truncate text-[15px] font-semibold text-fg">
                             {ep.number}. {ep.title}
                           </span>
                           <button
@@ -624,13 +756,13 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                               e.stopPropagation();
                               triggerPlay(ep, true);
                             }}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white/50 opacity-0 transition hover:bg-white/15 hover:text-white group-hover:opacity-100 cursor-pointer"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-fg/50 light:text-muted opacity-0 transition hover:bg-fg/15 hover:text-fg group-hover:opacity-100 cursor-pointer"
                           >
                             <ListFilter className="h-3.5 w-3.5" />
                           </button>
                         </div>
                         {ep.overview && (
-                          <p className="line-clamp-2 text-[12.5px] leading-snug text-white/55">{ep.overview}</p>
+                          <p className="line-clamp-2 text-[12.5px] leading-snug text-fg/55 light:text-muted">{ep.overview}</p>
                         )}
                       </div>
                     </div>
@@ -643,7 +775,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                   type="button"
                   aria-label="Siguientes episodios"
                   onClick={() => epRowRef.current?.scrollBy({ left: 640, behavior: 'smooth' })}
-                  className="absolute top-1/2 right-1 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#16161a]/90 text-white opacity-0 shadow-xl backdrop-blur-md transition hover:bg-white/20 group-hover/ep:opacity-100 cursor-pointer"
+                  className="absolute top-1/2 right-1 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-fg/15 bg-[#16161a]/90 light:bg-surface/95 text-fg opacity-0 shadow-xl backdrop-blur-md transition hover:bg-fg/20 group-hover/ep:opacity-100 cursor-pointer"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
@@ -683,19 +815,19 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="ot-fade-up max-w-2xl space-y-4 rounded-[24px] border border-white/10 bg-[#141418] p-7 shadow-2xl"
+            className="ot-fade-up max-w-2xl space-y-4 rounded-[24px] border border-fg/10 bg-surface p-7 shadow-2xl"
           >
             <div className="flex items-center justify-between gap-4">
-              <h3 className="font-display text-[22px] font-bold text-white">{item.title}</h3>
+              <h3 className="font-display text-[22px] font-bold text-fg">{item.title}</h3>
               <button
                 type="button"
                 onClick={() => setSynopsisOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-white/65 hover:bg-white/10 hover:text-white cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-fg/65 hover:bg-fg/10 hover:text-fg cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="text-[15px] leading-relaxed text-white/85">{item.synopsis}</p>
+            <p className="text-[15px] leading-relaxed text-fg/85">{item.synopsis}</p>
           </div>
         </div>
       )}
@@ -708,14 +840,14 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="ot-fade-up w-full max-w-[580px] space-y-5 rounded-[24px] border border-white/10 bg-[#141418] p-7 shadow-2xl"
+            className="ot-fade-up w-full max-w-[580px] space-y-5 rounded-[24px] border border-fg/10 bg-surface p-7 shadow-2xl"
           >
             <div className="flex items-center justify-between">
-              <h3 className="font-display text-[22px] font-bold text-white">Audio y subtítulos</h3>
+              <h3 className="font-display text-[22px] font-bold text-fg">Audio y subtítulos</h3>
               <button
                 type="button"
                 onClick={() => setLangDialogOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-white/65 hover:bg-white/10 cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-fg/65 hover:bg-fg/10 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -723,8 +855,8 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
 
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-4">
-                <span className="text-[14.5px] font-medium text-white/75">Audio preferido</span>
-                <div className="inline-flex gap-1 rounded-xl bg-white/[0.06] p-1">
+                <span className="text-[14.5px] font-medium text-fg/75">Audio preferido</span>
+                <div className="inline-flex gap-1 rounded-xl bg-fg/[0.06] p-1">
                   {([['es', 'Español'], ['pt', 'Portugués'], ['en', 'Inglés']] as const).map(([id, lbl]) => (
                     <button
                       key={id}
@@ -736,7 +868,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                           : undefined
                       }
                       className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold cursor-pointer ${
-                        playbackPrefs.preferredAudio === id ? '' : 'text-white/70 hover:text-white'
+                        playbackPrefs.preferredAudio === id ? '' : 'text-fg/70 hover:text-fg'
                       }`}
                     >
                       {lbl}
@@ -746,8 +878,8 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
               </div>
 
               <div className="flex items-center justify-between gap-4">
-                <span className="text-[14.5px] font-medium text-white/75">Subtítulos</span>
-                <div className="inline-flex gap-1 rounded-xl bg-white/[0.06] p-1">
+                <span className="text-[14.5px] font-medium text-fg/75">Subtítulos</span>
+                <div className="inline-flex gap-1 rounded-xl bg-fg/[0.06] p-1">
                   {([false, true] as const).map((on) => (
                     <button
                       key={String(on)}
@@ -759,7 +891,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                           : undefined
                       }
                       className={`rounded-lg px-4 py-1.5 text-[13px] font-semibold cursor-pointer ${
-                        playbackPrefs.subtitlesEnabled === on ? '' : 'text-white/70 hover:text-white'
+                        playbackPrefs.subtitlesEnabled === on ? '' : 'text-fg/70 hover:text-fg'
                       }`}
                     >
                       {on ? 'Sí' : 'No'}
@@ -769,8 +901,8 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
               </div>
 
               <div className="flex items-center justify-between gap-4">
-                <span className="text-[14.5px] font-medium text-white/75">Idioma de subtítulos</span>
-                <div className="inline-flex gap-1 rounded-xl bg-white/[0.06] p-1">
+                <span className="text-[14.5px] font-medium text-fg/75">Idioma de subtítulos</span>
+                <div className="inline-flex gap-1 rounded-xl bg-fg/[0.06] p-1">
                   {([['es', 'Español'], ['pt', 'Portugués'], ['en', 'Inglés']] as const).map(([id, lbl]) => (
                     <button
                       key={id}
@@ -782,7 +914,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                           : undefined
                       }
                       className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold cursor-pointer ${
-                        playbackPrefs.preferredSubLang === id ? '' : 'text-white/70 hover:text-white'
+                        playbackPrefs.preferredSubLang === id ? '' : 'text-fg/70 hover:text-fg'
                       }`}
                     >
                       {lbl}
@@ -792,8 +924,8 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
               </div>
 
               <div className="flex items-center justify-between gap-4">
-                <span className="text-[14.5px] font-medium text-white/75">Tamaño</span>
-                <div className="inline-flex gap-1 rounded-xl bg-white/[0.06] p-1">
+                <span className="text-[14.5px] font-medium text-fg/75">Tamaño</span>
+                <div className="inline-flex gap-1 rounded-xl bg-fg/[0.06] p-1">
                   {([[18, 'Pequeño'], [22, 'Normal'], [28, 'Grande']] as const).map(([sz, lbl]) => (
                     <button
                       key={sz}
@@ -807,7 +939,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
                           : undefined
                       }
                       className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold cursor-pointer ${
-                        playbackPrefs.subtitleStyle.sizePx === sz ? '' : 'text-white/70 hover:text-white'
+                        playbackPrefs.subtitleStyle.sizePx === sz ? '' : 'text-fg/70 hover:text-fg'
                       }`}
                     >
                       {lbl}

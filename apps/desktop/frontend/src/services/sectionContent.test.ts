@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { animeSeasonItem, dailyHeroOrder, kidsTmdbItem, localDayKey } from './sectionContent';
+import { animeSeasonItem, coreListItems, dailyHeroOrder, kidsTmdbItem, localDayKey, sectionRowSpecs, tmdbListItem } from './sectionContent';
 
 const row = (n: number, withBackdrop: (i: number) => boolean = () => true) =>
   Array.from({ length: n }, (_, i) => ({ id: `t${i}`, backdrop: withBackdrop(i) ? `b${i}` : '' }));
@@ -83,5 +83,74 @@ describe('dailyHeroOrder', () => {
 describe('localDayKey', () => {
   it('uses the local calendar day', () => {
     expect(localDayKey(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
+  });
+});
+
+describe('sectionRowSpecs', () => {
+  it('keeps the row titles/count of every section and maps each to a TMDB list + fallback catalog', () => {
+    expect(sectionRowSpecs('home').map((r) => r.lists[0])).toEqual([
+      'cat:movie:trending',
+      'cat:tv:trending',
+      'cat:movie:popular',
+      'cat:tv:popular',
+      'cat:movie:genre:28',
+      'cat:movie:genre:878',
+      'cat:movie:genre:35',
+    ]);
+    expect(sectionRowSpecs('series').map((r) => [r.title, r.lists[0]])).toEqual([
+      ['Tendencias de la semana', 'cat:tv:trending'],
+      ['Popular · Series', 'cat:tv:popular'],
+      ['Drama', 'cat:tv:genre:18'],
+      ['Crimen y misterio', 'cat:tv:genre:80'],
+      ['Ciencia ficción y fantasía', 'cat:tv:genre:10765'],
+      ['Comedia', 'cat:tv:genre:35'],
+    ]);
+    expect(sectionRowSpecs('movies')).toHaveLength(7);
+    expect(sectionRowSpecs('kids').map((r) => r.lists[0])).toEqual([
+      'kids-movies-popular',
+      'kids-tv-popular',
+      'kids-movies-animated',
+      'kids-tv-top',
+    ]);
+    expect(sectionRowSpecs('anime').map((r) => r.lists)).toEqual([
+      ['anime:season', 'anime-season'],
+      ['anime:airing'],
+      ['anime:popular'],
+      ['anime:top'],
+      ['anime:movies'],
+    ]);
+    expect(sectionRowSpecs('live')).toEqual([]);
+    for (const section of ['home', 'movies', 'series', 'kids', 'anime'] as const) {
+      for (const row of sectionRowSpecs(section)) {
+        // "Películas de anime" is TMDB-only (no Kitsu twin).
+        if (row.id === 'a_movies') continue;
+        expect(row.url).toMatch(/^https:\/\/(v3-cinemeta\.strem\.io|anime-kitsu\.strem\.fun)\/catalog\//);
+      }
+    }
+    // Anime never falls back to Cinemeta; the other sections never to Kitsu.
+    expect(sectionRowSpecs('anime').every((r) => !r.url || r.url.includes('anime-kitsu'))).toBe(true);
+    expect(sectionRowSpecs('movies').every((r) => r.url.includes('cinemeta'))).toBe(true);
+  });
+});
+
+describe('tmdbListItem / coreListItems', () => {
+  it('types TV anime as anime and anime films as movies, both flagged isAnime', () => {
+    expect(tmdbListItem({ imdbId: 'tt2560140', kind: 'tv', title: 'Attack on Titan' }, true)).toMatchObject({
+      id: 'stremio:tt2560140',
+      type: 'anime',
+      isAnime: true,
+    });
+    expect(tmdbListItem({ imdbId: 'tt5311514', kind: 'movie', title: 'Your Name' }, true)).toMatchObject({
+      type: 'movie',
+      isAnime: true,
+    });
+    expect(tmdbListItem({ imdbId: 'tt5311514', kind: 'movie', title: 'Your Name' })?.isAnime).toBe(false);
+  });
+
+  it('picks the mapper from the list name', () => {
+    expect(coreListItems('anime:top', [{ imdbId: 'tt2560140', kind: 'tv', title: 'AoT' }])[0].type).toBe('anime');
+    expect(coreListItems('cat:tv:popular', [{ imdbId: 'tt0903747', kind: 'tv', title: 'BB' }])[0].type).toBe('series');
+    expect(coreListItems('anime-season', [{ kitsuId: '1', title: 'X' }])[0].id).toBe('stremio:kitsu:1');
+    expect(coreListItems('cat:movie:top', [{ imdbId: '', title: 'X' }])).toEqual([]);
   });
 });

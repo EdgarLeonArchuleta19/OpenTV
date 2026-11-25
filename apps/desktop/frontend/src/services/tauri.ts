@@ -1,4 +1,5 @@
 import type { UpdateStatus } from '../types/models';
+import { isLiteMode, liteImageWidth } from './liteMode';
 
 interface TauriInternals {
   invoke: <T = unknown>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
@@ -61,6 +62,7 @@ const prefetched = new Set<string>();
 
 /** Warms the browser cache for an image the user is likely to open next (hover on a card). */
 export function prefetchImage(url: string | undefined, widthPx: number): void {
+  if (isLiteMode()) return;
   const src = resizedImageUrl(url, widthPx);
   if (!src || prefetched.has(src)) return;
   if (prefetched.size > 300) prefetched.clear();
@@ -70,10 +72,12 @@ export function prefetchImage(url: string | undefined, widthPx: number): void {
   img.src = src;
 }
 
-export function resizedImageUrl(url: string | undefined, widthPx: number): string {
+export function resizedImageUrl(url: string | undefined, requestedPx: number): string {
   if (!url) return '';
+  const widthPx = liteImageWidth(requestedPx);
   const direct = directImageUrl(url, widthPx);
-  if (direct) return direct;
+  // Cinemeta art comes in fixed sizes: lite mode takes the next smaller one.
+  if (direct) return isLiteMode() ? direct.replace('/poster/medium/', '/poster/small/').replace('/background/large/', '/background/medium/') : direct;
   const port = getProxyPort();
   if (!port || !/^https?:\/\//i.test(url) || url.startsWith('http://127.0.0.1:')) {
     return url;
@@ -110,6 +114,18 @@ export const desktopApi = {
   pin(flag?: boolean | 'query'): Promise<boolean> {
     if (!isTauriEnv()) return Promise.resolve(false);
     return invoke<boolean>('desktop_pin', { flag: flag === undefined ? null : flag });
+  },
+
+  /**
+   * Applies the theme to the native window (background behind the WebView, DWM border) and the
+   * WebView zoom used by "Texto aumentado". Outside Tauri the zoom falls back to CSS `zoom`.
+   */
+  appearance(theme: 'dark' | 'light', zoom: number): Promise<boolean> {
+    if (!isTauriEnv()) {
+      document.documentElement.style.zoom = zoom === 1 ? '' : String(zoom);
+      return Promise.resolve(false);
+    }
+    return invoke<boolean>('desktop_appearance', { theme, zoom }).catch(() => false);
   },
 
   windowControl(action: 'min' | 'max' | 'close'): Promise<boolean> {

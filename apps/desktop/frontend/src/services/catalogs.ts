@@ -83,6 +83,15 @@ export function stremioBaseFromUrl(url: string): string {
     .toLowerCase();
 }
 
+/**
+ * Installed plugin that only serves live channels (Stremio `tv` / `channel` types).
+ * It is listed under "TV en vivo" together with the M3U lists; everything else is "Películas y series".
+ */
+export function isLiveTvPlugin(p: Pick<InstalledPlugin, 'types'>): boolean {
+  const types = (p.types || []).map((t) => String(t).toLowerCase());
+  return types.some((t) => t === 'tv' || t === 'channel') && !types.some((t) => t === 'movie' || t === 'series' || t === 'anime');
+}
+
 export function isBuiltinUrl(url: string): boolean {
   const base = stremioBaseFromUrl(url);
   return BUILTIN_PLUGINS.some((p) => stremioBaseFromUrl(p.url) === base);

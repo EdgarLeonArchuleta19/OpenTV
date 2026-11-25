@@ -35,6 +35,7 @@ import type {
   WatchProgress,
 } from '../types/models';
 import { ACCENTS } from '../services/catalogs';
+import { accentLabel, resolveAccent } from '../services/theme';
 import { formatBytes } from '../services/sourceRanker';
 import { desktopApi, getAppVersion } from '../services/tauri';
 import { clearCatalogCache } from '../services/stremio';
@@ -214,7 +215,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         }
         rows.push({
           label: 'Catálogo TMDB',
-          value: ping.tmdbAvailable ? 'Conectado' : 'Sin clave (usando Cinemeta)',
+          value: ping.tmdbAvailable ? 'Conectado' : 'Sin clave (catálogo de respaldo)',
           ok: true,
         });
       } else {
@@ -225,7 +226,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         });
       }
 
-      const activePlugins = plugins.filter((p) => !p.disabled);
+      // Bundled system plugins are internal fallbacks: never listed in the diagnostics.
+      const activePlugins = plugins.filter((p) => !p.disabled && !p.builtin);
       const pluginChecks = await Promise.all(
         activePlugins.map(async (p) => {
           const start = performance.now();
@@ -487,15 +489,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   }));
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#0e0e11]">
+    <div className="flex h-full w-full overflow-hidden bg-page">
       {/* Left Navigation Sidebar (`04-en-vivo-ajustes-posteres.css:145-160`) */}
-      <aside className="relative flex w-[200px] md:w-[236px] lg:w-[268px] shrink-0 flex-col bg-[#111114] px-3 md:px-4 pt-6 pb-5">
+      <aside className="relative flex w-[200px] md:w-[236px] lg:w-[268px] shrink-0 flex-col bg-[#111114] light:bg-surface px-3 md:px-4 pt-6 pb-5">
         <div className="mb-8 px-2">
           <button
             type="button"
             onClick={onBack}
             aria-label="Volver"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-[#141418]/75 text-white transition hover:border-white/40 hover:bg-white/15 cursor-pointer"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-fg/20 bg-surface/75 text-fg transition hover:border-fg/40 hover:bg-fg/15 cursor-pointer"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -511,8 +513,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onClick={() => setSection(s.id)}
                 className={`relative flex h-12 w-full items-center gap-3.5 overflow-hidden rounded-[12px] px-4 text-left text-[16.5px] transition-all cursor-pointer ${
                   active
-                    ? 'bg-white/[0.09] font-semibold text-white'
-                    : 'font-medium text-white/65 hover:bg-white/[0.04] hover:pl-5 hover:text-white'
+                    ? 'bg-fg/[0.09] font-semibold text-fg'
+                    : 'font-medium text-fg/65 hover:bg-fg/[0.04] hover:pl-5 hover:text-fg'
                 }`}
               >
                 {active && (
@@ -521,14 +523,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     className="absolute top-2 bottom-2 left-0 w-[3px] rounded-r-full"
                   />
                 )}
-                <span className={active ? 'text-white' : 'text-white/65'}>{s.icon}</span>
+                <span className={active ? 'text-fg' : 'text-fg/65'}>{s.icon}</span>
                 <span>{s.label}</span>
               </button>
             );
           })}
         </nav>
 
-        <div className="px-4 pt-4 text-[12px] text-white/35">OpenTV v{getAppVersion()}</div>
+        <div className="px-4 pt-4 text-[12px] text-fg/35 light:text-faint">OpenTV v{getAppVersion()}</div>
       </aside>
 
       {/* Right Content Pane */}
@@ -538,14 +540,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           {section === 'account' && (
             <div className="space-y-7">
               <div className="flex flex-wrap items-center gap-6">
-                <div className="overflow-hidden rounded-[22px] ring-2 ring-white/20">
+                <div className="overflow-hidden rounded-[22px] ring-2 ring-fg/20">
                   <ProfileAvatar index={profile.avatarIndex} size={92} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h1 className="font-display text-[36px] leading-tight font-semibold tracking-[-0.02em] text-white">
+                  <h1 className="font-display text-[36px] leading-tight font-semibold tracking-[-0.02em] text-fg">
                     {profile.name}
                   </h1>
-                  <div className="mt-1 text-[15px] text-white/50">
+                  <div className="mt-1 text-[15px] text-fg/50 light:text-muted">
                     {profile.kids ? 'Perfil infantil · ' : ''}Guardado solo en este equipo
                   </div>
                 </div>
@@ -553,14 +555,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => onOpenProfiles(false)}
-                    className="rounded-[12px] border border-white/12 bg-white/[0.06] px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-white/14 cursor-pointer"
+                    className="rounded-[12px] border border-fg/12 bg-fg/[0.06] px-4 py-2.5 text-[14px] font-semibold text-fg transition hover:bg-fg/14 cursor-pointer"
                   >
                     Cambiar de perfil
                   </button>
                   <button
                     type="button"
                     onClick={() => onOpenProfiles(true)}
-                    className="rounded-[12px] border border-white/12 bg-white/[0.06] px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-white/14 cursor-pointer"
+                    className="rounded-[12px] border border-fg/12 bg-fg/[0.06] px-4 py-2.5 text-[14px] font-semibold text-fg transition hover:bg-fg/14 cursor-pointer"
                   >
                     Administrar perfiles
                   </button>
@@ -576,17 +578,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 ].map(([num, lbl]) => (
                   <div
                     key={String(lbl)}
-                    className="rounded-[18px] border border-white/[0.07] bg-white/[0.04] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                    className="rounded-[18px] border border-fg/[0.07] bg-fg/[0.04] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
                   >
-                    <div className="font-display text-[44px] leading-none font-semibold text-white">{num}</div>
-                    <div className="mt-2.5 text-[14.5px] text-white/55">{lbl}</div>
+                    <div className="font-display text-[44px] leading-none font-semibold text-fg">{num}</div>
+                    <div className="mt-2.5 text-[14.5px] text-fg/55 light:text-muted">{lbl}</div>
                   </div>
                 ))}
               </div>
 
               {/* Quick Actions (`acc-actions`) */}
               <div className="space-y-3.5">
-                <div className="text-[12.5px] font-semibold tracking-[0.14em] text-white/45 uppercase">
+                <div className="text-[12.5px] font-semibold tracking-[0.14em] text-fg/45 light:text-muted uppercase">
                   Accesos rápidos
                 </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -620,16 +622,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       key={a.title}
                       type="button"
                       onClick={a.run}
-                      className="flex items-center gap-4 rounded-[18px] border border-white/[0.08] bg-white/[0.05] p-5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.1] cursor-pointer"
+                      className="flex items-center gap-4 rounded-[18px] border border-fg/[0.08] bg-fg/[0.05] p-5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:-translate-y-0.5 hover:border-fg/20 hover:bg-fg/[0.1] cursor-pointer"
                     >
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-white/10 text-white">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-fg/10 text-fg">
                         {a.icon}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-[16.5px] font-semibold text-white">{a.title}</div>
-                        <div className="mt-0.5 truncate text-[12.5px] text-white/50">{a.sub}</div>
+                        <div className="text-[16.5px] font-semibold text-fg">{a.title}</div>
+                        <div className="mt-0.5 truncate text-[12.5px] text-fg/50 light:text-muted">{a.sub}</div>
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-white/40" />
+                      <ChevronRight className="h-4 w-4 shrink-0 text-fg/40 light:text-muted" />
                     </button>
                   ))}
                 </div>
@@ -653,7 +655,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
                       placeholder="••••"
                       aria-label="PIN parental"
-                      className="h-10 w-32 rounded-[12px] border border-white/15 bg-white/[0.06] text-center text-[17px] font-bold tracking-[0.45em] text-white outline-none focus:border-white/50"
+                      className="h-10 w-32 rounded-[12px] border border-fg/15 bg-fg/[0.06] text-center text-[17px] font-bold tracking-[0.45em] text-fg outline-none focus:border-fg/50"
                     />
                     <button
                       type="button"
@@ -671,7 +673,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                           setPinInput('');
                           onToast('PIN parental eliminado');
                         }}
-                        className="h-10 rounded-[12px] border border-white/15 bg-white/[0.06] px-4 text-[13.5px] font-semibold text-white/80 hover:bg-white/12 cursor-pointer"
+                        className="h-10 rounded-[12px] border border-fg/15 bg-fg/[0.06] px-4 text-[13.5px] font-semibold text-fg/80 hover:bg-fg/12 cursor-pointer"
                       >
                         Quitar PIN
                       </button>
@@ -681,11 +683,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </SettingGroup>
 
               {/* Backup export/import */}
-              <div className="space-y-3 rounded-[18px] border border-white/[0.07] bg-white/[0.035] p-5">
-                <div className="text-[15.5px] font-semibold text-white">Copia de seguridad local</div>
-                <p className="text-[13.5px] text-white/55">
+              <div className="space-y-3 rounded-[18px] border border-fg/[0.07] bg-fg/[0.035] p-5">
+                <div className="text-[15.5px] font-semibold text-fg">Copia de seguridad local</div>
+                <p className="text-[13.5px] text-fg/55 light:text-muted">
                   Tus perfiles, plugins y preferencias se sincronizan automáticamente en{' '}
-                  <code className="rounded bg-white/[0.07] px-1.5 py-0.5 font-mono text-[12px] text-white/75">
+                  <code className="rounded bg-fg/[0.07] px-1.5 py-0.5 font-mono text-[12px] text-fg/75">
                     Documentos\OpenTV\backup.json
                   </code>
                   .
@@ -694,7 +696,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <button
                     type="button"
                     onClick={handleExport}
-                    className="flex items-center gap-2 rounded-xl border border-white/14 bg-white/[0.07] px-4 py-2 text-[13.5px] font-semibold text-white hover:bg-white/15 cursor-pointer"
+                    className="flex items-center gap-2 rounded-xl border border-fg/14 bg-fg/[0.07] px-4 py-2 text-[13.5px] font-semibold text-fg hover:bg-fg/15 cursor-pointer"
                   >
                     <Download className="h-4 w-4" />
                     <span>Exportar respaldo</span>
@@ -702,7 +704,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 rounded-xl border border-white/14 bg-white/[0.07] px-4 py-2 text-[13.5px] font-semibold text-white hover:bg-white/15 cursor-pointer"
+                    className="flex items-center gap-2 rounded-xl border border-fg/14 bg-fg/[0.07] px-4 py-2 text-[13.5px] font-semibold text-fg hover:bg-fg/15 cursor-pointer"
                   >
                     <Upload className="h-4 w-4" />
                     <span>Importar respaldo</span>
@@ -723,7 +725,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           {section === 'mylist' && (
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="inline-flex gap-1 rounded-[14px] bg-white/[0.06] p-1">
+                <div className="inline-flex gap-1 rounded-[14px] bg-fg/[0.06] p-1">
                   {(
                     [
                       ['mylist', `Mi lista (${myList.length})`],
@@ -739,7 +741,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         listTab === id ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined
                       }
                       className={`rounded-[10px] px-5 py-2 text-[14px] font-semibold transition cursor-pointer ${
-                        listTab === id ? '' : 'text-white/65 hover:bg-white/[0.08] hover:text-white'
+                        listTab === id ? '' : 'text-fg/65 hover:bg-fg/[0.08] hover:text-fg'
                       }`}
                     >
                       {lbl}
@@ -754,7 +756,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       onClearHistory();
                       onToast('Historial borrado');
                     }}
-                    className="rounded-xl border border-[#ff8a8a]/30 bg-[#ff5a5a]/10 px-4 py-2 text-[13.5px] font-semibold text-[#ff8a8a] hover:bg-[#ff5a5a]/20 cursor-pointer"
+                    className="rounded-xl border border-[#ff8a8a]/30 bg-[#ff5a5a]/10 px-4 py-2 text-[13.5px] font-semibold text-[#ff8a8a] light:text-[#c62828] hover:bg-[#ff5a5a]/20 cursor-pointer"
                   >
                     Borrar historial
                   </button>
@@ -765,8 +767,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 const items = listTab === 'mylist' ? myList : listTab === 'favs' ? favorites : historyAsItems;
                 if (items.length === 0) {
                   return (
-                    <div className="flex flex-col items-center justify-center gap-3 rounded-[22px] border border-dashed border-white/14 py-20 text-center text-[15px] text-white/55">
-                      <OpenTvLogo className="h-11 w-11 text-white/25" />
+                    <div className="flex flex-col items-center justify-center gap-3 rounded-[22px] border border-dashed border-fg/14 py-20 text-center text-[15px] text-fg/55 light:text-muted">
+                      <OpenTvLogo className="h-11 w-11 text-fg/25 light:text-faint" />
                       <span>
                         {listTab === 'mylist'
                           ? 'Aún no guardas títulos en Mi lista.'
@@ -811,16 +813,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           {/* ======================== AJUSTES (`settings-hub.js`) ======================== */}
           {section === 'prefs' && (
             <div className="space-y-7">
-              <h1 className="font-display text-[34px] font-semibold tracking-[-0.02em] text-white">Ajustes</h1>
+              <h1 className="font-display text-[34px] font-semibold tracking-[-0.02em] text-fg">Ajustes</h1>
 
               {/* Exact 2 Sub-tabs (`Apariencia` | `Reproducción`) */}
-              <div className="inline-flex gap-1 rounded-[14px] bg-white/[0.06] p-1">
+              <div className="inline-flex gap-1 rounded-[14px] bg-fg/[0.06] p-1">
                 <button
                   type="button"
                   onClick={() => setHubTab('look')}
                   style={hubTab === 'look' ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined}
                   className={`rounded-[10px] px-6 py-2 text-[14.5px] font-semibold transition cursor-pointer ${
-                    hubTab === 'look' ? '' : 'text-white/65 hover:bg-white/[0.08] hover:text-white'
+                    hubTab === 'look' ? '' : 'text-fg/65 hover:bg-fg/[0.08] hover:text-fg'
                   }`}
                 >
                   Apariencia
@@ -830,7 +832,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   onClick={() => setHubTab('play')}
                   style={hubTab === 'play' ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined}
                   className={`rounded-[10px] px-6 py-2 text-[14.5px] font-semibold transition cursor-pointer ${
-                    hubTab === 'play' ? '' : 'text-white/65 hover:bg-white/[0.08] hover:text-white'
+                    hubTab === 'play' ? '' : 'text-fg/65 hover:bg-fg/[0.08] hover:text-fg'
                   }`}
                 >
                   Reproducción
@@ -841,6 +843,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <div className="space-y-6">
                   {/* ESTILO */}
                   <SettingGroup title="Estilo">
+                    <SettingRow label="Tema" hint="Claro u oscuro. El reproductor siempre se ve oscuro.">
+                      <Segmented
+                        options={['Oscuro', 'Claro']}
+                        value={appearance.theme === 'light' ? 1 : 0}
+                        onChange={(i) => onUpdateAppearance((c) => ({ ...c, theme: i === 1 ? 'light' : 'dark' }))}
+                      />
+                    </SettingRow>
                     <SettingRow
                       label="Color de acento"
                       hint="El color del foco, de las opciones elegidas, del botón de reproducir y de las barras de progreso."
@@ -855,14 +864,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               onClick={() => onUpdateAppearance((c) => ({ ...c, accentId: a.id }))}
                               style={on ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined}
                               className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13.5px] font-semibold transition cursor-pointer ${
-                                on ? '' : 'bg-white/[0.07] text-white/75 hover:bg-white/[0.13] hover:text-white'
+                                on ? '' : 'bg-fg/[0.07] text-fg/75 hover:bg-fg/[0.13] hover:text-fg'
                               }`}
                             >
                               <span
-                                style={{ backgroundColor: a.color }}
-                                className="h-3 w-3 rounded-full ring-1 ring-black/25"
+                                style={{ backgroundColor: resolveAccent(a.id, appearance.theme).color }}
+                                className={`h-3 w-3 rounded-full ${on ? 'ring-2 ring-current' : 'ring-1 ring-black/25'}`}
                               />
-                              <span>{a.label}</span>
+                              <span>{accentLabel(a.id, a.label, appearance.theme)}</span>
                             </button>
                           );
                         })}
@@ -871,7 +880,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
                     <SettingRow
                       label="Tamaño del texto"
-                      hint="Aumentado hace más grandes los textos y sinopsis (+12 %)."
+                      hint="Aumentado agranda un 12 % toda la app, Ajustes incluido."
                     >
                       <Segmented
                         options={['Normal', 'Aumentado']}
@@ -908,7 +917,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <SettingGroup title="Rendimiento">
                     <SettingRow
                       label="Modo ligero"
-                      hint="Quita desenfoques, animaciones y la tarjeta grande al pasar el ratón."
+                      hint="Para equipos modestos o internet lento: pósters más ligeros, fichas con póster en vez de imagen de fondo, episodios sin miniatura, sin animaciones ni desenfoques, sin precarga de menús y calidad HD."
                     >
                       <Segmented
                         options={['Apagado', 'Encendido']}
@@ -932,11 +941,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         }}
                       />
                     </SettingRow>
-                    <SettingRow label="Siguiente episodio automático" hint="Muestra aviso de 5 s al acabar un capítulo.">
+                    <SettingRow label="Siguiente episodio automático" hint="Al llegar a los créditos empieza una cuenta regresiva.">
                       <Segmented
                         options={['No', 'Sí']}
                         value={playback.autoNextEpisode ? 1 : 0}
                         onChange={(i) => onUpdatePlayback((c) => ({ ...c, autoNextEpisode: i === 1 }))}
+                      />
+                    </SettingRow>
+                    <SettingRow label="Omitir intro automáticamente" hint="Solo cuando se conoce el tiempo exacto de la intro.">
+                      <Segmented
+                        options={['No', 'Sí']}
+                        value={playback.autoSkipIntro ? 1 : 0}
+                        onChange={(i) => onUpdatePlayback((c) => ({ ...c, autoSkipIntro: i === 1 }))}
                       />
                     </SettingRow>
                   </SettingGroup>
@@ -1022,7 +1038,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           {/* ======================== PLUGINS ======================== */}
           {section === 'plugins' && (
             <div className="space-y-6">
-              <h1 className="font-display text-[34px] font-semibold tracking-[-0.02em] text-white">Plugins</h1>
+              <h1 className="font-display text-[34px] font-semibold tracking-[-0.02em] text-fg">Plugins</h1>
               <PluginsScreen
                 embedded
                 plugins={plugins}
@@ -1044,14 +1060,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           {section === 'downloads' && (
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h1 className="font-display text-[34px] font-semibold tracking-[-0.02em] text-white">
+                <h1 className="font-display text-[34px] font-semibold tracking-[-0.02em] text-fg">
                   {downloadsTab === 'downloads' ? 'Descargas' : 'Archivos locales'}
                 </h1>
                 {downloadsTab === 'downloads' ? (
                   <button
                     type="button"
                     onClick={() => void desktopApi.openDownloads()}
-                    className="flex h-11 items-center gap-2 rounded-[14px] border border-white/14 bg-white/[0.07] px-4 text-[14px] font-semibold text-white hover:bg-white/15 cursor-pointer"
+                    className="flex h-11 items-center gap-2 rounded-[14px] border border-fg/14 bg-fg/[0.07] px-4 text-[14px] font-semibold text-fg hover:bg-fg/15 cursor-pointer"
                   >
                     <FolderOpen className="h-4 w-4" />
                     <span>Abrir carpeta</span>
@@ -1070,7 +1086,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     <button
                       type="button"
                       onClick={() => void handleAddLocalFolder()}
-                      className="flex h-11 items-center gap-2 rounded-[14px] border border-white/14 bg-white/[0.07] px-4 text-[14px] font-semibold text-white hover:bg-white/15 cursor-pointer"
+                      className="flex h-11 items-center gap-2 rounded-[14px] border border-fg/14 bg-fg/[0.07] px-4 text-[14px] font-semibold text-fg hover:bg-fg/15 cursor-pointer"
                     >
                       <FolderPlus className="h-4 w-4" />
                       <span>Agregar carpeta / USB</span>
@@ -1079,7 +1095,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 )}
               </div>
 
-              <div className="inline-flex gap-1.5 rounded-[14px] border border-white/[0.08] bg-white/[0.05] p-1">
+              <div className="inline-flex gap-1.5 rounded-[14px] border border-fg/[0.08] bg-fg/[0.05] p-1">
                 {([
                   ['downloads', 'Descargas'],
                   ['local', 'Archivos locales'],
@@ -1094,7 +1110,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         : undefined
                     }
                     className={`rounded-[10px] px-5 py-2 text-[14px] font-semibold transition cursor-pointer ${
-                      downloadsTab === id ? '' : 'text-white/70 hover:text-white'
+                      downloadsTab === id ? '' : 'text-fg/70 hover:text-fg'
                     }`}
                   >
                     {label}
@@ -1104,7 +1120,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
               {downloadsTab === 'downloads' ? (
                 downloads.length === 0 ? (
-                  <div className="rounded-[20px] border border-white/[0.08] bg-white/[0.035] py-16 text-center text-[15px] text-white/55">
+                  <div className="rounded-[20px] border border-fg/[0.08] bg-fg/[0.035] py-16 text-center text-[15px] text-fg/55 light:text-muted">
                     No tienes descargas activas ni completadas.
                   </div>
                 ) : (
@@ -1114,12 +1130,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       return (
                         <div
                           key={dl.id}
-                          className="flex items-center justify-between gap-4 rounded-[20px] border border-white/[0.08] bg-white/[0.04] p-5"
+                          className="flex items-center justify-between gap-4 rounded-[20px] border border-fg/[0.08] bg-fg/[0.04] p-5"
                         >
                           <div className="min-w-0 flex-1 space-y-1.5">
                             <div className="flex items-center gap-2.5">
-                              <span className="truncate text-[16px] font-semibold text-white">{dl.title}</span>
-                              <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-bold text-white/75 uppercase">
+                              <span className="truncate text-[16px] font-semibold text-fg">{dl.title}</span>
+                              <span className="rounded-md bg-fg/10 px-2 py-0.5 text-[11px] font-bold text-fg/75 uppercase">
                                 {dl.status === 'done'
                                   ? 'Lista'
                                   : dl.status === 'downloading'
@@ -1131,7 +1147,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                                   : 'En cola'}
                               </span>
                             </div>
-                            <div className="text-[13px] text-white/55">
+                            <div className="text-[13px] text-fg/55 light:text-muted">
                               {[
                                 dl.subtitle || null,
                                 dl.total > 0 ? `${formatBytes(dl.bytes)} / ${formatBytes(dl.total)}` : null,
@@ -1142,7 +1158,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                                 .join(' · ')}
                             </div>
                             {dl.status !== 'done' && (
-                              <div className="h-1.5 overflow-hidden rounded-full bg-white/12">
+                              <div className="h-1.5 overflow-hidden rounded-full bg-fg/12">
                                 <div
                                   style={{ width: `${pct}%`, backgroundColor: 'var(--ot-accent)' }}
                                   className="h-full transition-all"
@@ -1168,7 +1184,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                                 type="button"
                                 onClick={() => void handleDownloadAction(dl.id, 'pause')}
                                 title="Pausar"
-                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/12 bg-white/[0.06] text-white hover:bg-white/15 cursor-pointer"
+                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-fg/12 bg-fg/[0.06] text-fg hover:bg-fg/15 cursor-pointer"
                               >
                                 <Pause className="h-4 w-4" />
                               </button>
@@ -1178,7 +1194,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                                 type="button"
                                 onClick={() => void handleDownloadAction(dl.id, 'resume')}
                                 title="Reanudar"
-                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/12 bg-white/[0.06] text-white hover:bg-white/15 cursor-pointer"
+                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-fg/12 bg-fg/[0.06] text-fg hover:bg-fg/15 cursor-pointer"
                               >
                                 <Play className="h-4 w-4" />
                               </button>
@@ -1187,7 +1203,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               type="button"
                               onClick={() => void handleDownloadAction(dl.id, 'delete')}
                               title="Eliminar"
-                              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/12 bg-white/[0.05] text-white/60 hover:bg-[#e5484d]/20 hover:text-[#ff7377] cursor-pointer"
+                              className="flex h-10 w-10 items-center justify-center rounded-xl border border-fg/12 bg-fg/[0.05] text-fg/60 hover:bg-[#e5484d]/20 hover:text-[#ff7377] light:hover:text-[#c62828] cursor-pointer"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -1199,26 +1215,26 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 )
               ) : (
                 <div className="space-y-5">
-                  <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-5 py-4 text-[13.5px] text-white/65">
-                    Reproduce tus propios videos (<span className="text-white/85">MKV, MP4, AVI, MOV, WEBM, TS</span>)
-                    sin plugins. También puedes <strong className="text-white">arrastrar cualquier video</strong> sobre
+                  <div className="rounded-[18px] border border-fg/[0.08] bg-fg/[0.03] px-5 py-4 text-[13.5px] text-fg/65">
+                    Reproduce tus propios videos (<span className="text-fg/85">MKV, MP4, AVI, MOV, WEBM, TS</span>)
+                    sin plugins. También puedes <strong className="text-fg">arrastrar cualquier video</strong> sobre
                     la ventana de OpenTV; los subtítulos{' '}
-                    <code className="rounded bg-white/10 px-1.5 py-0.5 text-[12px]">.srt</code> o{' '}
-                    <code className="rounded bg-white/10 px-1.5 py-0.5 text-[12px]">.vtt</code> en la misma carpeta se
+                    <code className="rounded bg-fg/10 px-1.5 py-0.5 text-[12px]">.srt</code> o{' '}
+                    <code className="rounded bg-fg/10 px-1.5 py-0.5 text-[12px]">.vtt</code> en la misma carpeta se
                     detectan automáticamente.
                   </div>
 
                   {localFolders.length > 0 && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-bold tracking-[0.08em] text-white/45 uppercase">
+                        <span className="text-[12px] font-bold tracking-[0.08em] text-fg/45 light:text-muted uppercase">
                           Carpetas vinculadas ({localFolders.length})
                         </span>
                         <button
                           type="button"
                           onClick={() => void scanLocalFolders(localFolders)}
                           disabled={scanningLocal}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-white/[0.06] px-3 py-1 text-[12px] font-semibold text-white/80 hover:bg-white/12 cursor-pointer disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-fg/12 bg-fg/[0.06] px-3 py-1 text-[12px] font-semibold text-fg/80 hover:bg-fg/12 cursor-pointer disabled:opacity-50"
                         >
                           <RefreshCw className={`h-3.5 w-3.5 ${scanningLocal ? 'animate-spin' : ''}`} />
                           <span>Actualizar</span>
@@ -1228,9 +1244,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         {localFolders.map((dir) => (
                           <div
                             key={dir}
-                            className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/12 bg-white/[0.06] px-3.5 py-1.5 text-[12.5px] text-white/85"
+                            className="inline-flex max-w-full items-center gap-2 rounded-full border border-fg/12 bg-fg/[0.06] px-3.5 py-1.5 text-[12.5px] text-fg/85"
                           >
-                            <HardDrive className="h-3.5 w-3.5 shrink-0 text-white/55" />
+                            <HardDrive className="h-3.5 w-3.5 shrink-0 text-fg/55 light:text-muted" />
                             <span className="truncate max-w-[360px]" title={dir}>
                               {dir}
                             </span>
@@ -1238,7 +1254,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               type="button"
                               onClick={() => onRemoveLocalFolder(dir)}
                               title="Quitar carpeta"
-                              className="rounded-full p-0.5 text-white/50 hover:bg-white/15 hover:text-white cursor-pointer"
+                              className="rounded-full p-0.5 text-fg/50 light:text-muted hover:bg-fg/15 hover:text-fg cursor-pointer"
                             >
                               <X className="h-3.5 w-3.5" />
                             </button>
@@ -1249,11 +1265,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   )}
 
                   {scanningLocal ? (
-                    <div className="rounded-[20px] border border-white/[0.08] bg-white/[0.035] py-14 text-center text-[14.5px] text-white/55">
+                    <div className="rounded-[20px] border border-fg/[0.08] bg-fg/[0.035] py-14 text-center text-[14.5px] text-fg/55 light:text-muted">
                       Buscando videos en tus carpetas…
                     </div>
                   ) : localVideos.length === 0 ? (
-                    <div className="rounded-[20px] border border-white/[0.08] bg-white/[0.035] py-14 text-center text-[14.5px] text-white/55">
+                    <div className="rounded-[20px] border border-fg/[0.08] bg-fg/[0.035] py-14 text-center text-[14.5px] text-fg/55 light:text-muted">
                       {localFolders.length === 0
                         ? 'Usa «Abrir video» para ver un archivo al instante o «Agregar carpeta / USB» para listar tu colección.'
                         : 'No se encontraron videos compatibles en las carpetas vinculadas.'}
@@ -1263,16 +1279,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       {localVideos.map((vid) => (
                         <div
                           key={vid.path}
-                          className="flex items-center justify-between gap-4 rounded-[18px] border border-white/[0.08] bg-white/[0.04] px-5 py-4 transition hover:bg-white/[0.07]"
+                          className="flex items-center justify-between gap-4 rounded-[18px] border border-fg/[0.08] bg-fg/[0.04] px-5 py-4 transition hover:bg-fg/[0.07]"
                         >
                           <div className="min-w-0 flex-1 space-y-1">
                             <div className="flex items-center gap-2.5">
-                              <span className="truncate text-[15.5px] font-semibold text-white">{vid.title}</span>
-                              <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10.5px] font-bold text-white/75 uppercase">
+                              <span className="truncate text-[15.5px] font-semibold text-fg">{vid.title}</span>
+                              <span className="rounded-md bg-fg/10 px-2 py-0.5 text-[10.5px] font-bold text-fg/75 uppercase">
                                 {vid.ext}
                               </span>
                             </div>
-                            <div className="truncate text-[12.5px] text-white/50">
+                            <div className="truncate text-[12.5px] text-fg/50 light:text-muted">
                               {[vid.folder || null, formatBytes(vid.size)].filter(Boolean).join(' · ')}
                             </div>
                           </div>
@@ -1297,13 +1313,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           {/* ======================== AYUDA (`sd-plain`) ======================== */}
           {section === 'help' && (
             <div className="space-y-2">
-              <h1 className="mb-4 font-display text-[34px] font-semibold tracking-[-0.02em] text-white">Ayuda</h1>
+              <h1 className="mb-4 font-display text-[34px] font-semibold tracking-[-0.02em] text-fg">Ayuda</h1>
 
-              <div className="border-b border-white/[0.08] py-5">
+              <div className="border-b border-fg/[0.08] py-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-[18px] font-semibold text-white">Diagnóstico del sistema</div>
-                    <p className="mt-1 text-[14px] text-white/60">
+                    <div className="text-[18px] font-semibold text-fg">Diagnóstico del sistema</div>
+                    <p className="mt-1 text-[14px] text-fg/60">
                       Comprueba el estado del núcleo Rust, el motor FFmpeg, el espacio libre y la velocidad de respuesta
                       de tus plugins activos.
                     </p>
@@ -1321,11 +1337,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 </div>
 
                 {diagRows && (
-                  <div className="mt-4 divide-y divide-white/[0.07] overflow-hidden rounded-[16px] border border-white/[0.08] bg-white/[0.035]">
+                  <div className="mt-4 divide-y divide-fg/[0.07] overflow-hidden rounded-[16px] border border-fg/[0.08] bg-fg/[0.035]">
                     {diagRows.map((r) => (
                       <div key={r.label} className="flex items-center justify-between gap-4 px-5 py-3 text-[13.5px]">
-                        <span className="font-medium text-white/85">{r.label}</span>
-                        <span className={`font-semibold tabular-nums ${r.ok ? 'text-[#7ee2a8]' : 'text-[#ff7377]'}`}>
+                        <span className="font-medium text-fg/85">{r.label}</span>
+                        <span className={`font-semibold tabular-nums ${r.ok ? 'text-[#7ee2a8] light:text-[#15803d]' : 'text-[#ff7377] light:text-[#c62828]'}`}>
                           {r.value}
                         </span>
                       </div>
@@ -1334,11 +1350,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 )}
               </div>
 
-              <div className="border-b border-white/[0.08] py-5">
+              <div className="border-b border-fg/[0.08] py-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-[18px] font-semibold text-white">Almacenamiento</div>
-                    <p className="mt-1 text-[14px] text-white/60">
+                    <div className="text-[18px] font-semibold text-fg">Almacenamiento</div>
+                    <p className="mt-1 text-[14px] text-fg/60">
                       Borrar caché libera espacio: imágenes y catálogos guardados se vuelven a descargar. No borra
                       perfiles, listas ni descargas.
                     </p>
@@ -1347,7 +1363,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     type="button"
                     disabled={clearingCache}
                     onClick={() => void handleClearCache()}
-                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/14 bg-white/[0.07] px-4 text-[13.5px] font-semibold text-white hover:bg-white/15 cursor-pointer disabled:opacity-60"
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-fg/14 bg-fg/[0.07] px-4 text-[13.5px] font-semibold text-fg hover:bg-fg/15 cursor-pointer disabled:opacity-60"
                   >
                     <Trash2 className="h-4 w-4" />
                     <span>{clearingCache ? 'Borrando…' : 'Borrar caché'}</span>
@@ -1355,12 +1371,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 </div>
               </div>
 
-              <div className="border-b border-white/[0.08] py-5">
-                <div className="text-[18px] font-semibold text-white">Registro de errores</div>
-                <p className="mt-1 text-[14px] text-white/60">
+              <div className="border-b border-fg/[0.08] py-5">
+                <div className="text-[18px] font-semibold text-fg">Registro de errores</div>
+                <p className="mt-1 text-[14px] text-fg/60">
                   La app anota en un archivo los errores y cierres inesperados (no se envía nada). Si algo falla, abre
                   la carpeta y adjunta{' '}
-                  <code className="rounded bg-white/[0.07] px-1.5 py-0.5 font-mono text-[12px] text-white/75">
+                  <code className="rounded bg-fg/[0.07] px-1.5 py-0.5 font-mono text-[12px] text-fg/75">
                     opentv.log
                   </code>
                   .
@@ -1368,7 +1384,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => void desktopApi.openLogs()}
-                  className="mt-3.5 inline-flex h-10 items-center gap-2 rounded-xl border border-white/14 bg-white/[0.07] px-4 text-[13.5px] font-semibold text-white hover:bg-white/15 cursor-pointer"
+                  className="mt-3.5 inline-flex h-10 items-center gap-2 rounded-xl border border-fg/14 bg-fg/[0.07] px-4 text-[13.5px] font-semibold text-fg hover:bg-fg/15 cursor-pointer"
                 >
                   <FileText className="h-4 w-4" />
                   <span>Abrir carpeta del registro</span>
@@ -1376,11 +1392,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
 
               <div className="pt-5">
-                <div className="mb-4 text-[18px] font-semibold text-white">Atajos de teclado</div>
+                <div className="mb-4 text-[18px] font-semibold text-fg">Atajos de teclado</div>
                 <div className="grid grid-cols-1 gap-x-10 gap-y-3 md:grid-cols-2">
                   {DESKTOP_SHORTCUTS.map(([key, desc]) => (
-                    <div key={key} className="flex items-center gap-3.5 text-[14.5px] text-white/75">
-                      <kbd className="min-w-[64px] rounded-[9px] border border-white/20 border-b-[3px] bg-white/[0.06] px-3 py-1 text-center text-[13px] font-semibold text-white">
+                    <div key={key} className="flex items-center gap-3.5 text-[14.5px] text-fg/75">
+                      <kbd className="min-w-[64px] rounded-[9px] border border-fg/20 border-b-[3px] bg-fg/[0.06] px-3 py-1 text-center text-[13px] font-semibold text-fg">
                         {key}
                       </kbd>
                       <span>{desc}</span>
@@ -1394,26 +1410,26 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           {/* ======================== ACERCA DE (`sd-plain`) ======================== */}
           {section === 'about' && (
             <div className="space-y-0">
-              <h1 className="mb-6 font-display text-[34px] font-semibold tracking-[-0.02em] text-white">Acerca de</h1>
+              <h1 className="mb-6 font-display text-[34px] font-semibold tracking-[-0.02em] text-fg">Acerca de</h1>
 
-              <div className="flex items-center gap-6 border-b border-white/[0.08] pb-7">
-                <div className="flex h-20 w-20 items-center justify-center rounded-[22px] border border-white/10 bg-[#18181d] shadow-2xl">
-                  <OpenTvLogo className="h-11 w-11 text-white" />
+              <div className="flex items-center gap-6 border-b border-fg/[0.08] pb-7">
+                <div className="flex h-20 w-20 items-center justify-center rounded-[22px] border border-fg/10 bg-surface-alt shadow-2xl">
+                  <OpenTvLogo className="h-11 w-11 text-fg" />
                 </div>
                 <div>
-                  <div className="font-display text-[34px] leading-none font-bold text-white">OpenTV</div>
-                  <div className="mt-1.5 text-[15px] text-white/50">
+                  <div className="font-display text-[34px] leading-none font-bold text-fg">OpenTV</div>
+                  <div className="mt-1.5 text-[15px] text-fg/50 light:text-muted">
                     Versión {getAppVersion()} · Windows x64 (Tauri v2 + Rust)
                   </div>
-                  <div className="mt-1 text-[14.5px] text-white/72">
+                  <div className="mt-1 text-[14.5px] text-fg/72">
                     Películas, series y TV en vivo en un solo lugar.
                   </div>
                 </div>
               </div>
 
-              <div className="border-b border-white/[0.08] py-6">
-                <div className="text-[18px] font-semibold text-white">Actualizaciones</div>
-                <p className="mt-1 text-[14px] text-white/60">
+              <div className="border-b border-fg/[0.08] py-6">
+                <div className="text-[18px] font-semibold text-fg">Actualizaciones</div>
+                <p className="mt-1 text-[14px] text-fg/60">
                   {updateInfo.state === 'available'
                     ? `Hay una nueva versión disponible: v${updateInfo.available}.`
                     : updateInfo.state === 'up-to-date'
@@ -1436,7 +1452,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       type="button"
                       disabled={updateInfo.state === 'downloading'}
                       onClick={() => void handleDownloadOrInstallUpdate()}
-                      className="inline-flex h-10 items-center rounded-xl border border-[#7ee2a8]/40 bg-[#7ee2a8]/15 px-4 text-[13.5px] font-bold text-[#7ee2a8] cursor-pointer disabled:opacity-60"
+                      className="inline-flex h-10 items-center rounded-xl border border-[#7ee2a8]/40 bg-[#7ee2a8]/15 px-4 text-[13.5px] font-bold text-[#7ee2a8] light:text-[#15803d] cursor-pointer disabled:opacity-60"
                     >
                       {updateInfo.state === 'ready'
                         ? `Instalar v${updateInfo.available || ''} ahora`
@@ -1447,7 +1463,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   )}
                 </div>
                 {updateInfo.state === 'downloading' && (
-                  <div className="mt-3 h-2 w-full max-w-md overflow-hidden rounded-full bg-white/10">
+                  <div className="mt-3 h-2 w-full max-w-md overflow-hidden rounded-full bg-fg/10">
                     <div
                       style={{ width: `${Math.max(4, updateInfo.progress || 0)}%`, backgroundColor: 'var(--ot-accent)' }}
                       className="h-full rounded-full transition-[width] duration-200"
@@ -1456,23 +1472,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 )}
               </div>
 
-              <div className="border-b border-white/[0.08] py-6">
-                <div className="text-[18px] font-semibold text-white">Sin cuentas ni contraseñas</div>
-                <p className="mt-1 text-[14px] text-white/60">
+              <div className="border-b border-fg/[0.08] py-6">
+                <div className="text-[18px] font-semibold text-fg">Sin cuentas ni contraseñas</div>
+                <p className="mt-1 text-[14px] text-fg/60">
                   Tu lista, el historial y tus preferencias se guardan solo en este equipo; no se envían a ningún
                   servidor.
                 </p>
               </div>
 
               <div className="space-y-1.5 pt-6">
-                <div className="text-[16px] font-semibold text-white">Hecho por TECHPOINT Software™</div>
-                <div className="text-[13px] text-white/50">
+                <div className="text-[16px] font-semibold text-fg">Hecho por TECHPOINT Software™</div>
+                <div className="text-[13px] text-fg/50 light:text-muted">
                   © 2026 TECHPOINT Software™ · Todos los derechos reservados
                 </div>
-                <div className="text-[13px] text-white/50">
+                <div className="text-[13px] text-fg/50 light:text-muted">
                   Impulsado por Tauri v2, React, Rust (`opentv-core`), `librqbit` y HLS.js (código abierto).
                 </div>
-                <div className="text-[13px] text-white/50">
+                <div className="text-[13px] text-fg/50 light:text-muted">
                   Tendencias con datos de TMDB. Este producto usa la API de TMDB pero no está avalado ni certificado por
                   TMDB.
                 </div>
@@ -1486,9 +1502,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 };
 
 const SettingGroup: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <section className="overflow-hidden rounded-[18px] border border-white/[0.08] bg-white/[0.035]">
-    <h3 className="px-6 pt-4 pb-1 text-[12px] font-bold tracking-[0.09em] text-white/45 uppercase">{title}</h3>
-    <div className="divide-y divide-white/[0.07]">{children}</div>
+  <section className="overflow-hidden rounded-[18px] border border-fg/[0.08] bg-fg/[0.035]">
+    <h3 className="px-6 pt-4 pb-1 text-[12px] font-bold tracking-[0.09em] text-fg/45 light:text-muted uppercase">{title}</h3>
+    <div className="divide-y divide-fg/[0.07]">{children}</div>
   </section>
 );
 
@@ -1498,10 +1514,10 @@ const SettingRow: React.FC<{ label: string; hint?: string; children: React.React
   children,
 }) => (
   <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
-    <div className="flex items-center gap-2 text-[16px] font-medium text-white">
+    <div className="flex items-center gap-2 text-[16px] font-medium text-fg">
       <span>{label}</span>
       {hint && (
-        <span title={hint} className="inline-flex cursor-help text-white/40 transition hover:text-white">
+        <span title={hint} className="inline-flex cursor-help text-fg/40 light:text-muted transition hover:text-fg">
           <Info className="h-4 w-4" />
         </span>
       )}
@@ -1515,7 +1531,7 @@ const Segmented: React.FC<{ options: string[]; value: number; onChange: (idx: nu
   value,
   onChange,
 }) => (
-  <div className="inline-flex gap-1 rounded-[12px] bg-white/[0.07] p-1">
+  <div className="inline-flex gap-1 rounded-[12px] bg-fg/[0.07] p-1">
     {options.map((opt, idx) => {
       const on = idx === value;
       return (
@@ -1525,7 +1541,7 @@ const Segmented: React.FC<{ options: string[]; value: number; onChange: (idx: nu
           onClick={() => onChange(idx)}
           style={on ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined}
           className={`rounded-[9px] px-4 py-1.5 text-[13.5px] font-semibold whitespace-nowrap transition cursor-pointer ${
-            on ? '' : 'text-white/70 hover:bg-white/[0.09] hover:text-white'
+            on ? '' : 'text-fg/70 hover:bg-fg/[0.09] hover:text-fg'
           }`}
         >
           {opt}

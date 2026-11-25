@@ -1,5 +1,6 @@
 package com.techpoint.opentv.ui.settings
 
+import com.techpoint.opentv.ui.theme.OpenTvColors
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -114,7 +115,6 @@ internal fun LocalFilesMobileContent(
         SetGroup(null) {
             SetRow(
                 name = "Abrir un video del dispositivo",
-                hint = "MKV, MP4, AVI, MOV, WEBM, TS… sin necesidad de plugins",
                 divider = false,
             ) {
                 SetButton(
@@ -168,13 +168,13 @@ internal fun LocalFilesTvDialog(
                 .width(620.dp)
                 .fillMaxHeight(0.86f)
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF141418))
+                .background(if (OpenTvColors.isLight) OpenTvColors.Sheet else Color(0xFF141418))
                 .border(1.dp, SetColors.GroupBorder, RoundedCornerShape(16.dp))
                 .padding(22.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Archivos locales / USB", color = Color.White, fontSize = tsp(18f), fontWeight = FontWeight(650))
+                    Text("Archivos locales / USB", color = SetColors.Text, fontSize = tsp(18f), fontWeight = FontWeight(650))
                     Text(
                         when {
                             state.scanning -> "Buscando videos en el aparato y memorias USB…"
@@ -248,11 +248,11 @@ private fun LocalVideoRow(
             Icon(
                 imageVector = if (entry.isUsb) Icons.Rounded.Usb else Icons.Rounded.PlayArrow,
                 contentDescription = null,
-                tint = if (focused) Color.White else SetColors.Text65,
+                tint = if (focused) SetColors.Text else SetColors.Text65,
                 modifier = Modifier.size(18.dp),
             )
             Column(Modifier.weight(1f)) {
-                Text(entry.title, color = Color.White, fontSize = tsp(12f), fontWeight = FontWeight(550), maxLines = 1)
+                Text(entry.title, color = SetColors.Text, fontSize = tsp(12f), fontWeight = FontWeight(550), maxLines = 1)
                 Text(
                     listOf(entry.ext, entry.folder, formatSize(entry.sizeBytes), formatDur(entry.durationMs))
                         .filter { it.isNotBlank() }

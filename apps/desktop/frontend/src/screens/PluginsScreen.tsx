@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import type { CommunityPlugin, InstalledPlugin, M3uPlaylist, SourcePrefs } from '../types/models';
-import { COMMUNITY_PLUGINS, PLUGIN_CATEGORIES, stremioBaseFromUrl } from '../services/catalogs';
+import { COMMUNITY_PLUGINS, PLUGIN_CATEGORIES, isLiveTvPlugin, stremioBaseFromUrl } from '../services/catalogs';
 import { inspectPlugin } from '../services/stremio';
 import { desktopApi } from '../services/tauri';
 import { PluginIcon } from '../components/PluginIcon';
@@ -58,10 +58,11 @@ const EXCLUDE_OPTIONS = [
 const LIVE_TV_CATEGORIES = new Set(['gratis', 'deportes', 'paises', 'noticias', 'infantil', 'cine', 'documentales']);
 
 /**
- * Exact 1:1 replica of OpenTV v1 Plugins screen (`screens/plugins.js` + `11-fuentes-stremio.css:344-510`):
- * - Encapsulated 2-tab switch (`Mis plugins` | `Comunidad`) + `Agregar plugin` button
- * - Neutral dark cards (`#141418`, border `white/6`) with top-left 48px mark and top-right round action buttons
- * - Community toolbar with Search input + Category dropdown (`Categoría: Todas ▾`) + `Recomendados para PC` section.
+ * Plugins screen (same structure as Android `PluginsPanel`):
+ * - 2-tab switch (`Instalados` | `Comunidad`) + `Agregar plugin` button
+ * - Instalados: "Mis plugins" (user plugins + M3U lists), split into "Películas y series" / "TV en vivo".
+ *   The bundled system plugins (catalog fallbacks and subtitles) work internally and are never listed.
+ * - Comunidad: search + category picker, recommended plugins, then "Películas y series" / "TV en vivo".
  */
 export const PluginsScreen: React.FC<PluginsScreenProps> = ({
   embedded = false,
@@ -91,6 +92,12 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
   const [xtreamServer, setXtreamServer] = useState<string>('');
   const [xtreamUser, setXtreamUser] = useState<string>('');
   const [xtreamPass, setXtreamPass] = useState<string>('');
+
+  // Only the user's plugins are listed; bundled system plugins stay hidden (internal fallbacks).
+  const userPlugins = useMemo(() => plugins.filter((p) => !p.builtin), [plugins]);
+  const userVod = useMemo(() => userPlugins.filter((p) => !isLiveTvPlugin(p)), [userPlugins]);
+  const userLive = useMemo(() => userPlugins.filter(isLiveTvPlugin), [userPlugins]);
+  const hasSourcePlugin = plugins.some((p) => !p.disabled && (p.hasStream || p.kind === 'kino-js'));
 
   const installedBases = useMemo(() => new Set(plugins.map((p) => stremioBaseFromUrl(p.url))), [plugins]);
   const installedM3uUrls = useMemo(() => new Set(m3uPlaylists.map((m) => m.url.toLowerCase())), [m3uPlaylists]);
@@ -264,8 +271,8 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
         onClick={() => {
           if (!installed && !busy) void installFromInput(item.url, item.name, item.kind);
         }}
-        className={`group flex flex-col gap-3.5 rounded-[18px] border border-white/[0.06] bg-[#141418] p-5 transition ${
-          installed ? 'cursor-default' : 'cursor-pointer hover:border-white/15 hover:bg-[#17171d]'
+        className={`group flex flex-col gap-3.5 rounded-[18px] border border-fg/[0.06] bg-surface p-5 transition ${
+          installed ? 'cursor-default' : 'cursor-pointer hover:border-fg/15 hover:bg-[#17171d] light:hover:bg-surface-alt'
         }`}
       >
         <div className="flex items-start justify-between gap-3">
@@ -284,8 +291,8 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
             title={installed ? 'Instalado' : 'Agregar'}
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition ${
               installed
-                ? 'border-[#8fc7a5]/25 bg-[#8fc7a5]/10 text-[#8fc7a5]'
-                : 'border-transparent bg-white/[0.09] text-[#dcd9d3] group-hover:bg-[#e9e7e2] group-hover:text-[#15151a] cursor-pointer'
+                ? 'border-[#8fc7a5]/25 bg-[#8fc7a5]/10 text-[#8fc7a5] light:text-[#15803d]'
+                : 'border-transparent bg-fg/[0.09] text-[#dcd9d3] light:text-fg group-hover:bg-[#e9e7e2] group-hover:text-[#15151a] light:group-hover:bg-fg light:group-hover:text-page cursor-pointer'
             }`}
           >
             {busy ? (
@@ -299,15 +306,141 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
         </div>
 
         <div className="min-w-0">
-          <div className="truncate text-[17px] font-bold text-[#eceae6]">{item.name}</div>
-          <div className="mt-0.5 truncate text-[12.5px] text-[#eceae6]/42">{typeText}</div>
-          <p className="mt-2 line-clamp-2 min-h-[2.8em] text-[13px] leading-[1.42] text-[#eceae6]/55">
+          <div className="truncate text-[17px] font-bold text-[#eceae6] light:text-fg">{item.name}</div>
+          <div className="mt-0.5 truncate text-[12.5px] text-[#eceae6]/42 light:text-muted">{typeText}</div>
+          <p className="mt-2 line-clamp-2 min-h-[2.8em] text-[13px] leading-[1.42] text-[#eceae6]/55 light:text-muted">
             {item.description}
           </p>
         </div>
       </div>
     );
   };
+
+  const renderInstalledCard = (p: InstalledPlugin) => (
+    <div
+      key={p.url}
+      className={`group flex flex-col gap-3.5 rounded-[18px] border p-5 transition ${
+        p.disabled
+          ? 'border-[#ff786e]/25 bg-[#121216] light:bg-surface-alt'
+          : 'border-fg/[0.06] bg-surface hover:border-fg/15 hover:bg-[#17171d] light:hover:bg-surface-alt'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <PluginIcon
+          id={p.id}
+          name={p.name}
+          url={p.url}
+          logo={p.logo}
+          kind={p.kind}
+          hasStream={p.hasStream}
+          hasCatalog={p.hasCatalog}
+          hasSubtitles={p.hasSubtitles}
+          dimmed={p.disabled}
+        />
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              onTogglePluginDisabled(p.url);
+              onToast(p.disabled ? `“${p.name}” activado` : `“${p.name}” desactivado`);
+            }}
+            title={p.disabled ? 'Activar plugin' : 'Desactivar plugin'}
+            aria-label={p.disabled ? 'Activar plugin' : 'Desactivar plugin'}
+            aria-pressed={!p.disabled}
+            className={`flex h-9 w-9 items-center justify-center rounded-full border transition cursor-pointer ${
+              p.disabled
+                ? 'border-fg/[0.10] bg-transparent text-fg/35 light:text-faint hover:border-fg/25 hover:text-fg/70'
+                : 'border-[#7ee2a8]/45 bg-[#7ee2a8]/15 text-[#7ee2a8] light:text-[#15803d]'
+            }`}
+          >
+            {p.disabled ? (
+              <PowerOff className="h-4 w-4" />
+            ) : (
+              <Power className="h-4 w-4" strokeWidth={2.6} />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setConfigPlugin(p)}
+            title="Configurar"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-fg/[0.08] text-[#eceae6]/55 light:text-muted transition hover:border-transparent hover:bg-[#e9e7e2] hover:text-[#15151a] light:hover:bg-fg light:hover:text-page cursor-pointer"
+          >
+            <Settings2 className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              onRemovePlugin(p.url);
+              onToast(`Plugin “${p.name}” quitado`);
+            }}
+            title="Quitar"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-fg/[0.08] text-[#eceae6]/50 light:text-muted transition hover:border-transparent hover:bg-[#e59a91] hover:text-[#1a1212] cursor-pointer"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className={`min-w-0 ${p.disabled ? 'opacity-45' : ''}`}>
+        <div className="truncate text-[17px] font-bold text-[#eceae6] light:text-fg">{p.name}</div>
+        <div className="mt-0.5 truncate text-[12.5px] text-[#eceae6]/42 light:text-muted">
+          {[
+            p.hasCatalog ? 'Catálogo' : null,
+            p.hasStream ? 'Fuentes' : null,
+            p.hasSubtitles ? 'Subtítulos' : null,
+            p.kind === 'kino-js' ? 'Aislado' : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || 'Plugin'}
+        </div>
+        <p className="mt-2 line-clamp-2 min-h-[2.8em] text-[13px] leading-[1.42] text-[#eceae6]/55 light:text-muted">
+          {p.description || p.url}
+        </p>
+      </div>
+    </div>
+  );
+
+  const renderM3uCard = (m: M3uPlaylist) => (
+    <div
+      key={m.url}
+      className="flex flex-col gap-3 rounded-[18px] border border-fg/[0.06] bg-surface p-5"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <PluginIcon id={m.id} name={m.name} url={m.url} kind="m3u" />
+        <button
+          type="button"
+          onClick={() => {
+            onRemoveM3u(m.url);
+            onToast(`Lista “${m.name}” quitada`);
+          }}
+          title="Quitar lista"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-fg/[0.08] text-[#eceae6]/50 light:text-muted transition hover:border-transparent hover:bg-[#e59a91] hover:text-[#1a1212] cursor-pointer"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-[17px] font-bold text-[#eceae6] light:text-fg">{m.name}</div>
+        <div className="mt-0.5 truncate text-[12.5px] text-[#eceae6]/42 light:text-muted">TV en vivo · Lista M3U</div>
+        <p className="mt-2 line-clamp-2 text-[13px] text-[#eceae6]/55 light:text-muted">{m.description || m.url}</p>
+      </div>
+    </div>
+  );
+
+  // One sub-group ("Películas y series" / "TV en vivo"): uppercase label, card grid or a one-line empty state.
+  const renderGroup = (title: string, cards: React.ReactNode[], empty: string) => (
+    <div className="space-y-3">
+      <div className="text-[12.5px] font-bold tracking-[0.1em] text-fg/45 light:text-muted uppercase">{title}</div>
+      {cards.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">{cards}</div>
+      ) : (
+        <div className="px-1 text-[13.5px] text-fg/45 light:text-muted">{empty}</div>
+      )}
+    </div>
+  );
 
   return (
     <div className={embedded ? 'space-y-6' : 'ot-scroll h-full w-full overflow-y-auto px-6 sm:px-10 lg:px-12 pt-8 pb-16'}>
@@ -319,27 +452,27 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                 type="button"
                 onClick={onBack}
                 aria-label="Volver"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-white hover:bg-white/15 cursor-pointer"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-fg/15 bg-fg/[0.06] text-fg hover:bg-fg/15 cursor-pointer"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
             )}
-            <h1 className="font-display text-[32px] font-bold tracking-[-0.02em] text-white">Plugins</h1>
+            <h1 className="font-display text-[32px] font-bold tracking-[-0.02em] text-fg">Plugins</h1>
           </div>
         )}
 
         {/* Exact `pl-bar`: Encapsulated 2-tab switch on left + `Agregar plugin` CTA on right */}
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="inline-flex gap-1 rounded-[14px] bg-white/[0.06] p-1">
+          <div className="inline-flex gap-1 rounded-[14px] bg-fg/[0.06] p-1">
             <button
               type="button"
               onClick={() => setTab('mine')}
               style={tab === 'mine' ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined}
               className={`rounded-[10px] px-5 py-2 text-[14.5px] font-semibold transition cursor-pointer ${
-                tab === 'mine' ? '' : 'text-white/65 hover:bg-white/[0.08] hover:text-white'
+                tab === 'mine' ? '' : 'text-fg/65 hover:bg-fg/[0.08] hover:text-fg'
               }`}
             >
-              Mis plugins ({plugins.length + m3uPlaylists.length})
+              Instalados ({userPlugins.length + m3uPlaylists.length})
             </button>
             <button
               type="button"
@@ -348,7 +481,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                 tab === 'community' ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined
               }
               className={`rounded-[10px] px-5 py-2 text-[14.5px] font-semibold transition cursor-pointer ${
-                tab === 'community' ? '' : 'text-white/65 hover:bg-white/[0.08] hover:text-white'
+                tab === 'community' ? '' : 'text-fg/65 hover:bg-fg/[0.08] hover:text-fg'
               }`}
             >
               Comunidad
@@ -367,182 +500,55 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
         </div>
 
         {tab === 'mine' ? (
-          <div className="space-y-7">
-            <div className="space-y-3">
-              <div className="text-[12.5px] font-bold tracking-[0.1em] text-white/45 uppercase">
-                Películas, series, anime y subtítulos
+          <div className="space-y-9">
+            <section className="space-y-4">
+              <div className="flex items-baseline justify-between gap-3 px-1">
+                <h3 className="text-[17px] font-bold text-[#eceae6] light:text-fg">Mis plugins</h3>
+                {!hasSourcePlugin && (
+                  <span className="truncate text-[12.5px] font-semibold text-[#e5b26b] light:text-[#9a5b0a]">
+                    Sin plugin de fuentes no se puede reproducir
+                  </span>
+                )}
               </div>
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
-                {plugins.map((p) => (
-                  <div
-                    key={p.url}
-                    className={`group flex flex-col gap-3.5 rounded-[18px] border p-5 transition ${
-                      p.disabled
-                        ? 'border-[#ff786e]/25 bg-[#121216]'
-                        : p.builtin
-                        ? 'border-white/[0.05] bg-[#131317]'
-                        : 'border-white/[0.06] bg-[#141418] hover:border-white/15 hover:bg-[#17171d]'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <PluginIcon
-                        id={p.id}
-                        name={p.name}
-                        url={p.url}
-                        logo={p.logo}
-                        kind={p.kind}
-                        hasStream={p.hasStream}
-                        hasCatalog={p.hasCatalog}
-                        hasSubtitles={p.hasSubtitles}
-                        dimmed={p.disabled}
-                      />
-
-                      <div className="flex items-center gap-1.5">
-                        {p.builtin ? (
-                          <span className="rounded-full bg-white/[0.08] px-3 py-1 text-[12px] font-semibold text-white/70">
-                            Incluido
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onTogglePluginDisabled(p.url);
-                              onToast(p.disabled ? `“${p.name}” activado` : `“${p.name}” desactivado`);
-                            }}
-                            title={p.disabled ? 'Activar plugin' : 'Desactivar plugin'}
-                            aria-label={p.disabled ? 'Activar plugin' : 'Desactivar plugin'}
-                            aria-pressed={!p.disabled}
-                            className={`flex h-9 w-9 items-center justify-center rounded-full border transition cursor-pointer ${
-                              p.disabled
-                                ? 'border-white/[0.10] bg-transparent text-white/35 hover:border-white/25 hover:text-white/70'
-                                : 'border-[#7ee2a8]/45 bg-[#7ee2a8]/15 text-[#7ee2a8]'
-                            }`}
-                          >
-                            {p.disabled ? (
-                              <PowerOff className="h-4 w-4" />
-                            ) : (
-                              <Power className="h-4 w-4" strokeWidth={2.6} />
-                            )}
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => setConfigPlugin(p)}
-                          title="Configurar"
-                          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] text-[#eceae6]/55 transition hover:border-transparent hover:bg-[#e9e7e2] hover:text-[#15151a] cursor-pointer"
-                        >
-                          <Settings2 className="h-4 w-4" />
-                        </button>
-
-                        {!p.builtin && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onRemovePlugin(p.url);
-                              onToast(`Plugin “${p.name}” quitado`);
-                            }}
-                            title="Quitar"
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] text-[#eceae6]/50 transition hover:border-transparent hover:bg-[#e59a91] hover:text-[#1a1212] cursor-pointer"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={`min-w-0 ${p.disabled ? 'opacity-45' : ''}`}>
-                      <div className="truncate text-[17px] font-bold text-[#eceae6]">{p.name}</div>
-                      <div className="mt-0.5 truncate text-[12.5px] text-[#eceae6]/42">
-                        {[
-                          p.hasCatalog ? 'Catálogo' : null,
-                          p.hasStream ? 'Fuentes' : null,
-                          p.hasSubtitles ? 'Subtítulos' : null,
-                          p.kind === 'kino-js' ? 'Aislado' : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ') || 'Plugin'}
-                      </div>
-                      <p className="mt-2 line-clamp-2 min-h-[2.8em] text-[13px] leading-[1.42] text-[#eceae6]/55">
-                        {p.description || p.url}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="text-[12.5px] font-bold tracking-[0.1em] text-white/45 uppercase">
-                Listas de TV en vivo (M3U)
-              </div>
-              {m3uPlaylists.length === 0 ? (
-                <div className="rounded-[18px] border border-white/[0.06] bg-[#141418] p-6 text-center text-[14px] text-white/50">
-                  No tienes listas M3U agregadas. Elige una gratuita desde la pestaña Comunidad.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
-                  {m3uPlaylists.map((m) => (
-                    <div
-                      key={m.url}
-                      className="flex flex-col gap-3 rounded-[18px] border border-white/[0.06] bg-[#141418] p-5"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <PluginIcon id={m.id} name={m.name} url={m.url} kind="m3u" />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onRemoveM3u(m.url);
-                            onToast(`Lista “${m.name}” quitada`);
-                          }}
-                          title="Quitar lista"
-                          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] text-[#eceae6]/50 transition hover:border-transparent hover:bg-[#e59a91] hover:text-[#1a1212] cursor-pointer"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-[17px] font-bold text-[#eceae6]">{m.name}</div>
-                        <div className="mt-0.5 truncate text-[12.5px] text-[#eceae6]/42">TV en vivo · Lista M3U</div>
-                        <p className="mt-2 line-clamp-2 text-[13px] text-[#eceae6]/55">{m.description || m.url}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {renderGroup('Películas y series', userVod.map(renderInstalledCard), 'Sin plugins de películas y series.')}
+              {renderGroup(
+                'TV en vivo',
+                [...userLive.map(renderInstalledCard), ...m3uPlaylists.map(renderM3uCard)],
+                'Sin listas ni plugins de TV en vivo.',
               )}
-            </div>
+            </section>
           </div>
         ) : (
           <div className="space-y-5">
             {/* Exact `pl-tools`: Search bar + Category Dropdown (`11-fuentes-stremio.css:365-390`) */}
             <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex h-12 min-w-[240px] flex-1 items-center gap-3 rounded-[14px] border border-white/[0.07] bg-[#18181d] px-4 focus-within:border-white/40">
-                <Search className="h-4 w-4 shrink-0 text-white/40" />
+              <div className="relative flex h-12 min-w-[240px] flex-1 items-center gap-3 rounded-[14px] border border-fg/[0.07] bg-surface-alt px-4 focus-within:border-fg/40">
+                <Search className="h-4 w-4 shrink-0 text-fg/40 light:text-muted" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar en la comunidad…"
-                  className="h-full min-w-0 flex-1 bg-transparent text-[14.5px] text-[#eceae6] placeholder-white/35 outline-none"
+                  className="h-full min-w-0 flex-1 bg-transparent text-[14.5px] text-[#eceae6] light:text-fg placeholder-fg/35 light:placeholder-faint outline-none"
                 />
               </div>
 
               <button
                 type="button"
                 onClick={() => setCatModalOpen(true)}
-                className="flex h-12 min-w-[240px] items-center justify-between gap-2.5 rounded-[14px] border border-white/[0.07] bg-[#18181d] px-4 text-left transition hover:bg-[#1e1e24] cursor-pointer"
+                className="flex h-12 min-w-[240px] items-center justify-between gap-2.5 rounded-[14px] border border-fg/[0.07] bg-surface-alt px-4 text-left transition hover:bg-[#1e1e24] light:hover:bg-elev cursor-pointer"
               >
-                <span className="text-[13px] text-white/45">Categoría</span>
-                <span className="flex-1 truncate text-[14px] font-semibold text-[#eceae6]">{activeCatLabel}</span>
-                <ChevronDown className="h-4 w-4 text-white/45" />
+                <span className="text-[13px] text-fg/45 light:text-muted">Categoría</span>
+                <span className="flex-1 truncate text-[14px] font-semibold text-[#eceae6] light:text-fg">{activeCatLabel}</span>
+                <ChevronDown className="h-4 w-4 text-fg/45 light:text-muted" />
               </button>
             </div>
 
             {recommendedCommunity.length > 0 && (
               <section className="space-y-3">
                 <div className="flex items-baseline justify-between px-1">
-                  <h3 className="text-[17px] font-bold text-[#eceae6]">Recomendados para PC</h3>
-                  <span className="text-[12.5px] text-[#eceae6]/42">Verificados en español</span>
+                  <h3 className="text-[17px] font-bold text-[#eceae6] light:text-fg">Recomendados para PC</h3>
+                  <span className="text-[12.5px] text-[#eceae6]/42 light:text-muted">Verificados en español</span>
                 </div>
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
                   {recommendedCommunity.map(renderCommunityCard)}
@@ -553,8 +559,8 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
             {communitySections.map((s) => (
               <section key={s.id} className="space-y-3">
                 <div className="flex items-baseline justify-between gap-3">
-                  <div className="text-[12.5px] font-bold tracking-[0.1em] text-white/45 uppercase">{s.title}</div>
-                  <span className="truncate text-[12.5px] text-[#eceae6]/42">
+                  <div className="text-[12.5px] font-bold tracking-[0.1em] text-fg/45 light:text-muted uppercase">{s.title}</div>
+                  <span className="truncate text-[12.5px] text-[#eceae6]/42 light:text-muted">
                     {s.hint} · {s.items.length}
                   </span>
                 </div>
@@ -565,7 +571,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
             ))}
 
             {communitySections.length === 0 && recommendedCommunity.length === 0 && (
-              <div className="py-12 text-center text-[14.5px] text-white/45">No encontramos plugins con ese filtro.</div>
+              <div className="py-12 text-center text-[14.5px] text-fg/45 light:text-muted">No encontramos plugins con ese filtro.</div>
             )}
           </div>
         )}
@@ -574,19 +580,20 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
       {/* Category Picker Modal (`11-fuentes-stremio.css:492`) */}
       {catModalOpen && (
         <div
+          data-ot-modal
           onClick={() => setCatModalOpen(false)}
           className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="ot-fade-up flex max-h-[80vh] w-full max-w-[440px] flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#141418] shadow-2xl"
+            className="ot-fade-up flex max-h-[80vh] w-full max-w-[440px] flex-col overflow-hidden rounded-[22px] border border-fg/10 bg-surface shadow-2xl"
           >
-            <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4">
-              <h3 className="font-display text-[19px] font-bold text-white">Categoría</h3>
+            <div className="flex items-center justify-between border-b border-fg/[0.08] px-6 py-4">
+              <h3 className="font-display text-[19px] font-bold text-fg">Categoría</h3>
               <button
                 type="button"
                 onClick={() => setCatModalOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:bg-white/10 cursor-pointer"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-fg/60 hover:bg-fg/10 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -603,11 +610,11 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                       setCatModalOpen(false);
                     }}
                     className={`flex h-11 w-full items-center justify-between rounded-xl px-4 text-left text-[15px] transition cursor-pointer ${
-                      active ? 'bg-white/[0.09] font-bold text-white' : 'text-[#dcd9d3] hover:bg-white/[0.05]'
+                      active ? 'bg-fg/[0.09] font-bold text-fg' : 'text-[#dcd9d3] light:text-fg hover:bg-fg/[0.05]'
                     }`}
                   >
                     <span>{c.label}</span>
-                    {active && <span className="h-2.5 w-2.5 rounded-full bg-[#e9e7e2]" />}
+                    {active && <span className="h-2.5 w-2.5 rounded-full bg-[#e9e7e2] light:bg-fg" />}
                   </button>
                 );
               })}
@@ -619,6 +626,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
       {/* Add Plugin Modal */}
       {addOpen && (
         <div
+          data-ot-modal
           onClick={() => setAddOpen(false)}
           className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm"
         >
@@ -628,22 +636,22 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
               e.preventDefault();
               void installFromInput(manualInput, manualName);
             }}
-            className="ot-fade-up w-full max-w-lg space-y-4 rounded-[24px] border border-white/10 bg-[#141418] p-7 shadow-2xl"
+            className="ot-fade-up w-full max-w-lg space-y-4 rounded-[24px] border border-fg/10 bg-surface p-7 shadow-2xl"
           >
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-[22px] font-bold text-white">Agregar plugin</h2>
+              <h2 className="font-display text-[22px] font-bold text-fg">Agregar plugin</h2>
               <button
                 type="button"
                 onClick={() => setAddOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:bg-white/10 cursor-pointer"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-fg/60 hover:bg-fg/10 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <p className="text-[13.5px] text-white/55">
+            <p className="text-[13.5px] text-fg/55 light:text-muted">
               Pega un enlace compatible con Stremio (
-              <code className="rounded bg-white/[0.07] px-1.5 py-0.5 font-mono text-[12px] text-white/80">
+              <code className="rounded bg-fg/[0.07] px-1.5 py-0.5 font-mono text-[12px] text-fg/80">
                 manifest.json
               </code>
               ), un repositorio GitHub, una lista M3U o usa una cuenta Xtream.
@@ -655,7 +663,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
               onChange={(e) => setManualInput(e.target.value)}
               placeholder="https://…/manifest.json, usuario/repo o https://…/lista.m3u"
               autoFocus
-              className="h-12 w-full rounded-[14px] border border-white/12 bg-[#1b1b21] px-4 text-[14.5px] text-white placeholder-white/35 outline-none focus:border-white/50"
+              className="h-12 w-full rounded-[14px] border border-fg/12 bg-[#1b1b21] light:bg-surface-alt px-4 text-[14.5px] text-fg placeholder-fg/35 light:placeholder-faint outline-none focus:border-fg/50"
             />
 
             {(/\.m3u8?(\?.*)?$/i.test(manualInput.trim()) || isXtreamLike(manualInput.trim())) && (
@@ -664,7 +672,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                 value={manualName}
                 onChange={(e) => setManualName(e.target.value)}
                 placeholder="Nombre para la lista de TV (opcional)"
-                className="h-12 w-full rounded-[14px] border border-white/12 bg-[#1b1b21] px-4 text-[14.5px] text-white placeholder-white/35 outline-none focus:border-white/50"
+                className="h-12 w-full rounded-[14px] border border-fg/12 bg-[#1b1b21] light:bg-surface-alt px-4 text-[14.5px] text-fg placeholder-fg/35 light:placeholder-faint outline-none focus:border-fg/50"
               />
             )}
 
@@ -672,7 +680,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setXtreamOpen((v) => !v)}
-                className="rounded-xl border border-white/12 px-4 py-2 text-[13.5px] font-semibold text-white/80 hover:bg-white/[0.06] cursor-pointer"
+                className="rounded-xl border border-fg/12 px-4 py-2 text-[13.5px] font-semibold text-fg/80 hover:bg-fg/[0.06] cursor-pointer"
               >
                 {xtreamOpen ? 'Ocultar Xtream' : 'Cuenta Xtream'}
               </button>
@@ -680,7 +688,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => setAddOpen(false)}
-                  className="rounded-xl px-4 py-2 text-[14px] font-semibold text-white/70 hover:text-white cursor-pointer"
+                  className="rounded-xl px-4 py-2 text-[14px] font-semibold text-fg/70 hover:text-fg cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -696,28 +704,28 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
             </div>
 
             {xtreamOpen && (
-              <div className="space-y-3 rounded-[16px] border border-white/10 bg-white/[0.03] p-4">
-                <div className="text-[13px] font-semibold text-white/80">Cuenta IPTV / Xtream</div>
+              <div className="space-y-3 rounded-[16px] border border-fg/10 bg-fg/[0.03] p-4">
+                <div className="text-[13px] font-semibold text-fg/80">Cuenta IPTV / Xtream</div>
                 <input
                   type="text"
                   value={xtreamServer}
                   onChange={(e) => setXtreamServer(e.target.value)}
                   placeholder="Servidor (ej. http://servidor.com:8080)"
-                  className="h-11 w-full rounded-[12px] border border-white/12 bg-[#1b1b21] px-3.5 text-[14px] text-white placeholder-white/35 outline-none focus:border-white/50"
+                  className="h-11 w-full rounded-[12px] border border-fg/12 bg-[#1b1b21] light:bg-surface-alt px-3.5 text-[14px] text-fg placeholder-fg/35 light:placeholder-faint outline-none focus:border-fg/50"
                 />
                 <input
                   type="text"
                   value={xtreamUser}
                   onChange={(e) => setXtreamUser(e.target.value)}
                   placeholder="Usuario"
-                  className="h-11 w-full rounded-[12px] border border-white/12 bg-[#1b1b21] px-3.5 text-[14px] text-white placeholder-white/35 outline-none focus:border-white/50"
+                  className="h-11 w-full rounded-[12px] border border-fg/12 bg-[#1b1b21] light:bg-surface-alt px-3.5 text-[14px] text-fg placeholder-fg/35 light:placeholder-faint outline-none focus:border-fg/50"
                 />
                 <input
                   type="password"
                   value={xtreamPass}
                   onChange={(e) => setXtreamPass(e.target.value)}
                   placeholder="Contraseña"
-                  className="h-11 w-full rounded-[12px] border border-white/12 bg-[#1b1b21] px-3.5 text-[14px] text-white placeholder-white/35 outline-none focus:border-white/50"
+                  className="h-11 w-full rounded-[12px] border border-fg/12 bg-[#1b1b21] light:bg-surface-alt px-3.5 text-[14px] text-fg placeholder-fg/35 light:placeholder-faint outline-none focus:border-fg/50"
                 />
                 <div className="flex justify-end">
                   <button
@@ -753,14 +761,15 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
       {/* Configure Plugin Modal */}
       {configPlugin && (
         <div
+          data-ot-modal
           onClick={() => setConfigPlugin(null)}
           className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="ot-fade-up flex max-h-[85vh] w-full max-w-[660px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#141418] shadow-2xl"
+            className="ot-fade-up flex max-h-[85vh] w-full max-w-[660px] flex-col overflow-hidden rounded-[24px] border border-fg/10 bg-surface shadow-2xl"
           >
-            <div className="flex items-center justify-between gap-4 border-b border-white/[0.08] px-6 py-5 sm:px-7">
+            <div className="flex items-center justify-between gap-4 border-b border-fg/[0.08] px-6 py-5 sm:px-7">
               <div className="flex min-w-0 items-center gap-3.5">
                 <PluginIcon
                   id={configPlugin.id}
@@ -773,16 +782,16 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                   hasSubtitles={configPlugin.hasSubtitles}
                 />
                 <div className="min-w-0">
-                  <h2 className="truncate font-display text-[20px] font-bold text-white">
+                  <h2 className="truncate font-display text-[20px] font-bold text-fg">
                     Configurar · {configPlugin.name}
                   </h2>
-                  <p className="truncate text-[13px] text-white/50">Preferencias de elección automática de fuentes</p>
+                  <p className="truncate text-[13px] text-fg/50 light:text-muted">Preferencias de elección automática de fuentes</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setConfigPlugin(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:bg-white/10 cursor-pointer"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-fg/60 hover:bg-fg/10 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -790,15 +799,15 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
 
             <div className="ot-scroll flex-1 space-y-5 overflow-y-auto p-7">
               {configPlugin.kind === 'stremio' && !configPlugin.builtin && (
-                <div className="flex items-center justify-between gap-3 rounded-[16px] border border-white/[0.08] bg-white/[0.04] p-4">
+                <div className="flex items-center justify-between gap-3 rounded-[16px] border border-fg/[0.08] bg-fg/[0.04] p-4">
                   <div>
-                    <div className="text-[14.5px] font-semibold text-white">Configuración web del plugin</div>
-                    <div className="text-[12.5px] text-white/50">Abre la página del proveedor en tu navegador.</div>
+                    <div className="text-[14.5px] font-semibold text-fg">Configuración web del plugin</div>
+                    <div className="text-[12.5px] text-fg/50 light:text-muted">Abre la página del proveedor en tu navegador.</div>
                   </div>
                   <button
                     type="button"
                     onClick={() => void desktopApi.openAddonConfig(configPlugin.baseUrl + '/configure')}
-                    className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-[13px] font-semibold text-white hover:bg-white/20 cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-xl border border-fg/15 bg-fg/10 px-4 py-2 text-[13px] font-semibold text-fg hover:bg-fg/20 cursor-pointer"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     <span>Abrir</span>
@@ -807,12 +816,12 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
               )}
 
               {configPlugin.kind === 'kino-js' && (
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-[16px] border border-white/[0.08] bg-white/[0.04] p-4">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-[16px] border border-fg/[0.08] bg-fg/[0.04] p-4">
                   <div className="flex items-start gap-3">
-                    <Shield className="mt-0.5 h-5 w-5 text-[#7ee2a8]" />
+                    <Shield className="mt-0.5 h-5 w-5 text-[#7ee2a8] light:text-[#15803d]" />
                     <div>
-                      <div className="text-[14.5px] font-semibold text-white">Red de tu casa</div>
-                      <div className="text-[12.5px] text-white/50">
+                      <div className="text-[14.5px] font-semibold text-fg">Red de tu casa</div>
+                      <div className="text-[12.5px] text-fg/50 light:text-muted">
                         Permite que este plugin aislado consulte servidores en tu red local (nunca este mismo equipo).
                       </div>
                     </div>
@@ -825,13 +834,13 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                       onSetAllowLan(configPlugin.url, val);
                       setConfigPlugin({ ...configPlugin, allowLan: val });
                     }}
-                    className="h-4 w-4 accent-white"
+                    className="h-4 w-4 accent-fg"
                   />
                 </label>
               )}
 
               <div className="space-y-2">
-                <div className="text-[13.5px] font-bold text-white/80">Idiomas preferidos</div>
+                <div className="text-[13.5px] font-bold text-fg/80">Idiomas preferidos</div>
                 <div className="flex flex-wrap gap-2">
                   {LANG_OPTIONS.map((l) => {
                     const active = sourcePrefs.langs.includes(l.id);
@@ -849,7 +858,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                           active ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined
                         }
                         className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition cursor-pointer ${
-                          active ? '' : 'border border-white/10 bg-white/[0.06] text-white/75 hover:bg-white/12'
+                          active ? '' : 'border border-fg/10 bg-fg/[0.06] text-fg/75 hover:bg-fg/12'
                         }`}
                       >
                         {l.label}
@@ -860,7 +869,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
               </div>
 
               <div className="space-y-2">
-                <div className="text-[13.5px] font-bold text-white/80">Calidad objetivo</div>
+                <div className="text-[13.5px] font-bold text-fg/80">Calidad objetivo</div>
                 <div className="flex flex-wrap gap-2">
                   {(['auto', '4K', '1080p', '720p', 'SD'] as const).map((q) => {
                     const active = sourcePrefs.quality === q;
@@ -873,7 +882,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                           active ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined
                         }
                         className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition cursor-pointer ${
-                          active ? '' : 'border border-white/10 bg-white/[0.06] text-white/75 hover:bg-white/12'
+                          active ? '' : 'border border-fg/10 bg-fg/[0.06] text-fg/75 hover:bg-fg/12'
                         }`}
                       >
                         {q === 'auto' ? 'Automática' : q === '1080p' ? 'Full HD (1080p)' : q}
@@ -884,7 +893,7 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
               </div>
 
               <div className="space-y-2">
-                <div className="text-[13.5px] font-bold text-white/80">Excluir formatos</div>
+                <div className="text-[13.5px] font-bold text-fg/80">Excluir formatos</div>
                 <div className="flex flex-wrap gap-2">
                   {EXCLUDE_OPTIONS.map((ex) => {
                     const active = sourcePrefs.exclude.includes(ex.id);
@@ -900,8 +909,8 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                         }
                         className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition cursor-pointer ${
                           active
-                            ? 'bg-white/[0.06] text-white/45 line-through'
-                            : 'border border-white/10 bg-white/[0.06] text-white/75 hover:bg-white/12'
+                            ? 'bg-fg/[0.06] text-fg/45 light:text-muted line-through'
+                            : 'border border-fg/10 bg-fg/[0.06] text-fg/75 hover:bg-fg/12'
                         }`}
                       >
                         {ex.label}
@@ -911,10 +920,10 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                 </div>
               </div>
 
-              <label className="flex cursor-pointer items-center justify-between rounded-[16px] border border-white/[0.08] bg-white/[0.04] px-4 py-3.5">
+              <label className="flex cursor-pointer items-center justify-between rounded-[16px] border border-fg/[0.08] bg-fg/[0.04] px-4 py-3.5">
                 <div>
-                  <div className="text-[14.5px] font-semibold text-white">Reproducir mejor fuente automáticamente</div>
-                  <div className="text-[12.5px] text-white/50">
+                  <div className="text-[14.5px] font-semibold text-fg">Reproducir mejor fuente automáticamente</div>
+                  <div className="text-[12.5px] text-fg/50 light:text-muted">
                     Si lo desactivas, siempre podrás elegir la fuente antes de reproducir.
                   </div>
                 </div>
@@ -922,13 +931,13 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                   type="checkbox"
                   checked={sourcePrefs.autoPlay}
                   onChange={(e) => onUpdateSourcePrefs((cur) => ({ ...cur, autoPlay: e.target.checked }))}
-                  className="h-4 w-4 accent-white"
+                  className="h-4 w-4 accent-fg"
                 />
               </label>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[12px] text-white/55">Semillas mín.</label>
+                  <label className="text-[12px] text-fg/55 light:text-muted">Semillas mín.</label>
                   <input
                     type="number"
                     min={0}
@@ -937,11 +946,11 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                     onChange={(e) =>
                       onUpdateSourcePrefs((cur) => ({ ...cur, minSeeds: Math.max(0, Number(e.target.value) || 0) }))
                     }
-                    className="h-10 w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 text-[13.5px] text-white outline-none"
+                    className="h-10 w-full rounded-xl border border-fg/15 bg-fg/[0.06] px-3 text-[13.5px] text-fg outline-none"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[12px] text-white/55">Máx. película (GB)</label>
+                  <label className="text-[12px] text-fg/55 light:text-muted">Máx. película (GB)</label>
                   <input
                     type="number"
                     min={0}
@@ -950,11 +959,11 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                     onChange={(e) =>
                       onUpdateSourcePrefs((cur) => ({ ...cur, maxMovieGb: Math.max(0, Number(e.target.value) || 0) }))
                     }
-                    className="h-10 w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 text-[13.5px] text-white outline-none"
+                    className="h-10 w-full rounded-xl border border-fg/15 bg-fg/[0.06] px-3 text-[13.5px] text-fg outline-none"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[12px] text-white/55">Máx. episodio (GB)</label>
+                  <label className="text-[12px] text-fg/55 light:text-muted">Máx. episodio (GB)</label>
                   <input
                     type="number"
                     min={0}
@@ -963,13 +972,13 @@ export const PluginsScreen: React.FC<PluginsScreenProps> = ({
                     onChange={(e) =>
                       onUpdateSourcePrefs((cur) => ({ ...cur, maxEpisodeGb: Math.max(0, Number(e.target.value) || 0) }))
                     }
-                    className="h-10 w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 text-[13.5px] text-white outline-none"
+                    className="h-10 w-full rounded-xl border border-fg/15 bg-fg/[0.06] px-3 text-[13.5px] text-fg outline-none"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end border-t border-white/[0.08] px-7 py-4">
+            <div className="flex justify-end border-t border-fg/[0.08] px-7 py-4">
               <button
                 type="button"
                 onClick={() => {

@@ -26,6 +26,8 @@ export interface Episode {
   overview: string;
   thumbnail: string;
   released: string;
+  /** TMDB episode runtime in minutes (0/undefined = unknown); guards against wrong-content links. */
+  runtimeMin?: number;
 }
 
 export interface TitleDetail {
@@ -34,6 +36,8 @@ export interface TitleDetail {
   seasons: number[];
   trailerYoutubeId?: string;
   related: MediaItem[];
+  /** TMDB TV id when episodes come from TMDB: other seasons load on demand (`loadSeasonEpisodes`). */
+  tmdbTvId?: string;
 }
 
 export interface StreamSource {
@@ -80,7 +84,11 @@ export interface ExternalSubtitle {
   lang: string;
   label: string;
   source: string;
+  /** Where it comes from; drives the list order (see `orderSubtitles`). */
+  origin?: SubtitleOrigin;
 }
+
+export type SubtitleOrigin = 'embedded' | 'local' | 'opensubtitles' | 'plugin' | 'subdl' | 'subtitlecat';
 
 export interface PluginCatalogDef {
   type: string;
@@ -201,6 +209,8 @@ export interface AccentDef {
 }
 
 export interface AppearancePrefs {
+  /** 'dark' (default) or 'light'; the player stays dark in both. */
+  theme: 'dark' | 'light';
   accentId: string;
   textLarge: boolean;
   uiDensity: 'normal' | 'compact';
@@ -218,6 +228,8 @@ export interface SubtitleStylePrefs {
 
 export interface PlaybackPrefs {
   autoNextEpisode: boolean;
+  /** Skip the opening automatically when real timestamps exist (chapters / AniSkip / IntroDB). Off by default. */
+  autoSkipIntro?: boolean;
   screenFormat: 'contain' | 'cover' | '16-9' | '4-3';
   preferredAudio: 'es' | 'pt' | 'en';
   subtitlesEnabled: boolean;

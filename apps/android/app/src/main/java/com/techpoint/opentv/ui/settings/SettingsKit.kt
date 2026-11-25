@@ -60,6 +60,10 @@ import androidx.compose.ui.unit.sp
 import com.techpoint.opentv.ui.components.leftExitGroup
 import com.techpoint.opentv.ui.components.rememberFocus
 import com.techpoint.opentv.ui.theme.LocalOpenTvUi
+import com.techpoint.opentv.ui.theme.LocalOpenTvPalette
+import com.techpoint.opentv.ui.theme.OpenTvColors
+import com.techpoint.opentv.ui.theme.OpenTvPalette
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
@@ -78,29 +82,36 @@ import androidx.compose.foundation.text.KeyboardActions
  * focus target (clickable with a shared interaction source, no extra `focusable`).
  */
 internal object SetColors {
-    val MenuBg = Color(0xFF0B0B0B)
-    val MenuBorder = Color(0x1AFFFFFF)      // white 10%
-    val MenuText = Color(0xFF9A9A9A)
-    val MenuSelected = Color(0x17FFFFFF)    // white 9%
-    val MenuFocused = Color(0x29FFFFFF)     // white 16%
-    val GroupFill = Color(0x09FFFFFF)       // white 3.5%
-    val GroupBorder = Color(0x14FFFFFF)     // white 8%
-    val RowDivider = Color(0x12FFFFFF)      // white 7%
-    val TabTrack = Color(0x0FFFFFFF)        // white 6%
-    val SegTrack = Color(0x12FFFFFF)        // white 7%
-    val SoftFill = Color(0x12FFFFFF)        // white 7%
-    val FocusFill = Color(0x29FFFFFF)       // white 16%
-    val Primary = Color(0xFFE9E7E2)
-    val OnPrimary = Color(0xFF15151A)
-    val Ink = Color(0xFF0E0E11)
-    val Text70 = Color(0xB3FFFFFF)
-    val Text65 = Color(0xA6FFFFFF)
-    val Text55 = Color(0x8CFFFFFF)
-    val Text50 = Color(0x80FFFFFF)
-    val Text45 = Color(0x73FFFFFF)
-    val Text42 = Color(0x6BFFFFFF)
-    val Text35 = Color(0x59FFFFFF)
-    val Warn = Color(0xFFF5C26B)
+    private val p: OpenTvPalette @Composable @ReadOnlyComposable get() = LocalOpenTvPalette.current
+    private val light: Boolean @Composable @ReadOnlyComposable get() = LocalOpenTvPalette.current.isLight
+
+    val MenuBg: Color @Composable @ReadOnlyComposable get() = p.ink900
+    val MenuBorder: Color @Composable @ReadOnlyComposable get() = p.fg(0.10f)        // white 10%
+    val MenuText: Color @Composable @ReadOnlyComposable get() = if (light) Color(0xFF5B5B66) else Color(0xFF9A9A9A)
+    val MenuSelected: Color @Composable @ReadOnlyComposable get() = p.fg(0.09f)      // white 9%
+    val MenuFocused: Color @Composable @ReadOnlyComposable get() = p.fg(0.16f)       // white 16%
+    val GroupFill: Color @Composable @ReadOnlyComposable get() = if (light) Color(0xFFFFFFFF) else Color(0x09FFFFFF) // white 3.5%
+    val GroupBorder: Color @Composable @ReadOnlyComposable get() = p.fg(0.08f)       // white 8%
+    val RowDivider: Color @Composable @ReadOnlyComposable get() = p.fg(0.07f)        // white 7%
+    val TabTrack: Color @Composable @ReadOnlyComposable get() = p.fg(0.06f)          // white 6%
+    val SegTrack: Color @Composable @ReadOnlyComposable get() = p.fg(0.07f)          // white 7%
+    val SoftFill: Color @Composable @ReadOnlyComposable get() = p.fg(0.07f)          // white 7%
+    val FocusFill: Color @Composable @ReadOnlyComposable get() = p.fg(0.16f)         // white 16%
+    val Primary: Color @Composable @ReadOnlyComposable get() = if (light) Color(0xFF2A2A30) else Color(0xFFE9E7E2)
+    val OnPrimary: Color @Composable @ReadOnlyComposable get() = if (light) Color(0xFFFFFFFF) else Color(0xFF15151A)
+    val Ink: Color @Composable @ReadOnlyComposable get() = p.onContent
+    /** Main ink ("white" on dark). */
+    val Text: Color @Composable @ReadOnlyComposable get() = p.content
+    val Text70: Color @Composable @ReadOnlyComposable get() = p.fg(0.70f)
+    val Text65: Color @Composable @ReadOnlyComposable get() = p.fg(0.65f)
+    val Text55: Color @Composable @ReadOnlyComposable get() = p.fg(0.55f)
+    val Text50: Color @Composable @ReadOnlyComposable get() = p.fg(0.50f)
+    val Text45: Color @Composable @ReadOnlyComposable get() = p.fg(0.45f)
+    val Text42: Color @Composable @ReadOnlyComposable get() = p.fg(0.42f)
+    val Text35: Color @Composable @ReadOnlyComposable get() = p.fg(0.35f)
+    val Warn: Color @Composable @ReadOnlyComposable get() = if (light) Color(0xFF9A6700) else Color(0xFFF5C26B)
+    val Danger: Color @Composable @ReadOnlyComposable get() = if (light) Color(0xFFC62828) else Color(0xFFFF8A8A)
+    val Ok: Color @Composable @ReadOnlyComposable get() = if (light) Color(0xFF15803D) else Color(0xFF7EE2A8)
 }
 
 /**
@@ -112,12 +123,13 @@ internal const val SET_TV_BOOST = 1.25f
 @Composable
 internal fun setBoost(): Float = if (LocalOpenTvUi.current.isTv) SET_TV_BOOST else 1f
 
-/** Text size that follows the "Tamaño del texto" (+12 %) preference, boosted on TV. */
+/** Ajustes text size, boosted on TV. "Texto aumentado" (+12 %) is applied globally by the theme (font scale). */
 @Composable
-internal fun tsp(value: Float): TextUnit = (value * LocalOpenTvUi.current.textScale * setBoost()).sp
+internal fun tsp(value: Float): TextUnit = (value * setBoost()).sp
 
 /** Draws a ring around the element with a small gap (like v1 `box-shadow: 0 0 0 3px`). */
-internal fun Modifier.outerRing(focused: Boolean, shape: Shape, color: Color = Color.White, gap: Dp = 2.5.dp): Modifier =
+@Composable
+internal fun Modifier.outerRing(focused: Boolean, shape: Shape, color: Color = OpenTvColors.FocusRing, gap: Dp = 2.5.dp): Modifier =
     this
         .border(1.5.dp, if (focused) color else Color.Transparent, shape)
         .padding(gap)
@@ -136,7 +148,7 @@ internal fun RequestFocusOnStart(requester: FocusRequester, key: Any? = Unit, en
 internal fun SetPanelTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        color = Color.White,
+        color = SetColors.Text,
         fontSize = tsp(27f),
         fontWeight = FontWeight(650),
         letterSpacing = (-0.3).sp,
@@ -212,6 +224,7 @@ internal fun SetRow(
     divider: Boolean = true,
     content: @Composable RowScope.() -> Unit = {},
 ) {
+    val rowDivider = SetColors.RowDivider
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -219,13 +232,13 @@ internal fun SetRow(
             .heightIn(min = 46.dp * setBoost())
             .drawBehind {
                 if (divider) {
-                    drawRect(SetColors.RowDivider, topLeft = Offset.Zero, size = Size(size.width, 0.5.dp.toPx()))
+                    drawRect(rowDivider, topLeft = Offset.Zero, size = Size(size.width, 0.5.dp.toPx()))
                 }
             }
             .padding(horizontal = 15.dp, vertical = 8.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(name, color = Color.White, fontSize = tsp(12.5f), fontWeight = FontWeight(550))
+            Text(name, color = SetColors.Text, fontSize = tsp(12.5f), fontWeight = FontWeight(550))
             if (!hint.isNullOrBlank()) {
                 Text(hint, color = SetColors.Text50, fontSize = tsp(8.5f), lineHeight = tsp(11f))
             }
@@ -285,7 +298,7 @@ internal fun SetSegButton(
                 text = label,
                 color = when {
                     selected -> ui.accent.onAccent
-                    focused -> Color.White
+                    focused -> SetColors.Text
                     else -> SetColors.Text70
                 },
                 fontSize = tsp(fontSize),
@@ -350,7 +363,7 @@ internal fun SetButton(
     val isWhiteAccent = ui.accent.id == "white"
     val bg = when {
         primary && !isWhiteAccent -> ui.accent.color
-        primary && focused -> Color.White
+        primary && focused -> SetColors.Text
         primary -> SetColors.Primary
         focused -> SetColors.FocusFill
         else -> SetColors.SoftFill
@@ -358,8 +371,8 @@ internal fun SetButton(
     val fg = when {
         primary && !isWhiteAccent -> ui.accent.onAccent
         primary -> SetColors.OnPrimary
-        danger -> Color(0xFFFF8A8A)
-        else -> Color.White
+        danger -> SetColors.Danger
+        else -> SetColors.Text
     }
     Box(modifier = modifier.outerRing(focused, RoundedCornerShape(radius + 2.5.dp))) {
         Row(
@@ -443,8 +456,8 @@ internal fun SetTextField(
                 .fillMaxWidth()
                 .height(29.dp * setBoost())
                 .clip(inner)
-                .background(if (focused) Color(0x1AFFFFFF) else SetColors.TabTrack)
-                .border(0.5.dp, Color(0x1FFFFFFF), inner)
+                .background(if (focused) SetColors.MenuBorder else SetColors.TabTrack)
+                .border(0.5.dp, OpenTvColors.fg(0.12f), inner)
                 .padding(horizontal = 10.dp),
         ) {
             leading?.invoke()
@@ -452,7 +465,7 @@ internal fun SetTextField(
                 if (value.isEmpty()) {
                     Text(
                         placeholder,
-                        color = Color(0x66FFFFFF),
+                        color = OpenTvColors.fg(0.4f),
                         fontSize = tsp(10f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -475,8 +488,8 @@ internal fun SetTextField(
                         onNext = { focusManager.moveFocus(FocusDirection.Down) },
                     ),
                     visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
-                    textStyle = TextStyle(color = Color.White, fontSize = tsp(10.5f)),
-                    cursorBrush = SolidColor(Color.White),
+                    textStyle = TextStyle(color = SetColors.Text, fontSize = tsp(10.5f)),
+                    cursorBrush = SolidColor(SetColors.Text),
                     modifier = Modifier
                         .fillMaxWidth()
                         .then(
@@ -542,7 +555,7 @@ internal fun SetMenuItem(
         }
     }
 
-    val fg = if (selected || focused) Color.White else SetColors.MenuText
+    val fg = if (selected || focused) SetColors.Text else SetColors.MenuText
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -563,7 +576,7 @@ internal fun SetMenuItem(
                     drawRect(ui.accent.color, topLeft = Offset.Zero, size = Size(1.5.dp.toPx(), size.height))
                 }
             }
-            .then(if (focused) Modifier.border(1.dp, Color.White, shape) else Modifier)
+            .then(if (focused) Modifier.border(1.dp, OpenTvColors.FocusRing, shape) else Modifier)
             .clickable(interactionSource = interaction, indication = null, onClick = onSelect)
             .padding(start = 15.dp, end = 10.dp),
     ) {

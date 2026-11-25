@@ -48,7 +48,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.Audiotrack
 import androidx.compose.material.icons.rounded.Brightness6
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Forward10
@@ -59,7 +58,6 @@ import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.CircularProgressIndicator
@@ -88,6 +86,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -104,6 +103,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import android.util.Log
+import com.techpoint.opentv.core.addons.SubtitleOrder
 import com.techpoint.opentv.core.addons.StremioClient
 import com.techpoint.opentv.core.jsplugins.JsPluginHost
 import com.techpoint.opentv.core.model.SourcePrefs
@@ -125,10 +125,10 @@ import com.techpoint.opentv.core.local.LocalMediaScanner
 import com.techpoint.opentv.player.OpenTvPlayer
 import com.techpoint.opentv.service.RustServiceBridge
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import com.techpoint.opentv.ui.components.OpenTvChip
 import com.techpoint.opentv.ui.components.OpenTvGlassButton
@@ -166,6 +166,7 @@ fun VodPlayerScreen(
     onSaveProgress: (WatchProgress) -> Unit,
     onPlayEpisode: (Episode) -> Unit,
     onPreloadEpisode: (Episode) -> Unit = {},
+    onSubtitleSize: (Float) -> Unit = {},
     onBack: () -> Unit,
 ) {
     val ui = LocalOpenTvUi.current
@@ -179,19 +180,34 @@ fun VodPlayerScreen(
     val positionMs by remember(player) {
         player.state.map { it.positionMs }.distinctUntilChanged()
     }.collectAsState(initial = player.state.value.positionMs)
-    val nearEndFlag by remember(player, nextEpisode) {
+    // Episodes of this/the next season loaded here when the route's list ends at this episode
+    // (the detail loads seasons lazily), so "Siguiente episodio" also crosses a season boundary.
+    var extraEpisodes by remember(item.id, episode?.id) { mutableStateOf<List<Episode>>(emptyList()) }
+    val effectiveNext = remember(nextEpisode, extraEpisodes, episode, allEpisodes) {
+        nextEpisode ?: EpisodeFlow.nextEpisodeAfter(allEpisodes + extraEpisodes, episode)
+    }
+    // Real intro/recap/credits timestamps (AniSkip / IntroDB / TheIntroDB through the core).
+    var skipData by remember(item.id, episode?.id) { mutableStateOf<EpisodeFlow.SkipData?>(null) }
+    var skippedKinds by remember(episode?.id) { mutableStateOf(emptySet<String>()) }
+    val endPhase by remember(player, episode, skipData) {
         player.state.map { s ->
-            nextEpisode != null && s.durationMs > 120_000L && (s.durationMs - s.positionMs) in 1_000L..25_000L
+            if (episode == null || !s.firstFrameReady) {
+                EpisodeFlow.Phase.PLAYING
+            } else {
+                val d = s.durationMs / 1000.0
+                EpisodeFlow.phaseAt(s.positionMs / 1000.0, d, EpisodeFlow.creditsStartSec(d, skipData), s.ended)
+            }
         }.distinctUntilChanged()
-    }.collectAsState(initial = false)
-    val preloadNextFlag by remember(player, nextEpisode) {
+    }.collectAsState(initial = EpisodeFlow.Phase.PLAYING)
+    val skipPrompt by remember(player, episode, skipData, skippedKinds) {
         player.state.map { s ->
-            nextEpisode != null && s.durationMs > 120_000L && (s.durationMs - s.positionMs) in 1_000L..35_000L
+            if (episode == null || !s.firstFrameReady) null
+            else EpisodeFlow.skipPromptAt(s.positionMs / 1000.0, s.durationMs / 1000.0, skipData, skippedKinds)
         }.distinctUntilChanged()
-    }.collectAsState(initial = false)
-    val inIntroWindow by remember(player, episode) {
+    }.collectAsState(initial = null)
+    val preloadNextFlag by remember(player, effectiveNext) {
         player.state.map { s ->
-            episode != null && s.durationMs > 600_000L && s.positionMs in 15_000L..240_000L
+            effectiveNext != null && s.durationMs > 120_000L && (s.durationMs - s.positionMs) in 1_000L..35_000L
         }.distinctUntilChanged()
     }.collectAsState(initial = false)
 
@@ -204,17 +220,22 @@ fun VodPlayerScreen(
     var epDrawerSeason by remember(episode?.season) { mutableIntStateOf(episode?.season ?: 1) }
     var externalSubs by remember { mutableStateOf<List<ExternalSubtitle>>(emptyList()) }
     var searchingMoreSubs by remember { mutableStateOf(false) }
-    var introSkipped by remember(episode?.id) { mutableStateOf(false) }
-    val showIntroSkip = inIntroWindow && !introSkipped && !nearEndFlag
+    // External subtitle currently attached (so the panel can mark it as the current choice).
+    var activeExternalSubId by remember(episode?.id, initialSource?.id) { mutableStateOf<String?>(null) }
+    // Phone "Audio y subtítulos" button: focus returns to it when the panel was opened by keyboard/D-pad.
+    val tracksButtonFocus = remember { FocusRequester() }
+    var tracksButtonFocused by remember { mutableStateOf(false) }
+    var tracksOpenedFromButton by remember { mutableStateOf(false) }
+
 
     val localSubLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val name = LocalMediaScanner.resolveDisplayName(ctx, uri)
         val id = "local_sub_${System.currentTimeMillis()}"
-        val entry = ExternalSubtitle(id = id, url = uri.toString(), lang = "es", label = name, source = "Archivo local")
+        val entry = ExternalSubtitle(id = id, url = uri.toString(), lang = "es", label = name, source = SubtitleOrder.SOURCE_LOCAL)
         externalSubs = listOf(entry) + externalSubs
+        activeExternalSubId = id
         player.attachExternalSubtitle(uri.toString(), "es", name)
-        showTracksSheet = false
     }
 
     fun searchMoreSubtitles() {
@@ -235,10 +256,10 @@ fun VodPlayerScreen(
                         put("episode", episode?.number ?: 0)
                     },
                 )
-                val found = res["subtitles"]?.jsonArray.orEmpty().mapIndexedNotNull { idx, el ->
+                val found = (res["subtitles"] as? JsonArray).orEmpty().mapIndexedNotNull { idx, el ->
                     val o = el as? JsonObject ?: return@mapIndexedNotNull null
-                    val u = o["url"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: return@mapIndexedNotNull null
-                    val lang = o["lang"]?.jsonPrimitive?.contentOrNull ?: "es"
+                    val u = (o["url"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } ?: return@mapIndexedNotNull null
+                    val lang = (o["lang"] as? JsonPrimitive)?.contentOrNull ?: "es"
                     val label = when {
                         lang.startsWith("es", ignoreCase = true) -> "Español"
                         lang.startsWith("en", ignoreCase = true) -> "Inglés"
@@ -249,23 +270,45 @@ fun VodPlayerScreen(
                         url = u,
                         lang = lang,
                         label = "$label #${idx + 1}",
-                        source = "SubtitleCat",
+                        source = SubtitleOrder.SOURCE_SUBTITLECAT,
                     )
                 }
-                if (found.isNotEmpty()) {
-                    val existingUrls = externalSubs.map { it.url }.toSet()
-                    externalSubs = externalSubs + found.filter { it.url !in existingUrls }
-                }
+                // SubtitleCat is always listed last (after OpenSubtitles and SubDL).
+                externalSubs = SubtitleOrder.merge(externalSubs, found)
             } finally {
                 searchingMoreSubs = false
             }
         }
     }
 
-    LaunchedEffect(preloadNextFlag, nextEpisode?.id) {
-        if (preloadNextFlag && nextEpisode != null) {
-            onPreloadEpisode(nextEpisode)
+    LaunchedEffect(preloadNextFlag, effectiveNext?.id) {
+        if (preloadNextFlag && effectiveNext != null) {
+            onPreloadEpisode(effectiveNext)
         }
+    }
+
+    LaunchedEffect(item.id, episode?.id, nextEpisode?.id) {
+        val cur = episode ?: return@LaunchedEffect
+        if (nextEpisode != null || item.id.startsWith("local:")) return@LaunchedEffect
+        val same = stremio.loadSeasonEpisodes(item, cur.season)
+        val following = if (EpisodeFlow.nextEpisodeAfter(allEpisodes + same, cur) == null) {
+            stremio.loadSeasonEpisodes(item, cur.season + 1)
+        } else emptyList()
+        extraEpisodes = same + following
+    }
+
+    // Online timestamps once the duration is known (AniSkip filters by episode length).
+    val durationKnown = state.durationMs > 0L
+    LaunchedEffect(item.id, episode?.id, durationKnown) {
+        val cur = episode ?: return@LaunchedEffect
+        if (!durationKnown || item.id.startsWith("local:")) return@LaunchedEffect
+        skipData = EpisodeFlow.fetch(item.id, cur, player.state.value.durationMs / 1000.0, item.isAnime || item.type == "anime")
+    }
+
+    fun skipCurrentSegment(prompt: EpisodeFlow.SkipPrompt) {
+        skippedKinds = skippedKinds + prompt.kind
+        val target = prompt.target
+        if (target != null) player.seekTo((target * 1000).toLong()) else player.seekBy(EpisodeFlow.HEURISTIC_INTRO_JUMP_MS)
     }
 
     // Mobile vertical swipe gesture HUD (brightness left / volume right)
@@ -273,26 +316,29 @@ fun VodPlayerScreen(
     var gestureIsBrightness by remember { mutableStateOf(false) }
     var currentBrightness by remember { mutableFloatStateOf(-1f) }
 
-    // Auto-next countdown (5 seconds when episode ends)
+    // Auto-next countdown on the "Siguiente episodio" card; Back ("seguir viendo") cancels it.
     var nextCountdownSec by remember(episode?.id) { mutableIntStateOf(0) }
     var nextCancelled by remember(episode?.id) { mutableStateOf(false) }
 
     val rootFocus = remember { FocusRequester() }
-    val tracksFocus = remember { FocusRequester() }
+    val endFocus = remember { FocusRequester() }
     val episodesFocus = remember { FocusRequester() }
     val errorFocus = remember { FocusRequester() }
     // Sources found by the in-player search (or handed over by Detail / the picker).
     var sessionRanked by remember(episode?.id, initialSource?.id) { mutableStateOf(rankedSources) }
-    // In-player source search: status line, progress line and the "nothing found" error.
+    // In-player source search: neutral status line and the "nothing found" error.
     var searchStatus by remember(episode?.id, initialSource?.id) { mutableStateOf<String?>(null) }
-    var searchDetail by remember(episode?.id, initialSource?.id) { mutableStateOf("") }
     var searchError by remember(episode?.id, initialSource?.id) { mutableStateOf("") }
     val errorText = searchError.ifBlank { state.errorMessage }
     val hasError = errorText.isNotBlank()
     // Black loading screen until the first frame of the chosen source (BACK cancels it).
     val loadingScreen = !hasError && (searchStatus != null || !state.firstFrameReady)
     // While any overlay is open the root must let D-pad keys through so focus can move inside it.
-    val overlayOpen = showTracksSheet || showSourcesSheet || showEpisodesSheet || hasError
+    // Credits: next-episode card (never focused, OK = next). End: full-screen end screen.
+    val showNextCard = endPhase == EpisodeFlow.Phase.CREDITS && effectiveNext != null && !nextCancelled &&
+        !hasError && !loadingScreen && !isInPipMode
+    val showEndScreen = endPhase == EpisodeFlow.Phase.ENDED && !hasError && !loadingScreen && !isInPipMode
+    val overlayOpen = showTracksSheet || showSourcesSheet || showEpisodesSheet || hasError || showEndScreen
     // DisposableEffect(Unit) outlives auto-next route swaps: always read the latest item/episode.
     val currentItem by rememberUpdatedState(item)
     val currentEpisode by rememberUpdatedState(episode)
@@ -304,12 +350,14 @@ fun VodPlayerScreen(
 
     fun startChosen(src: StreamSource, ranked: List<StreamSource>, resumeMs: Long) {
         searchError = ""
+        activeExternalSubId = null
         player.playSource(
             source = src,
             rankedSources = ranked,
             resumeMs = resumeMs,
             season = episode?.season ?: 0,
             episode = episode?.number ?: 0,
+            runtimeMin = episode?.runtimeMin ?: 0,
         )
     }
 
@@ -319,7 +367,10 @@ fun VodPlayerScreen(
             player.playOffline(offlineUrl, item.title, resumeMs = initialResumeMs)
             return@LaunchedEffect
         }
-        launch { externalSubs = stremio.fetchSubtitles(item, episode, plugins) }
+        // External subtitles, merged as each source answers (order: SubtitleOrder).
+        externalSubs = emptyList()
+        launch { externalSubs = SubtitleOrder.merge(externalSubs, stremio.fetchSubtitles(item, episode, plugins)) }
+        launch { externalSubs = SubtitleOrder.merge(externalSubs, stremio.fetchSubdl(item, episode)) }
         if (initialSource != null) {
             startChosen(initialSource, rankedSources, initialResumeMs)
             return@LaunchedEffect
@@ -340,10 +391,7 @@ fun VodPlayerScreen(
             sourcePrefs = sourcePrefs,
             mediaCaps = mediaCaps,
             isLowMemory = isLowMemory,
-            onStatus = { status, detail ->
-                searchStatus = status
-                searchDetail = detail
-            },
+            onStatus = { status -> searchStatus = status },
             onRanked = { ranked, picked ->
                 sessionRanked = ranked
                 if (picked != null) {
@@ -384,21 +432,38 @@ fun VodPlayerScreen(
         }
     }
 
-    // Auto-next 5s countdown on episode end
-    LaunchedEffect(state.ended, nextEpisode?.id, nextCancelled, playbackPrefs.autoNextEpisode) {
-        if (state.ended && nextEpisode != null && playbackPrefs.autoNextEpisode && !nextCancelled) {
-            for (sec in 5 downTo 1) {
-                nextCountdownSec = sec
-                delay(1_000L)
-                if (nextCancelled) break
-            }
-            if (!nextCancelled) {
-                nextCountdownSec = 0
-                onPlayEpisode(nextEpisode)
-            }
-        } else {
-            nextCountdownSec = 0
+    // Auto-next: short countdown while the button is up at REAL credits (paused = it waits). Without
+    // real credits data there is no countdown, so the ending is never cut; auto-next then happens
+    // at the real end of the video.
+    LaunchedEffect(showNextCard, playbackPrefs.autoNextEpisode) {
+        nextCountdownSec = 0
+        val target = effectiveNext
+        if (!showNextCard || !playbackPrefs.autoNextEpisode || target == null) return@LaunchedEffect
+        val s0 = player.state.value
+        if (!EpisodeFlow.hasRealCredits(s0.durationMs / 1000.0, skipData)) return@LaunchedEffect
+        var left = EpisodeFlow.autoNextCountdown((s0.durationMs - s0.positionMs) / 1000.0)
+        while (left > 0) {
+            nextCountdownSec = left
+            delay(1_000L)
+            if (player.state.value.isPlaying) left--
         }
+        nextCountdownSec = 0
+        onPlayEpisode(target)
+    }
+
+    // Reaching the end with auto-next on (and not dismissed) goes straight to the next episode;
+    // otherwise the end screen stays over the last frame (never a silent exit).
+    LaunchedEffect(endPhase == EpisodeFlow.Phase.ENDED) {
+        val target = effectiveNext
+        if (endPhase == EpisodeFlow.Phase.ENDED && target != null && playbackPrefs.autoNextEpisode && !nextCancelled) {
+            onPlayEpisode(target)
+        }
+    }
+
+    // "Omitir intro automáticamente" (off by default): only with exact timestamps.
+    LaunchedEffect(skipPrompt, playbackPrefs.autoSkipIntro) {
+        val p = skipPrompt ?: return@LaunchedEffect
+        if (playbackPrefs.autoSkipIntro && p.kind == "intro" && p.target != null) skipCurrentSegment(p)
     }
 
     // Clear mobile gesture HUD after 1s
@@ -418,14 +483,19 @@ fun VodPlayerScreen(
         }
     }
 
-    LaunchedEffect(showTracksSheet, showEpisodesSheet, showSourcesSheet, hasError) {
+    LaunchedEffect(showTracksSheet, showEpisodesSheet, showSourcesSheet, hasError, showEndScreen) {
         delay(60L) // let the overlay compose before requesting focus
         runCatching {
             when {
-                showTracksSheet -> tracksFocus.requestFocus()
+                showEndScreen -> endFocus.requestFocus()
+                showTracksSheet -> Unit // the panel focuses its current choice itself
                 showEpisodesSheet -> episodesFocus.requestFocus()
                 showSourcesSheet -> Unit // dialog window owns focus
                 hasError -> errorFocus.requestFocus()
+                tracksOpenedFromButton && controlsVisible && !ui.isTv -> {
+                    tracksOpenedFromButton = false
+                    tracksButtonFocus.requestFocus()
+                }
                 else -> rootFocus.requestFocus()
             }
         }
@@ -482,6 +552,9 @@ fun VodPlayerScreen(
             showSourcesSheet -> showSourcesSheet = false
             showEpisodesSheet -> showEpisodesSheet = false
             loadingScreen -> onBack()
+            // End screen: Back = Salir. Credits card: Back hides it and keeps watching.
+            showEndScreen -> onBack()
+            showNextCard -> nextCancelled = true
             ui.isTv && now - lastBackAt > 2_500L && !hasError -> {
                 controlsVisible = false
                 lastBackAt = now
@@ -508,11 +581,12 @@ fun VodPlayerScreen(
                     Key.MediaPlay -> { touchControls(); player.resume(); true }
                     Key.MediaPause -> { touchControls(); player.pause(); true }
                     Key.DirectionCenter, Key.Enter, Key.Spacebar, Key.MediaPlayPause -> {
-                        if (ui.isTv && showIntroSkip && !controlsVisible && ev.key != Key.MediaPlayPause) {
-                            introSkipped = true
-                            player.seekBy(85_000L)
-                        } else if (ui.isTv && nearEndFlag && !nextCancelled && nextEpisode != null && ev.key != Key.MediaPlayPause) {
-                            onPlayEpisode(nextEpisode)
+                        val prompt = skipPrompt
+                        val next = effectiveNext
+                        if (ui.isTv && prompt != null && !controlsVisible && ev.key != Key.MediaPlayPause) {
+                            skipCurrentSegment(prompt)
+                        } else if (ui.isTv && showNextCard && next != null && ev.key != Key.MediaPlayPause) {
+                            onPlayEpisode(next)
                         } else {
                             touchControls()
                             player.togglePlayPause()
@@ -687,7 +761,6 @@ fun VodPlayerScreen(
                 item = item,
                 episode = episode,
                 status = searchStatus ?: state.statusBanner.ifBlank { "Cargando video…" },
-                detail = if (searchStatus != null) searchDetail else state.activeSourceLabel,
             )
         } else if (state.isBuffering && !isInPipMode) {
             Column(
@@ -740,62 +813,61 @@ fun VodPlayerScreen(
             }
         }
 
-        // "Omitir intro" (+85 s) pill for series/anime episodes
-        if (showIntroSkip && !isInPipMode) {
+        // "Omitir intro" / "Omitir resumen": only with real timestamps
+        val prompt = skipPrompt
+        if (prompt != null && !isInPipMode && !showNextCard && !showEndScreen && !loadingScreen) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 24.dp, bottom = if (controlsVisible) 128.dp else 32.dp),
             ) {
                 OpenTvPrimaryButton(
-                    text = if (ui.isTv && !controlsVisible) "Omitir intro (OK)" else "Omitir intro",
+                    text = if (ui.isTv && !controlsVisible) "${prompt.label} (OK)" else prompt.label,
                     icon = Icons.Rounded.SkipNext,
-                    onClick = {
-                        introSkipped = true
-                        player.seekBy(85_000L)
-                    },
+                    onClick = { skipCurrentSegment(prompt) },
                 )
             }
         }
 
-        // Auto-Next Episode prompt + 5s countdown
-        val nearEnd = nearEndFlag
-        if ((nearEnd || (state.ended && nextEpisode != null)) && !isInPipMode && !nextCancelled) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+        // "Siguiente episodio" during the credits: one button like "Omitir intro" (OK plays it,
+        // Back hides it and keeps watching; auto-next still counts down in the background).
+        val nextForCard = effectiveNext
+        if (showNextCard && nextForCard != null) {
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 24.dp, bottom = if (controlsVisible) 128.dp else 32.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color(0xEB111116))
-                    .border(1.dp, OpenTvColors.GlassBorderStrong, RoundedCornerShape(14.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(end = 24.dp, bottom = if (controlsVisible) 128.dp else 32.dp),
             ) {
-                Column {
-                    Text(
-                        text = if (nextCountdownSec > 0) "Siguiente en ${nextCountdownSec}s" else "Siguiente episodio",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = ui.accent.color,
-                    )
-                    Text(
-                        "T${nextEpisode!!.season}·E${nextEpisode.number} ${nextEpisode.title}",
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                    )
-                }
                 OpenTvPrimaryButton(
-                    text = "Reproducir",
+                    text = if (ui.isTv && !controlsVisible) "Siguiente episodio (OK)" else "Siguiente episodio",
                     icon = Icons.Rounded.SkipNext,
-                    onClick = { nextEpisode?.let(onPlayEpisode) },
-                )
-                OpenTvRoundIconButton(
-                    icon = Icons.Rounded.Close,
-                    contentDescription = "Cancelar",
-                    size = 38.dp,
-                    onClick = { nextCancelled = true },
+                    onClick = { onPlayEpisode(nextForCard) },
                 )
             }
+        }
+
+        // End screen over the last frame (next / exit / watch again)
+        if (showEndScreen) {
+            EndOfEpisodeOverlay(
+                title = item.title,
+                current = episode,
+                next = effectiveNext,
+                actions = EpisodeFlow.endActions(effectiveNext != null),
+                firstFocus = endFocus,
+                onAction = { a ->
+                    when (a) {
+                        EpisodeFlow.EndAction.NEXT -> effectiveNext?.let(onPlayEpisode)
+                        EpisodeFlow.EndAction.EXIT -> onBack()
+                        EpisodeFlow.EndAction.REPLAY -> {
+                            nextCancelled = false
+                            skippedKinds = emptySet()
+                            player.seekTo(0L)
+                            player.resume()
+                            runCatching { rootFocus.requestFocus() }
+                        }
+                    }
+                },
+            )
         }
 
         // Locked touchscreen unlock pill
@@ -972,9 +1044,16 @@ fun VodPlayerScreen(
                                 )
                             }
                             OpenTvGlassButton(
-                                text = "Audio / Subs",
+                                text = "Audio y subtítulos",
                                 icon = Icons.Rounded.Subtitles,
-                                onClick = { touchControls(); showTracksSheet = true },
+                                onClick = {
+                                    touchControls()
+                                    tracksOpenedFromButton = tracksButtonFocused
+                                    showTracksSheet = true
+                                },
+                                modifier = Modifier
+                                    .focusRequester(tracksButtonFocus)
+                                    .onFocusChanged { tracksButtonFocused = it.isFocused },
                             )
                             if (sessionRanked.isNotEmpty()) {
                                 OpenTvGlassButton(
@@ -1098,125 +1177,32 @@ fun VodPlayerScreen(
             }
         }
 
-        // Audio / Subtitles / Speed modal sheet
+        // Audio / subtitles panel (simple columns, D-pad friendly)
         if (showTracksSheet) {
-            Box(
-                contentAlignment = Alignment.CenterEnd,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0x99000000))
-                    .pointerInput(Unit) { detectTapGestures { showTracksSheet = false } },
-            ) {
-                Surface(
-                    color = OpenTvColors.Ink900,
-                    border = BorderStroke(1.dp, OpenTvColors.GlassBorderStrong),
-                    shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp),
-                    modifier = Modifier
-                        .fillMaxWidth(if (ui.isTv) 0.42f else 0.85f)
-                        .fillMaxHeight()
-                        .pointerInput(Unit) { detectTapGestures { } },
-                ) {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxSize().padding(18.dp),
-                    ) {
-                        item { Text("Audio, Subtítulos y Velocidad", style = MaterialTheme.typography.titleLarge) }
-                        item {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Icon(Icons.Rounded.Speed, null, tint = ui.accent.color, modifier = Modifier.size(18.dp))
-                                Text("Velocidad", style = MaterialTheme.typography.titleMedium)
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf(0.75f, 1.0f, 1.25f, 1.5f).forEach { spd ->
-                                    OpenTvChip(
-                                        label = "${spd}x",
-                                        selected = state.speed == spd,
-                                        onClick = { player.setPlaybackSpeed(spd) },
-                                    )
-                                }
-                            }
-                        }
-                        if (state.audioTracks.isNotEmpty()) {
-                            item {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Icon(Icons.Rounded.Audiotrack, null, tint = ui.accent.color, modifier = Modifier.size(18.dp))
-                                    Text("Pistas de audio", style = MaterialTheme.typography.titleMedium)
-                                }
-                            }
-                            val focusAudioIdx = state.audioTracks.indexOfFirst { it.selected }.coerceAtLeast(0)
-                            itemsIndexed(state.audioTracks) { idx, track ->
-                                OpenTvChip(
-                                    label = track.label,
-                                    selected = track.selected,
-                                    onClick = { player.selectAudioTrack(track); showTracksSheet = false },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .stableFocusRequester(idx == focusAudioIdx, tracksFocus),
-                                )
-                            }
-                        }
-                        item {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Icon(Icons.Rounded.Subtitles, null, tint = ui.accent.color, modifier = Modifier.size(18.dp))
-                                Text("Subtítulos integrados", style = MaterialTheme.typography.titleMedium)
-                            }
-                        }
-                        item {
-                            OpenTvChip(
-                                label = "Desactivados",
-                                selected = state.textTracks.none { it.selected },
-                                onClick = { player.selectTextTrack(null); showTracksSheet = false },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .stableFocusRequester(state.audioTracks.isEmpty(), tracksFocus),
-                            )
-                        }
-                        items(state.textTracks) { track ->
-                            OpenTvChip(
-                                label = track.label,
-                                selected = track.selected,
-                                onClick = { player.selectTextTrack(track); showTracksSheet = false },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                        item {
-                            Text("Subtítulos en línea y archivos", style = MaterialTheme.typography.titleMedium)
-                        }
-                        item {
-                            OpenTvChip(
-                                label = if (searchingMoreSubs) "Buscando más subtítulos…" else "Buscar más subtítulos",
-                                selected = false,
-                                onClick = { searchMoreSubtitles() },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                        if (!ui.isTv) {
-                            item {
-                                OpenTvChip(
-                                    label = "Cargar archivo .srt / .vtt local",
-                                    selected = false,
-                                    onClick = {
-                                        runCatching { localSubLauncher.launch(arrayOf("*/*")) }
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
-                        }
-                        items(externalSubs.take(18), key = { it.id }) { sub ->
-                            OpenTvChip(
-                                label = "${sub.label} · ${sub.source}",
-                                selected = false,
-                                onClick = {
-                                    player.attachExternalSubtitle(sub.url, sub.lang, sub.label)
-                                    showTracksSheet = false
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-                }
-            }
+            PlayerTracksPanel(
+                audioTracks = state.audioTracks,
+                textTracks = state.textTracks,
+                externalSubs = externalSubs,
+                activeExternalId = activeExternalSubId,
+                subtitleSizeSp = playbackPrefs.subtitleStyle.sizeSp,
+                speed = state.speed,
+                searchingMoreSubs = searchingMoreSubs,
+                canPickLocalFile = !ui.isTv,
+                onSelectAudio = { player.selectAudioTrack(it) },
+                onSelectText = { track ->
+                    activeExternalSubId = null
+                    player.selectTextTrack(track)
+                },
+                onSelectExternal = { sub ->
+                    activeExternalSubId = sub.id
+                    player.attachExternalSubtitle(sub.url, sub.lang, sub.label)
+                },
+                onSearchMore = { searchMoreSubtitles() },
+                onPickLocalFile = { runCatching { localSubLauncher.launch(arrayOf("*/*")) } },
+                onSubtitleSize = onSubtitleSize,
+                onSpeed = { player.setPlaybackSpeed(it) },
+                onDismiss = { showTracksSheet = false },
+            )
         }
 
         if (showSourcesSheet) {
@@ -1262,7 +1248,8 @@ private suspend fun searchPlayerSources(
     sourcePrefs: SourcePrefs,
     mediaCaps: DeviceMediaCaps,
     isLowMemory: Boolean,
-    onStatus: (status: String, detail: String) -> Unit,
+    /** Neutral loading line: never names the plugin/server or the quality. */
+    onStatus: (status: String) -> Unit,
     onRanked: (ranked: List<StreamSource>, picked: StreamSource?) -> Unit,
     onNothing: (String) -> Unit,
 ) = coroutineScope {
@@ -1274,7 +1261,7 @@ private suspend fun searchPlayerSources(
     var jsDone = jsActive.isEmpty()
     var firstResultAt = 0L
 
-    onStatus("Buscando la mejor fuente…", "")
+    onStatus("Preparando el video…")
     val stremioJob = launch {
         stremioList = runCatching { stremio.fetchStreams(item, episode, plugins) }.getOrDefault(emptyList())
     }
@@ -1322,15 +1309,6 @@ private suspend fun searchPlayerSources(
             picked = ranked.firstOrNull()
             break
         }
-        val directs = ranked.count { it.isDirect }
-        val torrents = ranked.size - directs
-        val waiting = synchronized(pendingJs) { pendingJs.toList() }
-        val parts = buildList {
-            if (ranked.isNotEmpty()) add("$directs directas · $torrents torrents")
-            if (waiting.isNotEmpty()) add("esperando a ${waiting.joinToString(", ")}")
-        }
-        val status = if (waiting.isNotEmpty() && stremioDone) "Consultando ${waiting.first()}…" else "Buscando la mejor fuente…"
-        onStatus(status, parts.joinToString(" · "))
     }
 
     val waitedMs = System.currentTimeMillis() - startedAt
@@ -1347,7 +1325,7 @@ private suspend fun searchPlayerSources(
             "(${ranked.count { it.isDirect }} directas, ${ranked.count { it.isTorrent }} torrents, " +
             "pendientes=${synchronized(pendingJs) { pendingJs.toList() }})",
     )
-    onStatus(if (picked.isTorrent) "Conectando torrent…" else "Conectando con ${picked.addonName}…", "")
+    onStatus("Cargando…")
     onRanked(ranked, picked)
 
     // Slow sites keep answering in the background: their streams join the picker and fallbacks.
@@ -1368,7 +1346,6 @@ private fun PlayerLoadingScreen(
     item: MediaItem,
     episode: Episode?,
     status: String,
-    detail: String,
 ) {
     val ui = LocalOpenTvUi.current
     Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -1419,16 +1396,6 @@ private fun PlayerLoadingScreen(
             CircularProgressIndicator(color = ui.accent.color, strokeWidth = 3.dp, modifier = Modifier.size(34.dp))
             Spacer(Modifier.height(6.dp))
             Text(status, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-            if (detail.isNotBlank()) {
-                Text(
-                    text = detail,
-                    color = Color(0x8CFFFFFF),
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
         if (ui.isTv) {
             Text(
@@ -1444,5 +1411,5 @@ private fun PlayerLoadingScreen(
 /** Player loading screen shown while the title's detail/episode is still being resolved. */
 @Composable
 fun PlayerPreparingScreen(item: MediaItem) {
-    PlayerLoadingScreen(item = item, episode = null, status = "Buscando la mejor fuente…", detail = "")
+    PlayerLoadingScreen(item = item, episode = null, status = "Preparando el video…")
 }

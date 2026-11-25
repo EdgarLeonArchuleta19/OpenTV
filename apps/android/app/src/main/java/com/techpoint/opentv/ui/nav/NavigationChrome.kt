@@ -98,10 +98,13 @@ fun OpenTvSmileyAvatar(
     inverted: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val fg = if (inverted) OpenTvColors.BgCanvas else Color.White
-    val bgBrush = remember(color, inverted) {
+    // Inverted = theme "content" disc with the face in its ink; otherwise a white face on
+    // the colored profile gradient (same in both themes).
+    val invertedFill = OpenTvColors.Content
+    val fg = if (inverted) OpenTvColors.OnContent else Color.White
+    val bgBrush = remember(color, inverted, invertedFill) {
         if (inverted) {
-            Brush.linearGradient(listOf(Color.White, Color.White))
+            Brush.linearGradient(listOf(invertedFill, invertedFill))
         } else {
             val pair = when (color) {
                 Color(0xFF3B82F6) -> Color(0xFF3A7BFF) to Color(0xFF8A4DFF) // Signature v1/PC blue-to-purple
@@ -185,8 +188,8 @@ fun TvLeftRail(
                 // Near-opaque behind the icons so posters scrolled under the rail never
                 // show through (row centring scrolls cards left past the content edge).
                 Brush.horizontalGradient(
-                    0f to Color(0xFA0E0E11),
-                    0.7f to Color(0xF00E0E11),
+                    0f to OpenTvColors.BgCanvas.copy(alpha = 0.98f),
+                    0.7f to OpenTvColors.BgCanvas.copy(alpha = 0.94f),
                     1f to Color.Transparent,
                 ),
             ),
@@ -268,8 +271,8 @@ fun TvLeftRail(
                             contentDescription = tab.label,
                             tint = when {
                                 focused -> ui.accent.onAccent
-                                selected -> Color.White
-                                else -> Color(0x9EFFFFFF)
+                                selected -> OpenTvColors.Content
+                                else -> OpenTvColors.fg(0.62f)
                             },
                             modifier = Modifier.size(20.dp),
                         )
@@ -296,17 +299,23 @@ fun TvTopBar(
     modifier: Modifier = Modifier,
     searchFocus: FocusRequester? = null,
 ) {
+    val light = OpenTvColors.isLight
+    val canvas = OpenTvColors.BgCanvas
+    val divider = OpenTvColors.fg(0.059f)
+    // Light theme: the scrim fades from the light canvas so the dark text stays readable.
+    val scrimTop = if (light) canvas.copy(alpha = 0.85f) else Color(0xB308080A)
+    val scrimMid = if (light) canvas.copy(alpha = 0.4f) else Color(0x4D08080A)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(84.dp)
             .then(
-                if (scrolled) Modifier.background(Color(0xF50E0E11)).drawBehind {
-                    drawLine(Color(0x0FFFFFFF), Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 1f)
+                if (scrolled) Modifier.background(canvas.copy(alpha = 0.96f)).drawBehind {
+                    drawLine(divider, Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 1f)
                 } else Modifier.background(
                     Brush.verticalGradient(
-                        0f to Color(0xB308080A),
-                        0.6f to Color(0x4D08080A),
+                        0f to scrimTop,
+                        0.6f to scrimMid,
                         1f to Color.Transparent,
                     ),
                 ),
@@ -318,23 +327,24 @@ fun TvTopBar(
         ) {
             Image(
                 painter = painterResource(id = R.drawable.ic_opentv_logo),
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(OpenTvColors.Content),
                 contentDescription = "OpenTV",
                 modifier = Modifier.size(width = 20.dp, height = 21.dp),
             )
             Spacer(Modifier.width(7.dp))
             Text(
                 text = "OpenTV",
-                color = Color.White,
+                color = OpenTvColors.Content,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp,
                 letterSpacing = (-0.4).sp,
             )
             Spacer(Modifier.width(12.dp))
-            Box(Modifier.width(1.dp).height(16.dp).background(Color(0x38FFFFFF)))
+            Box(Modifier.width(1.dp).height(16.dp).background(OpenTvColors.fg(0.22f)))
             Spacer(Modifier.width(10.dp))
             Text(
                 text = sectionLabel,
-                color = if (labelHighlighted) Color.White else Color(0x99FFFFFF),
+                color = if (labelHighlighted) OpenTvColors.Content else OpenTvColors.fg(0.6f),
                 fontWeight = FontWeight.Medium,
                 fontSize = 14.sp,
             )
@@ -353,12 +363,12 @@ fun TvTopBar(
             Spacer(Modifier.width(10.dp))
             ProfileAvatarButton(profile = activeProfile, onClick = onProfile, size = 30.dp)
             Spacer(Modifier.width(13.5.dp))
-            Box(Modifier.width(0.75.dp).height(14.dp).background(Color(0x33FFFFFF)))
+            Box(Modifier.width(0.75.dp).height(14.dp).background(OpenTvColors.fg(0.2f)))
             Spacer(Modifier.width(13.5.dp))
             Icon(
                 imageVector = Icons.Rounded.Wifi,
                 contentDescription = null,
-                tint = Color(0xFFD8D8D8),
+                tint = if (OpenTvColors.isLight) OpenTvColors.fg(0.85f) else Color(0xFFD8D8D8),
                 modifier = Modifier.size(15.dp),
             )
             Spacer(Modifier.width(13.5.dp))
@@ -377,13 +387,13 @@ private fun TvTopIcon(icon: ImageVector, description: String, onClick: () -> Uni
         modifier = modifier
             .size(30.dp)
             .clip(CircleShape)
-            .background(if (focused) ui.accent.color else Color(0x14FFFFFF))
+            .background(if (focused) ui.accent.color else OpenTvColors.fg(0.078f))
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = if (focused) ui.accent.onAccent else Color.White,
+            tint = if (focused) ui.accent.onAccent else OpenTvColors.Content,
             modifier = Modifier.size(15.dp),
         )
     }
@@ -407,17 +417,26 @@ fun OpenTvTopBar(
     modifier: Modifier = Modifier,
 ) {
     val ui = LocalOpenTvUi.current
+    val light = OpenTvColors.isLight
+    val canvas = OpenTvColors.BgCanvas
     val bgColor by animateColorAsState(
-        if (scrolled) Color(0xF50E0E11) else Color(0x9908080A),
+        when {
+            scrolled -> canvas.copy(alpha = 0.96f)
+            light -> canvas.copy(alpha = 0.6f)
+            else -> Color(0x9908080A)
+        },
         label = "topBarBg",
     )
+    // Light theme: fade from the light canvas instead of a dark scrim (dark text on top).
+    val scrimTop = if (light) canvas.copy(alpha = 0.85f) else Color(0xCC08080A)
+    val scrimMid = if (light) canvas.copy(alpha = 0.4f) else Color(0x4D08080A)
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .background(
                 if (scrolled) Brush.verticalGradient(listOf(bgColor, bgColor))
-                else Brush.verticalGradient(listOf(Color(0xCC08080A), Color(0x4D08080A), Color.Transparent)),
+                else Brush.verticalGradient(listOf(scrimTop, scrimMid, Color.Transparent)),
             )
             .statusBarsPadding()
             .padding(
@@ -433,13 +452,14 @@ fun OpenTvTopBar(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_opentv_logo),
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(OpenTvColors.Content),
                     contentDescription = "OpenTV",
                     modifier = Modifier.size(if (ui.isTv) 28.dp else 25.dp),
                 )
                 Spacer(Modifier.width(9.dp))
                 Text(
                     text = "OpenTV",
-                    color = Color.White,
+                    color = OpenTvColors.Content,
                     fontWeight = FontWeight.Bold,
                     fontSize = if (ui.isTv) 20.sp else 18.sp,
                     letterSpacing = (-0.4).sp,
@@ -450,12 +470,12 @@ fun OpenTvTopBar(
                         modifier = Modifier
                             .width(1.5.dp)
                             .height(18.dp)
-                            .background(Color(0x38FFFFFF)),
+                            .background(OpenTvColors.fg(0.22f)),
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(
                         text = tvBrowseLabel ?: selectedTab.label,
-                        color = if (tvBrowseLabel != null) Color.White else OpenTvColors.TextSecondary,
+                        color = if (tvBrowseLabel != null) OpenTvColors.Content else OpenTvColors.TextSecondary,
                         fontWeight = FontWeight.Medium,
                         fontSize = 15.sp,
                     )
@@ -475,7 +495,7 @@ fun OpenTvTopBar(
                 ProfileAvatarButton(profile = activeProfile, onClick = onProfile)
                 if (ui.isTv) {
                     Spacer(Modifier.width(6.dp))
-                    Box(Modifier.width(1.dp).height(16.dp).background(Color(0x28FFFFFF)))
+                    Box(Modifier.width(1.dp).height(16.dp).background(OpenTvColors.fg(0.157f)))
                     Spacer(Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.Rounded.Wifi,
@@ -501,13 +521,13 @@ fun OpenTvTopBar(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .clip(RoundedCornerShape(999.dp))
-                            .background(if (selected) ui.accent.color else Color(0x14FFFFFF))
+                            .background(if (selected) ui.accent.color else OpenTvColors.fg(0.078f))
                             .clickable { onSelectTab(tab) }
                             .padding(horizontal = 15.dp, vertical = 7.dp),
                     ) {
                         Text(
                             text = tab.label,
-                            color = if (selected) ui.accent.onAccent else Color(0xCCFFFFFF),
+                            color = if (selected) ui.accent.onAccent else OpenTvColors.fg(0.8f),
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                             fontSize = 13.5.sp,
                         )
@@ -533,7 +553,7 @@ private fun TopBarActionIcon(
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(if (focused) ui.accent.color else Color(0x14FFFFFF))
+            .background(if (focused) ui.accent.color else OpenTvColors.fg(0.078f))
             .border(
                 width = 1.dp,
                 color = if (focused) ui.accent.color else OpenTvColors.GlassBorder,
@@ -544,7 +564,7 @@ private fun TopBarActionIcon(
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = if (focused) ui.accent.onAccent else Color.White,
+            tint = if (focused) ui.accent.onAccent else OpenTvColors.Content,
             modifier = Modifier.size(18.dp),
         )
     }
@@ -591,7 +611,7 @@ private fun TvClockText(fontSize: Float = 14.5f) {
     }
     Text(
         text = time,
-        color = Color.White,
+        color = OpenTvColors.Content,
         fontWeight = FontWeight.SemiBold,
         fontSize = fontSize.sp,
     )

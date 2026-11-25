@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod appearance;
 mod audio_win;
 mod capture;
 mod commands;
@@ -166,9 +167,8 @@ fn append_log(user_data_dir: &Path, line: &str) {
 /// Windows-only polish for the frameless window:
 /// - Hides the WebView2 status bar that pops up bottom-left with URLs such as
 ///   `http://tauri.localhost/...` when the pointer hovers a link.
-/// - Paints the DWM 1px window border in a neutral dark tone; otherwise Windows 11
-///   draws it with the system accent colour (usually blue) whenever the window is
-///   not maximised.
+/// - Paints the DWM 1px window border in the dark theme tone until the UI applies the
+///   saved theme (`desktop_appearance`).
 #[cfg(target_os = "windows")]
 fn apply_windows_chrome(win: &tauri::WebviewWindow) {
     let _ = win.with_webview(|wv| unsafe {
@@ -179,20 +179,7 @@ fn apply_windows_chrome(win: &tauri::WebviewWindow) {
         }
     });
 
-    if let Ok(hwnd) = win.hwnd() {
-        use windows::Win32::Foundation::HWND;
-        use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_BORDER_COLOR};
-        // COLORREF is 0x00BBGGRR -> #232328, a subtle monochrome edge on the #0E0E11 theme.
-        let color: u32 = 0x0028_2323;
-        unsafe {
-            let _ = DwmSetWindowAttribute(
-                HWND(hwnd.0 as _),
-                DWMWA_BORDER_COLOR,
-                &color as *const u32 as *const core::ffi::c_void,
-                std::mem::size_of::<u32>() as u32,
-            );
-        }
-    }
+    appearance::apply_border_color(win, false);
 }
 
 fn main() {
@@ -269,6 +256,7 @@ fn main() {
             commands::desktop_info,
             commands::desktop_pick_local_video,
             commands::desktop_pick_local_folder,
+            appearance::desktop_appearance,
         ])
         .setup(move |app| {
             let webview_data = user_data_dir.join("webview2");

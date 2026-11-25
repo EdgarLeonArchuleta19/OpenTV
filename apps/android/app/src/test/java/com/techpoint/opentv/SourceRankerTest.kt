@@ -47,7 +47,8 @@ class SourceRankerTest {
 
         val ranked = SourceRanker.rank(listOf(en4k, latCam, lat1080), prefs, caps, isLowMemory = false)
         assertEquals("lat", ranked.first().id)
-        assertEquals("cam", ranked.last().id)
+        // CAM torrents are not listed at all.
+        assertFalse(ranked.any { it.id == "cam" })
     }
 
     @Test
@@ -193,5 +194,90 @@ class SourceRankerTest {
         assertTrue(SourceRanker.autoPickReady(withDirect, false, latinoFirst, 3_000L, 5_000L, isLowMemory = true))
         // Everything answered.
         assertTrue(SourceRanker.autoPickReady(torrent, true, latinoFirst, 1_000L, 1_000L, isLowMemory = true))
+    }
+    private fun tor(id: String, title: String, hash: String, filename: String = "") =
+        StreamSource(id = id, addonId = "t", addonName = "Torrentio", title = title, infoHash = hash, filename = filename)
+
+    @Test
+    fun `drops torrents with fewer than 5 known seeders but keeps unknown and direct`() {
+        val ranked = SourceRanker.rank(
+            listOf(
+                tor("good", "Movie 1080p Latino 👤 40", "e1"),
+                tor("four", "Movie 1080p Latino 👤 4", "e2"),
+                tor("fourEn", "Movie 1080p English 👤 4", "e6"),
+                tor("zero", "Movie 2160p Latino 👤 0", "e3"),
+                tor("five", "Movie 720p Latino 👤 5", "e4"),
+                tor("unknown", "Movie 1080p Latino", "e5"),
+                jsDirect("direct", "Latino"),
+            ),
+            latinoFirst, fireTvCaps, isLowMemory = true,
+        ).map { it.id }
+        // Latino is scarce: a Latino torrent with a few seeders stays; zero never does.
+        assertTrue(ranked.containsAll(listOf("good", "four", "five", "unknown", "direct")))
+        assertFalse("fourEn" in ranked)
+        assertFalse("zero" in ranked)
+    }
+
+    @Test
+    fun `detects CAM TS TC and screener releases as whole tokens only`() {
+        val bad = listOf(
+            "Movie.2025.HDCAM.x264", "Movie 2025 TS Latino", "Movie.2025.TC.XviD", "Movie 2025 TeleSync",
+            "Movie.2025.DVDSCR", "Movie [HD-TS]", "Movie 2025 CAM", "Movie.2025.SCREENER", "Movie 2025 hdts",
+        )
+        bad.forEach { assertTrue(it, SourceRanker.isBadRelease(tor("x", it, "x"))) }
+        val good = listOf(
+            "Cam (2018) 1080p WEB-DL", "Kids.2025.1080p", "Movie 2025 YTS 1080p", "Avatar 2160p UHD",
+            "Lights Out 720p", "Scream 1996 BluRay",
+        )
+        good.forEach { assertFalse(it, SourceRanker.isBadRelease(tor("x", it, "x"))) }
+        // A ".ts" file extension is not a release tag.
+        assertFalse(SourceRanker.isBadRelease(tor("x", "Movie 1080p", "x", filename = "Movie.2025.1080p.ts")))
+    }
+
+    @Test
+    fun `never drops direct sources even if they look like CAM or ts streams`() {
+        val hls = StreamSource(
+            id = "hls", addonId = "j", addonName = "J", title = "Latino TS",
+            url = "https://cdn.example/seg.ts", isJsPlugin = true,
+        )
+        val ranked = SourceRanker.rank(listOf(hls, tor("tor", "Movie 1080p Latino 👤 30", "f1")), latinoFirst, fireTvCaps)
+        assertTrue(ranked.any { it.id == "hls" })
+    }
+
+    @Test
+    fun `lists the same infoHash once keeping the best seeded copy`() {
+        val split = SourceRanker.splitTorrentQuality(
+            listOf(
+                SourceRanker.enrich(tor("a", "1080p Latino 👤 20", "ABC")),
+                SourceRanker.enrich(tor("b", "1080p Latino 👤 90", "abc")),
+            ),
+        )
+        assertEquals(listOf("b"), split.kept.map { it.id })
+        assertTrue(split.dropped.isEmpty())
+    }
+
+    @Test
+    fun `falls back to the best dropped torrents instead of an empty list`() {
+        val ranked = SourceRanker.rank(
+            listOf(tor("cam", "Movie HDCAM Latino 👤 300", "g1"), tor("dead", "Movie 1080p Latino 👤 1", "g2")),
+            latinoFirst, fireTvCaps,
+        )
+        assertTrue(ranked.isNotEmpty())
+        assertTrue(ranked.size <= 5)
+    }
+
+    @Test
+    fun `describes sources in plain Spanish for the picker`() {
+        val lat = SourceRanker.enrich(tor("1", "Movie 1080p Dual Latino English 👤 40", "h"))
+        val subs = SourceRanker.enrich(tor("2", "Movie 720p English VOSE", "i"))
+        val orig = SourceRanker.enrich(StreamSource(id = "3", addonId = "j", addonName = "J", title = "Server 1", url = "https://x.example/a.m3u8"))
+        assertEquals("Latino + Inglés", SourceRanker.plainLanguageLabel(lat))
+        assertEquals("Subtitulado", SourceRanker.plainLanguageLabel(subs))
+        assertEquals("Idioma original", SourceRanker.plainLanguageLabel(orig))
+        assertEquals("Auto", SourceRanker.qualityLabel(orig))
+        val opts = SourceRanker.pickerFilterOptions(listOf(lat, subs, orig))
+        assertEquals(listOf("Todas", "1080p", "720p", "Auto"), opts.quality.map { it.label })
+        assertEquals(listOf("Todos", "Latino", "Inglés", "Subtitulado"), opts.lang.map { it.label })
+        assertEquals(listOf("Todas", "Directas", "Torrents"), opts.type.map { it.label })
     }
 }

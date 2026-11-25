@@ -60,8 +60,8 @@ import com.techpoint.opentv.core.addons.PluginInspectResult
 import com.techpoint.opentv.core.addons.StremioClient
 import com.techpoint.opentv.service.RustServiceBridge
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import com.techpoint.opentv.core.model.CommunityPlugin
@@ -191,9 +191,10 @@ private fun norm(s: String): String =
 
 /**
  * v1 Plugins panel (`screens/plugins.js`, `11-fuentes-stremio.css`) as one lazy grid:
- * title, pill tabs "Mis plugins" / "Comunidad", "Agregar plugin" and card grids.
+ * title, pill tabs "Instalados" / "Comunidad", "Agregar plugin" and card grids.
+ * Instalados = "Mis plugins", split into "Películas y series" / "TV en vivo".
  * OK on an installed card opens "Configurar"; OK on a community card adds it.
- * Built-in plugins (Cinemeta, Anime Kitsu, OpenSubtitles v3) say "Incluido" and cannot be removed.
+ * The bundled plugins (Cinemeta, Anime Kitsu, OpenSubtitles v3) are internal fallbacks: never listed.
  * Nothing here opens a browser, a WebView or another Activity.
  */
 @Composable
@@ -252,16 +253,16 @@ fun PluginsPanel(
                 var clean = input
                 if (isShortCode(input) && !input.startsWith("http://") && !input.startsWith("https://")) {
                     val r = RustServiceBridge.callRpc("resolveShortCode", buildJsonObject { put("code", input) })
-                    clean = r["url"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
-                    if (clean.isBlank()) throw IllegalStateException(r["errorText"]?.jsonPrimitive?.contentOrNull ?: "No se pudo resolver el código corto")
+                    clean = (r["url"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+                    if (clean.isBlank()) throw IllegalStateException((r["errorText"] as? JsonPrimitive)?.contentOrNull ?: "No se pudo resolver el código corto")
                 }
 
                 if (looksLikeM3u(clean)) {
                     val allowLan = isPrivateHost(clean)
                     val res = RustServiceBridge.callRpc("fetchM3u", buildJsonObject { put("url", clean); put("allowLan", allowLan) })
-                    val channels = res["channels"]?.jsonArray
+                    val channels = (res["channels"] as? JsonArray)
                     if (channels == null || channels.isEmpty()) {
-                        throw IllegalStateException(res["errorText"]?.jsonPrimitive?.contentOrNull ?: "La lista M3U no contiene canales válidos")
+                        throw IllegalStateException((res["errorText"] as? JsonPrimitive)?.contentOrNull ?: "La lista M3U no contiene canales válidos")
                     }
                     val name = customName.ifBlank {
                         if (clean.contains("get.php?", true)) "Cuenta Xtream" else clean.substringAfterLast('/').substringBefore('?').ifBlank { "Lista TV" }
@@ -316,7 +317,7 @@ fun PluginsPanel(
                         val m3uRes = runCatching {
                             RustServiceBridge.callRpc("fetchM3u", buildJsonObject { put("url", m3uUrl); put("allowLan", isPrivateHost(m3uUrl)) })
                         }.getOrNull()
-                        val ch = m3uRes?.get("channels")?.jsonArray
+                        val ch = (m3uRes?.get("channels") as? JsonArray)
                         if (ch != null && ch.isNotEmpty()) {
                             val allowLan = isPrivateHost(m3uUrl)
                             val name = customName.ifBlank { m3uUrl.substringAfterLast('/').substringBefore('?').ifBlank { "Lista TV" } }
@@ -351,8 +352,10 @@ fun PluginsPanel(
     }
 
     val plugins = remember(installedPlugins) { installedPlugins.distinctBy { it.url } }
-    val builtins = remember(plugins) { plugins.filter { it.builtin } }
+    // Bundled plugins keep working internally but are not shown anywhere.
     val userPlugins = remember(plugins) { plugins.filterNot { it.builtin } }
+    val userVod = remember(userPlugins) { userPlugins.filterNot { PluginCatalogs.isLiveTvPlugin(it) } }
+    val userLive = remember(userPlugins) { userPlugins.filter { PluginCatalogs.isLiveTvPlugin(it) } }
     val lists = remember(m3uPlaylists) { m3uPlaylists.distinctBy { it.url } }
     val hasSourcePlugin = plugins.any { !it.disabled && (it.hasStream || it.kind == "kino-js") }
 
@@ -486,7 +489,7 @@ fun PluginsPanel(
                     .padding(top = 4.dp, bottom = 6.dp),
             ) {
                 SetSubTabs(
-                    tabs = listOf("mine" to "Mis plugins", "community" to "Comunidad"),
+                    tabs = listOf("mine" to "Instalados", "community" to "Comunidad"),
                     selected = tab,
                     onSelect = { tab = it },
                 )
@@ -504,27 +507,25 @@ fun PluginsPanel(
         }
 
         if (tab == "mine") {
-            if (builtins.isNotEmpty()) {
-                fullItem("h_builtin") {
-                    SectionHead("Incluidos con OpenTV", "Vienen con la app y siempre están activos")
-                }
-                items(builtins, key = { "b_" + it.url }) { p ->
-                    InstalledCard(p, onClick = { configPluginUrl = p.url })
-                }
-            }
+            // "Mis plugins", split into "Películas y series" / "TV en vivo".
             fullItem("h_user") {
                 SectionHead(
-                    title = "Tus plugins",
-                    sub = "Fuentes, catálogos y listas de TV agregados por ti",
-                    warn = if (!hasSourcePlugin) "Sin plugin de fuentes no se puede reproducir. Hay recomendados en Comunidad." else null,
+                    title = "Mis plugins",
+                    warn = if (!hasSourcePlugin) "Sin plugin de fuentes no se puede reproducir" else null,
                 )
             }
-            if (userPlugins.isEmpty() && lists.isEmpty()) {
-                fullItem("empty") {
-                    EmptyText("Aún no agregaste plugins. Explora la pestaña Comunidad o pulsa Agregar plugin.")
-                }
+            fullItem("h_user_vod") { SubHead("Películas y series") }
+            if (userVod.isEmpty()) {
+                fullItem("e_user_vod") { EmptyText("Sin plugins de películas y series.") }
             }
-            items(userPlugins, key = { "u_" + it.url }) { p ->
+            items(userVod, key = { "u_" + it.url }) { p ->
+                InstalledCard(p, onClick = { configPluginUrl = p.url })
+            }
+            fullItem("h_user_live") { SubHead("TV en vivo") }
+            if (userLive.isEmpty() && lists.isEmpty()) {
+                fullItem("e_user_live") { EmptyText("Sin listas ni plugins de TV en vivo.") }
+            }
+            items(userLive, key = { "ul_" + it.url }) { p ->
                 InstalledCard(p, onClick = { configPluginUrl = p.url })
             }
             items(lists, key = { "m_" + it.url }) { m3u ->
@@ -616,20 +617,20 @@ fun PluginsPanel(
                 }, primary = true)
             },
         ) {
-            Text(url, color = Color.White, fontSize = tsp(12f))
+            Text(url, color = SetColors.Text, fontSize = tsp(12f))
         }
     }
 
     configPluginUrl?.let { url ->
-        val idx = plugins.indexOfFirst { it.url == url }
-        val plugin = plugins.getOrNull(idx)
+        val idx = userPlugins.indexOfFirst { it.url == url }
+        val plugin = userPlugins.getOrNull(idx)
         if (plugin == null) {
             LaunchedEffect(url) { configPluginUrl = null }
         } else {
             PluginConfigModal(
                 plugin = plugin,
                 index = idx,
-                total = plugins.size,
+                total = userPlugins.size,
                 stremio = stremio,
                 sourcePrefs = sourcePrefs,
                 onInstallPlugin = onInstallPlugin,
@@ -667,13 +668,13 @@ private fun LazyGridScope.fullItem(key: String, content: @Composable () -> Unit)
 }
 
 @Composable
-private fun SectionHead(title: String, sub: String, warn: String? = null) {
+private fun SectionHead(title: String, sub: String = "", warn: String? = null) {
     Column(
         verticalArrangement = Arrangement.spacedBy(2.dp),
         modifier = Modifier.padding(top = 10.dp, bottom = 1.dp),
     ) {
-        Text(title, color = Color.White, fontSize = tsp(12f), fontWeight = FontWeight.Bold)
-        Text(sub, color = SetColors.Text42, fontSize = tsp(8f))
+        Text(title, color = SetColors.Text, fontSize = tsp(12f), fontWeight = FontWeight.Bold)
+        if (sub.isNotBlank()) Text(sub, color = SetColors.Text42, fontSize = tsp(8f))
         if (!warn.isNullOrBlank()) {
             Text(warn, color = SetColors.Warn, fontSize = tsp(8.5f), fontWeight = FontWeight.SemiBold)
         }
@@ -718,14 +719,16 @@ private fun pluginDescription(p: InstalledPlugin): String {
     return "Da $text a películas y series."
 }
 
-private fun pluginMeta(p: InstalledPlugin): String =
-    if (p.builtin) {
-        "Películas y series · Incluido · Siempre activo"
+private fun pluginMeta(p: InstalledPlugin): String {
+    val kind = if (PluginCatalogs.isLiveTvPlugin(p)) "TV en vivo" else "Películas y series"
+    return if (p.builtin) {
+        "$kind · Incluido · Siempre activo"
     } else {
-        listOf("Películas y series", offersOf(p), if (p.disabled) "Sin usar" else "En uso")
+        listOf(kind, offersOf(p), if (p.disabled) "Sin usar" else "En uso")
             .filter { it.isNotBlank() }
             .joinToString(" · ")
     }
+}
 
 @Composable
 private fun InstalledCard(plugin: InstalledPlugin, onClick: () -> Unit) {
@@ -779,22 +782,22 @@ private fun PlCard(
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val shape = RoundedCornerShape(10.dp)
-    val accentBg = if (ui.accent.id == "white") Color(0xFFE9E7E2) else ui.accent.color
-    val accentFg = if (ui.accent.id == "white") Color(0xFF15151A) else ui.accent.onAccent
+    val accentBg = if (ui.accent.id == "white") SetColors.Primary else ui.accent.color
+    val accentFg = if (ui.accent.id == "white") SetColors.OnPrimary else ui.accent.onAccent
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
             .background(
                 when {
-                    focused -> Color(0xFF18181D)
-                    builtin -> Color(0xFF131317)
-                    else -> Color(0xFF141418)
+                    focused -> if (OpenTvColors.isLight) OpenTvColors.CardSurface else Color(0xFF18181D)
+                    builtin -> if (OpenTvColors.isLight) Color(0xFFF1F1F4) else Color(0xFF131317)
+                    else -> if (OpenTvColors.isLight) OpenTvColors.CardSurface else Color(0xFF141418)
                 },
             )
             .border(
                 width = if (focused) 1.5.dp else 0.5.dp,
-                color = if (focused) Color(0xBFFFFFFF) else Color(0x0FFFFFFF),
+                color = if (focused) OpenTvColors.fg(0.749f) else OpenTvColors.fg(0.059f),
                 shape = shape,
             )
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
@@ -811,7 +814,7 @@ private fun PlCard(
                         modifier = Modifier
                             .size(23.dp)
                             .clip(CircleShape)
-                            .background(Color(0x12FFFFFF)),
+                            .background(OpenTvColors.fg(0.071f)),
                     ) {
                         Icon(
                             badgeIcon,
@@ -827,7 +830,7 @@ private fun PlCard(
         Column(Modifier.alpha(if (dimmed) 0.55f else 1f)) {
             Text(
                 text = name,
-                color = Color(0xFFECEAE6),
+                color = if (OpenTvColors.isLight) OpenTvColors.Content else Color(0xFFECEAE6),
                 fontSize = tsp(12f),
                 fontWeight = FontWeight(680),
                 maxLines = 1,
@@ -866,8 +869,8 @@ private fun PowerBadge(on: Boolean, accentBg: Color, accentFg: Color) {
         modifier = Modifier
             .size(23.dp)
             .clip(CircleShape)
-            .background(if (on) accentBg else Color(0x0AFFFFFF))
-            .then(if (on) Modifier else Modifier.border(0.5.dp, Color(0x1FFFFFFF), CircleShape)),
+            .background(if (on) accentBg else OpenTvColors.fg(0.039f))
+            .then(if (on) Modifier else Modifier.border(0.5.dp, OpenTvColors.fg(0.122f), CircleShape)),
     ) {
         Icon(
             if (on) Icons.Rounded.PowerSettingsNew else Icons.Rounded.PowerOff,

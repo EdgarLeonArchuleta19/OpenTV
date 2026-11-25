@@ -62,6 +62,15 @@ object PluginCatalogs {
         return clean.lowercase()
     }
 
+    /**
+     * Installed plugin that only serves live channels (Stremio `tv` / `channel` types).
+     * It is listed under "TV en vivo" together with the M3U lists; everything else is "Películas y series".
+     */
+    fun isLiveTvPlugin(p: InstalledPlugin): Boolean {
+        val types = p.types.map { it.lowercase() }
+        return types.any { it == "tv" || it == "channel" } && types.none { it == "movie" || it == "series" || it == "anime" }
+    }
+
     fun isBuiltinUrl(url: String): Boolean {
         val base = stremioBaseFromUrl(url)
         return BuiltinPlugins.any { stremioBaseFromUrl(it.url) == base }

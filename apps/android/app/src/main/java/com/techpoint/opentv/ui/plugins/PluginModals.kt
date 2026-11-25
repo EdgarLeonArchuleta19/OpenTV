@@ -60,6 +60,7 @@ import com.techpoint.opentv.ui.settings.SetSegButton
 import com.techpoint.opentv.ui.settings.SetTextField
 import com.techpoint.opentv.ui.settings.tsp
 import com.techpoint.opentv.ui.theme.LocalOpenTvUi
+import com.techpoint.opentv.ui.theme.OpenTvColors
 import kotlinx.coroutines.launch
 
 /**
@@ -85,7 +86,7 @@ internal fun PlModal(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xD1000000))
+                .background(if (OpenTvColors.isLight) OpenTvColors.Scrim else Color(0xD1000000))
                 .pointerInput(Unit) { detectTapGestures { onDismiss() } },
         ) {
             Column(
@@ -94,8 +95,8 @@ internal fun PlModal(
                     .fillMaxWidth(0.94f)
                     .heightIn(max = maxH)
                     .clip(shape)
-                    .background(Color(0xFF141418))
-                    .border(0.5.dp, Color(0x17FFFFFF), shape)
+                    .background(if (OpenTvColors.isLight) OpenTvColors.Sheet else Color(0xFF141418))
+                    .border(0.5.dp, OpenTvColors.fg(0.09f), shape)
                     // Taps inside the panel must not close it.
                     .pointerInput(Unit) { detectTapGestures { } },
             ) {
@@ -106,7 +107,7 @@ internal fun PlModal(
                 ) {
                     leading?.invoke()
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(title, color = Color.White, fontSize = tsp(17f), fontWeight = FontWeight.Bold, maxLines = 2)
+                        Text(title, color = SetColors.Text, fontSize = tsp(17f), fontWeight = FontWeight.Bold, maxLines = 2)
                         if (subtitle.isNotBlank()) {
                             Text(subtitle, color = SetColors.Text50, fontSize = tsp(9.5f), maxLines = 2)
                         }
@@ -140,7 +141,7 @@ private fun ModalSection(
     content: @Composable () -> Unit = {},
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(title, color = Color.White, fontSize = tsp(11f), fontWeight = FontWeight.SemiBold)
+        Text(title, color = SetColors.Text, fontSize = tsp(11f), fontWeight = FontWeight.SemiBold)
         if (desc.isNotBlank()) {
             Text(desc, color = SetColors.Text55, fontSize = tsp(8.5f), lineHeight = tsp(11.5f))
         }
@@ -151,7 +152,7 @@ private fun ModalSection(
 @Composable
 private fun ModalMessage(text: String, error: Boolean) {
     if (text.isNotBlank()) {
-        Text(text, color = if (error) Color(0xFFFF8A8A) else Color(0xFF7EE2A8), fontSize = tsp(9f))
+        Text(text, color = if (error) SetColors.Danger else SetColors.Ok, fontSize = tsp(9f))
     }
 }
 

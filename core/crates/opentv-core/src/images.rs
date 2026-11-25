@@ -7,6 +7,7 @@ use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
+use image::ImageEncoder;
 use image::{ImageError, ImageFormat, ImageReader, Limits};
 use sha2::{Digest, Sha256};
 
@@ -99,6 +100,8 @@ impl ImageSizer {
 
     fn cache_key(w: u32, url: &str) -> String {
         let mut h = Sha256::new();
+        // "v2": transparent images are now kept as PNG; older cached JPEGs are not reused.
+        h.update(b"v2|");
         h.update(w.to_string().as_bytes());
         h.update(b"|");
         h.update(url.as_bytes());
@@ -194,7 +197,10 @@ impl ImageSizer {
 fn jpeg_response(bytes: Vec<u8>) -> Response {
     Response::builder()
         .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "image/jpeg")
+        .header(
+            header::CONTENT_TYPE,
+            if bytes.starts_with(&[0x89, b'P', b'N', b'G']) { "image/png" } else { "image/jpeg" },
+        )
         .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
         .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
         .body(Body::from(bytes))
@@ -237,6 +243,20 @@ fn resize_to_jpeg(raw: &[u8], target_width: u32, low_memory: bool) -> Result<Vec
     } else {
         img
     };
+
+    // Logos with transparency (white marks on a clear background) stay PNG: JPEG has no
+    // alpha, so they would turn into blank white or black squares.
+    // One RGBA copy serves both the transparency check and the encoder.
+    if final_img.color().has_alpha() {
+        let rgba = final_img.to_rgba8();
+        if rgba.pixels().any(|p| p[3] < 250) {
+            let mut out = Cursor::new(Vec::new());
+            image::codecs::png::PngEncoder::new(&mut out)
+                .write_image(rgba.as_raw(), rgba.width(), rgba.height(), image::ExtendedColorType::Rgba8)
+                .map_err(|_| ResizeError::Invalid)?;
+            return Ok(out.into_inner());
+        }
+    }
 
     let rgb = final_img.to_rgb8();
     let mut out = Cursor::new(Vec::with_capacity((rgb.width() * rgb.height() / 6) as usize));
@@ -300,6 +320,19 @@ mod tests {
         let decoded = image::load_from_memory(&jpeg).expect("decode jpeg");
         assert_eq!(decoded.width(), 64);
         assert_eq!(decoded.height(), 36);
+    }
+
+    #[test]
+    fn keeps_transparent_logos_as_png() {
+        let img: ImageBuffer<image::Rgba<u8>, Vec<u8>> =
+            ImageBuffer::from_fn(200, 100, |x, _| if x < 100 { image::Rgba([255, 255, 255, 255]) } else { image::Rgba([0, 0, 0, 0]) });
+        let mut png_bytes = Cursor::new(Vec::new());
+        img.write_to(&mut png_bytes, image::ImageFormat::Png).unwrap();
+        let out = resize_to_jpeg(&png_bytes.into_inner(), 80, false).expect("resized");
+        assert!(out.starts_with(&[0x89, b'P', b'N', b'G']));
+        let decoded = image::load_from_memory(&out).expect("decode").to_rgba8();
+        assert_eq!(decoded.width(), 80);
+        assert_eq!(decoded.get_pixel(79, 10)[3], 0);
     }
 
     /// A valid PNG header that declares a huge canvas: the decoder must refuse it from

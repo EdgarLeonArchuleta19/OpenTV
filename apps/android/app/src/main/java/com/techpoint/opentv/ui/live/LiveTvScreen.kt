@@ -1,11 +1,5 @@
 package com.techpoint.opentv.ui.live
 
-import com.techpoint.opentv.ui.components.stableFocusRequester
-import com.techpoint.opentv.ui.components.FocusMemory
-import com.techpoint.opentv.ui.components.LocalFocusMemory
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.unit.em
 import android.view.SurfaceView
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
@@ -13,11 +7,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -55,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,15 +63,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -82,20 +83,26 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.techpoint.opentv.core.live.EpgPlaceholder
 import com.techpoint.opentv.core.live.LiveTvRepository
 import com.techpoint.opentv.core.model.EpgNowNext
 import com.techpoint.opentv.core.model.EpgProgram
 import com.techpoint.opentv.core.model.LiveChannel
 import com.techpoint.opentv.core.model.M3uPlaylist
 import com.techpoint.opentv.player.OpenTvPlayer
+import com.techpoint.opentv.ui.components.FocusMemory
+import com.techpoint.opentv.ui.components.LocalFocusMemory
 import com.techpoint.opentv.ui.components.OpenTvChip
 import com.techpoint.opentv.ui.components.OpenTvGlassButton
 import com.techpoint.opentv.ui.components.OpenTvImage
 import com.techpoint.opentv.ui.components.OpenTvPrimaryButton
 import com.techpoint.opentv.ui.components.OpenTvRoundIconButton
+import com.techpoint.opentv.ui.components.stableFocusRequester
 import com.techpoint.opentv.ui.search.TvKeyboard
 import com.techpoint.opentv.ui.theme.LocalOpenTvUi
 import com.techpoint.opentv.ui.theme.OpenTvColors
+import com.techpoint.opentv.ui.theme.OpenTvForceDark
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -103,11 +110,21 @@ import java.util.Date
 import java.util.Locale
 
 /** Which control of the TV layout should take the focus next. */
-private enum class LiveFocus { Row, Search, Category, Keyboard, Menu }
+private enum class LiveFocus { Row, Search, Keyboard }
 
-private fun epgFor(epgMap: Map<String, EpgNowNext>, ch: LiveChannel): EpgNowNext? =
-    epgMap[ch.tvgId.lowercase()] ?: epgMap[ch.tvgName.lowercase()]
+/** Cached `epgSchedule` of a channel (the programme cards), refreshed after [SCHEDULE_TTL_MS]. */
+private class CachedSchedule(val atMs: Long, val items: List<EpgProgram>)
 
+private const val SCHEDULE_TTL_MS = 20 * 60_000L
+private const val SCHEDULE_CACHE_MAX = 16
+
+/**
+ * TV en vivo, "design C" (same on PC, Android TV / Fire TV and tablets in landscape):
+ * player on the left with the playing channel's programme cards under it, and the channel
+ * panel on the right (group select, playlist select, search, channel rows). Phones stack the
+ * same pieces: player, actions, programme cards (horizontal scroll), then the channel list.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun LiveTvScreen(
     liveRepo: LiveTvRepository,
@@ -125,14 +142,15 @@ fun LiveTvScreen(
 ) {
     val ui = LocalOpenTvUi.current
     val scope = rememberCoroutineScope()
-    // Player state is NOT collected here: only tiny composables (spinner, pause pill)
+    // Player state is NOT collected here: only tiny composables (spinner, pause button)
     // observe the fields they need, so position ticks never recompose this screen.
 
     var channels by remember { mutableStateOf<List<LiveChannel>>(emptyList()) }
     var epgUrls by remember { mutableStateOf<List<String>>(emptyList()) }
     var epgMap by remember { mutableStateOf<Map<String, EpgNowNext>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
-    var selectedCategory by remember { mutableStateOf("Todos") }
+    var selectedCategory by remember { mutableStateOf(GROUP_ALL) }
+    var selectedPlaylist by remember { mutableStateOf(PLAYLIST_ALL) }
     var activeChannel by remember { mutableStateOf<LiveChannel?>(null) }
     var previousChannel by remember { mutableStateOf<LiveChannel?>(null) }
     var fullscreen by remember { mutableStateOf(false) }
@@ -142,14 +160,21 @@ fun LiveTvScreen(
     var scheduleItems by remember { mutableStateOf<List<EpgProgram>>(emptyList()) }
     var scheduleLoading by remember { mutableStateOf(false) }
 
+    // Programme cards of the playing channel.
+    val scheduleCache = remember { LinkedHashMap<String, CachedSchedule>() }
+    var programmes by remember { mutableStateOf<List<EpgProgram>>(emptyList()) }
+    var programmesLoading by remember { mutableStateOf(false) }
+
     // TV-only state
     var channelSearch by remember { mutableStateOf("") }
     var searchKbOpen by remember { mutableStateOf(false) }
-    var catMenuOpen by remember { mutableStateOf(false) }
     var bannerVisible by remember { mutableStateOf(false) }
     var bannerTick by remember { mutableIntStateOf(0) }
     var focusTarget by remember { mutableStateOf(LiveFocus.Row) }
     var focusTick by remember { mutableIntStateOf(0) }
+    // Set while fullscreen is open: coming back, the channel row takes the focus even if the
+    // (re-created) rail briefly reports focus.
+    var backFromFullscreen by remember { mutableStateOf(false) }
 
     // Hoisted so the list keeps its scroll while the TV layout is swapped for fullscreen.
     val listState = rememberLazyListState()
@@ -157,9 +182,9 @@ fun LiveTvScreen(
     val drawerFocus = remember { FocusRequester() }
     val rowFocus = remember { FocusRequester() }
     val searchBoxFocus = remember { FocusRequester() }
-    val categoryFocus = remember { FocusRequester() }
     val keyboardFocus = remember { FocusRequester() }
-    val menuFocus = remember { FocusRequester() }
+    val groupFocus = remember { FocusRequester() }
+    val playerFocus = remember { FocusRequester() }
 
     fun requestTvFocus(target: LiveFocus) {
         focusTarget = target
@@ -189,11 +214,16 @@ fun LiveTvScreen(
             channels = loaded
             epgUrls = urls
             loading = false
+            scheduleCache.clear()
             if (activeChannel == null && loaded.isNotEmpty()) {
-                tuneChannel(loaded.first(), muted = false)
+                // Coming back to TV en vivo resumes the last channel watched, not channel 1.
+                tuneChannel(pickStartChannel(loaded, recentChannels), muted = false)
             }
             if (urls.isNotEmpty() && loaded.isNotEmpty()) {
                 epgMap = liveRepo.loadEpgNowNext(urls, loaded)
+                // Placeholder-only guides ("Azteca UNO -1" every hour) get the supplementary guide.
+                val patch = liveRepo.loadSupplementNowNext(loaded, epgMap)
+                if (patch.isNotEmpty()) epgMap = epgMap + patch
             }
         }
     }
@@ -204,6 +234,7 @@ fun LiveTvScreen(
         if (fullscreen) {
             // Coming back from fullscreen restores the focus on the current channel row.
             focusTarget = LiveFocus.Row
+            backFromFullscreen = true
             if (ui.isTv) showBanner()
             fullscreenFocus.focusSoon()
         }
@@ -218,6 +249,42 @@ fun LiveTvScreen(
             bannerVisible = false
         }
     }
+    // Schedule of the playing channel for the programme cards (not needed in fullscreen).
+    // The short delay skips the channels passed while zapping.
+    LaunchedEffect(activeChannel?.url, fullscreen) {
+        val ch = activeChannel ?: return@LaunchedEffect
+        if (fullscreen) return@LaunchedEffect
+        val cached = scheduleCache[ch.url]
+        if (cached != null && System.currentTimeMillis() - cached.atMs < SCHEDULE_TTL_MS) {
+            programmes = cached.items
+            programmesLoading = false
+            return@LaunchedEffect
+        }
+        programmes = emptyList()
+        programmesLoading = true
+        delay(300L)
+        val items = try {
+            liveRepo.loadChannelSchedule12h(ch)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyList()
+        }
+        if (scheduleCache.size >= SCHEDULE_CACHE_MAX) scheduleCache.remove(scheduleCache.keys.first())
+        scheduleCache[ch.url] = CachedSchedule(System.currentTimeMillis(), items)
+        programmes = items
+        programmesLoading = false
+        // Without its own (real) now/next, the channel row shows the schedule's (supplementary) one.
+        val pair = liveRepo.nowNextOf(items)
+        if (pair != null) {
+            val key = EpgPlaceholder.keyOf(ch)
+            val names = EpgPlaceholder.namesOf(ch)
+            val own = epgMap[key]
+            val ownIsReal = own != null && !EpgPlaceholder.isPlaceholder(names, listOf(own.now, own.next))
+            val pairIsFake = own != null && EpgPlaceholder.isPlaceholder(names, listOf(pair.now, pair.next))
+            if (!ownIsReal && !pairIsFake) epgMap = epgMap + (key to pair)
+        }
+    }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -227,27 +294,50 @@ fun LiveTvScreen(
         }
     }
 
-    val categories = remember(channels, favoriteUrls, recentChannels) {
-        val base = mutableListOf("Todos")
-        if (favoriteUrls.isNotEmpty()) base.add("Favoritos")
-        if (recentChannels.isNotEmpty()) base.add("Recientes")
-        val groups = channels.map { it.group }.distinct().sorted().take(40)
-        (base + groups).distinct()
+    val enabledPlaylists = remember(playlists) { playlists.filter { it.enabled && it.url.isNotBlank() } }
+    LaunchedEffect(enabledPlaylists) {
+        if (selectedPlaylist != PLAYLIST_ALL && enabledPlaylists.none { it.id == selectedPlaylist }) {
+            selectedPlaylist = PLAYLIST_ALL
+        }
+    }
+    val scopedChannels = remember(channels, selectedPlaylist) {
+        if (selectedPlaylist == PLAYLIST_ALL) channels else channels.filter { it.playlistId == selectedPlaylist }
+    }
+    // Channel number = position in the loaded lists (same as the fullscreen banner).
+    val channelNumbers = remember(channels) {
+        HashMap<String, Int>(channels.size * 2).also { m -> channels.forEachIndexed { i, c -> m.putIfAbsent(c.url, i + 1) } }
     }
 
-    val visibleChannels = remember(channels, selectedCategory, favoriteUrls, recentChannels, channelSearch, epgMap) {
-        val byCat = when (selectedCategory) {
-            "Todos" -> channels
-            "Favoritos" -> channels.filter { it.url in favoriteUrls }
-            "Recientes" -> recentChannels
-            else -> channels.filter { it.group == selectedCategory }
+    val categories = remember(scopedChannels, favoriteUrls, recentChannels) {
+        val base = mutableListOf(GROUP_ALL)
+        if (favoriteUrls.isNotEmpty()) base.add(GROUP_FAVORITES)
+        if (recentChannels.isNotEmpty()) base.add(GROUP_RECENTS)
+        val groups = scopedChannels.map { it.group }.distinct().sorted().take(40)
+        (base + groups).distinct()
+    }
+    LaunchedEffect(categories) {
+        if (selectedCategory !in categories) selectedCategory = GROUP_ALL
+    }
+    val groupOptions = remember(categories, scopedChannels, favoriteUrls, recentChannels) {
+        val counts = scopedChannels.groupingBy { it.group }.eachCount()
+        categories.map { cat ->
+            val n = when (cat) {
+                GROUP_ALL -> scopedChannels.size
+                GROUP_FAVORITES -> scopedChannels.count { it.url in favoriteUrls }
+                GROUP_RECENTS -> filterChannels(scopedChannels, GROUP_RECENTS, favoriteUrls, recentChannels, "", emptyMap()).size
+                else -> counts[cat] ?: 0
+            }
+            LiveSelectOption(cat, cat, n)
         }
-        val q = channelSearch.trim()
-        if (q.isEmpty()) byCat else byCat.filter {
-            it.name.contains(q, ignoreCase = true) ||
-                it.group.contains(q, ignoreCase = true) ||
-                epgFor(epgMap, it)?.now?.title?.contains(q, ignoreCase = true) == true
-        }
+    }
+    val playlistOptions = remember(enabledPlaylists, channels) {
+        val counts = channels.groupingBy { it.playlistId }.eachCount()
+        listOf(LiveSelectOption(PLAYLIST_ALL, "Todas las listas", channels.size)) +
+            enabledPlaylists.map { LiveSelectOption(it.id, it.name.ifBlank { "Lista" }, counts[it.id] ?: 0) }
+    }
+
+    val visibleChannels = remember(scopedChannels, selectedCategory, favoriteUrls, recentChannels, channelSearch, epgMap) {
+        filterChannels(scopedChannels, selectedCategory, favoriteUrls, recentChannels, channelSearch, epgMap)
     }
 
     fun zapRelative(delta: Int) {
@@ -273,7 +363,8 @@ fun LiveTvScreen(
             if (drawerOpen) drawerOpen = false else fullscreen = false
         }
 
-        Box(
+        // Fullscreen video and its overlays stay dark in every theme.
+        OpenTvForceDark { Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
@@ -337,8 +428,7 @@ fun LiveTvScreen(
             if (ui.isTv) {
                 // v1 TV channel banner (no on-screen buttons on TV).
                 if (ch != null && bannerVisible && !drawerOpen) {
-                    val number = remember(channels, ch.url) { channels.indexOfFirst { it.url == ch.url } + 1 }
-                    LiveTvBanner(channel = ch, number = number, epg = epgFor(epgMap, ch))
+                    LiveTvBanner(channel = ch, number = channelNumbers[ch.url] ?: 0, epg = epgFor(epgMap, ch))
                 }
             } else if (ch != null && !drawerOpen) {
                 // Bottom capsule action bar (exact `.player-infobar .pi-actions`)
@@ -452,13 +542,11 @@ fun LiveTvScreen(
                     onDismiss = { scheduleChannel = null },
                 )
             }
-        }
+        } }
         return
     }
 
-    // Standard desktop-faithful Live TV screen (split preview + dock + guide)
-    val topPad = if (ui.isTv) 80.dp else 108.dp
-    val hPad = if (ui.isTv) 28.dp else 14.dp
+    val topPad = if (ui.isTv) 78.dp else 108.dp
 
     if (playlists.isEmpty()) {
         Box(
@@ -481,156 +569,285 @@ fun LiveTvScreen(
         return
     }
 
-    if (ui.isTv) {
-        // v1 TV layout (`10-teles.css` live-3a): channel column on the left, video on the right.
-        val focusUrl = activeChannel?.url?.takeIf { u -> visibleChannels.any { it.url == u } }
-            ?: visibleChannels.firstOrNull()?.url
-        val hasChannels = visibleChannels.isNotEmpty()
+    val scale = ui.textScale
+    val active = activeChannel
+    val activeNumber = active?.let { channelNumbers[it.url] } ?: 0
+    val activeEpg = active?.let { epgFor(epgMap, it) }
+    val isFavorite = active != null && active.url in favoriteUrls
+    val focusUrl = activeChannel?.url?.takeIf { u -> visibleChannels.any { it.url == u } }
+        ?: visibleChannels.firstOrNull()?.url
 
-        suspend fun focusChannelRow() {
-            val list = visibleChannels
-            if (list.isEmpty()) return
-            val idx = list.indexOfFirst { it.url == focusUrl }.coerceAtLeast(0)
-            if (listState.layoutInfo.visibleItemsInfo.none { it.index == idx }) {
-                listState.scrollToItem(idx)
-            }
-            rowFocus.focusSoon()
+    suspend fun focusChannelRow() {
+        val list = visibleChannels
+        if (list.isEmpty()) {
+            groupFocus.focusSoon()
+            return
         }
+        val idx = list.indexOfFirst { it.url == focusUrl }.coerceAtLeast(0)
+        if (listState.layoutInfo.visibleItemsInfo.none { it.index == idx }) {
+            listState.scrollToItem(idx)
+        }
+        // Back from fullscreen the whole layout (video surface, lazy list) is rebuilt: give the
+        // row a few more frames to attach than a plain control needs.
+        rowFocus.focusSoon(frames = 30)
+    }
 
-        // Runs on first entry, on every return from fullscreen (this branch re-enters
-        // composition) and whenever a control asks for the focus explicitly.
-        LaunchedEffect(focusTick) {
-            when (focusTarget) {
-                LiveFocus.Row -> if (!searchKbOpen && !catMenuOpen && canTakeFocus()) focusChannelRow()
-                LiveFocus.Search -> searchBoxFocus.focusSoon()
-                LiveFocus.Category -> categoryFocus.focusSoon()
-                LiveFocus.Keyboard -> keyboardFocus.focusSoon()
-                LiveFocus.Menu -> menuFocus.focusSoon()
+    // Group / playlist selects and the search, shared by every layout.
+    @Composable
+    fun ChannelFilters(compact: Boolean) {
+        val selectModifier = if (compact) Modifier else Modifier.fillMaxWidth()
+        if (compact && enabledPlaylists.size > 1) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LiveSelect(
+                    options = groupOptions,
+                    value = selectedCategory,
+                    onChange = { selectedCategory = it },
+                    modifier = Modifier.weight(1f),
+                )
+                LiveSelect(
+                    options = playlistOptions,
+                    value = selectedPlaylist,
+                    onChange = { selectedPlaylist = it },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            LiveSelect(
+                options = groupOptions,
+                value = selectedCategory,
+                onChange = {
+                    selectedCategory = it
+                    if (ui.isTv) requestTvFocus(LiveFocus.Row)
+                },
+                buttonFocus = groupFocus,
+                returnFocusOnPick = !ui.isTv,
+                modifier = selectModifier,
+            )
+            if (enabledPlaylists.size > 1) {
+                LiveSelect(
+                    options = playlistOptions,
+                    value = selectedPlaylist,
+                    onChange = {
+                        selectedPlaylist = it
+                        if (ui.isTv) requestTvFocus(LiveFocus.Row)
+                    },
+                    returnFocusOnPick = !ui.isTv,
+                    modifier = selectModifier,
+                )
             }
         }
-        // Initial focus once the channels arrive.
-        LaunchedEffect(hasChannels) {
-            if (hasChannels && focusTarget == LiveFocus.Row && !searchKbOpen && !catMenuOpen && canTakeFocus()) focusChannelRow()
+        if (ui.isTv) {
+            LiveTvSearchBox(
+                text = channelSearch,
+                onClick = {
+                    searchKbOpen = true
+                    requestTvFocus(LiveFocus.Keyboard)
+                },
+                modifier = Modifier.focusRequester(searchBoxFocus),
+            )
+        } else {
+            LiveSearchField(channelSearch, { channelSearch = it })
         }
+    }
 
-        if (searchKbOpen) {
-            BackHandler {
-                searchKbOpen = false
-                requestTvFocus(LiveFocus.Search)
-            }
-        }
-        if (catMenuOpen) {
-            BackHandler {
-                catMenuOpen = false
-                requestTvFocus(LiveFocus.Category)
-            }
-        }
+    @Composable
+    fun ChannelRow(ch: LiveChannel, rowModifier: Modifier = Modifier) {
+        LiveChannelListRow(
+            channel = ch,
+            number = channelNumbers[ch.url] ?: 0,
+            nowTitle = epgFor(epgMap, ch)?.now?.title,
+            playing = ch.url == activeChannel?.url,
+            onClick = {
+                // OK on the playing channel opens fullscreen; any other channel plays here.
+                if (ch.url == activeChannel?.url) fullscreen = true
+                else tuneChannel(ch, muted = false)
+            },
+            modifier = rowModifier,
+        )
+    }
 
-        // 10-foot "Design 3A" (PC LiveTvScreen): channel column | 16:9 stage + info bar.
-        // Fills the safe area under the top bar; nothing animates, lists are lazy.
-        val scale = ui.textScale
-        val listMemory = remember { FocusMemory() }
-        val controlsFocus = remember { FocusRequester() }
-        Row(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(top = 78.dp, end = 40.dp, bottom = 22.dp),
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .width(276.dp)
-                    .fillMaxHeight(),
-            ) {
+    // Programme header actions (TV and tablets; phones keep the capsule dock).
+    @Composable
+    fun ProgrammeActions() {
+        val size = if (ui.isTv) 34.dp else 40.dp
+        LivePlayPauseButton(player, size = size, filled = false)
+        LiveRoundButton(
+            if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+            "Favorito",
+            { activeChannel?.let { onToggleFavorite(it.url) } },
+            tint = if (isFavorite) OpenTvColors.StarGold else null,
+            size = size,
+        )
+        LiveRoundButton(Icons.Rounded.CalendarMonth, "Programación", { activeChannel?.let { openSchedule(it) } }, size = size)
+        LiveRoundButton(Icons.AutoMirrored.Rounded.List, "Guía", { guideOpen = true }, size = size)
+        if (!ui.isTv) LiveRoundButton(Icons.Rounded.Refresh, "Recargar", { reloadLists() }, size = size)
+        LiveRoundButton(Icons.Rounded.Fullscreen, "Pantalla completa", { if (activeChannel != null) fullscreen = true }, size = size)
+    }
+
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val twoColumn = ui.isTv || (maxWidth > maxHeight && maxWidth >= 720.dp)
+        if (twoColumn) {
+            if (ui.isTv) {
+                // Runs on first entry, on every return from fullscreen (this branch re-enters
+                // composition) and whenever a control asks for the focus explicitly.
+                LaunchedEffect(focusTick) {
+                    val forced = backFromFullscreen
+                    backFromFullscreen = false
+                    when (focusTarget) {
+                        LiveFocus.Row -> if (!searchKbOpen && (forced || canTakeFocus())) focusChannelRow()
+                        LiveFocus.Search -> searchBoxFocus.focusSoon()
+                        LiveFocus.Keyboard -> keyboardFocus.focusSoon()
+                    }
+                }
+                // Initial focus once the channels arrive.
+                val hasChannels = visibleChannels.isNotEmpty()
+                LaunchedEffect(hasChannels) {
+                    if (hasChannels && focusTarget == LiveFocus.Row && !searchKbOpen && canTakeFocus()) focusChannelRow()
+                }
                 if (searchKbOpen) {
-                    // v1 `.tvk-panel` over the column (core/tv-keyboard.js).
-                    TvKeyboard(
-                        value = channelSearch,
-                        onValueChange = { channelSearch = it },
-                        placeholder = "Buscar canal",
-                        doneLabel = "Listo",
-                        onDone = {
-                            searchKbOpen = false
-                            requestTvFocus(if (visibleChannels.isNotEmpty()) LiveFocus.Row else LiveFocus.Search)
-                        },
-                        firstKeyFocusRequester = keyboardFocus,
-                        keyHeight = 31.dp,
-                        keyFontSize = (13f * scale).sp,
-                        displayHeight = 36.dp,
-                        displayFontSize = (13f * scale).sp,
-                        gap = 5.dp,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text(
-                        text = "${visibleChannels.size} canales",
-                        color = OpenTvColors.TextMuted,
-                        fontSize = (12f * scale).sp,
-                    )
-                } else {
-                    LiveTvSearchBox(
-                        text = channelSearch,
-                        onClick = {
-                            searchKbOpen = true
-                            catMenuOpen = false
-                            requestTvFocus(LiveFocus.Keyboard)
-                        },
-                        modifier = Modifier.focusRequester(searchBoxFocus),
-                    )
-                    LiveTvCategoryButton(
-                        label = selectedCategory,
-                        expanded = catMenuOpen,
-                        onClick = {
-                            if (catMenuOpen) {
-                                catMenuOpen = false
-                            } else {
-                                catMenuOpen = true
-                                requestTvFocus(LiveFocus.Menu)
-                            }
-                        },
-                        modifier = Modifier.focusRequester(categoryFocus),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                    ) {
-                        when {
-                            catMenuOpen -> LiveTvCategoryMenu(
-                                categories = categories,
-                                selected = selectedCategory,
-                                selectedRequester = menuFocus,
-                                onSelect = { cat ->
-                                    selectedCategory = cat
-                                    catMenuOpen = false
-                                    requestTvFocus(LiveFocus.Row)
+                    BackHandler {
+                        searchKbOpen = false
+                        requestTvFocus(LiveFocus.Search)
+                    }
+                }
+            }
+
+            val listMemory = remember { FocusMemory() }
+            val padStart = if (ui.isTv) 0.dp else 20.dp
+            val padEnd = if (ui.isTv) 40.dp else 20.dp
+            val padBottom = if (ui.isTv) 22.dp else 16.dp
+            val gap = 20.dp
+            // The video is as large as fits above the programme cards (header + one card row),
+            // never squeezing the channel panel under its minimum; the panel takes the rest.
+            val minPanel = if (ui.isTv) 264.dp else 320.dp
+            val reserve = (if (ui.isTv) 166.dp else 180.dp) * scale
+            val videoW = minOf(
+                maxWidth - padStart - padEnd - gap - minPanel,
+                (maxHeight - topPad - padBottom - reserve) * (16f / 9f),
+            ).coerceAtLeast(0.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = topPad, start = padStart, end = padEnd, bottom = padBottom),
+            ) {
+                // Left: player + programme of the playing channel.
+                Box(Modifier.width(videoW).fillMaxHeight()) {
+                    Column(Modifier.fillMaxSize()) {
+                        LivePlayerStage(
+                            player = player,
+                            onFullscreen = { if (activeChannel != null) fullscreen = true },
+                            modifier = Modifier
+                                .size(width = videoW, height = videoW * (9f / 16f))
+                                .focusRequester(playerFocus)
+                                // → goes back to the channel list (its row may be scrolled away).
+                                .onKeyEvent { ev ->
+                                    if (ui.isTv && ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionRight) {
+                                        scope.launch { focusChannelRow() }
+                                        true
+                                    } else false
                                 },
-                                modifier = Modifier.fillMaxSize(),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        LiveProgrammeSection(
+                            channel = active,
+                            number = activeNumber,
+                            schedule = programmes,
+                            scheduleLoading = programmesLoading,
+                            nowNext = activeEpg,
+                            scroll = false,
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier
+                                    .focusProperties {
+                                        exit = { dir ->
+                                            if (dir == FocusDirection.Right) {
+                                                scope.launch { focusChannelRow() }
+                                                FocusRequester.Cancel
+                                            } else FocusRequester.Default
+                                        }
+                                    }
+                                    .focusGroup(),
+                            ) { ProgrammeActions() }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.width(gap))
+
+                // Right: channel panel.
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(LivePanel)
+                        .border(1.dp, LivePanelBorder, RoundedCornerShape(16.dp)),
+                ) {
+                    if (ui.isTv && searchKbOpen) {
+                        // v1 `.tvk-panel` in place of the list (core/tv-keyboard.js).
+                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TvKeyboard(
+                                value = channelSearch,
+                                onValueChange = { channelSearch = it },
+                                placeholder = "Buscar canal",
+                                doneLabel = "Listo",
+                                onDone = {
+                                    searchKbOpen = false
+                                    requestTvFocus(if (visibleChannels.isNotEmpty()) LiveFocus.Row else LiveFocus.Search)
+                                },
+                                firstKeyFocusRequester = keyboardFocus,
+                                keyHeight = 30.dp,
+                                keyFontSize = (13f * scale).sp,
+                                displayHeight = 36.dp,
+                                displayFontSize = (13f * scale).sp,
+                                gap = 5.dp,
+                                modifier = Modifier.fillMaxWidth(),
                             )
-                            loading && channels.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = ui.accent.color, strokeWidth = 3.dp)
-                            }
-                            visibleChannels.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("Sin canales en esta categoría.", color = OpenTvColors.TextMuted, fontSize = (13f * scale).sp)
-                            }
-                            else -> CompositionLocalProvider(LocalFocusMemory provides listMemory) {
-                                LazyColumn(
-                                    state = listState,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    modifier = Modifier.fillMaxSize(),
-                                ) {
-                                    items(visibleChannels, key = { it.id }, contentType = { "ch" }) { ch ->
-                                        LiveTvChannelRow(
-                                            channel = ch,
-                                            epg = epgFor(epgMap, ch),
-                                            active = ch.url == activeChannel?.url,
-                                            onClick = {
-                                                if (ch.url == activeChannel?.url) fullscreen = true
-                                                else tuneChannel(ch, muted = false)
+                            Text(
+                                text = "${visibleChannels.size} canales",
+                                color = OpenTvColors.TextMuted,
+                                fontSize = (12f * scale).sp,
+                            )
+                        }
+                    } else {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(10.dp),
+                        ) { ChannelFilters(compact = false) }
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(LivePanelBorder))
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            when {
+                                loading && channels.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(color = ui.accent.color, strokeWidth = 3.dp)
+                                }
+                                visibleChannels.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("Sin canales en esta categoría.", color = OpenTvColors.TextMuted, fontSize = (13f * scale).sp)
+                                }
+                                else -> CompositionLocalProvider(LocalFocusMemory provides listMemory) {
+                                    LazyColumn(
+                                        state = listState,
+                                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                                        contentPadding = PaddingValues(6.dp),
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .onKeyEvent { ev ->
+                                                if (!ui.isTv || ev.type != KeyEventType.KeyDown) return@onKeyEvent false
+                                                when (ev.key) {
+                                                    // ← goes to the player (then the menu); → stays in the list.
+                                                    Key.DirectionLeft -> {
+                                                        runCatching { playerFocus.requestFocus() }
+                                                        true
+                                                    }
+                                                    Key.DirectionRight -> true
+                                                    else -> false
+                                                }
                                             },
-                                            // → always reaches the player controls (Pausa).
-                                            rightFocus = controlsFocus,
-                                            modifier = Modifier.stableFocusRequester(ch.url == focusUrl, rowFocus),
-                                        )
+                                    ) {
+                                        items(visibleChannels, key = { it.id }, contentType = { "ch" }) { ch ->
+                                            ChannelRow(ch, Modifier.stableFocusRequester(ch.url == focusUrl, rowFocus))
+                                        }
                                     }
                                 }
                             }
@@ -638,122 +855,66 @@ fun LiveTvScreen(
                     }
                 }
             }
-
-            Spacer(Modifier.width(24.dp))
-
-            BoxWithConstraints(
+        } else {
+            // Phone: player and actions on top, then programme cards and the channel list.
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
+                    .fillMaxSize()
+                    .padding(top = topPad, start = 14.dp, end = 14.dp, bottom = 12.dp),
             ) {
-                // Video as large as fits above the info bar, and the bar right under it.
-                val barSpace = 14.dp + 64.dp
-                val videoW = minOf(maxWidth, (maxHeight - barSpace) * (16f / 9f))
-              Column(Modifier.width(videoW)) {
-                run {
-                    Box(
-                        modifier = Modifier
-                            .size(width = videoW, height = videoW * (9f / 16f))
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color.Black)
-                            .border(1.dp, Color(0x12FFFFFF), RoundedCornerShape(16.dp)),
-                    ) {
-                        AndroidView(
-                            factory = { ctx ->
-                                SurfaceView(ctx).apply {
-                                    layoutParams = ViewGroup.LayoutParams(
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                    )
-                                    keepScreenOn = true
-                                    player.attachSurface(this)
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                        LiveBufferingSpinner(player, size = 36)
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(12.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFFE5383B))
-                                .padding(horizontal = 9.dp, vertical = 3.dp),
-                        ) {
-                            Text(
-                                "EN VIVO",
-                                color = Color.White,
-                                fontSize = (10.5f * scale).sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.08.em,
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(14.dp))
-                val ch = activeChannel
-                val number = remember(channels, ch?.url) { ch?.let { c -> channels.indexOfFirst { it.url == c.url } + 1 } ?: 0 }
-                LiveTvInfoBar(
-                    channel = ch,
-                    number = number,
-                    epg = ch?.let { epgFor(epgMap, it) },
+                LivePreviewCard(
+                    channel = active,
+                    epg = activeEpg,
                     player = player,
-                    isFavorite = ch != null && ch.url in favoriteUrls,
-                    playFocus = controlsFocus,
-                    leftExit = { listMemory.target() },
-                    onPrev = { zapRelative(-1) },
-                    onNext = { zapRelative(1) },
-                    onToggleFavorite = { activeChannel?.let { onToggleFavorite(it.url) } },
-                    onGuide = { guideOpen = true },
-                    onFullscreen = { if (activeChannel != null) fullscreen = true },
+                    onFullscreen = { fullscreen = true },
                 )
-              }
-            }
-        }    } else {
-        // Mobile portrait/compact layout: Preview + dock on top, categories & channels below
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = modifier
-                .fillMaxSize()
-                .padding(top = topPad, start = hPad, end = hPad, bottom = 12.dp),
-        ) {
-            LivePreviewCard(
-                channel = activeChannel,
-                epg = activeChannel?.let { epgFor(epgMap, it) },
-                player = player,
-                onFullscreen = { fullscreen = true },
-            )
-            LiveCapsuleDock(
-                channel = activeChannel,
-                isFav = activeChannel?.url in favoriteUrls,
-                onToggleFav = { activeChannel?.let { onToggleFavorite(it.url) } },
-                onGuide = { guideOpen = true },
-                onSchedule = { activeChannel?.let { openSchedule(it) } },
-                onReload = { reloadLists() },
-                onFullscreen = { fullscreen = true },
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(categories, key = { it }) { cat ->
-                    OpenTvChip(cat, cat == selectedCategory, { selectedCategory = cat })
-                }
-            }
-            if (loading && channels.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = ui.accent.color, strokeWidth = 3.dp)
-                }
-            } else {
+                LiveCapsuleDock(
+                    channel = active,
+                    isFav = isFavorite,
+                    onToggleFav = { activeChannel?.let { onToggleFavorite(it.url) } },
+                    onGuide = { guideOpen = true },
+                    onSchedule = { activeChannel?.let { openSchedule(it) } },
+                    onReload = { reloadLists() },
+                    onFullscreen = { fullscreen = true },
+                )
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(bottom = 24.dp),
                     modifier = Modifier.weight(1f),
                 ) {
-                    items(visibleChannels, key = { it.id }) { ch ->
-                        ChannelRowCard(
-                            channel = ch,
-                            epg = epgFor(epgMap, ch),
-                            active = ch.url == activeChannel?.url,
-                            onClick = { tuneChannel(ch, muted = false) },
+                    item(key = "programme", contentType = "programme") {
+                        LiveProgrammeSection(
+                            channel = active,
+                            number = activeNumber,
+                            schedule = programmes,
+                            scheduleLoading = programmesLoading,
+                            nowNext = activeEpg,
+                            scroll = true,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
                         )
+                    }
+                    item(key = "filters", contentType = "filters") {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        ) { ChannelFilters(compact = true) }
+                    }
+                    when {
+                        loading && channels.isEmpty() -> item(key = "loading") {
+                            Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = ui.accent.color, strokeWidth = 3.dp)
+                            }
+                        }
+                        visibleChannels.isEmpty() -> item(key = "empty") {
+                            Text(
+                                "Sin canales en esta categoría.",
+                                color = OpenTvColors.TextMuted,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(vertical = 20.dp),
+                            )
+                        }
+                        else -> items(visibleChannels, key = { it.id }, contentType = { "ch" }) { ch -> ChannelRow(ch) }
                     }
                 }
             }
@@ -784,6 +945,43 @@ fun LiveTvScreen(
             },
             onDismiss = { guideOpen = false },
         )
+    }
+}
+
+/** Touch search box of the channel panel ("Buscar canal"). */
+@Composable
+private fun LiveSearchField(value: String, onValueChange: (String) -> Unit) {
+    val ui = LocalOpenTvUi.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(42.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (OpenTvColors.isLight) Color(0xFFEEEEF1) else Color(0xFF1C1C22))
+            .padding(horizontal = 12.dp),
+    ) {
+        Icon(Icons.Rounded.Search, null, tint = OpenTvColors.TextMuted, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (value.isEmpty()) Text("Buscar canal", color = OpenTvColors.TextMuted, fontSize = 13.5.sp)
+            androidx.compose.foundation.text.BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                textStyle = TextStyle(color = OpenTvColors.Content, fontSize = 13.5.sp),
+                cursorBrush = SolidColor(ui.accent.color),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (value.isNotEmpty()) {
+            Icon(
+                Icons.Rounded.Close,
+                contentDescription = "Borrar búsqueda",
+                tint = OpenTvColors.TextMuted,
+                modifier = Modifier.size(18.dp).clickable { onValueChange("") },
+            )
+        }
     }
 }
 
@@ -866,7 +1064,7 @@ private fun LiveCapsuleDock(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(Color(0x0EFFFFFF))
+            .background(OpenTvColors.fg(0.055f))
             .border(1.dp, OpenTvColors.GlassBorder, RoundedCornerShape(18.dp))
             .padding(8.dp),
     ) {
@@ -927,13 +1125,13 @@ private fun ChannelRowCard(
             .background(
                 when {
                     focused -> OpenTvColors.GlassFillFocus
-                    active -> Color(0x1CFFFFFF)
+                    active -> OpenTvColors.fg(0.11f)
                     else -> OpenTvColors.GlassFill
                 },
             )
             .border(
                 width = if (focused) 2.5.dp else 1.dp,
-                color = if (focused) ui.accent.color else if (active) Color(0x44FFFFFF) else OpenTvColors.GlassBorder,
+                color = if (focused) ui.accent.color else if (active) OpenTvColors.fg(0.267f) else OpenTvColors.GlassBorder,
                 shape = shape,
             )
             // `clickable` is already a focus target; reading focus from the same source.
@@ -945,11 +1143,12 @@ private fun ChannelRowCard(
             modifier = Modifier
                 .size(46.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(OpenTvColors.Ink800),
+                .background(LiveBadge),
         ) {
             if (channel.logo.isNotBlank()) {
                 OpenTvImage(
                     url = channel.logo,
+                    background = Color.Transparent,
                     contentDescription = channel.name,
                     targetWidthPx = 120,
                     contentScale = ContentScale.Fit,
@@ -1114,7 +1313,7 @@ private fun ChannelGuideModal(
             }
         }
         Surface(
-            color = Color(0xF5111114),
+            color = if (OpenTvColors.isLight) OpenTvColors.Sheet else Color(0xF5111114),
             shape = RoundedCornerShape(20.dp),
             border = BorderStroke(1.dp, OpenTvColors.GlassBorderStrong),
             modifier = if (ui.isTv) {
@@ -1156,7 +1355,7 @@ private fun ChannelGuideModal(
                                 value = search,
                                 onValueChange = { search = it },
                                 singleLine = true,
-                                textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 13.5.sp),
+                                textStyle = androidx.compose.ui.text.TextStyle(color = OpenTvColors.Content, fontSize = 13.5.sp),
                                 cursorBrush = androidx.compose.ui.graphics.SolidColor(ui.accent.color),
                                 modifier = Modifier.fillMaxWidth(),
                             )
@@ -1267,7 +1466,7 @@ private fun GuideCategoryItem(
             .clip(RoundedCornerShape(10.dp))
             .background(
                 when {
-                    focused -> Color.White
+                    focused -> OpenTvColors.Content
                     selected -> ui.accent.color
                     else -> Color.Transparent
                 },
@@ -1278,7 +1477,7 @@ private fun GuideCategoryItem(
         Text(
             text = label,
             color = when {
-                focused -> LiveDark
+                focused -> OpenTvColors.OnContent
                 selected -> ui.accent.onAccent
                 else -> OpenTvColors.TextSecondary
             },
@@ -1304,8 +1503,8 @@ private fun GuideTvSearchBox(
         modifier = modifier
             .height(40.dp)
             .clip(shape)
-            .background(if (focused) Color(0x24FFFFFF) else OpenTvColors.GlassFill)
-            .border(if (focused) 2.dp else 1.dp, if (focused) Color.White else OpenTvColors.GlassBorderStrong, shape)
+            .background(if (focused) OpenTvColors.fg(0.14f) else OpenTvColors.GlassFill)
+            .border(if (focused) 2.dp else 1.dp, if (focused) OpenTvColors.Content else OpenTvColors.GlassBorderStrong, shape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 12.dp),
     ) {
@@ -1313,7 +1512,7 @@ private fun GuideTvSearchBox(
         Spacer(Modifier.width(8.dp))
         Text(
             text = text.ifEmpty { "Buscar canal…" },
-            color = if (text.isEmpty()) OpenTvColors.TextMuted else Color.White,
+            color = if (text.isEmpty()) OpenTvColors.TextMuted else OpenTvColors.Content,
             fontSize = 13.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

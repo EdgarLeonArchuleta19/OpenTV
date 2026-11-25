@@ -15,8 +15,8 @@ import java.util.Locale
  *
  * - Kids: all-ages titles from TMDB through the Rust core (Mexico "AA"/"A", US "G"/"PG" only
  *   as fallback; TV needs the Kids genre). The list names are served by `tmdb.rs`.
- * - Anime: the current season on Kitsu (`kitsu:` ids, so the Anime Kitsu plugin still serves
- *   meta and episodes) plus the plugin's airing/popular/top-rated catalogs.
+ * - Anime: TMDB lists (`anime:*`, IMDb ids); the current season on Kitsu (`kitsu:` ids, served
+ *   by the hidden Anime Kitsu plugin) and its catalogs are only fallbacks (see [CatalogRows]).
  * - The first row of both sections drives the hero: its order rotates once a day.
  */
 object SectionContent {
@@ -37,8 +37,12 @@ object SectionContent {
         return if (v > 0) String.format(Locale.US, "%.1f", v) else ""
     }
 
-    /** One item of a Kids TMDB list (`kids-*`) -> catalog item; null without an IMDb id. */
-    fun kidsTmdbItem(raw: JsonObject, rowTitle: String = ""): MediaItem? {
+    /**
+     * One item of a TMDB list served by the core (`kids-*`, `cat:*`, `anime:*`, `find:`) ->
+     * catalog item with a Cinemeta-compatible `stremio:tt…` id; null without an IMDb id.
+     * [anime] marks the Anime section rows (badge only: ids, streams and detail stay IMDb/TMDB).
+     */
+    fun kidsTmdbItem(raw: JsonObject, rowTitle: String = "", anime: Boolean = false): MediaItem? {
         val imdb = raw.text("imdbId")
         val title = raw.text("title")
         if (!IMDB_ID.matches(imdb) || title.isEmpty()) return null
@@ -55,7 +59,7 @@ object SectionContent {
             poster = raw.text("poster"),
             backdrop = raw.text("backdrop"),
             catalogRow = rowTitle,
-            isAnime = false,
+            isAnime = anime,
         )
     }
 

@@ -1,16 +1,85 @@
 @import "tailwindcss";
 
-:root {
+/*
+ * Theme tokens. Dark is the default (`:root`) and is pixel-identical to the original look;
+ * `<html data-theme="light">` switches the app to the light palette. Any subtree can force
+ * the dark palette back with `data-theme="dark"` (the player always does).
+ * `--ot-accent-{dark,light}` and their inks are set by App.tsx from the chosen accent.
+ */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
   --ot-bg: #0e0e11;
   --ot-surface: #141418;
   --ot-surface-alt: #18181d;
-  --ot-accent: #ffffff;
-  --ot-accent-ink: #0e0e11;
+  --ot-elev: #1c1c22;
+  --ot-elev-hi: #22222a;
   --ot-text: #ffffff;
   --ot-muted: rgba(255, 255, 255, 0.55);
+  --ot-faint: rgba(255, 255, 255, 0.3);
+  --ot-scrollbar: rgba(255, 255, 255, 0.18);
+  --ot-scrollbar-hover: rgba(255, 255, 255, 0.32);
+  --ot-scrollbar-home: rgba(255, 255, 255, 0.24);
+  --ot-selection: rgba(255, 255, 255, 0.22);
+  --ot-selection-ink: #ffffff;
+  /* Page-coloured scrim used by artwork fades (rgb triplet of --ot-bg). */
+  --ot-bg-rgb: 14, 14, 17;
+  /* Centre of the radial page glow (Perfiles). */
+  --ot-glow: #1a1a20;
+  --ot-accent: var(--ot-accent-dark, #ffffff);
+  --ot-accent-ink: var(--ot-accent-ink-dark, #0e0e11);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --ot-bg: #f6f6f8;
+  --ot-surface: #ffffff;
+  --ot-surface-alt: #eeeef1;
+  --ot-elev: #ececf0;
+  --ot-elev-hi: #e2e2e7;
+  --ot-text: #111114;
+  /* Solid muted greys: alpha-mixed black is too faint on light surfaces (>= 4.5:1 here). */
+  --ot-muted: #5b5b66;
+  --ot-faint: #8a8a94;
+  --ot-scrollbar: rgba(0, 0, 0, 0.2);
+  --ot-scrollbar-hover: rgba(0, 0, 0, 0.34);
+  --ot-scrollbar-home: rgba(0, 0, 0, 0.26);
+  --ot-selection: rgba(0, 0, 0, 0.14);
+  --ot-selection-ink: #111114;
+  --ot-bg-rgb: 246, 246, 248;
+  --ot-glow: #ffffff;
+  --ot-accent: var(--ot-accent-light, #111114);
+  --ot-accent-ink: var(--ot-accent-ink-light, #ffffff);
+}
+
+:root {
   --ot-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --ot-gutter: clamp(20px, 5.2vw, 124px);
 }
+
+/*
+ * Tailwind colours bound to the tokens (`inline` so each element resolves them against its
+ * own theme scope): `text-fg`, `bg-fg/[0.06]`, `border-fg/10`, `bg-page`, `bg-surface`…
+ * `white` stays literal white for text over artwork, scrims and coloured badges.
+ */
+@theme inline {
+  --color-fg: var(--ot-text);
+  --color-page: var(--ot-bg);
+  --color-surface: var(--ot-surface);
+  --color-surface-alt: var(--ot-surface-alt);
+  --color-elev: var(--ot-elev);
+  --color-elev-hi: var(--ot-elev-hi);
+  --color-muted: var(--ot-muted);
+  --color-faint: var(--ot-faint);
+  --color-accent: var(--ot-accent);
+  --color-accent-ink: var(--ot-accent-ink);
+}
+
+/*
+ * `light:` applies only in the light theme and never inside a forced-dark subtree. Used where
+ * a dark-theme value has no token (e.g. low-alpha muted text) so dark stays pixel-identical.
+ */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *):not(:where([data-theme="dark"], [data-theme="dark"] *)));
 
 html,
 body,
@@ -31,7 +100,6 @@ body,
 /* Monochrome defaults: no Chromium blue focus rings, checkboxes, scrollbars or tap highlights. */
 @layer base {
   :root {
-    color-scheme: dark;
     accent-color: var(--ot-accent);
     -webkit-tap-highlight-color: transparent;
   }
@@ -53,8 +121,8 @@ body,
   }
 
   ::selection {
-    background: rgba(255, 255, 255, 0.22);
-    color: #ffffff;
+    background: var(--ot-selection);
+    color: var(--ot-selection-ink);
   }
 
   a {
@@ -77,22 +145,17 @@ body,
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.18);
+    background: var(--ot-scrollbar);
     border-radius: 999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.32);
+    background: var(--ot-scrollbar-hover);
   }
 }
 
 .font-display {
   font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
-}
-
-/* Text size +12 % toggle (Ajustes -> Apariencia -> Tamaño del texto) */
-body.is-text-large .ot-text-scalable {
-  font-size: 112%;
 }
 
 /* Lite mode disables transitions, Ken Burns and heavy blur */
@@ -176,12 +239,12 @@ body.is-lite *::after {
 }
 
 .ot-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--ot-scrollbar);
   border-radius: 999px;
 }
 
 .ot-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.32);
+  background: var(--ot-scrollbar-hover);
 }
 
 .ot-home-scroll::-webkit-scrollbar {
@@ -198,7 +261,7 @@ body.is-lite *::after {
 }
 
 .ot-home-scroll:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.24);
+  background: var(--ot-scrollbar-home);
 }
 
 .ot-no-scrollbar {

@@ -1,9 +1,10 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { setLiteMode } from './services/liteMode';
 import type { DownloadItem, Episode, ExternalSubtitle, HomeTabId, MediaItem, StreamSource, UpdateStatus, WatchProgress } from './types/models';
-import { ACCENTS } from './services/catalogs';
 import { desktopApi, getAppVersion } from './services/tauri';
 import { isMandatoryUpdate } from './services/version';
 import { routeGlobalToast } from './services/playerNotice';
+import { resolveAccent, zoomFor } from './services/theme';
 import { useAppStore } from './store/useAppStore';
 import { ForceUpdateGate } from './components/ForceUpdateGate';
 import { TitleBar } from './components/TitleBar';
@@ -22,10 +23,10 @@ const SettingsScreen = lazy(() => import('./screens/SettingsScreen').then((m) =>
 const ProfilesScreen = lazy(() => import('./screens/ProfilesScreen').then((m) => ({ default: m.ProfilesScreen })));
 
 const ScreenFallback: React.FC = () => (
-  <div className="flex h-full w-full items-center justify-center bg-[#0e0e11]">
+  <div className="flex h-full w-full items-center justify-center bg-page">
     <div
       style={{ borderTopColor: 'var(--ot-accent)' }}
-      className="h-8 w-8 animate-spin rounded-full border-2 border-white/15"
+      className="h-8 w-8 animate-spin rounded-full border-2 border-fg/15"
     />
   </div>
 );
@@ -46,6 +47,7 @@ export const App: React.FC = () => {
   const profile = store.activeProfile();
   const bucket = store.activeBucket();
   const hasSourcePlugins = store.hasSourcePlugins();
+  setLiteMode(store.appearance.liteMode);
 
   const [screen, setScreen] = useState<ScreenId>('home');
   const [activeTab, setActiveTab] = useState<HomeTabId>(profile.kids ? 'kids' : 'home');
@@ -152,14 +154,25 @@ export const App: React.FC = () => {
   const myListIds = useMemo(() => new Set(bucket.myList.map((m) => m.id)), [bucket.myList]);
   const favoriteIds = useMemo(() => new Set(bucket.favorites.map((m) => m.id)), [bucket.favorites]);
 
-  // Apply accent color tokens, large text & lite mode
+  // Apply theme + accent tokens and lite mode
+  const theme = store.appearance.theme;
   useEffect(() => {
-    const accent = ACCENTS.find((a) => a.id === store.appearance.accentId) || ACCENTS[0];
-    document.documentElement.style.setProperty('--ot-accent', accent.color);
-    document.documentElement.style.setProperty('--ot-accent-ink', accent.ink);
-    document.body.classList.toggle('is-text-large', store.appearance.textLarge);
+    const root = document.documentElement;
+    root.dataset.theme = theme;
+    // Both shades are exposed so forced-dark subtrees (the player) keep the dark accent.
+    const dark = resolveAccent(store.appearance.accentId, 'dark');
+    const light = resolveAccent(store.appearance.accentId, 'light');
+    root.style.setProperty('--ot-accent-dark', dark.color);
+    root.style.setProperty('--ot-accent-ink-dark', dark.ink);
+    root.style.setProperty('--ot-accent-light', light.color);
+    root.style.setProperty('--ot-accent-ink-light', light.ink);
     document.body.classList.toggle('is-lite', store.appearance.liteMode);
-  }, [store.appearance.accentId, store.appearance.textLarge, store.appearance.liteMode]);
+  }, [theme, store.appearance.accentId, store.appearance.liteMode]);
+
+  // Native window background/border follow the theme; "Texto aumentado" zooms the whole WebView.
+  useEffect(() => {
+    void desktopApi.appearance(theme, zoomFor(store.appearance.textLarge));
+  }, [theme, store.appearance.textLarge]);
 
   useEffect(() => {
     if (profile.kids && activeTab !== 'kids') setActiveTab('kids');
@@ -319,7 +332,12 @@ export const App: React.FC = () => {
         setSettingsSection('prefs');
         go('settings');
       } else if (e.key === 'Escape' && screen !== 'player' && !(screen === 'home' && activeTab === 'live')) {
-        if (isFullscreen) {
+        // An open dialog closes first (same as clicking its backdrop) instead of leaving the screen.
+        const modals = document.querySelectorAll<HTMLElement>('[data-ot-modal]');
+        if (modals.length > 0) {
+          e.preventDefault();
+          modals[modals.length - 1].click();
+        } else if (isFullscreen) {
           e.preventDefault();
           toggleFullscreen();
         } else if (screen === 'detail') {
@@ -430,19 +448,22 @@ export const App: React.FC = () => {
   const showTopNav = screen === 'home' && !(activeTab === 'live' && isFullscreen);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#0e0e11] text-white">
-      <TitleBar
-        sectionLabel={sectionLabel}
-        isFullscreen={isFullscreen}
-        isPinned={isPinned}
-        activeDownloadPct={downloadPct}
-        onTogglePin={togglePin}
-        onOpenDownloads={() => {
-          setSettingsSection('downloads');
-          go('settings');
-        }}
-        onToggleFullscreen={toggleFullscreen}
-      />
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-page text-fg">
+      {/* Over the (always dark) player the title bar stays dark too, so a light theme never frames it in white. */}
+      <div data-theme={screen === 'player' ? 'dark' : undefined} className="contents">
+        <TitleBar
+          sectionLabel={sectionLabel}
+          isFullscreen={isFullscreen}
+          isPinned={isPinned}
+          activeDownloadPct={downloadPct}
+          onTogglePin={togglePin}
+          onOpenDownloads={() => {
+            setSettingsSection('downloads');
+            go('settings');
+          }}
+          onToggleFullscreen={toggleFullscreen}
+        />
+      </div>
 
       <div className={`relative min-h-0 flex-1 overflow-hidden ${isFullscreen ? '' : 'pt-9'}`}>
         <div className="relative h-full w-full overflow-hidden">
@@ -536,6 +557,8 @@ export const App: React.FC = () => {
           )}
 
           {screen === 'player' && playerSession && (
+            // The player keeps the dark palette in every theme.
+            <div data-theme="dark" className="contents text-fg">
             <PlayerScreen
               key={`${playerSession.item.id}:${playerSession.episode?.id ?? 'movie'}:${playerSession.startPositionMs ?? 0}`}
               session={playerSession}
@@ -556,6 +579,7 @@ export const App: React.FC = () => {
               }}
               externalNotice={playerExtNotice}
             />
+            </div>
           )}
 
           {screen === 'search' && (

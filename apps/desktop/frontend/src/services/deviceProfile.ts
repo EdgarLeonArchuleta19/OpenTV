@@ -1,3 +1,4 @@
+import { isLiteMode } from './liteMode';
 /**
  * Cheap hardware + network profile used to pick the automatic target quality.
  * Owner rule: a capable PC on a fast connection prefers Full HD (1080p);
@@ -83,7 +84,8 @@ export function detectPlaybackEnv(
     cores: Number(nav?.hardwareConcurrency) || 0,
     measuredMbps: loadMeasured(),
     apiMbps: Number(conn?.downlink) || 0,
-    constrained: Boolean(conn?.saveData) || /(^|-)(2g|3g)$/.test(String(conn?.effectiveType || '')),
+    constrained:
+      isLiteMode() || Boolean(conn?.saveData) || /(^|-)(2g|3g)$/.test(String(conn?.effectiveType || '')),
   };
 }
 

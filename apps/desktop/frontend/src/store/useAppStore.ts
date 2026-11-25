@@ -13,6 +13,7 @@ import type {
 } from '../types/models';
 import { PRESET_M3U_LISTS, isBuiltinUrl, seedBuiltinPlugins, stremioBaseFromUrl } from '../services/catalogs';
 import { desktopApi } from '../services/tauri';
+import { withThemeDefault } from '../services/theme';
 
 const STORAGE_KEY = 'opentv_v2_state';
 
@@ -63,6 +64,7 @@ function defaultState(): PersistedState {
       subsFrom: 'file',
     },
     appearance: {
+      theme: 'dark',
       accentId: 'white',
       textLarge: false,
       uiDensity: 'normal',
@@ -136,7 +138,7 @@ function loadInitialState(): PersistedState {
         plugins: seedBuiltinPlugins(Array.isArray(parsed.plugins) ? parsed.plugins : []),
         m3uPlaylists: Array.isArray(parsed.m3uPlaylists) ? parsed.m3uPlaylists : base.m3uPlaylists,
         sourcePrefs: { ...base.sourcePrefs, ...(parsed.sourcePrefs || {}) },
-        appearance: { ...base.appearance, ...(parsed.appearance || {}) },
+        appearance: withThemeDefault({ ...base.appearance, ...(parsed.appearance || {}) }),
         playback: {
           ...base.playback,
           ...(parsed.playback || {}),
@@ -522,6 +524,7 @@ export const useAppStore = create<AppStore>((set, get) => {
             ? parsed.profiles.map((p, i) => normalizeProfile(p, i))
             : s.profiles,
           plugins: seedBuiltinPlugins(Array.isArray(parsed.plugins) ? parsed.plugins : s.plugins),
+          appearance: withThemeDefault({ ...s.appearance, ...(parsed.appearance || {}) }),
         }));
         return true;
       } catch {

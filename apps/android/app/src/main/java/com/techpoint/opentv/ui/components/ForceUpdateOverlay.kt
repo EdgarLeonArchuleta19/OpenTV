@@ -50,8 +50,8 @@ import com.techpoint.opentv.ui.theme.OpenTvColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.util.Locale
@@ -90,11 +90,11 @@ fun ForceUpdateOverlay(
         phase = "installing"
         errorMsg = ""
         val inst = RustServiceBridge.callRpc("appUpdate", buildJsonObject { put("action", "install") })
-        val st = inst["state"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val st = (inst["state"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         when (st) {
             "needs-permission" -> {
                 phase = "needs-permission"
-                errorMsg = inst["errorText"]?.jsonPrimitive?.contentOrNull
+                errorMsg = (inst["errorText"] as? JsonPrimitive)?.contentOrNull
                     ?: "Permite a OpenTV instalar actualizaciones en Configuración y vuelve a pulsar Instalar."
             }
             "installing" -> {
@@ -102,7 +102,7 @@ fun ForceUpdateOverlay(
             }
             else -> {
                 phase = "error"
-                errorMsg = inst["errorText"]?.jsonPrimitive?.contentOrNull
+                errorMsg = (inst["errorText"] as? JsonPrimitive)?.contentOrNull
                     ?: "No se pudo abrir el instalador del sistema."
             }
         }
@@ -126,7 +126,7 @@ fun ForceUpdateOverlay(
                 put("force", true)
             })
             val res = RustServiceBridge.callRpc("appUpdate", buildJsonObject { put("action", "download") })
-            val initSt = res["state"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            val initSt = (res["state"] as? JsonPrimitive)?.contentOrNull.orEmpty()
             if (initSt == "ready") {
                 progressPct = 100
                 triggerInstall()
@@ -134,7 +134,7 @@ fun ForceUpdateOverlay(
             }
             if (initSt != "downloading") {
                 phase = "error"
-                errorMsg = res["errorText"]?.jsonPrimitive?.contentOrNull
+                errorMsg = (res["errorText"] as? JsonPrimitive)?.contentOrNull
                     ?: "No se pudo iniciar la descarga. Verifica tu conexión."
                 return@launch
             }
@@ -142,9 +142,9 @@ fun ForceUpdateOverlay(
             while (true) {
                 delay(350L)
                 val st = RustServiceBridge.callRpc("appUpdate", buildJsonObject { put("action", "status") })
-                val s = st["state"]?.jsonPrimitive?.contentOrNull.orEmpty()
-                val b = st["bytes"]?.jsonPrimitive?.longOrNull ?: 0L
-                val t = st["total"]?.jsonPrimitive?.longOrNull ?: 0L
+                val s = (st["state"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+                val b = (st["bytes"] as? JsonPrimitive)?.longOrNull ?: 0L
+                val t = (st["total"] as? JsonPrimitive)?.longOrNull ?: 0L
                 bytes = b
                 total = t
                 progressPct = if (t > 0L) ((b * 100L) / t).toInt().coerceIn(0, 100) else 0
@@ -156,7 +156,7 @@ fun ForceUpdateOverlay(
                     }
                     "error", "idle" -> {
                         phase = "error"
-                        errorMsg = st["error"]?.jsonPrimitive?.contentOrNull
+                        errorMsg = (st["error"] as? JsonPrimitive)?.contentOrNull
                             ?.ifBlank { "La descarga se interrumpió. Vuelve a intentarlo." }
                             ?: "La descarga se interrumpió. Vuelve a intentarlo."
                         return@launch
@@ -166,11 +166,13 @@ fun ForceUpdateOverlay(
         }
     }
 
+    // Mint text is too light on the light canvas: a darker green there.
+    val mint = if (OpenTvColors.isLight) Color(0xFF15803D) else OpenTvColors.MintGreen
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xF80E0E11))
+            .background(OpenTvColors.BgCanvas.copy(alpha = 0xF8 / 255f))
             .padding(horizontal = if (ui.isTv) 48.dp else 20.dp, vertical = 24.dp),
     ) {
         val cardShape = RoundedCornerShape(20.dp)
@@ -179,7 +181,7 @@ fun ForceUpdateOverlay(
                 .widthIn(max = 520.dp)
                 .fillMaxWidth()
                 .clip(cardShape)
-                .background(Color(0xFF141418))
+                .background(if (OpenTvColors.isLight) OpenTvColors.Sheet else Color(0xFF141418))
                 .border(1.dp, OpenTvColors.GlassBorderStrong, cardShape)
                 .padding(horizontal = 24.dp, vertical = 24.dp),
         ) {
@@ -197,21 +199,21 @@ fun ForceUpdateOverlay(
                     Icon(
                         imageVector = Icons.Rounded.SystemUpdate,
                         contentDescription = null,
-                        tint = OpenTvColors.MintGreen,
+                        tint = mint,
                         modifier = Modifier.size(24.dp),
                     )
                 }
                 Column {
                     Text(
                         text = "ACTUALIZACIÓN OBLIGATORIA",
-                        color = OpenTvColors.MintGreen,
+                        color = mint,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.4.sp,
                     )
                     Text(
                         text = "Nueva versión v$latestVersion",
-                        color = Color.White,
+                        color = OpenTvColors.Content,
                         fontSize = if (ui.isTv) 22.sp else 20.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
@@ -233,7 +235,7 @@ fun ForceUpdateOverlay(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0x0AFFFFFF))
+                        .background(OpenTvColors.Content.copy(alpha = 0x0A / 255f))
                         .border(0.5.dp, OpenTvColors.GlassBorder, RoundedCornerShape(12.dp))
                         .padding(12.dp),
                 ) {
@@ -260,7 +262,7 @@ fun ForceUpdateOverlay(
                             "ready" -> "Descarga lista para instalar"
                             else -> "Descargando actualización…"
                         },
-                        color = Color.White,
+                        color = OpenTvColors.Content,
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -270,7 +272,7 @@ fun ForceUpdateOverlay(
                         } else {
                             "${if (phase == "downloading") progressPct else 100}%"
                         },
-                        color = OpenTvColors.MintGreen,
+                        color = mint,
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold,
                     )
@@ -279,7 +281,7 @@ fun ForceUpdateOverlay(
                 LinearProgressIndicator(
                     progress = { (if (phase == "downloading") progressPct else 100) / 100f },
                     color = ui.accent.color,
-                    trackColor = Color(0x26FFFFFF),
+                    trackColor = OpenTvColors.Content.copy(alpha = 0x26 / 255f),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(6.dp)
@@ -297,7 +299,7 @@ fun ForceUpdateOverlay(
                         .border(0.5.dp, Color(0x4DEF4444), RoundedCornerShape(10.dp))
                         .padding(horizontal = 12.dp, vertical = 9.dp),
                 ) {
-                    Text(text = errorMsg, color = Color(0xFFFFB4B4), fontSize = 12.sp, lineHeight = 17.sp)
+                    Text(text = errorMsg, color = if (OpenTvColors.isLight) Color(0xFFB42318) else Color(0xFFFFB4B4), fontSize = 12.sp, lineHeight = 17.sp)
                 }
             }
 

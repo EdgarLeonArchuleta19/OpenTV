@@ -59,8 +59,8 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
       style={{ paddingLeft: 'var(--ot-gutter)', paddingRight: 'var(--ot-gutter)' }}
       className={`absolute top-0 right-0 left-0 z-30 flex h-[68px] lg:h-[76px] items-center justify-between gap-2 transition-colors duration-300 ${
         scrolled
-          ? 'bg-[#0e0e11]/[0.97] shadow-[0_1px_0_rgba(255,255,255,0.06)]'
-          : 'bg-gradient-to-b from-[#08080a]/75 via-[#08080a]/30 to-transparent'
+          ? 'bg-page/[0.97] shadow-[0_1px_0_rgba(255,255,255,0.06)] light:shadow-[0_1px_0_rgba(0,0,0,0.08)]'
+          : 'bg-gradient-to-b from-[#08080a]/75 via-[#08080a]/30 to-transparent light:from-page/85 light:via-page/40'
       }`}
     >
       {/* Left: Brand + Horizontal Tabs */}
@@ -68,7 +68,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
         <button
           type="button"
           onClick={() => onSelectTab(profile.kids ? 'kids' : 'home')}
-          className="flex shrink-0 items-center gap-2 text-white cursor-pointer"
+          className="flex shrink-0 items-center gap-2 text-fg cursor-pointer"
         >
           <OpenTvLogo className="h-[24px] w-[24px] lg:h-[26px] lg:w-[26px] shrink-0" />
           <span className="hidden lg:inline font-display text-[21px] xl:text-[22px] font-semibold tracking-[-0.02em] whitespace-nowrap">
@@ -85,7 +85,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
                 type="button"
                 onClick={() => onSelectTab(tab.id)}
                 className={`relative shrink-0 whitespace-nowrap px-2 py-2 text-[14px] md:px-2.5 md:text-[15px] xl:px-3.5 xl:text-[17px] transition-colors cursor-pointer ${
-                  active ? 'font-bold text-white' : 'font-medium text-white/68 hover:text-white'
+                  active ? 'font-bold text-fg' : 'font-medium text-fg/68 hover:text-fg'
                 }`}
               >
                 <span>{tab.label}</span>
@@ -109,7 +109,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
             onClick={onOpenSearch}
             title="Buscar (Ctrl+F)"
             aria-label="Buscar"
-            className="flex h-9 w-9 xl:h-10 xl:w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:bg-white/[0.16] cursor-pointer"
+            className="flex h-9 w-9 xl:h-10 xl:w-10 items-center justify-center rounded-full border border-fg/[0.08] bg-fg/[0.08] text-fg shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:bg-fg/[0.16] cursor-pointer"
           >
             <Search className="h-[17px] w-[17px] xl:h-[18px] xl:w-[18px]" />
           </button>
@@ -120,7 +120,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
           onClick={onOpenMyList}
           title="Mi lista"
           aria-label="Mi lista"
-          className="flex h-9 w-9 xl:h-10 xl:w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:bg-white/[0.16] cursor-pointer"
+          className="flex h-9 w-9 xl:h-10 xl:w-10 items-center justify-center rounded-full border border-fg/[0.08] bg-fg/[0.08] text-fg shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:bg-fg/[0.16] cursor-pointer"
         >
           <BookmarkPlus className="h-[17px] w-[17px] xl:h-[18px] xl:w-[18px]" />
         </button>
@@ -130,15 +130,15 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
           onClick={onOpenAccount}
           title="Mi cuenta y ajustes"
           aria-label="Mi cuenta y ajustes"
-          className="h-9 w-9 xl:h-10 xl:w-10 overflow-hidden rounded-full ring-1 ring-white/20 transition hover:scale-105 hover:ring-white/60 cursor-pointer"
+          className="h-9 w-9 xl:h-10 xl:w-10 overflow-hidden rounded-full ring-1 ring-fg/20 transition hover:scale-105 hover:ring-fg/60 cursor-pointer"
         >
           <ProfileAvatar index={profile.avatarIndex} size={40} round className="h-full w-full" />
         </button>
 
-        <span className="mx-1 hidden lg:inline-block h-5 w-px bg-white/15 xl:mx-1.5" />
+        <span className="mx-1 hidden lg:inline-block h-5 w-px bg-fg/15 xl:mx-1.5" />
 
-        <div className="hidden lg:flex shrink-0 items-center gap-2.5 text-white">
-          <Wifi className="h-[20px] w-[20px] shrink-0 text-white/65" />
+        <div className="hidden lg:flex shrink-0 items-center gap-2.5 text-fg">
+          <Wifi className="h-[20px] w-[20px] shrink-0 text-fg/65" />
           <span className="font-display text-[18px] xl:text-[20px] font-semibold tracking-[-0.01em] whitespace-nowrap tabular-nums">
             {clock}
           </span>

@@ -119,7 +119,9 @@ object JsPluginMatch {
     /** Same rules as the PC: close title, or the site's first same-year hit; yearless first hit needs `details()`. */
     fun pickSearchHits(hits: List<JsonObject>, q: TitleQuery, max: Int = 2): List<Hit> {
         val names = listOf(q.title, q.originalTitle).filter { it.isNotBlank() }
+        val normNames = names.map { normTitle(it) }.filter { it.isNotEmpty() }
         val out = mutableListOf<Hit>()
+        var exactFound = false
         hits.forEachIndexed { index, hit ->
             val ref = listOf("ref", "id", "imdb_id", "imdbId").map { str(hit[it]).trim() }.firstOrNull { it.isNotEmpty() } ?: return@forEachIndexed
             val kind = hitKind(hit)
@@ -129,16 +131,31 @@ object JsPluginMatch {
             val year = yearOf(hit["year"]).takeIf { it > 0 } ?: yearOf(hit["releaseYear"])
             val yearKnown = year > 0 && q.year > 0
             val yearDiff = if (yearKnown) abs(year - q.year) else 0
-            if (yearKnown && q.kind == "movie" && yearDiff > 1) return@forEachIndexed
+            // Movies must match ±1. Series years drift a little (first air date vs. season), but a
+            // same-named show years apart is a remake ("La oficina" 2015 MX vs "The Office" 2005 US).
+            if (yearKnown && yearDiff > (if (q.kind == "movie") 1 else 2)) return@forEachIndexed
             val sameYear = yearKnown && yearDiff == 0
+            // "Los juegos del hambre: En llamas" contains "Los juegos del hambre": when one title extends
+            // the other it is usually another film of the saga, so it only counts with the exact same year.
+            val nh = normTitle(title)
+            val extendsQuery = sim < 1.0 && normNames.any { isLongerTitleOf(nh, it) || isLongerTitleOf(it, nh) }
+            if (extendsQuery && !sameYear) return@forEachIndexed
+            if (sim == 1.0) exactFound = true
             val accepted = sim >= 0.6 || (index == 0 && sameYear) || (index < 3 && sameYear && sim >= 0.34)
             val verify = !accepted && year == 0 && q.year > 0 && index == 0
             if (!accepted && !verify) return@forEachIndexed
             val score = if (verify) 0.2 else sim + (if (sameYear) 0.3 else if (yearKnown && yearDiff <= 1) 0.1 else 0.0) - index * 0.02
             out.add(Hit(ref, score, title, verify))
         }
-        return out.sortedByDescending { it.score }.take(max)
+        // Streams of every kept hit are merged, so once the site lists the exact title, other
+        // similar titles (another film of the saga) are dropped.
+        val kept = if (exactFound) out.filter { h -> !h.verify && names.any { titleSimilarity(it, h.title) == 1.0 } } else out
+        return kept.sortedByDescending { it.score }.take(max)
     }
+
+    /** `hit` is `query` plus extra words ("x y z" extends "x y"). */
+    private fun isLongerTitleOf(hit: String, query: String): Boolean =
+        hit.length > query.length && " $hit ".contains(" $query ")
 
     fun confirmsYear(meta: JsonElement?, q: TitleQuery): Boolean {
         val year = yearOf((meta as? JsonObject)?.get("year"))

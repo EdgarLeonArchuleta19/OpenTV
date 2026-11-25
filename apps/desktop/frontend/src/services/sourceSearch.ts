@@ -205,6 +205,7 @@ export function describeSearch(
   const parts: string[] = [];
   if (ranked.length > 0 || state.stremioDone) parts.push(`${directs} directas · ${torrents} torrents`);
   if (waiting.length > 0) parts.push(`esperando a ${waiting.join(', ')}`);
-  const status = waiting.length > 0 && state.stremioDone ? `Consultando ${waiting[0]}…` : 'Buscando la mejor fuente…';
+  // Viewers don't need plugin or server names while waiting.
+  const status = 'Buscando la mejor fuente…';
   return { ranked, directs, torrents, ready, status, detail: parts.join(' · ') };
 }

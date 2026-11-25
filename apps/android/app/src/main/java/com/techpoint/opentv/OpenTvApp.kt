@@ -61,6 +61,8 @@ class OpenTvApp : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         isTv = MediaCaps.isTvDevice(this)
+        // TV: automatic quality is always 720p (an explicit choice in Ajustes still wins).
+        PlaybackProfile.setTv(isTv)
         // Same rule as RustServiceBridge.isLowMemoryDevice, but without touching that object:
         // its init loads the 6 MB native core, which must not happen on the main thread.
         isLowSpec = runCatching {

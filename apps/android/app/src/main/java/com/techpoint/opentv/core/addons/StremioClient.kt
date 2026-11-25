@@ -9,6 +9,7 @@ import com.techpoint.opentv.core.model.PluginCatalogDef
 import com.techpoint.opentv.core.model.StreamSource
 import com.techpoint.opentv.core.model.TitleDetail
 import com.techpoint.opentv.service.RustServiceBridge
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -23,9 +24,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
@@ -104,7 +103,7 @@ class StremioClient(
                 put("allowLan", false)
             },
         )
-        val allowed = guard["allowed"]?.jsonPrimitive?.contentOrNull == "true" ||
+        val allowed = (guard["allowed"] as? JsonPrimitive)?.contentOrNull == "true" ||
             guard["allowed"]?.toString() == "true"
         if (allowed) allowedHosts[host] = now + allowedHostTtlMs
         return allowed
@@ -151,7 +150,8 @@ class StremioClient(
                         if (!resp.isSuccessful) return@withContext null
                         val body = resp.body?.string().orEmpty()
                         if (body.isBlank()) return@withContext null
-                        val parsed = json.parseToJsonElement(body).jsonObject
+                        val parsed = runCatching { json.parseToJsonElement(body) }.getOrNull() as? JsonObject
+                            ?: return@withContext null
                         if (ttlMs > 0L) {
                             cachePut(url, CacheEntry(parsed, now + ttlMs))
                         }
@@ -181,7 +181,7 @@ class StremioClient(
             val id = cat.str("id").trim()
             if (id.isBlank()) continue
             val data = getJson("$baseUrl/addon_catalog/${URLEncoder.encode(type, "UTF-8")}/${URLEncoder.encode(id, "UTF-8")}.json", ttlMs = 0L) ?: continue
-            val addons = data["addons"]?.jsonArray.orEmpty().mapNotNull { it as? JsonObject }
+            val addons = MetaJson.arr(data["addons"]).mapNotNull { it as? JsonObject }
             for (ad in addons) {
                 val transportUrl = ad.str("transportUrl").ifBlank { ad.str("url") }.trim()
                 if (!transportUrl.startsWith("http://") && !transportUrl.startsWith("https://")) continue
@@ -221,7 +221,7 @@ class StremioClient(
                 )
             val id = obj.str("id").ifBlank { return Result.failure(IllegalStateException("Manifiesto incompleto")) }
             val name = obj.str("name").ifBlank { id }
-            val caps = obj["capabilities"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+            val caps = MetaJson.strings(obj["capabilities"])
             return Result.success(
                 PluginInspectResult.Plugin(
                     InstalledPlugin(
@@ -251,22 +251,22 @@ class StremioClient(
         val name = manifest.str("name").ifBlank { id }
         val base = url.removeSuffix("/manifest.json").removeSuffix("/")
 
-        val resources = manifest["resources"]?.jsonArray.orEmpty()
+        val resources = MetaJson.arr(manifest["resources"])
         var hasCatalog = false
         var hasStream = false
         var hasSubs = false
         var hasMeta = false
         val idPrefixes = mutableListOf<String>()
 
-        manifest["idPrefixes"]?.jsonArray?.forEach { el ->
-            el.jsonPrimitive.contentOrNull?.let(idPrefixes::add)
+        MetaJson.arr(manifest["idPrefixes"]).forEach { el ->
+            (el as? JsonPrimitive)?.contentOrNull?.let(idPrefixes::add)
         }
 
         for (r in resources) {
             val rName = when (r) {
                 is JsonPrimitive -> r.contentOrNull.orEmpty()
                 is JsonObject -> {
-                    r["idPrefixes"]?.jsonArray?.forEach { p -> p.jsonPrimitive.contentOrNull?.let(idPrefixes::add) }
+                    MetaJson.arr(r["idPrefixes"]).forEach { p -> (p as? JsonPrimitive)?.contentOrNull?.let(idPrefixes::add) }
                     r.str("name")
                 }
                 else -> ""
@@ -279,27 +279,27 @@ class StremioClient(
             }
         }
 
-        val types = manifest["types"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
-        val catalogs = manifest["catalogs"]?.jsonArray.orEmpty().mapNotNull { el ->
+        val types = MetaJson.strings(manifest["types"])
+        val catalogs = MetaJson.arr(manifest["catalogs"]).mapNotNull { el ->
             val co = el as? JsonObject ?: return@mapNotNull null
             val cType = co.str("type")
             val cId = co.str("id")
             if (cType.isBlank() || cId.isBlank()) return@mapNotNull null
-            val extras = co["extra"]?.jsonArray.orEmpty().mapNotNull { it as? JsonObject }
+            val extras = MetaJson.arr(co["extra"]).mapNotNull { it as? JsonObject }
             val searchExtra = extras.firstOrNull { it.str("name") == "search" }
             val genreExtra = extras.firstOrNull { it.str("name") == "genre" }
-            val genres = genreExtra?.get("options")?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+            val genres = MetaJson.strings(genreExtra?.get("options"))
             PluginCatalogDef(
                 type = cType,
                 id = cId,
                 name = co.str("name").ifBlank { cId },
                 supportsSearch = searchExtra != null,
-                searchRequired = searchExtra?.get("isRequired")?.jsonPrimitive?.contentOrNull == "true",
+                searchRequired = (searchExtra?.get("isRequired") as? JsonPrimitive)?.contentOrNull == "true",
                 genres = genres,
             )
         }
 
-        val addonCatalogs = manifest["addonCatalogs"]?.jsonArray.orEmpty().mapNotNull { it as? JsonObject }
+        val addonCatalogs = MetaJson.arr(manifest["addonCatalogs"]).mapNotNull { it as? JsonObject }
         val collectionOnly = addonCatalogs.isNotEmpty() && !hasStream && !hasSubs && !hasMeta && catalogs.isEmpty()
         if (collectionOnly) {
             val addons = fetchStremioAddonCollection(base, addonCatalogs)
@@ -375,17 +375,22 @@ class StremioClient(
     }
 
     /**
-     * One section row. [CatalogSpec.list] rows come from the Rust core (TMDB all-ages Kids lists,
-     * Kitsu season); [CatalogSpec.url] is then the fallback catalog (e.g. no TMDB key).
+     * One section row: its TMDB lists (Rust core) in order, then the hidden Cinemeta/Kitsu
+     * catalog [CatalogSpec.url] when every list failed or came back empty.
      */
     private suspend fun fetchCatalogRow(section: String, spec: CatalogSpec, index: Int): CatalogRow? {
         var title = spec.title
-        var items: List<MediaItem> = spec.list?.let { loadCoreList(it, title) }.orEmpty()
+        var items: List<MediaItem> = emptyList()
+        for (list in spec.lists) {
+            items = loadCoreList(list, title)
+            if (items.isNotEmpty()) break
+        }
         if (items.isEmpty()) {
-            if (spec.list != null && spec.fallbackTitle != null) title = spec.fallbackTitle
+            if (spec.url.isBlank()) return null
+            if (spec.lists.isNotEmpty() && spec.fallbackTitle != null) title = spec.fallbackTitle
             // ttl 0: CatalogRepository keeps the (much smaller) parsed rows instead of the JSON tree.
             val obj = getJson(spec.url, ttlMs = 0L) ?: return null
-            val metas = obj["metas"]?.jsonArray.orEmpty()
+            val metas = MetaJson.arr(obj["metas"])
             val forceAnime = section == "anime"
             items = metas.asSequence()
                 .mapNotNull { parseMetaSummary(it, spec.url, title, forceAnime) }
@@ -407,82 +412,29 @@ class StremioClient(
     // Titles seen in the all-ages Kids lists: the Kids profile search also accepts them.
     private val kidsApprovedIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-    /** Kids/Anime row served by the Rust core; empty when unavailable (no TMDB key, offline...). */
+    /** Row served by the Rust core (`tmdb` RPC); empty when unavailable (no TMDB key, offline, error). */
     private suspend fun loadCoreList(list: String, rowTitle: String): List<MediaItem> {
         val res = runCatching {
             RustServiceBridge.callRpc("tmdb", buildJsonObject { put("list", list) })
         }.getOrNull() ?: return emptyList()
-        val anime = list == SectionContent.ANIME_SEASON
-        val items = (res["items"] as? JsonArray).orEmpty().mapNotNull { el ->
+        val kind = CatalogRows.listKind(list)
+        val items = MetaJson.arr(res["items"]).mapNotNull { el ->
             val o = el as? JsonObject ?: return@mapNotNull null
-            if (anime) SectionContent.animeSeasonItem(o, rowTitle) else SectionContent.kidsTmdbItem(o, rowTitle)
-        }
-        if (!anime) items.forEach { kidsApprovedIds.add(it.id) }
+            when (kind) {
+                CatalogRows.ListKind.ANIME_KITSU -> SectionContent.animeSeasonItem(o, rowTitle)
+                CatalogRows.ListKind.ANIME_TMDB -> SectionContent.kidsTmdbItem(o, rowTitle, anime = true)
+                else -> SectionContent.kidsTmdbItem(o, rowTitle)
+            }
+        }.distinctBy { it.id }
+        if (kind == CatalogRows.ListKind.KIDS) items.forEach { kidsApprovedIds.add(it.id) }
         return items.take(28)
     }
-
-    /** A section row: plain catalog [url], or a Rust-core [list] with [url] as fallback. */
-    private data class CatalogSpec(
-        val id: String,
-        val title: String,
-        val url: String,
-        val list: String? = null,
-        val fallbackTitle: String? = null,
-    )
 
     /** How many rows [loadCatalogSection] asks for (lets the cache tell a partial result). */
     fun catalogRowCount(section: String, plugins: List<InstalledPlugin>): Int = catalogSpecs(section, plugins).size
 
     private fun catalogSpecs(section: String, plugins: List<InstalledPlugin>): List<CatalogSpec> {
-        val cinemeta = "https://v3-cinemeta.strem.io"
-        val kitsu = "https://anime-kitsu.strem.fun"
-
-        val specs: List<CatalogSpec> = when (section) {
-            "home" -> listOf(
-                CatalogSpec("home_trend_movies", "Tendencias de la semana · Películas", "$cinemeta/catalog/movie/top.json"),
-                CatalogSpec("home_trend_series", "Tendencias de la semana · Series", "$cinemeta/catalog/series/top.json"),
-                CatalogSpec("home_pop_movies", "Popular · Películas", "$cinemeta/catalog/movie/imdbRating.json"),
-                CatalogSpec("home_pop_series", "Popular · Series", "$cinemeta/catalog/series/imdbRating.json"),
-                CatalogSpec("action_movies", "Acción y aventura", "$cinemeta/catalog/movie/top/genre=Action.json"),
-                CatalogSpec("scifi_movies", "Ciencia ficción", "$cinemeta/catalog/movie/top/genre=Sci-Fi.json"),
-                CatalogSpec("comedy_movies", "Comedia", "$cinemeta/catalog/movie/top/genre=Comedy.json"),
-            )
-            "movies" -> listOf(
-                CatalogSpec("m_trend", "Tendencias de la semana", "$cinemeta/catalog/movie/top.json"),
-                CatalogSpec("m_rating", "Popular · Películas", "$cinemeta/catalog/movie/imdbRating.json"),
-                CatalogSpec("m_action", "Acción", "$cinemeta/catalog/movie/top/genre=Action.json"),
-                CatalogSpec("m_horror", "Terror y suspenso", "$cinemeta/catalog/movie/top/genre=Horror.json"),
-                CatalogSpec("m_scifi", "Ciencia ficción", "$cinemeta/catalog/movie/top/genre=Sci-Fi.json"),
-                CatalogSpec("m_comedy", "Comedia", "$cinemeta/catalog/movie/top/genre=Comedy.json"),
-                CatalogSpec("m_drama", "Drama", "$cinemeta/catalog/movie/top/genre=Drama.json"),
-            )
-            "series" -> listOf(
-                CatalogSpec("s_trend", "Tendencias de la semana", "$cinemeta/catalog/series/top.json"),
-                CatalogSpec("s_rating", "Popular · Series", "$cinemeta/catalog/series/imdbRating.json"),
-                CatalogSpec("s_drama", "Drama", "$cinemeta/catalog/series/top/genre=Drama.json"),
-                CatalogSpec("s_crime", "Crimen y misterio", "$cinemeta/catalog/series/top/genre=Crime.json"),
-                CatalogSpec("s_scifi", "Ciencia ficción y fantasía", "$cinemeta/catalog/series/top/genre=Sci-Fi.json"),
-                CatalogSpec("s_comedy", "Comedia", "$cinemeta/catalog/series/top/genre=Comedy.json"),
-            )
-            // Rule: Kids = all-ages ratings (MX "AA"/"A", US "G"/"PG" fallback; TV needs the Kids
-            // genre) from TMDB; without a TMDB key, Cinemeta's Family genre (never general Animation).
-            "kids" -> listOf(
-                CatalogSpec("k_movies", "Películas para todos", "$cinemeta/catalog/movie/top/genre=Family.json", SectionContent.KIDS_MOVIES_POPULAR, "Películas familiares"),
-                CatalogSpec("k_series", "Series infantiles", "$cinemeta/catalog/series/top/genre=Family.json", SectionContent.KIDS_TV_POPULAR, "Series para toda la familia"),
-                CatalogSpec("k_animated", "Animadas para niños", "$cinemeta/catalog/movie/imdbRating/genre=Family.json", SectionContent.KIDS_MOVIES_ANIMATED, "Favoritas de la familia"),
-                CatalogSpec("k_series_top", "Las favoritas de los niños", "$cinemeta/catalog/series/imdbRating/genre=Family.json", SectionContent.KIDS_TV_TOP, "Series favoritas de la familia"),
-            )
-            // Rule: Anime catalogs come exclusively from Kitsu / anime-typed catalogs. The plugin's
-            // "trending" catalog is an all-time ranking (same as "popular"), so the first row is
-            // this season's most-followed anime from the Kitsu API (fallback: that catalog).
-            "anime" -> listOf(
-                CatalogSpec("a_season", "Tendencias de la temporada", "$kitsu/catalog/anime/kitsu-anime-trending.json", SectionContent.ANIME_SEASON, "Tendencias del anime"),
-                CatalogSpec("a_airing", "En emisión", "$kitsu/catalog/anime/kitsu-anime-airing.json"),
-                CatalogSpec("a_popular", "Más populares", "$kitsu/catalog/anime/kitsu-anime-popular.json"),
-                CatalogSpec("a_rated", "Mejor valorados", "$kitsu/catalog/anime/kitsu-anime-rating.json"),
-            )
-            else -> emptyList()
-        }
+        val specs = CatalogRows.specs(section)
 
         // Add extra catalog rows from user-installed third-party Stremio catalog plugins
         val extraSpecs = mutableListOf<CatalogSpec>()
@@ -508,7 +460,6 @@ class StremioClient(
         return specs + extraSpecs.take(6)
     }
 
-    /** Loads full metadata, episodes, seasons, trailer and related items for DetailScreen. */
     /** Spanish title/overview from TMDB (via the Rust core) for an IMDb id; null when unavailable. */
     data class SpanishInfo(val tmdbId: String, val kind: String, val title: String, val overview: String)
 
@@ -527,7 +478,7 @@ class StremioClient(
         val obj = res["item"] as? JsonObject
         val info = obj?.let {
             SpanishInfo(
-                tmdbId = it["tmdbId"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                tmdbId = (it["tmdbId"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
                 kind = it.str("kind"),
                 title = it.str("title"),
                 overview = it.str("overview"),
@@ -543,19 +494,123 @@ class StremioClient(
         val res = runCatching {
             RustServiceBridge.callRpc("tmdb", buildJsonObject { put("list", "es-season:$tmdbId:$season") })
         }.getOrNull() ?: return emptyMap()
-        return res["episodes"]?.jsonArray.orEmpty().mapNotNull { el ->
+        return MetaJson.arr(res["episodes"]).mapNotNull { el ->
             val o = el as? JsonObject ?: return@mapNotNull null
-            val n = o["number"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
+            val n = (o["number"] as? JsonPrimitive)?.intOrNull ?: return@mapNotNull null
             n to (o.str("title") to o.str("overview"))
         }.toMap()
     }
 
-    suspend fun loadDetail(item: MediaItem): TitleDetail = coroutineScope {
+    /**
+     * Full metadata for DetailScreen / the player. `tt…` ids: TMDB through the core
+     * (`detail:<imdb>`, Spanish text, cast, seasons, related) with the episodes of one season
+     * ([preferSeason], else the first); other seasons load lazily via [loadSeasonEpisodes].
+     * Hidden fallback: the Cinemeta meta (all episodes). `kitsu:` ids use the Kitsu plugin.
+     *
+     * Never throws (besides cancellation): a malformed meta from a plugin must not crash the
+     * detail screen — it falls back to the catalog item without episodes.
+     */
+    suspend fun loadDetail(item: MediaItem, preferSeason: Int = 0): TitleDetail = try {
+        val rawId = item.id.removePrefix("stremio:")
+        (if (rawId.startsWith("tt")) tmdbDetail(item, rawId.substringBefore(':'), preferSeason) else null)
+            ?: loadDetailOrThrow(item)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.util.Log.w("StremioClient", "loadDetail failed for ${item.id}", e)
+        TitleDetail(item = item)
+    }
+
+    // IMDb id -> TMDB tv id (from `detail:`), so a season can be loaded lazily later.
+    private val tmdbTvIds = ConcurrentHashMap<String, String>()
+
+    // Loaded seasons ("tt…:3" -> episodes); small, so going back to a title is instant.
+    private val seasonCache = object : LinkedHashMap<String, List<Episode>>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<Episode>>?): Boolean = size > 24
+    }
+
+    /** TMDB detail through the core; null when unavailable so the caller uses Cinemeta. */
+    private suspend fun tmdbDetail(item: MediaItem, imdb: String, preferSeason: Int): TitleDetail? {
+        val res = runCatching {
+            RustServiceBridge.callRpc("tmdb", buildJsonObject { put("list", "detail:$imdb") })
+        }.getOrNull()
+        val parsed = TmdbDetail.parseDetail(res, item) ?: return null
+        if (parsed.tmdbId.isNotBlank()) {
+            if (tmdbTvIds.size > 512) tmdbTvIds.clear()
+            tmdbTvIds[imdb] = parsed.tmdbId
+        }
+        val episodes = when {
+            !parsed.item.isSeries -> emptyList()
+            parsed.seasons.isEmpty() -> cinemetaEpisodes(imdb, null, parsed.item.backdrop)
+            else -> {
+                val season = preferSeason.takeIf { it in parsed.seasons } ?: parsed.seasons.first()
+                seasonEpisodes(imdb, parsed.tmdbId, season, parsed.item.backdrop)
+            }
+        }
+        val seasons = parsed.seasons.ifEmpty { episodes.map { it.season }.distinct().sorted() }
+        val related = parsed.related.ifEmpty {
+            cinemetaRelated(parsed.item, if (parsed.item.isSeries) "series" else "movie")
+        }
+        return TitleDetail(item = parsed.item, episodes = episodes, seasons = seasons, related = related)
+    }
+
+    /**
+     * Episodes of one season for a `tt…` series (detail screen season switch). TMDB first
+     * (Spanish titles, stills), Cinemeta's episode list as fallback. Never throws.
+     */
+    suspend fun loadSeasonEpisodes(item: MediaItem, season: Int): List<Episode> = try {
+        val imdb = item.imdbId
+        if (!imdb.startsWith("tt") || season <= 0) emptyList()
+        else seasonEpisodes(imdb, tmdbTvIds[imdb].orEmpty(), season, item.backdrop)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.util.Log.w("StremioClient", "season $season failed for ${item.id}", e)
+        emptyList()
+    }
+
+    private suspend fun seasonEpisodes(imdb: String, tmdbId: String, season: Int, thumb: String): List<Episode> {
+        val key = "$imdb:$season"
+        synchronized(seasonCache) { seasonCache[key] }?.let { return it }
+        var eps = if (tmdbId.isNotBlank()) {
+            val res = runCatching {
+                RustServiceBridge.callRpc("tmdb", buildJsonObject { put("list", "episodes:$tmdbId:$season") })
+            }.getOrNull()
+            TmdbDetail.parseEpisodes(res, imdb, season, thumb)
+        } else emptyList()
+        if (eps.isEmpty()) eps = cinemetaEpisodes(imdb, season, thumb)
+        if (eps.isNotEmpty()) synchronized(seasonCache) { seasonCache[key] = eps }
+        return eps
+    }
+
+    /** Episodes from the Cinemeta series meta (one [season], or all when null). */
+    private suspend fun cinemetaEpisodes(imdb: String, season: Int?, thumb: String): List<Episode> {
+        val meta = getJson("https://v3-cinemeta.strem.io/meta/series/${URLEncoder.encode(imdb, "UTF-8")}.json")
+            ?.get("meta") as? JsonObject
+        val all = MetaJson.parseEpisodes(meta?.get("videos"), imdb, thumb)
+        return if (season == null) all else all.filter { it.season == season }
+    }
+
+    /** "Similares" from Cinemeta's top catalog of the title's primary genre. */
+    private suspend fun cinemetaRelated(item: MediaItem, reqType: String): List<MediaItem> {
+        val primaryGenre = item.genres.firstOrNull { !it.equals("Animation", ignoreCase = true) }
+        if (primaryGenre.isNullOrBlank()) return emptyList()
+        val gEnc = URLEncoder.encode(primaryGenre, "UTF-8")
+        val relObj = getJson("https://v3-cinemeta.strem.io/catalog/$reqType/top/genre=$gEnc.json")
+        return MetaJson.arr(relObj?.get("metas"))
+            .mapNotNull { parseMetaSummary(it, "", "Similares", false) }
+            .filter { it.id != item.id }
+            .distinctBy { it.id }
+            .take(14)
+    }
+
+    /** Hidden fallback detail: Cinemeta meta (Kitsu plugin for anime ids) + Spanish TMDB text. */
+    private suspend fun loadDetailOrThrow(item: MediaItem): TitleDetail = coroutineScope {
         val rawId = item.id.removePrefix("stremio:")
         // Spanish metadata (v1 parity): fetched in parallel with the Cinemeta meta.
         val esDeferred = async { if (rawId.startsWith("tt")) spanishInfo(rawId) else null }
         val base = when {
-            rawId.startsWith("kitsu:") || item.isAnime -> "https://anime-kitsu.strem.fun"
+            rawId.startsWith("kitsu:") || (item.isAnime && !rawId.startsWith("tt")) -> "https://anime-kitsu.strem.fun"
             else -> "https://v3-cinemeta.strem.io"
         }
         val reqType = when {
@@ -567,11 +622,10 @@ class StremioClient(
         val metaObj = getJson("$base/meta/$reqType/$encId.json")?.get("meta") as? JsonObject
 
         val enrichedItem = if (metaObj != null) {
-            val genres = metaObj["genres"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+            val genres = MetaJson.strings(metaObj["genres"])
                 .ifEmpty { item.genres }
-            val cast = metaObj["cast"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
-            val director = metaObj["director"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }
-                ?.joinToString(", ").orEmpty()
+            val cast = MetaJson.strings(metaObj["cast"])
+            val director = MetaJson.strings(metaObj["director"]).joinToString(", ")
             item.copy(
                 title = metaObj.str("name").ifBlank { item.title },
                 year = metaObj.str("releaseInfo").take(4).ifBlank { metaObj.str("year").ifBlank { item.year } },
@@ -587,22 +641,7 @@ class StremioClient(
             )
         } else item
 
-        val episodes = metaObj?.get("videos")?.jsonArray.orEmpty().mapNotNull { el ->
-            val v = el as? JsonObject ?: return@mapNotNull null
-            val epId = v.str("id")
-            val season = v["season"]?.jsonPrimitive?.intOrNull ?: 1
-            val number = v["episode"]?.jsonPrimitive?.intOrNull ?: v["number"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
-            if (season <= 0) return@mapNotNull null
-            Episode(
-                id = epId.ifBlank { "$rawId:$season:$number" },
-                season = season,
-                number = number,
-                title = v.str("title").ifBlank { v.str("name").ifBlank { "Episodio $number" } },
-                overview = v.str("overview").ifBlank { v.str("description") },
-                thumbnail = v.str("thumbnail").ifBlank { enrichedItem.backdrop },
-                released = v.str("released").take(10),
-            )
-        }.sortedWith(compareBy<Episode>({ it.season }, { it.number }))
+        val episodes = MetaJson.parseEpisodes(metaObj?.get("videos"), rawId, enrichedItem.backdrop)
 
         val es = esDeferred.await()
         val esItem = if (es != null) {
@@ -624,20 +663,12 @@ class StremioClient(
         } else episodes
 
         val seasons = esEpisodes.map { it.season }.distinct().sorted()
-        val trailer = metaObj?.get("trailers")?.jsonArray?.firstOrNull()?.let {
+        val trailer = MetaJson.arr(metaObj?.get("trailers")).firstOrNull()?.let {
             (it as? JsonObject)?.str("source")
         }.orEmpty()
 
         // Related titles from primary genre
-        val primaryGenre = enrichedItem.genres.firstOrNull { !it.equals("Animation", ignoreCase = true) }
-        val related = if (!primaryGenre.isNullOrBlank() && reqType != "anime") {
-            val gEnc = URLEncoder.encode(primaryGenre, "UTF-8")
-            val relObj = getJson("https://v3-cinemeta.strem.io/catalog/$reqType/top/genre=$gEnc.json")
-            relObj?.get("metas")?.jsonArray.orEmpty()
-                .mapNotNull { parseMetaSummary(it, "", "Similares", false) }
-                .filter { it.id != enrichedItem.id }
-                .take(14)
-        } else emptyList()
+        val related = if (reqType != "anime") cinemetaRelated(enrichedItem, reqType) else emptyList()
 
         TitleDetail(
             item = esItem,
@@ -658,8 +689,9 @@ class StremioClient(
         val streamId = if (episode != null) {
             if (episode.id.contains(":")) episode.id else "$rawId:${episode.season}:${episode.number}"
         } else rawId
+        // TMDB anime rows carry IMDb ids and a real movie/series type; Kitsu ids are series.
         val reqType = when {
-            rawId.startsWith("kitsu:") || item.isAnime -> "series"
+            rawId.startsWith("kitsu:") || (item.isAnime && !rawId.startsWith("tt")) -> "series"
             item.isSeries -> "series"
             else -> "movie"
         }
@@ -671,7 +703,7 @@ class StremioClient(
                 withTimeoutOrNull(8_000L) {
                     val url = "${plugin.baseUrl}/stream/$reqType/$encId.json"
                     val obj = getJson(url, ttlMs = 3 * 60_000L) ?: return@withTimeoutOrNull emptyList()
-                    val arr = obj["streams"]?.jsonArray.orEmpty()
+                    val arr = MetaJson.arr(obj["streams"])
                     arr.mapIndexedNotNull { idx, el ->
                         parseStream(el, plugin, idx)
                     }
@@ -699,7 +731,7 @@ class StremioClient(
             async {
                 val url = "${plugin.baseUrl}/subtitles/$reqType/$encId.json"
                 val obj = getJson(url, ttlMs = 15 * 60_000L) ?: return@async emptyList()
-                obj["subtitles"]?.jsonArray.orEmpty().mapIndexedNotNull { idx, el ->
+                MetaJson.arr(obj["subtitles"]).mapIndexedNotNull { idx, el ->
                     val o = el as? JsonObject ?: return@mapIndexedNotNull null
                     val sUrl = o.str("url")
                     if (!sUrl.startsWith("http")) return@mapIndexedNotNull null
@@ -715,20 +747,41 @@ class StremioClient(
             }
         }
 
-        jobs.awaitAll()
-            .flatten()
-            .distinctBy { it.url }
-            .sortedByDescending { sub ->
-                when {
-                    sub.lang.startsWith("spa") || sub.lang.startsWith("es") -> 100
-                    sub.lang.startsWith("eng") || sub.lang.startsWith("en") -> 50
-                    else -> 10
-                }
-            }
-            .take(24)
+        // OpenSubtitles v3 (and other subtitle plugins): Latin-American Spanish, Spanish, English.
+        SubtitleOrder.order(jobs.awaitAll().flatten())
     }
 
-    /** Searches Cinemeta, Anime Kitsu, third-party catalogs, and TMDB Spanish→original translation. */
+    /**
+     * SubDL through the Rust core (`subdlSearch`): local core URLs. Empty when SubDL is not
+     * available (no key) or fails — the player simply does not list it.
+     */
+    suspend fun fetchSubdl(item: MediaItem, episode: Episode?): List<ExternalSubtitle> {
+        val imdb = item.imdbId
+        if (!imdb.startsWith("tt")) return emptyList()
+        val res = runCatching {
+            RustServiceBridge.callRpc(
+                "subdlSearch",
+                buildJsonObject {
+                    put("imdbId", imdb)
+                    put("kind", if (item.isSeries) "series" else "movie")
+                    if (episode != null) {
+                        put("season", episode.season)
+                        put("episode", episode.number)
+                    }
+                },
+            )
+        }.getOrNull() ?: return emptyList()
+        return SubtitleOrder.parseSubdl(res)
+    }
+
+
+    /**
+     * Search screen results, in this order:
+     * 1. TMDB (`find:<query>` in the Rust core): Spanish titles, real posters, relevance order.
+     * 2. Anime Kitsu search (`kitsu:` ids; never in the Kids profile).
+     * 3. Cinemeta search only as a fallback when TMDB is unavailable (no key) or found nothing,
+     *    and without the poster-less entries.
+     */
     suspend fun search(
         query: String,
         plugins: List<InstalledPlugin>,
@@ -736,56 +789,65 @@ class StremioClient(
     ): List<MediaItem> = coroutineScope {
         val clean = query.trim()
         if (clean.length < 2) return@coroutineScope emptyList()
+        val enc = URLEncoder.encode(clean, "UTF-8")
 
-        // Try TMDB translation via Rust JNI (Spanish title -> original title for Cinemeta)
+        val animeDeferred = if (kidsOnly) null else async {
+            val url = "https://anime-kitsu.strem.fun/catalog/anime/kitsu-anime-trending/search=$enc.json"
+            val obj = getJson(url, ttlMs = 5 * 60_000L) ?: return@async emptyList()
+            MetaJson.arr(obj["metas"]).mapNotNull { parseMetaSummary(it, url, "Búsqueda", true) }
+        }
+        val tmdb = tmdbFind(clean)
+        val fallback = if (tmdb.isEmpty()) cinemetaSearch(clean) else emptyList()
+        val anime = animeDeferred?.await().orEmpty()
+
+        SearchResults.merge(
+            tmdb = tmdb,
+            anime = anime,
+            cinemeta = fallback,
+            kidsOnly = kidsOnly,
+            kidsApproved = kidsApprovedIds,
+            query = clean,
+        )
+    }
+
+    /** TMDB search through the Rust core; empty when unavailable (no key, offline...). */
+    private suspend fun tmdbFind(query: String): List<MediaItem> {
+        val res = runCatching {
+            RustServiceBridge.callRpc("tmdb", buildJsonObject { put("list", "find:$query") })
+        }.getOrNull() ?: return emptyList()
+        return MetaJson.arr(res["items"]).mapNotNull { el ->
+            (el as? JsonObject)?.let { SectionContent.kidsTmdbItem(it, "Búsqueda") }
+        }
+    }
+
+    /** Cinemeta movie + series search (plus the TMDB original title when it differs). */
+    private suspend fun cinemetaSearch(clean: String): List<MediaItem> = coroutineScope {
         val queries = mutableListOf(clean)
         val tmdbRes = runCatching {
             RustServiceBridge.callRpc("tmdb", buildJsonObject { put("list", "search:$clean") })
         }.getOrNull()
-        tmdbRes?.get("items")?.jsonArray?.take(2)?.forEach { el ->
+        MetaJson.arr(tmdbRes?.get("items")).take(2).forEach { el ->
             val orig = (el as? JsonObject)?.str("originalTitle").orEmpty()
             if (orig.isNotBlank() && !orig.equals(clean, ignoreCase = true) && orig !in queries) {
                 queries.add(orig)
             }
         }
-
-        val endpoints = mutableListOf<Pair<String, Boolean>>() // (url, isAnime)
-        for (q in queries.take(2)) {
+        val urls = queries.take(2).flatMap { q ->
             val enc = URLEncoder.encode(q, "UTF-8")
-            endpoints.add("https://v3-cinemeta.strem.io/catalog/movie/top/search=$enc.json" to false)
-            endpoints.add("https://v3-cinemeta.strem.io/catalog/series/top/search=$enc.json" to false)
-            if (!kidsOnly) {
-                endpoints.add("https://anime-kitsu.strem.fun/catalog/anime/kitsu-anime-trending/search=$enc.json" to true)
-            }
+            listOf(
+                "https://v3-cinemeta.strem.io/catalog/movie/top/search=$enc.json",
+                "https://v3-cinemeta.strem.io/catalog/series/top/search=$enc.json",
+            )
         }
-
-        val results = endpoints.map { (url, isAnime) ->
+        val results = urls.map { url ->
             async {
                 val obj = getJson(url, ttlMs = 5 * 60_000L) ?: return@async emptyList()
-                obj["metas"]?.jsonArray.orEmpty()
-                    .mapNotNull { parseMetaSummary(it, url, "Búsqueda", isAnime) }
+                MetaJson.arr(obj["metas"]).mapNotNull { parseMetaSummary(it, url, "Búsqueda", false) }
             }
         }.awaitAll().flatten()
 
-        val qLower = clean.lowercase(Locale.ROOT)
-        results
-            .distinctBy { it.id }
-            .let { list ->
-                if (kidsOnly) {
-                    list.filter { it.id in kidsApprovedIds || it.genres.any { g -> g.equals("Family", ignoreCase = true) } }
-                } else list
-            }
-            .sortedByDescending { item ->
-                val t = item.title.lowercase(Locale.ROOT)
-                var score = 0
-                if (t == qLower) score += 100
-                else if (t.startsWith(qLower)) score += 60
-                else if (t.contains(qLower)) score += 30
-                if (item.poster.isNotBlank()) score += 15
-                if (item.score.toDoubleOrNull()?.let { it >= 7.0 } == true) score += 10
-                score
-            }
-            .take(50)
+        // Ordered later with the other sources (SearchResults.order).
+        results.distinctBy { it.id }
     }
 
     private fun parseMetaSummary(
@@ -799,7 +861,7 @@ class StremioClient(
         val title = obj.str("name").ifBlank { return null }
         val rawType = obj.str("type").ifBlank { if (forceAnime) "anime" else "movie" }
         val isAnime = forceAnime || rawType == "anime" || rawId.startsWith("kitsu:")
-        val genres = obj["genres"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+        val genres = MetaJson.strings(obj["genres"])
         return MediaItem(
             id = if (rawId.startsWith("stremio:")) rawId else "stremio:$rawId",
             type = if (isAnime) "anime" else rawType,
@@ -829,11 +891,11 @@ class StremioClient(
         val reqHeaders = mutableMapOf<String, String>()
         (bh?.get("proxyHeaders") as? JsonObject)?.get("request")?.let { reqObj ->
             (reqObj as? JsonObject)?.forEach { (k, v) ->
-                v.jsonPrimitive.contentOrNull?.let { reqHeaders[k] = it }
+                (v as? JsonPrimitive)?.contentOrNull?.let { reqHeaders[k] = it }
             }
         }
-        val trackers = obj["sources"]?.jsonArray.orEmpty()
-            .mapNotNull { it.jsonPrimitive.contentOrNull }
+        val trackers = MetaJson.arr(obj["sources"])
+            .mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
             .filter { it.startsWith("tracker:") }
             .map { it.removePrefix("tracker:") }
 
@@ -845,7 +907,7 @@ class StremioClient(
             title = obj.str("title").ifBlank { obj.str("description") },
             url = url,
             infoHash = hash,
-            fileIdx = obj["fileIdx"]?.jsonPrimitive?.intOrNull,
+            fileIdx = (obj["fileIdx"] as? JsonPrimitive)?.intOrNull,
             filename = filename,
             trackers = trackers,
             headers = reqHeaders,
@@ -896,10 +958,10 @@ class StremioClient(
                 put("timeoutMs", 12000)
             },
         )
-        val text = resp["text"]?.jsonPrimitive?.contentOrNull
-        val status = resp["status"]?.jsonPrimitive?.contentOrNull
+        val text = (resp["text"] as? JsonPrimitive)?.contentOrNull
+        val status = (resp["status"] as? JsonPrimitive)?.contentOrNull
         if (text.isNullOrBlank()) {
-            lastRustFetchError = resp["error"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+            lastRustFetchError = (resp["error"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
                 ?: "HTTP ${status ?: "?"}"
             android.util.Log.w("OpenTV", "pluginFetch $url failed: $lastRustFetchError ($resp)")
             return null
@@ -923,5 +985,5 @@ class StremioClient(
     }
 
     private fun JsonObject.str(key: String): String =
-        this[key]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+        (this[key] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
 }

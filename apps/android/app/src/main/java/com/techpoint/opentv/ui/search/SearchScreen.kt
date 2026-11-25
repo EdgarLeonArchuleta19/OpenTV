@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,7 +67,6 @@ import com.techpoint.opentv.ui.components.OpenTvRoundIconButton
 import com.techpoint.opentv.ui.components.PosterCard
 import com.techpoint.opentv.ui.theme.LocalOpenTvUi
 import com.techpoint.opentv.ui.theme.OpenTvColors
-import kotlinx.coroutines.delay
 
 /**
  * Exact 1:1 visual replica of OpenTV v1 Search (`docs/screenshots/buscador.jpg`):
@@ -85,21 +86,40 @@ fun SearchScreen(
     onBack: () -> Unit,
 ) {
     val ui = LocalOpenTvUi.current
+    val keyboard = LocalSoftwareKeyboardController.current
     var query by rememberSaveable { mutableStateOf("") }
-    var filter by remember { mutableStateOf("all") }
+    // What was last searched: the search runs only on "Buscar" (or a recent search), never
+    // while typing.
+    var submitted by rememberSaveable { mutableStateOf("") }
+    var searchNonce by remember { mutableIntStateOf(0) }
+    var filter by rememberSaveable { mutableStateOf("all") }
     var listMode by remember { mutableStateOf(false) }
     var results by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
 
-    LaunchedEffect(query) {
-        val clean = query.trim()
+    fun submit(text: String) {
+        val clean = text.trim()
+        if (clean.length < 2) return
+        query = clean
+        submitted = clean
+        searchNonce++
+        keyboard?.hide()
+        onAddRecent(clean)
+    }
+
+    fun changeQuery(text: String) {
+        query = text
+        if (text.isBlank()) submitted = ""
+    }
+
+    LaunchedEffect(submitted, searchNonce, kidsOnly) {
+        val clean = submitted
         if (clean.length < 2) {
             results = emptyList()
             loading = false
             return@LaunchedEffect
         }
-        // v1 TV keyboard debounce.
-        delay(450L)
+        results = emptyList()
         loading = true
         results = stremio.search(clean, plugins, kidsOnly = kidsOnly)
         loading = false
@@ -117,14 +137,15 @@ fun SearchScreen(
     if (ui.isTv) {
         SearchTvLayout(
             query = query,
-            onQueryChange = { query = it },
+            submittedQuery = submitted,
+            onQueryChange = ::changeQuery,
+            onSubmit = ::submit,
             results = filtered,
             loading = loading,
             filter = filter,
             onFilterChange = { filter = it },
             kidsOnly = kidsOnly,
             recentSearches = recentSearches,
-            onAddRecent = onAddRecent,
             onClearRecent = onClearRecent,
             onOpenDetail = onOpenDetail,
         )
@@ -165,12 +186,12 @@ fun SearchScreen(
                     }
                     BasicTextField(
                         value = query,
-                        onValueChange = { query = it },
+                        onValueChange = ::changeQuery,
                         singleLine = true,
-                        textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
+                        textStyle = TextStyle(color = OpenTvColors.Content, fontSize = 15.sp),
                         cursorBrush = SolidColor(ui.accent.color),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { onAddRecent(query) }),
+                        keyboardActions = KeyboardActions(onSearch = { submit(query) }),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -179,24 +200,22 @@ fun SearchScreen(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = "Borrar",
                         tint = OpenTvColors.TextSecondary,
-                        modifier = Modifier.size(19.dp).clickable { query = "" },
+                        modifier = Modifier.size(19.dp).clickable { changeQuery("") },
                     )
                 }
             }
-            if (ui.isTv) {
-                OpenTvPrimaryButton(
-                    text = "Buscar",
-                    icon = Icons.Rounded.Search,
-                    onClick = { onAddRecent(query) },
-                )
-            }
+            OpenTvPrimaryButton(
+                text = "Buscar",
+                icon = Icons.Rounded.Search,
+                onClick = { submit(query) },
+            )
         }
 
         Spacer(Modifier.height(14.dp))
         HorizontalDivider(color = OpenTvColors.SubtleDivider)
         Spacer(Modifier.height(12.dp))
 
-        if (query.trim().length < 2) {
+        if (submitted.length < 2) {
             if (recentSearches.isNotEmpty()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -214,13 +233,13 @@ fun SearchScreen(
                 Spacer(Modifier.height(10.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(recentSearches) { rec ->
-                        OpenTvChip(label = rec, selected = false, onClick = { query = rec })
+                        OpenTvChip(label = rec, selected = false, onClick = { submit(rec) })
                     }
                 }
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "Escribe un título en español o en su idioma original",
+                        text = "Escribe un título en español o en su idioma original y pulsa Buscar",
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
@@ -272,7 +291,7 @@ fun SearchScreen(
                 }
             } else if (filtered.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Sin resultados para \"$query\"", style = MaterialTheme.typography.bodyLarge)
+                    Text("Sin resultados para \"$submitted\"", style = MaterialTheme.typography.bodyLarge)
                 }
             } else if (!listMode) {
                 LazyVerticalGrid(
@@ -288,7 +307,6 @@ fun SearchScreen(
                             showCaptionBelow = true,
                             showMetaBelow = true,
                             onClick = {
-                                onAddRecent(query)
                                 onOpenDetail(item)
                             },
                         )
@@ -310,7 +328,6 @@ fun SearchScreen(
                                 .background(OpenTvColors.GlassFill)
                                 .border(1.dp, OpenTvColors.GlassBorder, RoundedCornerShape(14.dp))
                                 .clickable {
-                                    onAddRecent(query)
                                     onOpenDetail(item)
                                 }
                                 .padding(10.dp),

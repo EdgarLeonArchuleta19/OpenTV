@@ -38,6 +38,7 @@ pub fn build_router(state: ServiceState) -> Router {
         .route("/media/{token}/{*rest}", any(handle_media))
         .route("/hls/{token}/{encoded}", any(handle_hls_child))
         .route("/sub/{token}", get(handle_subtitle))
+        .route("/subdl/{token}", get(handle_subdl))
         .route("/t/{token}/{*rest}", any(handle_torrent_stream))
         .route("/d/{id}/{*rest}", any(handle_download_stream))
         .route("/local/{token}/{*rest}", any(handle_local_stream))
@@ -184,6 +185,10 @@ async fn handle_subtitle(
     Path(token): Path<String>,
 ) -> Response {
     state.proxy.serve_subtitle(&token).await
+}
+
+async fn handle_subdl(State(state): State<ServiceState>, Path(token): Path<String>) -> Response {
+    state.subdl.serve(&token).await
 }
 
 async fn handle_torrent_stream(
@@ -412,6 +417,7 @@ pub async fn dispatch(state: &ServiceState, method: &str, params: &Value) -> Val
                 "downloads": true,
                 "nativePlayer": state.mpv.available(),
                 "tmdbAvailable": state.tmdb.available(),
+                "subdlAvailable": state.subdl.available(),
                 "storage": {
                     "free": space.free,
                     "total": space.total
@@ -495,6 +501,19 @@ pub async fn dispatch(state: &ServiceState, method: &str, params: &Value) -> Val
             }
         }
 
+        "epgSupplement" => {
+            let name = params["name"].as_str().unwrap_or("").trim();
+            let country = params["country"].as_str().unwrap_or("mx");
+            if name.is_empty() {
+                return fail("name requerido");
+            }
+            match state.epg.supplement(name, country).await {
+                Ok(Some(found)) => ok(json!(found)),
+                Ok(None) => ok(json!({})),
+                Err(e) => fail(&e),
+            }
+        }
+
         "resolveLive" => {
             let stream_url = params["streamUrl"].as_str().unwrap_or("");
             if stream_url.is_empty() {
@@ -565,6 +584,10 @@ pub async fn dispatch(state: &ServiceState, method: &str, params: &Value) -> Val
             let subs = state.subtitlecat.search(params).await;
             ok(json!({ "subtitles": subs }))
         }
+
+        "subdlSearch" => ok(state.subdl.search(params, &base_url).await),
+        // Intro / recap / credits timestamps (AniSkip, IntroDB, TheIntroDB) for one episode.
+        "skipSegments" => ok(crate::skip_times::lookup(&state.dns, params).await),
 
         "resolveShortCode" => {
             let code = params["code"].as_str().unwrap_or("");

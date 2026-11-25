@@ -331,7 +331,10 @@ class AppStore(context: Context) {
         val base = PluginCatalogs.stremioBaseFromUrl(url)
         val from = s.plugins.indexOfFirst { PluginCatalogs.stremioBaseFromUrl(it.url) == base }
         if (from < 0) return@mutate s
-        val to = (from + delta).coerceIn(0, s.plugins.size - 1)
+        // Bundled plugins are hidden: moves step over them, among the user's plugins only.
+        val visible = s.plugins.indices.filter { !s.plugins[it].builtin || it == from }
+        val pos = visible.indexOf(from)
+        val to = visible.getOrNull((pos + delta).coerceIn(0, visible.size - 1)) ?: return@mutate s
         if (to == from) return@mutate s
         val list = s.plugins.toMutableList()
         val item = list.removeAt(from)

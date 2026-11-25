@@ -17,7 +17,7 @@ OpenTV v2 comparte un solo núcleo en **Rust** (`core/crates/opentv-core`) y ent
 - El aparato de referencia es un **Fire TV Stick de 1 GB** (`armeabi-v7a` / Fire OS 6–8, `minSdk 23`).
 - En `apps/android/` la UI es **100 % nativa en Jetpack Compose** (cero WebView para UI), con `RGB_565` en Coil 3, `SurfaceView` directo en Media3, sin `blur` costoso en TV y `callRpcNative` por JNI directo.
 - En `apps/desktop/frontend/` la UI de PC usa **React 19 + TypeScript estricto + Vite 6 + Tailwind CSS v4 + Zustand**, compilando a `apps/desktop/dist-ui/` con CSP estricta en producción (`strictCspPlugin`) y división de chunks (`vendor-react`, `vendor-icons`, `vendor-hls`).
-- Ambas interfaces (PC Tauri y Android/TV Kotlin) mantienen **paridad visual 1:1** con el diseño oscuro monocromo `#0E0E11` de OpenTV, los 6 acentos, texto +12 % y margen TV.
+- Ambas interfaces (PC Tauri y Android/TV Kotlin) mantienen **paridad visual 1:1**: tema oscuro monocromo `#0E0E11` por defecto y tema claro (tokens CSS `--ot-*` en PC, `OpenTvPalette` en Android), los 6 acentos, texto +12 % global y margen TV. El reproductor siempre es oscuro.
 
 ## Comandos
 
@@ -37,9 +37,11 @@ npm run test:android       # Pruebas JUnit Kotlin
 ## Reglas clave
 
 - **Textos visibles en español** (siempre decir **"plugin"**, nunca "addon"; mencionar "Stremio" solo como *"compatible con Stremio"*). Comentarios en inglés.
-- **3 plugins incluidos e inborrables:** Cinemeta, Anime Kitsu y OpenSubtitles v3 (`Incluido`).
-- **Secciones:** `anime` solo va a Anime (Kitsu: la primera fila es la temporada actual de la API de Kitsu, ids `kitsu:`; nunca se mezcla anime en Películas/Series/Kids). `Kids` (y el perfil infantil) solo muestra títulos aptos para todo público vía TMDB en el núcleo Rust (`tmdb.rs`): películas con clasificación de México `AA`/`A` (respaldo EE. UU. `G`/`PG` + género Familia, nunca `PG-13`/`B`), series con género Kids (10762) sin animación para adultos; sin clave TMDB, respaldo al género `Family` de Cinemeta (nunca `Animation` general). El hero de Kids y Anime rota una vez al día (`sectionContent.ts` / `SectionContent.kt`).
+- **Catálogo:** TMDB (vía el núcleo: listas `cat:*`, `anime:*`, `kids-*`, `find:`, `detail:`, `episodes:`) es la fuente principal de filas, fichas, episodios y buscador. Cinemeta y Kitsu son solo respaldo interno.
+- **3 plugins de sistema, ocultos e inborrables:** Cinemeta, Anime Kitsu y OpenSubtitles v3. No se muestran en Plugins pero siguen funcionando (respaldo de catálogo, ids `kitsu:` antiguos y subtítulos).
+- **Subtítulos:** incrustados → OpenSubtitles v3 → SubDL (solo con `config/subdl.json`, secreto) → SubtitleCat; latino primero.
+- **Secciones:** `anime` solo va a Anime (TMDB: animación japonesa; la primera fila es la temporada actual; las filas `cat:*` excluyen el anime; nunca se mezcla anime en Películas/Series/Kids). `Kids` (y el perfil infantil) solo muestra títulos aptos para todo público vía TMDB en el núcleo Rust (`tmdb.rs`): películas con clasificación de México `AA`/`A` (respaldo EE. UU. `G`/`PG` + género Familia, nunca `PG-13`/`B`), series con género Kids (10762) sin animación para adultos; sin clave TMDB, respaldo al género `Family` de Cinemeta (nunca `Animation` general). El hero de Kids y Anime rota una vez al día (`sectionContent.ts` / `SectionContent.kt`).
 - **Seguridad:** el servicio Rust escucha solo en `127.0.0.1` con token por sesión. Los plugins JS (`kino-plugin.json`) corren siempre aislados (`public/plugin-sandbox.html` con `sandbox="allow-scripts"` sin `allow-same-origin` en PC; WebView bajo demanda sin red propia en Android) y pasan por `NetGuard` en Rust.
-- **Secretos:** `config/tmdb.json`, `apps/android/keystore.properties` y `*.jks` están ignorados por git; nunca subirlos ni copiarlos.
-- **Pruebas en TV:** usar un emulador de Android TV (AVD 1080p con poca RAM). Nunca instalar ni controlar builds en el Fire TV real del dueño.
+- **Secretos:** `config/tmdb.json`, `config/subdl.json`, `apps/android/keystore.properties` y `*.jks` están ignorados por git; nunca subirlos ni copiarlos.
+- **Pruebas en TV:** usar un emulador de Android TV (AVD 1080p con poca RAM). El Fire TV real del dueño solo se usa (instalar o controlar) cuando el dueño lo autoriza para esa tarea; sin borrar datos y desconectando al terminar.
 - **Git:** no hacer `commit` ni `push` sin petición explícita del dueño. La v1 vive en la rama `legacy` (etiqueta `v1-legacy`).

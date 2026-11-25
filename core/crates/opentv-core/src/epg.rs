@@ -51,6 +51,9 @@ pub struct EpgStore {
     dns: Dnsx,
     guides: Arc<RwLock<HashMap<String, Arc<GuideEntry>>>>,
     schedules: Arc<RwLock<HashMap<String, ScheduleEntry>>>,
+    supplements: Arc<RwLock<HashMap<String, Arc<SupplementGuide>>>>,
+    supplement_answers: Arc<RwLock<HashMap<String, SupplementAnswer>>>,
+    supplement_load: Arc<tokio::sync::Mutex<()>>,
 }
 
 fn now_ms() -> i64 {
@@ -168,13 +171,71 @@ pub fn parse_xmltv_bytes(
     only_channel: Option<&str>,
     cap: usize,
 ) -> HashMap<String, Vec<EpgProgramme>> {
+    parse_xmltv_reader(xmltv_reader(raw), now, only_channel, cap, EPG_AHEAD_MS)
+}
+
+/// Reads only the `<channel id><display-name>` pairs of an XMLTV stream (first name per id).
+pub fn parse_xmltv_channels(raw: &[u8]) -> Vec<(String, String)> {
+    let mut xml = Reader::from_reader(xmltv_reader(raw));
+    xml.config_mut().trim_text(false);
+    xml.config_mut().check_end_names = false;
+    let mut out: Vec<(String, String)> = Vec::new();
+    let mut buf = Vec::with_capacity(4096);
+    let mut cur_id: Option<String> = None;
+    let mut name = String::new();
+    let mut in_name = false;
+    loop {
+        buf.clear();
+        match xml.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) => match e.name().as_ref() {
+                b"channel" => {
+                    cur_id = e
+                        .attributes()
+                        .flatten()
+                        .find(|a| a.key.as_ref() == b"id")
+                        .and_then(|a| a.unescape_value().ok().map(|v| v.into_owned()));
+                    name.clear();
+                }
+                b"display-name" if cur_id.is_some() && name.is_empty() => in_name = true,
+                _ => {}
+            },
+            // Display names are short; a runaway text node must not grow without bound.
+            Ok(Event::Text(ref e)) if in_name && name.len() < CHANNEL_NAME_MAX => {
+                if let Ok(t) = e.unescape() {
+                    name.push_str(&t);
+                }
+            }
+            Ok(Event::CData(ref e)) if in_name && name.len() < CHANNEL_NAME_MAX => {
+                name.push_str(&String::from_utf8_lossy(e.as_ref()));
+            }
+            Ok(Event::End(ref e)) => match e.name().as_ref() {
+                b"display-name" => in_name = false,
+                b"channel" => {
+                    in_name = false;
+                    if let Some(id) = cur_id.take() {
+                        let n = clip(&name, CHANNEL_NAME_MAX);
+                        if !id.is_empty() && !n.is_empty() && out.len() < EPG_MAX_IDS * 4 {
+                            out.push((id, n));
+                        }
+                    }
+                }
+                _ => {}
+            },
+            Ok(Event::Eof) | Err(_) => break,
+            _ => {}
+        }
+    }
+    out
+}
+
+fn xmltv_reader(raw: &[u8]) -> BufReader<Box<dyn Read + '_>> {
     let is_gzip = raw.len() >= 2 && raw[0] == 0x1f && raw[1] == 0x8b;
     let reader: Box<dyn Read> = if is_gzip {
         Box::new(GzDecoder::new(raw))
     } else {
         Box::new(raw)
     };
-    parse_xmltv_reader(BufReader::new(reader), now, only_channel, cap)
+    BufReader::new(reader)
 }
 
 fn parse_xmltv_reader<R: std::io::BufRead>(
@@ -182,12 +243,13 @@ fn parse_xmltv_reader<R: std::io::BufRead>(
     now: i64,
     only_channel: Option<&str>,
     cap: usize,
+    ahead_ms: i64,
 ) -> HashMap<String, Vec<EpgProgramme>> {
     let mut xml = Reader::from_reader(input);
     xml.config_mut().trim_text(false);
     xml.config_mut().check_end_names = false;
 
-    let until = now + EPG_AHEAD_MS;
+    let until = now + ahead_ms;
     let mut by_id: HashMap<String, Vec<EpgProgramme>> = HashMap::new();
     let mut buf = Vec::with_capacity(4096);
 
@@ -300,13 +362,428 @@ fn parse_xmltv_reader<R: std::io::BufRead>(
     by_id
 }
 
+// ---------------------------------------------------------------------------
+// Supplementary guide (epgshare01): used when a channel's own EPG is missing or
+// placeholder-only (e.g. Pluto TV "Azteca UNO -1 hora" whose guide repeats its name).
+// ---------------------------------------------------------------------------
+
+const SUPPLEMENT_BASE: &str = "https://epgshare01.online/epgshare01/epg_ripper_";
+const SUPPLEMENT_MAX_GUIDES: usize = 3;
+const SUPPLEMENT_ANSWER_CACHE: usize = 64;
+const SUPPLEMENT_ANSWER_TTL: Duration = Duration::from_secs(60 * 60);
+const SUPPLEMENT_MAX_TRIES: usize = 4;
+const SUPPLEMENT_MAX_OFFSET_H: i64 = 12;
+const HOUR_MS: i64 = 3_600_000;
+/// Longest channel name considered when matching (guide entries and `epgSupplement` input).
+const CHANNEL_NAME_MAX: usize = 160;
+
+/// Guide file on epgshare01 for an ISO country code (only files known to exist).
+pub fn supplement_file(country: &str) -> Option<&'static str> {
+    let c = fold_text(country.trim());
+    Some(match c.as_str() {
+        "" | "mx" | "mex" | "mexico" => "MX1",
+        "ar" | "argentina" => "AR1",
+        "es" | "espana" => "ES1",
+        "co" | "colombia" => "CO1",
+        "cl" | "chile" => "CL1",
+        "pe" | "peru" => "PE1",
+        "ec" | "ecuador" => "EC1",
+        "uy" | "uruguay" => "UY1",
+        "do" => "DO1",
+        "cr" => "CR1",
+        "pa" => "PA1",
+        "sv" => "SV1",
+        "br" | "brasil" | "brazil" => "BR1",
+        _ => return None,
+    })
+}
+
+/// Lowercases and strips Latin accents ("Telefórmula" -> "teleformula").
+pub fn fold_text(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars().flat_map(|c| c.to_lowercase()) {
+        out.push(match ch {
+            'á' | 'à' | 'ä' | 'â' | 'ã' | 'å' => 'a',
+            'é' | 'è' | 'ë' | 'ê' => 'e',
+            'í' | 'ì' | 'ï' | 'î' => 'i',
+            'ó' | 'ò' | 'ö' | 'ô' | 'õ' => 'o',
+            'ú' | 'ù' | 'ü' | 'û' => 'u',
+            'ñ' => 'n',
+            'ç' => 'c',
+            other => other,
+        });
+    }
+    out
+}
+
+const NAME_STOPWORDS: &[&str] = &[
+    "canal", "channel", "tv", "television", "hd", "fhd", "uhd", "sd", "4k", "mx", "de", "del", "la",
+    "las", "el", "los", "the", "senal", "en", "vivo", "feed", "east", "este",
+];
+const NAME_REGIONS: &[&str] = &[
+    "mexico", "latinoamerica", "latam", "latino", "latina", "internacional", "international",
+    "espana", "argentina", "colombia", "chile", "peru", "usa", "us",
+];
+const HOUR_WORDS: &[&str] = &["h", "hr", "hrs", "hora", "horas", "hour", "hours"];
+const WEST_WORDS: &[&str] = &["west", "oeste", "pacific", "pacifico"];
+
+/// Normalized channel name: sorted significant tokens plus the feed delay it implies.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ChannelNameKey {
+    /// Sorted tokens joined by a space ("azteca uno").
+    pub key: String,
+    /// Keys taken from parenthesised aliases ("Canal 2 (Las Estrellas)" -> "estrellas").
+    pub alt: Vec<String>,
+    /// Hours this feed airs after the main feed ("-1 hora" -> 1, "+1" -> 1, "West" -> 3).
+    pub offset_h: i64,
+}
+
+fn tokenize(folded: &str) -> Vec<String> {
+    let mut raw: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    for ch in folded.chars() {
+        if ch.is_alphanumeric() {
+            cur.push(ch);
+        } else {
+            if !cur.is_empty() {
+                raw.push(std::mem::take(&mut cur));
+            }
+            if ch == '+' || ch == '-' {
+                raw.push(ch.to_string());
+            }
+        }
+    }
+    if !cur.is_empty() {
+        raw.push(cur);
+    }
+    raw
+}
+
+/// Returns (significant tokens, feed offset in hours).
+fn name_tokens(text: &str) -> (Vec<String>, i64) {
+    let raw = tokenize(&fold_text(text));
+    let mut tokens: Vec<String> = Vec::new();
+    let mut offset = 0i64;
+    let mut i = 0;
+    while i < raw.len() {
+        let t = raw[i].as_str();
+        if t == "+" || t == "-" {
+            if let Some(n) = raw.get(i + 1).and_then(|n| n.parse::<i64>().ok()) {
+                if (1..=SUPPLEMENT_MAX_OFFSET_H).contains(&n) && raw[i + 1].len() <= 2 {
+                    offset = n;
+                    i += 2;
+                    if raw.get(i).map(|w| HOUR_WORDS.contains(&w.as_str())).unwrap_or(false) {
+                        i += 1;
+                    }
+                    continue;
+                }
+            }
+            i += 1;
+            continue;
+        }
+        if WEST_WORDS.contains(&t) {
+            if offset == 0 {
+                offset = 3;
+            }
+        } else if !NAME_STOPWORDS.contains(&t) {
+            tokens.push(t.to_string());
+        }
+        i += 1;
+    }
+    // Region words only qualify a name ("Canal Sony México"); drop them unless nothing else is left.
+    if tokens.iter().any(|t| !NAME_REGIONS.contains(&t.as_str())) {
+        tokens.retain(|t| !NAME_REGIONS.contains(&t.as_str()));
+    }
+    (tokens, offset)
+}
+
+fn join_sorted(mut tokens: Vec<String>) -> String {
+    tokens.sort();
+    tokens.dedup();
+    tokens.join(" ")
+}
+
+/// Builds the matching key of a channel display name.
+pub fn channel_name_key(name: &str) -> ChannelNameKey {
+    let mut main = String::with_capacity(name.len());
+    let mut parens: Vec<String> = Vec::new();
+    let mut depth = 0usize;
+    let mut cur = String::new();
+    for ch in name.chars() {
+        match ch {
+            '(' | '[' => {
+                depth += 1;
+                if depth == 1 {
+                    cur.clear();
+                }
+                main.push(' ');
+            }
+            ')' | ']' if depth > 0 => {
+                depth -= 1;
+                if depth == 0 {
+                    parens.push(std::mem::take(&mut cur));
+                }
+            }
+            _ if depth > 0 => cur.push(ch),
+            _ => main.push(ch),
+        }
+    }
+    let (tokens, mut offset_h) = name_tokens(&main);
+    let mut alt: Vec<String> = Vec::new();
+    for p in parens {
+        let (pt, p_off) = name_tokens(&p);
+        if offset_h == 0 && p_off > 0 {
+            offset_h = p_off;
+        }
+        if pt.is_empty() || pt.iter().all(|t| NAME_REGIONS.contains(&t.as_str())) {
+            continue;
+        }
+        let k = join_sorted(pt);
+        if !alt.contains(&k) {
+            alt.push(k);
+        }
+    }
+    let mut key = join_sorted(tokens);
+    if key.is_empty() && !alt.is_empty() {
+        key = alt.remove(0);
+    }
+    ChannelNameKey { key, alt, offset_h }
+}
+
+#[derive(Clone, Debug)]
+struct SupplementChannel {
+    id: String,
+    name: ChannelNameKey,
+}
+
+impl SupplementChannel {
+    fn keys(&self) -> impl Iterator<Item = &String> {
+        std::iter::once(&self.name.key).chain(self.name.alt.iter())
+    }
+}
+
+/// "One name is the other plus a single extra word, and the shorter one has 2+ words with a
+/// non-numeric one" (e.g. "golden premier" vs "golden premier 2" is NOT strong: numbers differ).
+fn strong_overlap(a: &str, b: &str) -> bool {
+    let ta: Vec<&str> = a.split(' ').filter(|s| !s.is_empty()).collect();
+    let tb: Vec<&str> = b.split(' ').filter(|s| !s.is_empty()).collect();
+    let (small, big) = if ta.len() <= tb.len() { (ta, tb) } else { (tb, ta) };
+    if small.len() < 2 || big.len() != small.len() + 1 {
+        return false;
+    }
+    if !small.iter().all(|t| big.contains(t)) {
+        return false;
+    }
+    if !small.iter().any(|t| t.chars().any(|c| c.is_alphabetic())) {
+        return false;
+    }
+    // The extra word must not be a number: "fox sports" vs "fox sports 2" are different channels.
+    let extra = big.iter().find(|t| !small.contains(t)).copied().unwrap_or("");
+    !extra.chars().all(|c| c.is_ascii_digit())
+}
+
+/// Ordered candidates `(channel index, shift hours)` for a requested name; empty when no
+/// confident match exists. A dedicated delayed feed in the guide wins over shifting the main one.
+fn supplement_candidates(channels: &[SupplementChannel], want: &ChannelNameKey) -> Vec<(usize, i64)> {
+    if want.key.is_empty() {
+        return Vec::new();
+    }
+    let with_offsets = |idxs: Vec<usize>| -> Vec<(usize, i64)> {
+        let mut c: Vec<(usize, i64)> = idxs
+            .into_iter()
+            .filter(|&i| channels[i].name.offset_h <= want.offset_h)
+            .map(|i| (i, want.offset_h - channels[i].name.offset_h))
+            .collect();
+        c.sort_by_key(|&(i, shift)| (shift, i));
+        c.truncate(SUPPLEMENT_MAX_TRIES);
+        c
+    };
+
+    let exact: Vec<usize> = channels
+        .iter()
+        .enumerate()
+        .filter(|(_, ch)| ch.keys().any(|k| *k == want.key))
+        .map(|(i, _)| i)
+        .collect();
+    if !exact.is_empty() {
+        return with_offsets(exact);
+    }
+
+    let mut strong_key: Option<&str> = None;
+    let mut strong: Vec<usize> = Vec::new();
+    for (i, ch) in channels.iter().enumerate() {
+        for k in ch.keys() {
+            if strong_overlap(&want.key, k) {
+                match strong_key {
+                    None => strong_key = Some(k.as_str()),
+                    Some(prev) if prev == k.as_str() => {}
+                    // Two different names fit: ambiguous, never guess.
+                    Some(_) => return Vec::new(),
+                }
+                strong.push(i);
+                break;
+            }
+        }
+    }
+    with_offsets(strong)
+}
+
+/// Shifts programmes `shift_h` hours later and keeps those not yet finished.
+fn shift_programmes(list: Vec<EpgProgramme>, shift_h: i64, now: i64) -> Vec<EpgProgramme> {
+    let d = shift_h * HOUR_MS;
+    list.into_iter()
+        .map(|mut p| {
+            p.s += d;
+            p.e += d;
+            p
+        })
+        .filter(|p| p.e > now)
+        .collect()
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EpgSupplement {
+    pub id: String,
+    pub offset_hours: i64,
+    pub programmes: Vec<EpgProgramme>,
+}
+
+struct SupplementGuide {
+    at: Instant,
+    failed: Option<String>,
+    raw: Arc<Vec<u8>>,
+    channels: Arc<Vec<SupplementChannel>>,
+}
+
+struct SupplementAnswer {
+    at: Instant,
+    value: Option<EpgSupplement>,
+}
+
 impl EpgStore {
     pub fn new(dns: Dnsx) -> Self {
         Self {
             dns,
             guides: Arc::new(RwLock::new(HashMap::new())),
             schedules: Arc::new(RwLock::new(HashMap::new())),
+            supplements: Arc::new(RwLock::new(HashMap::new())),
+            supplement_answers: Arc::new(RwLock::new(HashMap::new())),
+            supplement_load: Arc::new(tokio::sync::Mutex::new(())),
         }
+    }
+
+    async fn load_supplement_guide(&self, file: &str) -> Result<Arc<SupplementGuide>, String> {
+        let fresh = |g: &SupplementGuide| {
+            let ttl = if g.failed.is_some() { EPG_FAIL_TTL } else { EPG_TTL };
+            g.at.elapsed() < ttl
+        };
+        if let Some(g) = self.supplements.read().await.get(file) {
+            if fresh(g) {
+                return Ok(g.clone());
+            }
+        }
+        // One download at a time: the UI may ask for several placeholder channels at once.
+        let _lock = self.supplement_load.lock().await;
+        if let Some(g) = self.supplements.read().await.get(file) {
+            if fresh(g) {
+                return Ok(g.clone());
+            }
+        }
+        let url = format!("{SUPPLEMENT_BASE}{file}.xml.gz");
+        let entry = match self.download_bytes(&url, false).await {
+            Ok(raw) => {
+                let raw = Arc::new(raw);
+                let raw_c = raw.clone();
+                let channels = tokio::task::spawn_blocking(move || {
+                    parse_xmltv_channels(&raw_c)
+                        .into_iter()
+                        .map(|(id, name)| SupplementChannel { name: channel_name_key(&name), id })
+                        .collect::<Vec<_>>()
+                })
+                .await
+                .map_err(|e| format!("EPG task error: {e}"))?;
+                SupplementGuide {
+                    at: Instant::now(),
+                    failed: None,
+                    raw,
+                    channels: Arc::new(channels),
+                }
+            }
+            Err(err) => SupplementGuide {
+                at: Instant::now(),
+                failed: Some(err),
+                raw: Arc::new(Vec::new()),
+                channels: Arc::new(Vec::new()),
+            },
+        };
+        let entry = Arc::new(entry);
+        let mut map = self.supplements.write().await;
+        if map.len() >= SUPPLEMENT_MAX_GUIDES && !map.contains_key(file) {
+            if let Some(oldest) = map.iter().min_by_key(|(_, v)| v.at).map(|(k, _)| k.clone()) {
+                map.remove(&oldest);
+            }
+        }
+        map.insert(file.to_string(), entry.clone());
+        Ok(entry)
+    }
+
+    /// Programmes for `name` from the public epgshare01 guide of `country`, or `None`.
+    pub async fn supplement(&self, name: &str, country: &str) -> Result<Option<EpgSupplement>, String> {
+        let name: String = name.chars().take(CHANNEL_NAME_MAX).collect();
+        let want = channel_name_key(&name);
+        let file = match supplement_file(country) {
+            Some(f) => f,
+            None => return Ok(None),
+        };
+        if want.key.is_empty() {
+            return Ok(None);
+        }
+        let cache_key = format!("{file}|{}|{}", want.key, want.offset_h);
+        let now = now_ms();
+        if let Some(hit) = self.supplement_answers.read().await.get(&cache_key) {
+            if hit.at.elapsed() < SUPPLEMENT_ANSWER_TTL {
+                return Ok(hit.value.clone().map(|mut v| {
+                    v.programmes.retain(|p| p.e > now);
+                    v
+                }));
+            }
+        }
+
+        let guide = self.load_supplement_guide(file).await?;
+        if let Some(err) = &guide.failed {
+            return Err(err.clone());
+        }
+        let candidates = supplement_candidates(&guide.channels, &want);
+        let mut value: Option<EpgSupplement> = None;
+        for (idx, shift) in candidates {
+            let id = guide.channels[idx].id.clone();
+            let raw = guide.raw.clone();
+            let id_c = id.clone();
+            // Parse the original-time window that lands on [now, now + 12h] after the shift.
+            let parse_now = now - shift * HOUR_MS;
+            let list = tokio::task::spawn_blocking(move || {
+                parse_xmltv_reader(xmltv_reader(&raw), parse_now, Some(&id_c), EPG_SCHEDULE_MAX, EPG_AHEAD_MS)
+                    .remove(&id_c)
+                    .unwrap_or_default()
+            })
+            .await
+            .map_err(|e| format!("EPG supplement error: {e}"))?;
+            let programmes = shift_programmes(list, shift, now);
+            if !programmes.is_empty() {
+                value = Some(EpgSupplement { id, offset_hours: shift, programmes });
+                break;
+            }
+        }
+
+        let mut answers = self.supplement_answers.write().await;
+        if answers.len() >= SUPPLEMENT_ANSWER_CACHE {
+            if let Some(oldest) = answers.iter().min_by_key(|(_, v)| v.at).map(|(k, _)| k.clone()) {
+                answers.remove(&oldest);
+            }
+        }
+        answers.insert(cache_key, SupplementAnswer { at: Instant::now(), value: value.clone() });
+        Ok(value)
     }
 
     async fn download_bytes(&self, url: &str, allow_lan: bool) -> Result<Vec<u8>, String> {
@@ -503,5 +980,110 @@ mod tests {
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].t, "Noticiero & Clima");
         assert_eq!(list[0].d.as_deref(), Some("Resumen del día"));
+    }
+
+    const SUPPLEMENT_FIXTURE: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+    <tv>
+      <channel id="Canal.Azteca.Uno.mx"><display-name lang="es">Canal Azteca Uno</display-name></channel>
+      <channel id="Canal.Azteca.Uno.-1.Hora.mx"><display-name lang="es">Canal Azteca Uno -1 Hora</display-name></channel>
+      <channel id="Canal.Azteca.Uno.-2.Horas.mx"><display-name lang="es">Canal Azteca Uno -2 Horas</display-name></channel>
+      <channel id="Azteca.7.mx"><display-name>Azteca 7 (XHLAT) Nuevo Laredo MX</display-name></channel>
+      <channel id="Azteca.mx"><display-name>Azteca (XHOR)</display-name></channel>
+      <channel id="Canal.TV.Azteca.Corazon.mx"><display-name>Canal TV Azteca Corazón</display-name></channel>
+      <channel id="Canal.Telefórmula.mx"><display-name>Canal Telefórmula</display-name></channel>
+      <channel id="Canal.Fox.Sports.mx"><display-name>Canal Fox Sports (México)</display-name></channel>
+      <channel id="Canal.Fox.Sports.2.mx"><display-name>Canal Fox Sports 2 (México)</display-name></channel>
+      <programme start="20261124180000 -0600" stop="20261124183000 -0600" channel="Canal.Azteca.Uno.mx"><title>Venga la alegría</title></programme>
+      <programme start="20261124183000 -0600" stop="20261124203000 -0600" channel="Canal.Azteca.Uno.mx"><title>Exatlón México</title><desc>Competencia</desc></programme>
+      <programme start="20261124203000 -0600" stop="20261124220000 -0600" channel="Canal.Azteca.Uno.mx"><title>La granja VIP</title></programme>
+      <programme start="20261124180000 -0600" stop="20261124200000 -0600" channel="Canal.Azteca.Uno.-2.Horas.mx"><title>Dedicado -2</title></programme>
+    </tv>"#;
+
+    fn fixture_channels() -> Vec<SupplementChannel> {
+        parse_xmltv_channels(SUPPLEMENT_FIXTURE.as_bytes())
+            .into_iter()
+            .map(|(id, name)| SupplementChannel { name: channel_name_key(&name), id })
+            .collect()
+    }
+
+    fn pick(name: &str) -> Vec<(String, i64)> {
+        let chans = fixture_channels();
+        supplement_candidates(&chans, &channel_name_key(name))
+            .into_iter()
+            .map(|(i, s)| (chans[i].id.clone(), s))
+            .collect()
+    }
+
+    #[test]
+    fn normalizes_channel_names_and_feed_offsets() {
+        let k = channel_name_key("Azteca UNO -1 hora");
+        assert_eq!(k.key, "azteca uno");
+        assert_eq!(k.offset_h, 1);
+        assert_eq!(channel_name_key("Canal Azteca Uno -2 Horas").offset_h, 2);
+        assert_eq!(channel_name_key("Azteca Uno +1").offset_h, 1);
+        assert_eq!(channel_name_key("Azteca Uno West").offset_h, 3);
+        assert_eq!(channel_name_key("Canal Azteca Uno HD").key, "azteca uno");
+        assert_eq!(channel_name_key("Telefórmula").key, "teleformula");
+        assert_eq!(channel_name_key("Canal Sony (México)").key, "sony");
+        let alias = channel_name_key("Canal 2 de México (Canal Las Estrellas - XEW)");
+        assert_eq!(alias.key, "2");
+        assert_eq!(alias.alt, vec!["estrellas xew".to_string()]);
+        assert_eq!(channel_name_key("Canal de las Estrellas -2 Horas - México (XEW)").offset_h, 2);
+    }
+
+    #[test]
+    fn matches_exact_names_and_prefers_dedicated_feeds() {
+        // Main feed: no shift.
+        assert_eq!(pick("Azteca Uno")[0], ("Canal.Azteca.Uno.mx".to_string(), 0));
+        // "-1 hora": dedicated -1 feed first, main feed shifted +1 h as fallback.
+        assert_eq!(
+            pick("Azteca UNO -1 hora"),
+            vec![
+                ("Canal.Azteca.Uno.-1.Hora.mx".to_string(), 0),
+                ("Canal.Azteca.Uno.mx".to_string(), 1)
+            ]
+        );
+        // "-2 horas": the dedicated -2 channel is preferred over shifting.
+        assert_eq!(pick("Azteca Uno -2 horas")[0], ("Canal.Azteca.Uno.-2.Horas.mx".to_string(), 0));
+        assert_eq!(pick("TELEFORMULA")[0].0, "Canal.Telefórmula.mx");
+        assert_eq!(pick("Azteca Corazón")[0].0, "Canal.TV.Azteca.Corazon.mx");
+        assert_eq!(pick("Fox Sports 2")[0].0, "Canal.Fox.Sports.2.mx");
+    }
+
+    #[test]
+    fn never_guesses_between_similar_channels() {
+        assert!(pick("Azteca 7").is_empty());
+        assert!(pick("Azteca Uno Noticias Extra").is_empty());
+        assert!(pick("Pluto TV Cine").is_empty());
+        assert!(pick("Fox Sports 3").is_empty());
+        assert!(pick("").is_empty());
+        // One unique strong match (one extra word) is accepted.
+        assert_eq!(pick("Fox Sports Premium")[0].0, "Canal.Fox.Sports.mx");
+        assert!(supplement_file("zz").is_none());
+        assert_eq!(supplement_file("MX"), Some("MX1"));
+        assert_eq!(supplement_file("México"), Some("MX1"));
+    }
+
+    #[test]
+    fn shifts_programmes_for_delayed_feeds() {
+        let now = xmltv_time("20261124190000 -0600");
+        let parse_now = now - HOUR_MS;
+        let list = parse_xmltv_reader(
+            xmltv_reader(SUPPLEMENT_FIXTURE.as_bytes()),
+            parse_now,
+            Some("Canal.Azteca.Uno.mx"),
+            EPG_SCHEDULE_MAX,
+            EPG_AHEAD_MS,
+        )
+        .remove("Canal.Azteca.Uno.mx")
+        .unwrap();
+        let shifted = shift_programmes(list, 1, now);
+        // 18:00–18:30 shifted +1 h airs 19:00–19:30, so it is the current programme at 19:00.
+        assert_eq!(shifted[0].t, "Venga la alegría");
+        assert_eq!(shifted[0].s, xmltv_time("20261124190000 -0600"));
+        assert_eq!(shifted[1].t, "Exatlón México");
+        assert_eq!(shifted[1].s, xmltv_time("20261124193000 -0600"));
+        assert_eq!(shifted[1].d.as_deref(), Some("Competencia"));
+        assert_eq!(shifted[2].s, xmltv_time("20261124213000 -0600"));
     }
 }

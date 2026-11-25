@@ -94,15 +94,18 @@ private const val NEW_KEY = "__new__"
 
 
 
-private val PickerNameIdle = Color(0xA6FFFFFF)        // rgba(255,255,255,.65)
-private val ManageBorderIdle = Color(0x59FFFFFF)      // rgba(255,255,255,.35)
-private val ManageTextIdle = Color(0xBFFFFFFF)        // rgba(255,255,255,.75)
-private val DashedBorder = Color(0x4DFFFFFF)          // rgba(255,255,255,.3)
-private val PanelScrim = Color(0xEB060608)            // TV editor: rgba(6,6,8,.92), no blur
-private val PanelCard = Color(0xFA16161B)             // rgba(22,22,27,.98)
-private val PanelBorder = Color(0x1FFFFFFF)           // rgba(255,255,255,.12)
-private val DangerText = Color(0xFFFF8A8A)
-private val DangerBorder = Color(0x59FF8A8A)
+// Theme-aware tokens (values in comments are the dark theme, v1 CSS).
+private val PickerNameIdle: Color @Composable get() = OpenTvColors.fg(0xA6 / 255f)                // rgba(255,255,255,.65)
+private val ManageBorderIdle: Color @Composable get() = OpenTvColors.Content.copy(alpha = 0x59 / 255f) // rgba(255,255,255,.35)
+private val ManageTextIdle: Color @Composable get() = OpenTvColors.fg(0xBF / 255f)                // rgba(255,255,255,.75)
+private val DashedBorder: Color @Composable get() = OpenTvColors.Content.copy(alpha = 0x4D / 255f)     // rgba(255,255,255,.3)
+private val PanelScrim: Color @Composable get() =                                                     // TV editor: rgba(6,6,8,.92), no blur
+    if (OpenTvColors.isLight) OpenTvColors.Scrim else Color(0xEB060608)
+private val PanelCard: Color @Composable get() =                                                      // rgba(22,22,27,.98)
+    if (OpenTvColors.isLight) OpenTvColors.Sheet else Color(0xFA16161B)
+private val PanelBorder: Color @Composable get() = OpenTvColors.Content.copy(alpha = 0x1F / 255f)      // rgba(255,255,255,.12)
+private val DangerText: Color @Composable get() = if (OpenTvColors.isLight) Color(0xFFC62828) else Color(0xFFFF8A8A)
+private val DangerBorder: Color @Composable get() = if (OpenTvColors.isLight) Color(0x59C62828) else Color(0x59FF8A8A)
 
 private sealed interface ProfilePanel {
     data object Add : ProfilePanel
@@ -111,11 +114,11 @@ private sealed interface ProfilePanel {
 
 /** Ring drawn outside the bounds (CSS `box-shadow: 0 0 0 Npx`), so the layout never moves. */
 private fun Modifier.outerRing(
+    color: Color,
     show: Boolean,
     corner: Dp,
     width: Dp,
     gap: Dp = 0.dp,
-    color: Color = Color.White,
 ): Modifier = drawBehind {
     if (!show) return@drawBehind
     val w = width.toPx()
@@ -181,16 +184,18 @@ fun ProfilePickerScreen(
     val tileWidth = if (ui.isTv) 110.dp else 92.dp
     val gap = 23.dp
 
+    val canvasBg = OpenTvColors.BgCanvas
+    val canvasGlow = if (OpenTvColors.isLight) Color(0xFFFFFFFF) else Color(0xFF1A1A20)
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .fillMaxSize()
-            .background(OpenTvColors.BgCanvas)
+            .background(canvasBg)
             .drawBehind {
                 // radial-gradient(70% 70% at 50% 40%, #1a1a20 0%, #0e0e11 70%)
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(Color(0xFF1A1A20), OpenTvColors.BgCanvas),
+                        colors = listOf(canvasGlow, canvasBg),
                         center = Offset(size.width * 0.5f, size.height * 0.4f),
                         radius = size.maxDimension * 0.5f,
                     ),
@@ -204,7 +209,7 @@ fun ProfilePickerScreen(
         ) {
             Text(
                 text = if (managing) "Administrar perfiles" else "¿Quién está viendo?",
-                color = Color.White,
+                color = OpenTvColors.Content,
                 fontSize = (38f * scale).sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = (-0.01).em,
@@ -364,7 +369,7 @@ private fun ProfileTile(
                     scaleX = s
                     scaleY = s
                 }
-                .outerRing(focused, corner, 4.dp)
+                .outerRing(OpenTvColors.FocusRing, focused, corner, 4.dp)
                 .clip(shape),
         ) {
             // Same 24 gradient avatars as PC (`ProfileAvatar`, rounded 16 %).
@@ -405,7 +410,7 @@ private fun ProfileTile(
         }
         Text(
             text = profile.name,
-            color = if (focused) Color.White else PickerNameIdle,
+            color = if (focused) OpenTvColors.Content else PickerNameIdle,
             fontSize = (15f * scale).sp,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -425,6 +430,7 @@ private fun AddProfileTile(
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val corner = width * 0.16f
+    val dashed = DashedBorder
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -442,15 +448,15 @@ private fun AddProfileTile(
                     scaleX = s
                     scaleY = s
                 }
-                .outerRing(focused, corner, 4.dp)
+                .outerRing(OpenTvColors.FocusRing, focused, corner, 4.dp)
                 .clip(RoundedCornerShape(corner))
-                .background(Color(0x08FFFFFF))
+                .background(OpenTvColors.Content.copy(alpha = 0x08 / 255f))
                 .drawBehind {
                     // border: 2px dashed rgba(255,255,255,.3)
                     val stroke = 2.dp.toPx()
                     val half = stroke / 2f
                     drawRoundRect(
-                        color = DashedBorder,
+                        color = dashed,
                         topLeft = Offset(half, half),
                         size = Size(size.width - stroke, size.height - stroke),
                         cornerRadius = CornerRadius(corner.toPx() - half),
@@ -464,13 +470,13 @@ private fun AddProfileTile(
             Icon(
                 imageVector = Icons.Rounded.Add,
                 contentDescription = null,
-                tint = Color(0x99FFFFFF),
+                tint = OpenTvColors.fg(0x99 / 255f),
                 modifier = Modifier.size(width * 0.4f),
             )
         }
         Text(
             text = "Agregar",
-            color = if (focused) Color.White else PickerNameIdle,
+            color = if (focused) OpenTvColors.Content else PickerNameIdle,
             fontSize = (15f * scale).sp,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -491,20 +497,20 @@ private fun ManageButton(
     val focused by interaction.collectIsFocusedAsState()
     val shape = RoundedCornerShape(10.dp)
     val border = when {
-        on || focused -> Color.White
+        on || focused -> OpenTvColors.Content
         else -> ManageBorderIdle
     }
     val fg = when {
-        on -> OpenTvColors.BgCanvas
-        focused -> Color.White
+        on -> OpenTvColors.OnContent
+        focused -> OpenTvColors.Content
         else -> ManageTextIdle
     }
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .outerRing(focused && on, 10.dp, 2.dp, gap = 2.dp)
+            .outerRing(OpenTvColors.FocusRing, focused && on, 10.dp, 2.dp, gap = 2.dp)
             .clip(shape)
-            .background(if (on) Color.White else Color.Transparent)
+            .background(if (on) OpenTvColors.Content else Color.Transparent)
             .border(if (focused) 2.dp else 1.dp, border, shape)
             .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
             .padding(horizontal = 28.dp, vertical = 12.dp),
@@ -612,7 +618,7 @@ private fun ProfileEditorPanel(
                         ProfileAvatar(index = avatar, size = 64.dp)
                         Text(
                             text = cleanName(name).ifEmpty { "Nombre del perfil" },
-                            color = if (name.isBlank()) OpenTvColors.TextMuted else Color.White,
+                            color = if (name.isBlank()) OpenTvColors.TextMuted else OpenTvColors.Content,
                             fontSize = (18f * scale).sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -677,7 +683,7 @@ private fun EditorOptions(
 ) {
     Text(
         "AVATAR",
-        color = Color(0x80FFFFFF),
+        color = OpenTvColors.fg(0x80 / 255f),
         fontSize = (11.5f * scale).sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.08.em,
@@ -698,12 +704,12 @@ private fun EditorOptions(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0x0DFFFFFF))
+                .background(OpenTvColors.Content.copy(alpha = 0x0D / 255f))
                 .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Perfil infantil (Kids)", color = Color.White, fontSize = (14.5f * scale).sp, fontWeight = FontWeight.Bold)
-                Text("Muestra solo contenido familiar.", color = Color(0x8CFFFFFF), fontSize = (12.5f * scale).sp)
+                Text("Perfil infantil (Kids)", color = OpenTvColors.Content, fontSize = (14.5f * scale).sp, fontWeight = FontWeight.Bold)
+                Text("Muestra solo contenido familiar.", color = OpenTvColors.fg(0x8C / 255f), fontSize = (12.5f * scale).sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 PanelButton("No", style = BtnStyle.Segment, selected = !kids, scale = scale, onClick = { onKids(false) })
@@ -758,7 +764,7 @@ private fun AvatarChoice(index: Int, selected: Boolean, modifier: Modifier, onCl
                 scaleY = s
                 alpha = if (focused || selected) 1f else 0.75f
             }
-            .outerRing(selected || focused, 10.dp, if (focused) 3.dp else 2.dp, gap = if (focused) 2.dp else 0.dp)
+            .outerRing(OpenTvColors.FocusRing, selected || focused, 10.dp, if (focused) 3.dp else 2.dp, gap = if (focused) 2.dp else 0.dp)
             .clip(shape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
     ) {
@@ -770,7 +776,7 @@ private fun AvatarChoice(index: Int, selected: Boolean, modifier: Modifier, onCl
 private fun PanelTitle(text: String, scale: Float) {
     Text(
         text,
-        color = Color.White,
+        color = OpenTvColors.Content,
         fontSize = (22f * scale).sp,
         fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(bottom = 18.dp),
@@ -803,10 +809,10 @@ private fun NameField(
         contentAlignment = Alignment.CenterStart,
         modifier = modifier
             .height(50.dp)
-            .outerRing(focused && isTv, 12.dp, 2.dp)
+            .outerRing(OpenTvColors.FocusRing, focused && isTv, 12.dp, 2.dp)
             .clip(shape)
             .background(OpenTvColors.GlassFill)
-            .border(1.dp, if (focused) Color.White else Color(0x26FFFFFF), shape)
+            .border(1.dp, if (focused) OpenTvColors.Content else OpenTvColors.Content.copy(alpha = 0x26 / 255f), shape)
             .padding(horizontal = 16.dp),
     ) {
         if (value.isEmpty()) {
@@ -822,8 +828,8 @@ private fun NameField(
                 imeAction = ImeAction.Done,
             ),
             keyboardActions = KeyboardActions(onDone = { onDone() }),
-            textStyle = TextStyle(color = Color.White, fontSize = (18f * scale).sp),
-            cursorBrush = SolidColor(Color.White),
+            textStyle = TextStyle(color = OpenTvColors.Content, fontSize = (18f * scale).sp),
+            cursorBrush = SolidColor(OpenTvColors.Content),
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
@@ -857,25 +863,25 @@ private fun PanelButton(
     val shape = RoundedCornerShape(10.dp)
     val filled = style == BtnStyle.Primary || (style == BtnStyle.Segment && selected)
     val bg = when {
-        filled -> Color.White
-        focused -> Color(0x1AFFFFFF)
+        filled -> OpenTvColors.Content
+        focused -> OpenTvColors.Content.copy(alpha = 0x1A / 255f)
         else -> Color.Transparent
     }
     val fg = when {
-        filled -> OpenTvColors.BgCanvas
+        filled -> OpenTvColors.OnContent
         style == BtnStyle.Danger -> DangerText
-        else -> Color.White
+        else -> OpenTvColors.Content
     }
     val borderColor = when {
-        filled -> Color.White
+        filled -> OpenTvColors.Content
         style == BtnStyle.Danger -> DangerBorder
-        else -> Color(0x2EFFFFFF)
+        else -> OpenTvColors.Content.copy(alpha = 0x2E / 255f)
     }
     val fontSize: TextUnit = (15f * scale).sp
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .outerRing(focused, 10.dp, 2.dp, gap = 2.dp)
+            .outerRing(OpenTvColors.FocusRing, focused, 10.dp, 2.dp, gap = 2.dp)
             .clip(shape)
             .background(bg)
             .border(1.dp, borderColor, shape)

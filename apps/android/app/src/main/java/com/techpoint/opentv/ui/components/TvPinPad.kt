@@ -1,5 +1,6 @@
 package com.techpoint.opentv.ui.components
 
+import com.techpoint.opentv.ui.theme.OpenTvColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,8 +61,8 @@ fun TvPinPad(
                     Modifier
                         .size(14.dp)
                         .clip(CircleShape)
-                        .background(if (filled) Color.White else Color.Transparent)
-                        .border(1.5.dp, if (error) Color(0xFFFF7377) else Color(0x80FFFFFF), CircleShape),
+                        .background(if (filled) OpenTvColors.Content else Color.Transparent)
+                        .border(1.5.dp, if (error) Color(0xFFFF7377) else OpenTvColors.Content.copy(alpha = 0.5f), CircleShape),
                 )
             }
         }
@@ -98,12 +99,12 @@ private fun PinKey(label: String, size: Dp, fontScale: Float, modifier: Modifier
         modifier = modifier
             .size(width = size * 1.3f, height = size)
             .clip(shape)
-            .background(if (focused) Color.White else Color(0x14FFFFFF))
+            .background(if (focused) OpenTvColors.Content else OpenTvColors.Content.copy(alpha = 0x14 / 255f))
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
     ) {
         Text(
             label,
-            color = if (focused) Color(0xFF0E0E11) else Color.White,
+            color = if (focused) OpenTvColors.OnContent else OpenTvColors.Content,
             fontSize = (17f * fontScale).sp,
             fontWeight = FontWeight.Bold,
         )
@@ -136,12 +137,12 @@ fun TvPinDialog(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .clip(RoundedCornerShape(22.dp))
-                .background(Color(0xFF141418))
-                .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(22.dp))
+                .background(if (OpenTvColors.isLight) OpenTvColors.Sheet else Color(0xFF141418))
+                .border(1.dp, OpenTvColors.Content.copy(alpha = 0x1A / 255f), RoundedCornerShape(22.dp))
                 .padding(horizontal = 30.dp, vertical = 24.dp),
         ) {
-            Text(title, color = Color.White, fontSize = (20f * scale).sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = Color(0x8CFFFFFF), fontSize = (13f * scale).sp)
+            Text(title, color = OpenTvColors.Content, fontSize = (20f * scale).sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = OpenTvColors.fg(0x8C / 255f), fontSize = (13f * scale).sp)
             TvPinPad(
                 value = value,
                 error = wrong,
@@ -158,7 +159,7 @@ fun TvPinDialog(
                 },
             )
             if (wrong) {
-                Text("PIN incorrecto", color = Color(0xFFFF7377), fontSize = (13f * scale).sp, fontWeight = FontWeight.SemiBold)
+                Text("PIN incorrecto", color = if (OpenTvColors.isLight) Color(0xFFC62828) else Color(0xFFFF7377), fontSize = (13f * scale).sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

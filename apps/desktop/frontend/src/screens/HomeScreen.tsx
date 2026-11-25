@@ -119,9 +119,9 @@ const HomeScreenView: React.FC<HomeScreenProps> = ({
 
   // Once this tab is on screen, warm the other menus (catalog JSON + screen chunks) while idle.
   useEffect(() => {
-    if (loading) return;
+    if (loading || liteMode) return;
     return whenIdle(() => prefetchOtherTabs(tab, plugins), 3000);
-  }, [loading, tab, plugins]);
+  }, [loading, liteMode, tab, plugins]);
 
   // Hero items: up to 6 items with landscape/backdrop artwork (mixed movies & series on Inicio)
   const heroItems = useMemo(() => {
@@ -207,7 +207,11 @@ const HomeScreenView: React.FC<HomeScreenProps> = ({
 
   const heroRaw = heroItems[heroIdx] || heroItems[0] || null;
   const hero = useMemo(() => (heroRaw ? peekLocalized(heroRaw) : null), [heroRaw, esTick]);
-  const heroArt = useMemo(() => (hero ? resizedImageUrl(hero.backdrop || hero.poster, 1600) : ''), [hero]);
+  // Lite mode: the hero keeps its text and buttons but skips the big artwork.
+  const heroArt = useMemo(
+    () => (hero && !liteMode ? resizedImageUrl(hero.backdrop || hero.poster, 1600) : ''),
+    [hero, liteMode],
+  );
   const heroTitleClass = useMemo(() => {
     const len = hero?.title.length || 0;
     if (len > 80) return 'text-[clamp(26px,2.4vw,34px)] leading-[1.12]';
@@ -243,7 +247,8 @@ const HomeScreenView: React.FC<HomeScreenProps> = ({
             className="absolute inset-0"
             style={{
               background:
-                'linear-gradient(90deg, rgba(14,14,17,0.94) 0%, rgba(14,14,17,0.70) 28%, rgba(14,14,17,0.15) 58%, rgba(14,14,17,0) 75%), linear-gradient(0deg, #0e0e11 0%, rgba(14,14,17,0.85) 14%, rgba(14,14,17,0) 45%)',
+                // Scrims in the page colour (`--ot-bg-rgb`) so the artwork fades into either theme.
+                'linear-gradient(90deg, rgba(var(--ot-bg-rgb),0.94) 0%, rgba(var(--ot-bg-rgb),0.70) 28%, rgba(var(--ot-bg-rgb),0.15) 58%, rgba(var(--ot-bg-rgb),0) 75%), linear-gradient(0deg, rgb(var(--ot-bg-rgb)) 0%, rgba(var(--ot-bg-rgb),0.85) 14%, rgba(var(--ot-bg-rgb),0) 45%)',
             }}
           />
         </div>
@@ -274,24 +279,24 @@ const HomeScreenView: React.FC<HomeScreenProps> = ({
                   swapping ? 'translate-y-2 opacity-0' : 'translate-y-0 opacity-100'
                 }`}
               >
-                <div className="text-[12.5px] font-bold tracking-[0.22em] text-white/70 uppercase">
+                <div className="text-[12.5px] font-bold tracking-[0.22em] text-fg/70 uppercase">
                   {hero.type === 'movie' ? 'PELÍCULA' : 'SERIE'}
                 </div>
 
                 <h1
-                  className={`font-display font-extrabold tracking-[-0.02em] text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.45)] ${heroTitleClass}`}
+                  className={`font-display font-extrabold tracking-[-0.02em] text-fg drop-shadow-[0_4px_30px_rgba(0,0,0,0.45)] light:drop-shadow-none ${heroTitleClass}`}
                 >
                   {hero.title}
                 </h1>
 
-                <div className="text-[15.5px] font-semibold text-white/90">{formatHeroMeta(hero)}</div>
+                <div className="text-[15.5px] font-semibold text-fg/90">{formatHeroMeta(hero)}</div>
 
                 {heroGenres.length > 0 && (
-                  <div className="text-[14px] text-white/65">{heroGenres.join('  •  ')}</div>
+                  <div className="text-[14px] text-fg/65">{heroGenres.join('  •  ')}</div>
                 )}
 
                 {hero.synopsis && (
-                  <p className="ot-text-scalable line-clamp-3 max-w-[620px] text-[15px] leading-[1.48] text-white/82">
+                  <p className="line-clamp-3 max-w-[620px] text-[15px] leading-[1.48] text-fg/82">
                     {hero.synopsis}
                   </p>
                 )}
@@ -311,7 +316,7 @@ const HomeScreenView: React.FC<HomeScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => onOpenDetail(hero)}
-                    className="flex h-[50px] items-center gap-2.5 rounded-[10px] bg-[rgba(109,109,115,0.55)] px-6 text-[16.5px] font-bold text-white backdrop-blur-md transition duration-150 hover:-translate-y-0.5 hover:bg-[rgba(109,109,115,0.8)] cursor-pointer"
+                    className="flex h-[50px] items-center gap-2.5 rounded-[10px] bg-[rgba(109,109,115,0.55)] px-6 text-[16.5px] font-bold text-fg backdrop-blur-md transition duration-150 hover:-translate-y-0.5 hover:bg-[rgba(109,109,115,0.8)] light:bg-fg/[0.08] light:hover:bg-fg/15 cursor-pointer"
                   >
                     <Info className="h-5 w-5" />
                     <span>Más información</span>
@@ -321,7 +326,7 @@ const HomeScreenView: React.FC<HomeScreenProps> = ({
                     type="button"
                     onClick={() => onToggleMyList(hero)}
                     title={heroInList ? 'Quitar de Mi lista' : 'Añadir a Mi lista'}
-                    className="flex h-[50px] w-[50px] items-center justify-center rounded-full bg-[#141418]/50 text-white shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.55)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[inset_0_0_0_2px_#fff] cursor-pointer"
+                    className="flex h-[50px] w-[50px] items-center justify-center rounded-full bg-surface/50 text-fg shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.55)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[inset_0_0_0_2px_#fff] light:shadow-[inset_0_0_0_1.5px_rgba(0,0,0,0.35)] light:hover:shadow-[inset_0_0_0_2px_#111114] cursor-pointer"
                   >
                     {heroInList ? <Check className="h-5 w-5" /> : <BookmarkPlus className="h-5 w-5" />}
                   </button>
@@ -339,7 +344,7 @@ const HomeScreenView: React.FC<HomeScreenProps> = ({
                       onClick={() => switchHero(i)}
                       style={i === heroIdx ? { backgroundColor: 'var(--ot-accent)' } : undefined}
                       className={`h-[4px] rounded-full transition-all duration-300 cursor-pointer ${
-                        i === heroIdx ? 'w-10' : 'w-4 bg-white/30 hover:bg-white/60'
+                        i === heroIdx ? 'w-10' : 'w-4 bg-fg/30 hover:bg-fg/60'
                       }`}
                     />
                   ))}
@@ -354,9 +359,9 @@ const HomeScreenView: React.FC<HomeScreenProps> = ({
           <div className="flex h-[55vh] flex-col items-center justify-center gap-3 pt-20">
             <div
               style={{ borderTopColor: 'var(--ot-accent)' }}
-              className="h-9 w-9 animate-spin rounded-full border-2 border-white/15"
+              className="h-9 w-9 animate-spin rounded-full border-2 border-fg/15"
             />
-            <span className="text-[14px] text-white/50">Cargando catálogo de tus plugins…</span>
+            <span className="text-[14px] text-fg/50 light:text-muted">Cargando catálogo de tus plugins…</span>
           </div>
         ) : (
           <div className={`space-y-8 ${hero ? 'pt-1' : 'pt-24'}`}>
@@ -395,7 +400,7 @@ const HomeScreenView: React.FC<HomeScreenProps> = ({
                 style={{ paddingLeft: 'var(--ot-gutter)', paddingRight: 'var(--ot-gutter)' }}
                 className="space-y-4 pt-3"
               >
-                <h2 className="font-display text-[clamp(18px,1.4vw,24px)] font-semibold tracking-[-0.015em] text-white">
+                <h2 className="font-display text-[clamp(18px,1.4vw,24px)] font-semibold tracking-[-0.015em] text-fg">
                   {GRID_TITLES[tab]}
                 </h2>
                 <div

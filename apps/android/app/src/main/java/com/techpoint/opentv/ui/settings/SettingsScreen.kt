@@ -130,11 +130,11 @@ import com.techpoint.opentv.ui.theme.OpenTvColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.util.Locale
@@ -234,16 +234,16 @@ fun SettingsScreen(
         if (current == "downloads") {
             while (current == "downloads") {
                 val res = RustServiceBridge.callRpc("downloadList")
-                downloads = res["items"]?.jsonArray.orEmpty().mapNotNull { el ->
+                downloads = (res["items"] as? JsonArray).orEmpty().mapNotNull { el ->
                     val o = el as? JsonObject ?: return@mapNotNull null
                     DownloadItem(
-                        id = o["id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                        title = o["title"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                        subtitle = o["subtitle"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                        status = o["status"]?.jsonPrimitive?.contentOrNull ?: "queued",
-                        bytes = o["bytes"]?.jsonPrimitive?.longOrNull ?: 0L,
-                        total = o["total"]?.jsonPrimitive?.longOrNull ?: 0L,
-                        speed = o["speed"]?.jsonPrimitive?.longOrNull ?: 0L,
+                        id = (o["id"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
+                        title = (o["title"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
+                        subtitle = (o["subtitle"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
+                        status = (o["status"] as? JsonPrimitive)?.contentOrNull ?: "queued",
+                        bytes = (o["bytes"] as? JsonPrimitive)?.longOrNull ?: 0L,
+                        total = (o["total"] as? JsonPrimitive)?.longOrNull ?: 0L,
+                        speed = (o["speed"] as? JsonPrimitive)?.longOrNull ?: 0L,
                     )
                 }
                 delay(1500L)
@@ -259,10 +259,10 @@ fun SettingsScreen(
             updateReady = false
             try {
                 val res = RustServiceBridge.callRpc("appUpdate", buildJsonObject { put("action", "check") })
-                val state = res["state"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                val state = (res["state"] as? JsonPrimitive)?.contentOrNull.orEmpty()
                 val ver = (
-                    res["latest"]?.jsonPrimitive?.contentOrNull
-                        ?: res["available"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                    (res["latest"] as? JsonPrimitive)?.contentOrNull
+                        ?: (res["available"] as? JsonPrimitive)?.contentOrNull.orEmpty()
                     ).removePrefix("v")
                 updateVersion = ver.takeIf { it != "true" && it != "false" }.orEmpty()
                 when {
@@ -270,7 +270,7 @@ fun SettingsScreen(
                         updateReady = true
                         updateInfo = "Hay una nueva versión disponible: v$updateVersion."
                     }
-                    state == "available" || (res["available"]?.jsonPrimitive?.contentOrNull == "true") -> {
+                    state == "available" || ((res["available"] as? JsonPrimitive)?.contentOrNull == "true") -> {
                         updateAvailable = true
                         updateInfo = "Hay una nueva versión disponible: v$updateVersion."
                         onShowToast("Nueva versión disponible: v$updateVersion")
@@ -297,8 +297,8 @@ fun SettingsScreen(
             while (true) {
                 delay(800L)
                 val st = RustServiceBridge.callRpc("appUpdate", buildJsonObject { put("action", "status") })
-                val s = st["state"]?.jsonPrimitive?.contentOrNull.orEmpty()
-                val pct = st["progress"]?.jsonPrimitive?.intOrNull ?: -1
+                val s = (st["state"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+                val pct = (st["progress"] as? JsonPrimitive)?.intOrNull ?: -1
                 if (pct >= 0) updateProgress = pct
                 if (s == "ready") {
                     updateProgress = -1
@@ -309,7 +309,7 @@ fun SettingsScreen(
                     break
                 } else if (s == "error" || s == "idle") {
                     updateProgress = -1
-                    updateInfo = st["errorText"]?.jsonPrimitive?.contentOrNull ?: "No se pudo descargar la actualización"
+                    updateInfo = (st["errorText"] as? JsonPrimitive)?.contentOrNull ?: "No se pudo descargar la actualización"
                     break
                 }
             }
@@ -319,7 +319,7 @@ fun SettingsScreen(
     fun openOfflineDownload(dl: DownloadItem) {
         scope.launch {
             val res = RustServiceBridge.callRpc("downloadOpen", buildJsonObject { put("id", dl.id) })
-            val url = res["url"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            val url = (res["url"] as? JsonPrimitive)?.contentOrNull.orEmpty()
             if (url.isNotBlank()) {
                 onPlayOfflineDownload(dl, url)
             } else {
@@ -408,6 +408,7 @@ fun SettingsScreen(
     }
 
     if (ui.isTv) {
+        val menuBorder = SetColors.MenuBorder
         val menuRequesters = remember(sections) { sections.associate { it.id to FocusRequester() } }
         // Last focused control of the panel: → from the menu goes straight back to it.
         val panelMemory = remember { FocusMemory() }
@@ -437,7 +438,7 @@ fun SettingsScreen(
                     .background(SetColors.MenuBg)
                     .drawBehind {
                         val w = 1.dp.toPx()
-                        drawRect(SetColors.MenuBorder, topLeft = Offset(size.width - w, 0f), size = Size(w, size.height))
+                        drawRect(menuBorder, topLeft = Offset(size.width - w, 0f), size = Size(w, size.height))
                     }
                     // Coming back from the panel (←) lands on the selected entry.
                     .focusProperties { enter = { menuRequesters[current] ?: FocusRequester.Default } }
@@ -637,13 +638,7 @@ private fun SettingsDetailPanel(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.padding(horizontal = 15.dp, vertical = 14.dp),
                     ) {
-                        Text("Copia de seguridad local", color = Color.White, fontSize = tsp(13f), fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Guarda tus perfiles, listas, plugins y preferencias en un archivo compatible con OpenTV PC, o restáuralos desde uno.",
-                            color = SetColors.Text55,
-                            fontSize = tsp(10.5f),
-                            lineHeight = tsp(14f),
-                        )
+                        Text("Copia de seguridad local", color = SetColors.Text, fontSize = tsp(13f), fontWeight = FontWeight.SemiBold)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.padding(top = 4.dp).leftExitGroup(),
@@ -791,9 +786,17 @@ private fun SettingsDetailPanel(
                     item(key = "look_style") {
                         SetGroup("Estilo") {
                             SetRow(
-                                name = "Color de acento",
-                                hint = "El color de las opciones elegidas, del botón de reproducir y de las barras de progreso.",
+                                name = "Tema",
                                 divider = false,
+                            ) {
+                                SetSeg(
+                                    options = listOf("Oscuro", "Claro"),
+                                    selected = if (appState.appearance.theme == "light") 1 else 0,
+                                    onSelect = { i -> onUpdateAppearance { it.copy(theme = if (i == 1) "light" else "dark") } },
+                                )
+                            }
+                            SetRow(
+                                name = "Color de acento",
                             ) {
                                 AccentPicker(
                                     selectedId = appState.appearance.accentId,
@@ -802,7 +805,6 @@ private fun SettingsDetailPanel(
                             }
                             SetRow(
                                 name = "Tamaño del texto",
-                                hint = "Aumentado hace más grandes los textos y botones (+12 %). Útil si ves la pantalla de lejos.",
                             ) {
                                 SetSeg(
                                     options = listOf("Normal", "Aumentado"),
@@ -813,7 +815,6 @@ private fun SettingsDetailPanel(
                             if (ui.isTv) {
                                 SetRow(
                                     name = "Margen de pantalla",
-                                    hint = "Si tu tele corta los bordes de la imagen, deja un margen para que se vea todo.",
                                 ) {
                                     SetSeg(
                                         options = listOf("Ninguno", "Pequeño", "Grande"),
@@ -828,7 +829,6 @@ private fun SettingsDetailPanel(
                         SetGroup("Rendimiento") {
                             SetRow(
                                 name = "Modo ligero",
-                                hint = "Quita efectos y animaciones. Úsalo si los menús van lentos.",
                                 divider = false,
                             ) {
                                 SetSeg(
@@ -845,7 +845,6 @@ private fun SettingsDetailPanel(
                             val ids = listOf("auto", "4K", "1080p", "720p", "SD")
                             SetRow(
                                 name = "Calidad preferida",
-                                hint = "Auto elige la mejor que tu aparato reproduce con fluidez.",
                                 divider = false,
                             ) {
                                 SetSeg(
@@ -856,12 +855,20 @@ private fun SettingsDetailPanel(
                             }
                             SetRow(
                                 name = "Siguiente episodio automático",
-                                hint = "Muestra aviso de 5 s al acabar un capítulo.",
                             ) {
                                 SetSeg(
                                     options = listOf("No", "Sí"),
                                     selected = if (appState.playback.autoNextEpisode) 1 else 0,
                                     onSelect = { i -> onUpdatePlayback { it.copy(autoNextEpisode = i == 1) } },
+                                )
+                            }
+                            SetRow(
+                                name = "Omitir intro automáticamente",
+                            ) {
+                                SetSeg(
+                                    options = listOf("Apagado", "Encendido"),
+                                    selected = if (appState.playback.autoSkipIntro) 1 else 0,
+                                    onSelect = { i -> onUpdatePlayback { it.copy(autoSkipIntro = i == 1) } },
                                 )
                             }
                         }
@@ -870,7 +877,7 @@ private fun SettingsDetailPanel(
                         val sub = appState.playback.subtitleStyle
                         SetGroup("Subtítulos") {
                             val langs = listOf("es", "pt", "en")
-                            SetRow("Idioma", hint = "Se elige primero si el video o los plugins lo ofrecen.", divider = false) {
+                            SetRow("Idioma", divider = false) {
                                 SetSeg(
                                     options = listOf("Español", "Portugués", "Inglés"),
                                     selected = langs.indexOf(sub.preferredLang).coerceAtLeast(0),
@@ -911,7 +918,6 @@ private fun SettingsDetailPanel(
                             val langs = listOf("es", "pt", "en")
                             SetRow(
                                 name = "Idioma preferido",
-                                hint = "Si el archivo trae varios idiomas, empieza en este.",
                                 divider = false,
                             ) {
                                 SetSeg(
@@ -922,7 +928,6 @@ private fun SettingsDetailPanel(
                             }
                             SetRow(
                                 name = "Audio envolvente HDMI (Dolby / DTS)",
-                                hint = "Envía pistas E-AC-3, Atmos y DTS directas a tu barra o TV",
                             ) {
                                 SetSeg(
                                     options = listOf("Apagado", "Encendido"),
@@ -949,7 +954,6 @@ private fun SettingsDetailPanel(
                             SetGroup("Archivos locales") {
                                 SetRow(
                                     name = "Archivos locales / USB",
-                                    hint = "Reproduce videos del aparato o de una memoria USB sin plugins",
                                     divider = false,
                                 ) {
                                     SetButton("Abrir", { showLocalTv = true }, icon = Icons.Rounded.FolderOpen)
@@ -1020,15 +1024,15 @@ private fun SettingsDetailPanel(
                         val t0 = System.currentTimeMillis()
                         val ping = RustServiceBridge.callRpc("ping")
                         val pingMs = (System.currentTimeMillis() - t0).coerceAtLeast(1L)
-                        val port = ping["proxyPort"]?.jsonPrimitive?.intOrNull ?: 0
+                        val port = (ping["proxyPort"] as? JsonPrimitive)?.intOrNull ?: 0
                         out += "Núcleo Rust (opentv-core)" to if (port > 0) "Activo (127.0.0.1:$port · ${pingMs} ms)" else "Inactivo"
                         out += "Motor de video" to "Media3 ExoPlayer 1.6.1 + FFmpeg Audio"
-                        val freeBytes = (ping["storage"] as? JsonObject)?.get("free")?.jsonPrimitive?.longOrNull ?: 0L
+                        val freeBytes = ((ping["storage"] as? JsonObject)?.get("free") as? JsonPrimitive)?.longOrNull ?: 0L
                         if (freeBytes > 0L) {
                             val freeGb = String.format(Locale("es"), "%.2f GB libres", freeBytes / 1_073_741_824.0)
                             out += "Almacenamiento" to freeGb
                         }
-                        val activePlugins = appState.plugins.filter { !it.disabled }
+                        val activePlugins = appState.plugins.filter { !it.disabled && !it.builtin }
                         for (p in activePlugins) {
                             val pStart = System.currentTimeMillis()
                             val ok = if (stremio != null) {
@@ -1073,7 +1077,6 @@ private fun SettingsDetailPanel(
                         SetGroup("Almacenamiento") {
                             SetRow(
                                 name = "Borrar caché",
-                                hint = "Libera espacio: imágenes y catálogos guardados se vuelven a descargar. No borra perfiles, listas ni descargas.",
                                 divider = false,
                             ) {
                                 SetButton(
@@ -1082,19 +1085,6 @@ private fun SettingsDetailPanel(
                                     icon = Icons.Rounded.Delete,
                                 )
                             }
-                        }
-                    }
-                }
-                item(key = "tips") {
-                    SetGroup("Atajos") {
-                        val tips = listOf(
-                            "En TV usa las flechas del control remoto; durante un video ←/→ adelanta 15 s, ↓ abre Audio/Subtítulos y ↑ abre Episodios.",
-                            "En celular desliza arriba/abajo del lado izquierdo para brillo, del lado derecho para volumen y doble toque para ±10 s.",
-                            "En TV en vivo en pantalla completa, ↑/↓ cambia de canal, ← o 0 vuelve al canal anterior y OK abre la información.",
-                            "Para películas y series, agrega un plugin de fuentes en Ajustes → Plugins → Comunidad.",
-                        )
-                        tips.forEachIndexed { idx, tip ->
-                            SetRow(name = tip, divider = idx > 0)
                         }
                     }
                 }
@@ -1119,23 +1109,24 @@ private fun SettingsDetailPanel(
                         modifier = Modifier
                             .size(58.dp)
                             .clip(tile)
-                            .background(Color(0xFF18181D))
-                            .border(1.dp, Color(0x1AFFFFFF), tile),
+                            .background(OpenTvColors.CardSurface)
+                            .border(1.dp, OpenTvColors.fg(0.102f), tile),
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_opentv_logo),
+                            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(OpenTvColors.Content),
                             contentDescription = "OpenTV",
                             modifier = Modifier.size(31.dp),
                         )
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text("OpenTV", color = Color.White, fontSize = tsp(25f), fontWeight = FontWeight.Bold, lineHeight = tsp(27f))
+                        Text("OpenTV", color = SetColors.Text, fontSize = tsp(25f), fontWeight = FontWeight.Bold, lineHeight = tsp(27f))
                         Text(
                             "Versión ${BuildConfig.VERSION_NAME} · ${if (ui.isTv) "Android TV y Fire TV" else "Android"} (Kotlin + Rust)",
                             color = SetColors.Text50,
                             fontSize = tsp(11f),
                         )
-                        Text("Películas, series y TV en vivo en un solo lugar.", color = Color(0xB8FFFFFF), fontSize = tsp(10.5f))
+                        Text("Películas, series y TV en vivo en un solo lugar.", color = OpenTvColors.fg(0.722f), fontSize = tsp(10.5f))
                     }
                 }
             }
@@ -1147,8 +1138,8 @@ private fun SettingsDetailPanel(
                         .bottomDivider()
                         .padding(vertical = 16.dp),
                 ) {
-                    Text("Actualizaciones", color = Color.White, fontSize = tsp(13.5f), fontWeight = FontWeight.SemiBold)
-                    Text(updateInfo, color = Color(0x99FFFFFF), fontSize = tsp(10.5f))
+                    Text("Actualizaciones", color = SetColors.Text, fontSize = tsp(13.5f), fontWeight = FontWeight.SemiBold)
+                    Text(updateInfo, color = OpenTvColors.fg(0.6f), fontSize = tsp(10.5f))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(top = 8.dp).leftExitGroup(),
@@ -1178,7 +1169,7 @@ private fun SettingsDetailPanel(
                         LinearProgressIndicator(
                             progress = { (updateProgress / 100f).coerceIn(0.04f, 1f) },
                             color = ui.accent.color,
-                            trackColor = Color(0x1AFFFFFF),
+                            trackColor = OpenTvColors.fg(0.102f),
                             modifier = Modifier
                                 .padding(top = 10.dp)
                                 .widthIn(max = 360.dp)
@@ -1197,10 +1188,10 @@ private fun SettingsDetailPanel(
                         .bottomDivider()
                         .padding(vertical = 16.dp),
                 ) {
-                    Text("Sin cuentas ni contraseñas", color = Color.White, fontSize = tsp(13.5f), fontWeight = FontWeight.SemiBold)
+                    Text("Sin cuentas ni contraseñas", color = SetColors.Text, fontSize = tsp(13.5f), fontWeight = FontWeight.SemiBold)
                     Text(
                         "Tu lista, el historial y tus preferencias se guardan solo en este aparato; no se envían a ningún servidor.",
-                        color = Color(0x99FFFFFF),
+                        color = OpenTvColors.fg(0.6f),
                         fontSize = tsp(10.5f),
                         lineHeight = tsp(14f),
                     )
@@ -1208,7 +1199,7 @@ private fun SettingsDetailPanel(
             }
             item(key = "credits") {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.padding(top = 16.dp)) {
-                    Text("Hecho por TECHPOINT Software™", color = Color.White, fontSize = tsp(12f), fontWeight = FontWeight.SemiBold)
+                    Text("Hecho por TECHPOINT Software™", color = SetColors.Text, fontSize = tsp(12f), fontWeight = FontWeight.SemiBold)
                     val small = tsp(9.75f)
                     Text("© 2026 TECHPOINT Software™ · Todos los derechos reservados", color = SetColors.Text50, fontSize = small)
                     Text(
@@ -1236,7 +1227,8 @@ private fun AccentPicker(selectedId: String, onSelect: (String) -> Unit) {
         horizontalArrangement = Arrangement.End,
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
-        OpenTvAccents.All.forEach { acc ->
+        OpenTvAccents.All.forEach { base ->
+            val acc = OpenTvAccents.forTheme(base, ui.lightTheme)
             val selected = acc.id == selectedId
             SetSegButton(
                 label = acc.label,
@@ -1249,7 +1241,7 @@ private fun AccentPicker(selectedId: String, onSelect: (String) -> Unit) {
                             .size(9.dp)
                             .clip(CircleShape)
                             .background(acc.color)
-                            .border(1.dp, if (selected) ui.accent.onAccent else Color(0x66FFFFFF), CircleShape),
+                            .border(1.dp, if (selected) ui.accent.onAccent else OpenTvColors.fg(0.4f), CircleShape),
                     )
                 },
             )
@@ -1268,7 +1260,6 @@ private fun ParentalGroup(
     SetGroup("Bloqueo y Modo Kids") {
         SetRow(
             name = "Pedir PIN para salir del perfil Kids",
-            hint = "El perfil Kids solo muestra películas y series familiares",
             divider = false,
         ) {
             SetSeg(
@@ -1366,7 +1357,7 @@ private fun DownloadRow(
                 .padding(12.dp),
         ) {
             Column(Modifier.weight(1f)) {
-                Text(dl.title, color = Color.White, fontSize = tsp(12.5f), fontWeight = FontWeight(550), maxLines = 1)
+                Text(dl.title, color = SetColors.Text, fontSize = tsp(12.5f), fontWeight = FontWeight(550), maxLines = 1)
                 Text(
                     listOf(dl.subtitle, statusLabel).filter { it.isNotBlank() }.joinToString(" · "),
                     color = SetColors.Text55,
@@ -1385,7 +1376,7 @@ private fun DownloadRow(
             LinearProgressIndicator(
                 progress = { dl.progress },
                 color = ui.accent.color,
-                trackColor = Color(0x33FFFFFF),
+                trackColor = OpenTvColors.fg(0.2f),
                 modifier = Modifier
                     .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
                     .fillMaxWidth()
@@ -1408,9 +1399,13 @@ private fun WatchProgress.asListItem(): MediaItem = MediaItem(
 )
 
 /** 0.5 dp white 8 % line under a block (PC `border-b border-white/[0.08]`). */
-private fun Modifier.bottomDivider(): Modifier = drawBehind {
+@Composable
+private fun Modifier.bottomDivider(): Modifier {
+    val line = OpenTvColors.fg(0.08f)
+    return drawBehind {
     val h = 0.5.dp.toPx()
-    drawRect(Color(0x14FFFFFF), topLeft = Offset(0f, size.height - h), size = Size(size.width, h))
+    drawRect(line, topLeft = Offset(0f, size.height - h), size = Size(size.width, h))
+    }
 }
 
 /** PC Mi cuenta header: rounded avatar, profile name, "Guardado solo en este equipo", profile buttons. */
@@ -1432,7 +1427,7 @@ private fun AccountHeader(profile: UserProfile, position: Int, onOpenProfiles: (
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Box(Modifier.clip(tile).border(2.dp, Color(0x33FFFFFF), tile)) {
+            Box(Modifier.clip(tile).border(2.dp, OpenTvColors.fg(0.2f), tile)) {
                 com.techpoint.opentv.ui.components.ProfileAvatar(
                     index = profile.resolvedAvatarIndex(position),
                     size = if (isTv) 64.dp else 56.dp,
@@ -1441,7 +1436,7 @@ private fun AccountHeader(profile: UserProfile, position: Int, onOpenProfiles: (
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = profile.name,
-                    color = Color.White,
+                    color = SetColors.Text,
                     fontSize = tsp(26f),
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.3).sp,
@@ -1468,11 +1463,11 @@ private fun AccountStat(value: Int, label: String, modifier: Modifier = Modifier
         verticalArrangement = Arrangement.spacedBy(5.dp),
         modifier = modifier
             .clip(shape)
-            .background(Color(0x0AFFFFFF))
-            .border(0.5.dp, Color(0x12FFFFFF), shape)
+            .background(OpenTvColors.fg(0.039f))
+            .border(0.5.dp, OpenTvColors.fg(0.071f), shape)
             .padding(horizontal = 15.dp, vertical = 14.dp),
     ) {
-        Text(value.toString(), color = Color.White, fontSize = tsp(30f), fontWeight = FontWeight.SemiBold, lineHeight = tsp(31f))
+        Text(value.toString(), color = SetColors.Text, fontSize = tsp(30f), fontWeight = FontWeight.SemiBold, lineHeight = tsp(31f))
         Text(label, color = SetColors.Text55, fontSize = tsp(10.5f), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
@@ -1508,8 +1503,8 @@ private fun QuickActionCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(shape)
-                .background(if (focused) SetColors.FocusFill else Color(0x0DFFFFFF))
-                .border(0.5.dp, Color(0x14FFFFFF), shape)
+                .background(if (focused) SetColors.FocusFill else OpenTvColors.fg(0.051f))
+                .border(0.5.dp, OpenTvColors.fg(0.078f), shape)
                 .rememberFocus()
                 .clickable(interactionSource = interaction, indication = null, onClick = onClick)
                 .padding(horizontal = 13.dp, vertical = 13.dp),
@@ -1519,18 +1514,18 @@ private fun QuickActionCard(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(RoundedCornerShape(11.dp))
-                    .background(Color(0x1AFFFFFF)),
+                    .background(OpenTvColors.fg(0.102f)),
             ) {
-                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(icon, contentDescription = null, tint = SetColors.Text, modifier = Modifier.size(18.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(title, color = Color.White, fontSize = tsp(12.5f), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(title, color = SetColors.Text, fontSize = tsp(12.5f), fontWeight = FontWeight.SemiBold, maxLines = 1)
                 Text(sub, color = SetColors.Text50, fontSize = tsp(9.5f), lineHeight = tsp(12f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Icon(
                 Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 contentDescription = null,
-                tint = Color(0x66FFFFFF),
+                tint = OpenTvColors.fg(0.4f),
                 modifier = Modifier.size(16.dp),
             )
         }
@@ -1540,6 +1535,7 @@ private fun QuickActionCard(
 /** PC empty list: dashed frame, faded OpenTV mark and a short message. */
 @Composable
 private fun ListEmptyState(text: String) {
+    val dashColor = OpenTvColors.fg(0.141f)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
@@ -1549,7 +1545,7 @@ private fun ListEmptyState(text: String) {
             .drawBehind {
                 val w = 1.dp.toPx()
                 drawRoundRect(
-                    color = Color(0x24FFFFFF),
+                    color = dashColor,
                     topLeft = Offset(w / 2, w / 2),
                     size = Size(size.width - w, size.height - w),
                     cornerRadius = CornerRadius(16.dp.toPx()),
@@ -1559,6 +1555,7 @@ private fun ListEmptyState(text: String) {
     ) {
         Image(
             painter = painterResource(id = R.drawable.ic_opentv_logo),
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(OpenTvColors.Content),
             contentDescription = null,
             modifier = Modifier.size(30.dp).alpha(0.25f),
         )
@@ -1571,7 +1568,7 @@ private fun ListEmptyState(text: String) {
 private fun UpdateGreenButton(text: String, enabled: Boolean, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val mint = Color(0xFF7EE2A8)
+    val mint = SetColors.Ok
     val shape = RoundedCornerShape(7.dp)
     Box(Modifier.outerRing(focused, RoundedCornerShape(9.5.dp))) {
         Box(

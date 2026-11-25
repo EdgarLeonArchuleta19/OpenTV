@@ -14,6 +14,31 @@ import {
 } from './jsPluginMatch';
 
 describe('pickSearchHits', () => {
+  it('never takes a same-named remake of a series from another decade', () => {
+    const hits = pickSearchHits(
+      [
+        { ref: 's:la-oficina-mx', title: 'La oficina', kind: 'series', year: '2015' },
+        { ref: 's:the-office', title: 'La oficina', kind: 'series', year: '2005' },
+      ],
+      { title: 'La oficina', originalTitle: 'The Office', year: 2005, kind: 'series' },
+    );
+    expect(hits.map((h) => h.ref)).toEqual(['s:the-office']);
+    expect(pickSearchHits([{ ref: 's:la-oficina-mx', title: 'La oficina', kind: 'series', year: '2015' }], { title: 'La oficina', year: 2005, kind: 'series' })).toEqual([]);
+  });
+
+  it('never mixes another film of the saga into the opened one', () => {
+    const saga = [
+      { ref: 'm:en-llamas', title: 'Los juegos del hambre: En llamas', kind: 'movie', year: '2013' },
+      { ref: 'm:original', title: 'Los juegos del hambre', kind: 'movie', year: '2012' },
+      { ref: 'm:sinsajo', title: 'Los juegos del hambre: Sinsajo - Parte 1', kind: 'movie', year: '2014' },
+    ];
+    expect(pickSearchHits(saga, { title: 'Los juegos del hambre', originalTitle: 'The Hunger Games', year: 2012, kind: 'movie' }).map((h) => h.ref)).toEqual(['m:original']);
+    // The site lists only the sequel: it is not taken for the 2012 film.
+    expect(pickSearchHits(saga.slice(0, 1), { title: 'Los juegos del hambre', year: 2012, kind: 'movie' })).toEqual([]);
+    // Opening the sequel never pulls the first film either.
+    expect(pickSearchHits(saga, { title: 'Los juegos del hambre: En llamas', year: 2013, kind: 'movie' }).map((h) => h.ref)).toEqual(['m:en-llamas']);
+  });
+
   it('accepts the Spanish-titled first hit of the same year and kind', () => {
     const hits = pickSearchHits(
       [

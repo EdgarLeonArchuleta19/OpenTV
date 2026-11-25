@@ -4,6 +4,8 @@
  * Pure functions so they can be unit-tested without a DOM.
  */
 
+import type { SubtitleOrigin } from '../types/models';
+
 export interface SubtitleCue {
   start: number;
   end: number;
@@ -187,7 +189,12 @@ export function cueTextAt(cues: SubtitleCue[], t: number): string {
 /** True when an ISO 639-1/639-2 code (or plugin label) matches the user's preferred language. */
 export function subLangMatches(lang: string, want: 'es' | 'pt' | 'en'): boolean {
   const l = (lang || '').toLowerCase();
-  if (want === 'es') return l === 'es' || l.startsWith('es-') || l.startsWith('spa') || l === 'lat' || l.startsWith('españ');
+  if (want === 'es') {
+    return (
+      l === 'es' || l.startsWith('es-') || l.startsWith('spa') || l === 'lat' || l === 'spl' || l === 'spn' || l === 'ea' ||
+      l.startsWith('españ') || l.startsWith('spanish')
+    );
+  }
   if (want === 'pt') return l === 'pt' || l.startsWith('pt-') || l.startsWith('por') || l === 'pob' || l === 'pb';
   return l === 'en' || l.startsWith('en-') || l.startsWith('eng');
 }
@@ -195,4 +202,64 @@ export function subLangMatches(lang: string, want: 'es' | 'pt' | 'en'): boolean 
 /** Picks the subtitle to auto-enable: preferred language first, then English, otherwise none. */
 export function pickAutoSubtitle<T extends { lang: string }>(subs: T[], want: 'es' | 'pt' | 'en'): T | undefined {
   return subs.find((s) => subLangMatches(s.lang, want)) || (want !== 'en' ? subs.find((s) => subLangMatches(s.lang, 'en')) : undefined);
+}
+
+// Latin-American Spanish codes: ISO "es-419"/"es-MX"…, OpenSubtitles "spl"/"ea", generic "lat".
+const LATAM_CODES = new Set(['lat', 'spl', 'ea', 'es-419', 'es-la', 'es-lat', 'es-us']);
+const LATAM_COUNTRIES = new Set(['mx', 'ar', 'co', 'cl', 'pe', 've', 'uy', 'py', 'bo', 'ec', 'gt', 'cr', 'pa', 'do', 'hn', 'ni', 'sv', 'pr', 'cu']);
+
+/** True for Latin-American Spanish (by code or by a label such as "Español (Latinoamérica)"). */
+export function isLatamSpanish(lang: string, label = ''): boolean {
+  const l = (lang || '').trim().toLowerCase().replace('_', '-');
+  if (LATAM_CODES.has(l)) return true;
+  const m = /^(?:es|spa)-([a-z]{2}|\d{3})$/.exec(l);
+  if (m && (m[1] === '419' || LATAM_COUNTRIES.has(m[1]))) return true;
+  return /latin|latam|m[eé]xic/i.test(label) || /latin|latam/i.test(l);
+}
+
+/** 0 = Latin-American Spanish, 1 = other Spanish, 2 = English, 3 = anything else. */
+export function subtitleLangRank(lang: string, label = ''): number {
+  if (subLangMatches(lang, 'es') || /^españ|^spanish/i.test(label)) return isLatamSpanish(lang, label) ? 0 : 1;
+  if (subLangMatches(lang, 'en')) return 2;
+  return 3;
+}
+
+const ORIGIN_RANK: Record<SubtitleOrigin, number> = {
+  embedded: 0,
+  local: 1,
+  opensubtitles: 2,
+  plugin: 3,
+  subdl: 4,
+  subtitlecat: 5,
+};
+
+interface OrderableSub {
+  id: string;
+  lang: string;
+  label: string;
+  source: string;
+  origin?: SubtitleOrigin;
+}
+
+/** Origin of a subtitle (explicit `origin`, otherwise inferred from its id/source). */
+export function subtitleOrigin(s: OrderableSub): SubtitleOrigin {
+  if (s.origin) return s.origin;
+  if (s.id.startsWith('emb_')) return 'embedded';
+  if (s.id.startsWith('subdl_')) return 'subdl';
+  if (s.id.startsWith('scat_')) return 'subtitlecat';
+  if (/opensubtitles/i.test(s.source) || s.id.startsWith('default_opensubtitles')) return 'opensubtitles';
+  if (/^archivo/i.test(s.source)) return 'local';
+  return 'plugin';
+}
+
+/**
+ * Subtitle list order: embedded (in-file) first, then the user's own files, OpenSubtitles,
+ * other subtitle plugins, SubDL and SubtitleCat last. Within each source: Latin-American
+ * Spanish, other Spanish, English, the rest (stable otherwise).
+ */
+export function orderSubtitles<T extends OrderableSub>(subs: T[]): T[] {
+  return subs
+    .map((s, i) => ({ s, i, o: ORIGIN_RANK[subtitleOrigin(s)], l: subtitleLangRank(s.lang, s.label) }))
+    .sort((a, b) => a.o - b.o || a.l - b.l || a.i - b.i)
+    .map((x) => x.s);
 }

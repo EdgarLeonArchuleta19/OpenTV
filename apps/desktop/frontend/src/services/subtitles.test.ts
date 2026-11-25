@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   cueTextAt,
   decodeSubtitleBytes,
+  isLatamSpanish,
   maybeGunzip,
+  orderSubtitles,
   parseSubtitles,
   parseTimestamp,
   pickAutoSubtitle,
   subLangMatches,
+  subtitleLangRank,
 } from './subtitles';
 
 const SRT = '1\r\n00:00:01,000 --> 00:00:03,500\r\n<i>¿Dónde está?</i>\r\n\r\n2\r\n00:00:04,000 --> 00:00:05,000\r\nLínea uno\r\nLínea dos\r\n';
@@ -89,5 +92,53 @@ describe('subtitles', () => {
     expect(pickAutoSubtitle(subs, 'es')?.lang).toBe('spa');
     expect(pickAutoSubtitle([{ lang: 'ger' }, { lang: 'eng' }], 'es')?.lang).toBe('eng');
     expect(pickAutoSubtitle([{ lang: 'ger' }], 'es')).toBeUndefined();
+  });
+});
+
+describe('subtitle order', () => {
+  const sub = (id: string, lang: string, source: string, origin?: 'embedded' | 'opensubtitles' | 'subdl' | 'subtitlecat') => ({
+    id,
+    lang,
+    label: '',
+    source,
+    origin,
+  });
+
+  it('detects Latin-American Spanish by code or label', () => {
+    expect(isLatamSpanish('es-419')).toBe(true);
+    expect(isLatamSpanish('es-MX')).toBe(true);
+    expect(isLatamSpanish('spl')).toBe(true);
+    expect(isLatamSpanish('spa', 'Español (Latinoamérica)')).toBe(true);
+    expect(isLatamSpanish('es-ES')).toBe(false);
+    expect(isLatamSpanish('spa')).toBe(false);
+    expect([subtitleLangRank('lat'), subtitleLangRank('spa'), subtitleLangRank('eng'), subtitleLangRank('fre')]).toEqual([0, 1, 2, 3]);
+  });
+
+  it('embedded, then OpenSubtitles, SubDL, SubtitleCat; LatAm > Spanish > English inside each', () => {
+    const ordered = orderSubtitles([
+      sub('scat_0', 'es', 'Búsqueda manual'),
+      sub('subdl_1', 'en', 'SubDL', 'subdl'),
+      sub('subdl_2', 'es-419', 'SubDL', 'subdl'),
+      sub('default_opensubtitles_0', 'eng', 'OpenSubtitles', 'opensubtitles'),
+      sub('default_opensubtitles_1', 'spa', 'OpenSubtitles', 'opensubtitles'),
+      sub('default_opensubtitles_2', 'spl', 'OpenSubtitles', 'opensubtitles'),
+      sub('emb_t_3', 'eng', 'Incrustado en el archivo'),
+      sub('emb_t_2', 'spa', 'Incrustado en el archivo'),
+    ]);
+    expect(ordered.map((s) => s.id)).toEqual([
+      'emb_t_2',
+      'emb_t_3',
+      'default_opensubtitles_2',
+      'default_opensubtitles_1',
+      'default_opensubtitles_0',
+      'subdl_2',
+      'subdl_1',
+      'scat_0',
+    ]);
+  });
+
+  it('auto-picks Latin-American Spanish from an ordered list', () => {
+    const ordered = orderSubtitles([sub('a', 'spa', 'OpenSubtitles'), sub('b', 'spl', 'OpenSubtitles')]);
+    expect(pickAutoSubtitle(ordered, 'es')?.id).toBe('b');
   });
 });

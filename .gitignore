@@ -16,6 +16,7 @@ apps/android/keystore.properties
 Thumbs.db
 desktop.ini
 config/tmdb.json
+config/subdl.json
 apps/android/app/src/main/assets/tmdb.bin
 
 # Kotlin / Gradle caches

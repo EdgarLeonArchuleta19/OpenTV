@@ -18,3 +18,19 @@ describe('directImageUrl', () => {
     expect(directImageUrl('http://image.tmdb.org/t/p/w500/a.jpg', 300)).toBe('');
   });
 });
+
+describe('resizedImageUrl in lite mode', () => {
+  it('asks the CDNs for smaller art', async () => {
+    const { setLiteMode } = await import('./liteMode');
+    const { resizedImageUrl } = await import('./tauri');
+    setLiteMode(true);
+    try {
+      expect(resizedImageUrl('https://image.tmdb.org/t/p/w1280/b.jpg', 400)).toBe('https://image.tmdb.org/t/p/w300/b.jpg');
+      expect(resizedImageUrl('https://images.metahub.space/poster/medium/tt1/img', 400)).toBe(
+        'https://images.metahub.space/poster/small/tt1/img',
+      );
+    } finally {
+      setLiteMode(false);
+    }
+  });
+});

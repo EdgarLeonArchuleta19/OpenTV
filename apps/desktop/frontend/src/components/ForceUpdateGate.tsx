@@ -62,38 +62,38 @@ export const ForceUpdateGate: React.FC<ForceUpdateGateProps> = ({
       aria-modal="true"
       aria-labelledby="force-update-title"
       data-testid="force-update-gate"
-      className="fixed inset-x-0 top-[36px] bottom-0 z-[9990] flex items-center justify-center bg-[#0e0e11]/98 px-6 backdrop-blur-md"
+      className="fixed inset-x-0 top-[36px] bottom-0 z-[9990] flex items-center justify-center bg-page/98 px-6 backdrop-blur-md"
     >
-      <div className="w-full max-w-[520px] rounded-[24px] border border-white/[0.12] bg-[#141418] p-8 shadow-[0_32px_90px_rgba(0,0,0,0.85)]">
+      <div className="w-full max-w-[520px] rounded-[24px] border border-fg/[0.12] bg-surface p-8 shadow-[0_32px_90px_rgba(0,0,0,0.85)]">
         <div className="flex items-center gap-3.5">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/[0.08] text-white">
-            <ShieldAlert className="h-6 w-6 text-[#7ee2a8]" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-fg/[0.08] text-fg">
+            <ShieldAlert className="h-6 w-6 text-[#7ee2a8] light:text-[#15803d]" />
           </div>
           <div>
-            <div className="text-[11px] font-bold tracking-[0.14em] text-[#7ee2a8] uppercase">
+            <div className="text-[11px] font-bold tracking-[0.14em] text-[#7ee2a8] light:text-[#15803d] uppercase">
               Actualización obligatoria
             </div>
-            <h1 id="force-update-title" className="text-[24px] font-extrabold tracking-tight text-white">
+            <h1 id="force-update-title" className="text-[24px] font-extrabold tracking-tight text-fg">
               Nueva versión v{targetVer} disponible
             </h1>
           </div>
         </div>
 
-        <p className="mt-4 text-[14.5px] leading-relaxed text-white/75">
+        <p className="mt-4 text-[14.5px] leading-relaxed text-fg/75">
           Para garantizar seguridad, compatibilidad de plugins y la mejor reproducción, OpenTV requiere usar siempre la
-          versión más reciente. Esta versión (<span className="font-semibold text-white">v{currentVersion}</span>) ya
+          versión más reciente. Esta versión (<span className="font-semibold text-fg">v{currentVersion}</span>) ya
           no puede continuar ejecutándose.
         </p>
 
         {status.notes && (
-          <div className="mt-4 max-h-32 overflow-y-auto rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[12.5px] leading-relaxed whitespace-pre-line text-white/65">
+          <div className="mt-4 max-h-32 overflow-y-auto rounded-xl border border-fg/[0.08] bg-fg/[0.03] px-4 py-3 text-[12.5px] leading-relaxed whitespace-pre-line text-fg/65">
             {status.notes}
           </div>
         )}
 
         {(downloading || ready || installing) && (
           <div className="mt-5 space-y-2">
-            <div className="flex items-center justify-between text-[13px] font-semibold text-white/85">
+            <div className="flex items-center justify-between text-[13px] font-semibold text-fg/85">
               <span>
                 {installing
                   ? 'Iniciando instalador de OpenTV…'
@@ -101,13 +101,13 @@ export const ForceUpdateGate: React.FC<ForceUpdateGateProps> = ({
                     ? 'Descarga completa · Listo para instalar'
                     : 'Descargando actualización…'}
               </span>
-              <span className="tabular-nums text-[#7ee2a8]">
+              <span className="tabular-nums text-[#7ee2a8] light:text-[#15803d]">
                 {downloading && status.total
                   ? `${formatBytes(status.bytes || 0)} / ${formatBytes(status.total)} · ${pct}%`
                   : `${ready || installing ? 100 : pct}%`}
               </span>
             </div>
-            <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-fg/10">
               <div
                 style={{ width: `${ready || installing ? 100 : Math.max(4, pct)}%`, backgroundColor: 'var(--ot-accent)' }}
                 className="h-full rounded-full transition-[width] duration-200"
@@ -166,7 +166,7 @@ export const ForceUpdateGate: React.FC<ForceUpdateGateProps> = ({
             <button
               type="button"
               onClick={onRetryCheck}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[13.5px] font-semibold text-white/85 transition hover:bg-white/[0.12] cursor-pointer"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-fg/15 bg-fg/[0.06] px-4 text-[13.5px] font-semibold text-fg/85 transition hover:bg-fg/[0.12] cursor-pointer"
             >
               <RefreshCw className="h-4 w-4" />
               <span>Reintentar</span>

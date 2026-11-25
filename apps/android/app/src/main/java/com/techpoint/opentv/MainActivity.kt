@@ -111,13 +111,14 @@ import com.techpoint.opentv.ui.theme.LocalOpenTvUi
 import com.techpoint.opentv.ui.theme.OpenTvAccents
 import com.techpoint.opentv.ui.theme.OpenTvColors
 import com.techpoint.opentv.ui.theme.OpenTvTheme
+import com.techpoint.opentv.ui.theme.OpenTvForceDark
 import com.techpoint.opentv.ui.theme.OpenTvUiConfig
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 sealed interface AppRoute {
@@ -210,10 +211,21 @@ class MainActivity : ComponentActivity() {
                 OpenTvUiConfig(
                     isTv = app.isTv,
                     isLowSpec = app.isLowSpec || persisted.appearance.liteMode,
-                    accent = OpenTvAccents.byId(persisted.appearance.accentId),
+                    liteMode = persisted.appearance.liteMode,
+                    accent = OpenTvAccents.byId(persisted.appearance.accentId, persisted.appearance.theme == "light"),
                     textLarge = persisted.appearance.textLarge,
                     tvMarginIndex = persisted.appearance.tvMarginIndex,
+                    lightTheme = persisted.appearance.theme == "light",
                 )
+            }
+            // Phone status / navigation bar icons follow the theme (dark icons on light).
+            LaunchedEffect(uiConfig.lightTheme) {
+                val style = if (uiConfig.lightTheme) {
+                    SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
+                } else {
+                    SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+                }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
             }
 
             OpenTvTheme(config = uiConfig) {
@@ -360,6 +372,9 @@ private fun OpenTvRootScreen(
 
     // TV Home state: saveable per section (scroll restore after Detail), focus memory and rail focus.
     val homeSaveable = rememberSaveableStateHolder()
+    // Buscar keeps its query and results while a ficha opened from it is on top (Back returns to
+    // the same results); the state is dropped once Buscar leaves the stack.
+    val searchSaveable = rememberSaveableStateHolder()
     val homeFocusMemory = remember { HomeFocusMemory() }
     val railFocus = remember { FocusRequester() }
     val homeContentFocus = remember { FocusRequester() }
@@ -455,6 +470,11 @@ private fun OpenTvRootScreen(
 
     fun pop() {
         if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+    }
+
+    val searchInStack = AppRoute.Search in backStack
+    LaunchedEffect(searchInStack) {
+        if (!searchInStack) searchSaveable.removeState("search")
     }
 
     /** Switches profile, enforcing 4-digit parental PIN when leaving Kids mode if locked. */
@@ -723,11 +743,12 @@ private fun OpenTvRootScreen(
                 )
             }
 
-            is AppRoute.VodPlayer -> if (route.needsDetail) {
+            // The player stays dark in every theme.
+            is AppRoute.VodPlayer -> OpenTvForceDark { if (route.needsDetail) {
                 // Card / hero play: full metadata (year, original title for JS plugins) and the
                 // episode to play are resolved here, already on the player's loading screen.
                 LaunchedEffect(route) {
-                    val detail = app.stremio.loadDetail(route.item)
+                    val detail = app.stremio.loadDetail(route.item, preferSeason = route.resumeSeason)
                     val ep = if (detail.item.isSeries) {
                         detail.episodes.firstOrNull { it.season == route.resumeSeason && it.number == route.resumeEpisode }
                             ?: detail.episodes.firstOrNull()
@@ -774,6 +795,9 @@ private fun OpenTvRootScreen(
                     isInPipMode = isInPipMode,
                     onEnterPip = onEnterPip,
                     onSaveProgress = { if (!it.itemId.startsWith("local:")) app.store.saveWatchProgress(it) },
+                    onSubtitleSize = { sz ->
+                        app.store.updatePlayback { p -> p.copy(subtitleStyle = p.subtitleStyle.copy(sizeSp = sz)) }
+                    },
                     onPreloadEpisode = { targetEp ->
                         if (preloadingEpId != targetEp.id) {
                             preloadingEpId = targetEp.id
@@ -812,9 +836,9 @@ private fun OpenTvRootScreen(
                     },
                     onBack = { pop() },
                 )
-            }
+            } }
 
-            AppRoute.Search -> {
+            AppRoute.Search -> searchSaveable.SaveableStateProvider("search") {
                 SearchScreen(
                     stremio = app.stremio,
                     plugins = persisted.plugins,
@@ -1006,10 +1030,10 @@ private fun OpenTvRootScreen(
                     put("force", force)
                 },
             )
-            val latest = res["latest"]?.jsonPrimitive?.contentOrNull.orEmpty()
-            val notes = res["notes"]?.jsonPrimitive?.contentOrNull.orEmpty()
-            val mandatory = res["mandatory"]?.jsonPrimitive?.booleanOrNull == true ||
-                res["available"]?.jsonPrimitive?.booleanOrNull == true
+            val latest = (res["latest"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+            val notes = (res["notes"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+            val mandatory = (res["mandatory"] as? JsonPrimitive)?.booleanOrNull == true ||
+                (res["available"] as? JsonPrimitive)?.booleanOrNull == true
             if (mandatory && AppUpdatePolicy.isOutdated(BuildConfig.VERSION_NAME, latest)) {
                 app.store.setRequiredLatestVersion(latest, notes)
             }
@@ -1076,7 +1100,7 @@ private fun ExitConfirmDialog(onExit: () -> Unit, onDismiss: () -> Unit) {
     }
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            color = Color(0xFF16161B),
+            color = if (OpenTvColors.isLight) OpenTvColors.Sheet else Color(0xFF16161B),
             shape = RoundedCornerShape(20.dp),
             border = BorderStroke(1.dp, OpenTvColors.GlassBorderStrong),
         ) {
@@ -1087,7 +1111,7 @@ private fun ExitConfirmDialog(onExit: () -> Unit, onDismiss: () -> Unit) {
             ) {
                 Text(
                     "¿Salir de OpenTV?",
-                    color = Color.White,
+                    color = OpenTvColors.Content,
                     fontSize = (22f * ui.textScale).sp,
                     fontWeight = FontWeight.Bold,
                 )
@@ -1156,7 +1180,7 @@ private fun ParentalPinDialog(
                         },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        textStyle = TextStyle(color = Color.White, fontSize = 18.sp, letterSpacing = 6.sp),
+                        textStyle = TextStyle(color = OpenTvColors.Content, fontSize = 18.sp, letterSpacing = 6.sp),
                         cursorBrush = SolidColor(ui.accent.color),
                         modifier = Modifier.fillMaxWidth(),
                     )

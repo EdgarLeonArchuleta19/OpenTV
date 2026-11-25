@@ -159,7 +159,11 @@ object SourceRanker {
     ): List<StreamSource> {
         val target = effectiveTarget(prefs, env)
         val enriched = sources.map(::enrich)
-        val filtered = enriched.filter { s ->
+        // Quality gate: no dead / CAM / duplicate torrents. If that would leave nothing at all,
+        // the best few of the dropped torrents are still offered instead of an empty list.
+        val split = splitTorrentQuality(enriched)
+        val healthy = split.kept.ifEmpty { split.dropped }
+        val filtered = healthy.filter { s ->
             if (s.is3d) return@filter false
             if (s.quality in prefs.exclude) return@filter false
             if ("CAM" in prefs.exclude && s.isCam) return@filter false
@@ -170,11 +174,149 @@ object SourceRanker {
             }
             true
         }
-        val pool = filtered.ifEmpty { enriched }
+        val pool = filtered.ifEmpty { healthy }
         val scored = pool
             .map { it.copy(score = scoreSource(it, prefs, caps, isLowMemory, target)) }
             .sortedByDescending { it.score }
-        return if (isLowMemory) promoteDirectOnLowMemory(scored, prefs, caps) else scored
+        val ranked = if (isLowMemory) promoteDirectOnLowMemory(scored, prefs, caps) else scored
+        return if (split.kept.isNotEmpty()) ranked else ranked.take(FALLBACK_TORRENTS)
+    }
+
+    /** Torrents with fewer known seeders than this are never listed (dead or near-dead swarms). */
+    const val MIN_TORRENT_SEEDERS = 5
+    private val SpanishTorrentAudio = setOf("latino", "castellano", "es")
+    /** How many dropped torrents are still offered when nothing else exists. */
+    private const val FALLBACK_TORRENTS = 5
+
+    // Bad release tags. Short ones only count in upper case ("CAM", "TS") so titles such as
+    // "Cam (2018)" or words containing "ts" are not caught; long ones match in any case.
+    private val BadReleaseUpper = setOf("CAM", "TS", "TC", "SCR")
+    private val BadReleaseAnyCase = setOf(
+        "hdcam", "camrip", "hdcamrip", "hqcam", "telesync", "telecine", "hdts", "hdtc", "tsrip", "hdtsrip",
+        "screener", "dvdscr", "bdscr", "dvdscreener", "predvd", "predvdrip",
+    )
+    private val BadReleaseJoinedRe = Regex(
+        """\b(hd[\s._-]?(ts|tc|cam)|(dvd|bd)[\s._-]?scr(eener)?|pre[\s._-]?dvd(rip)?|tele[\s._-]?(sync|cine))\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val TokenSplitRe = Regex("[^A-Za-z0-9]+")
+    private val FileExtRe = Regex("""\.[a-z0-9]{2,4}$""", RegexOption.IGNORE_CASE)
+
+    private fun isTorrentSource(s: StreamSource): Boolean = s.isTorrent && !s.isJsPlugin
+
+    /** True when the release name says CAM / TS / TC / screener (whole tokens only). */
+    fun isBadRelease(s: StreamSource): Boolean {
+        // The file extension is not a release tag (".ts" is MPEG-TS).
+        val text = "${s.name}\n${s.title}\n${s.filename.replace(FileExtRe, "")}"
+        if (BadReleaseJoinedRe.containsMatchIn(text)) return true
+        return text.split(TokenSplitRe).any { tok ->
+            tok.isNotEmpty() && (tok in BadReleaseUpper || tok.lowercase(Locale.ROOT) in BadReleaseAnyCase)
+        }
+    }
+
+    /** Seeders are "known" when the plugin reported them (a number > 0 or a "👤 N" tag). */
+    fun seedersKnown(s: StreamSource): Boolean =
+        s.seeders > 0 || SeedsRe.containsMatchIn("${s.name}\n${s.title}\n${s.filename}")
+
+    data class TorrentSplit(val kept: List<StreamSource>, val dropped: List<StreamSource>)
+
+    /**
+     * Splits sources into the ones worth listing and the dropped torrents:
+     * - a torrent with known seeders below [MIN_TORRENT_SEEDERS] (0 included) is dropped;
+     * - a CAM / TS / TC / screener torrent is dropped;
+     * - the same infoHash is listed once (the copy with the most seeders).
+     * Direct (HTTP/HLS) sources are never dropped. Order is preserved.
+     */
+    fun splitTorrentQuality(sources: List<StreamSource>): TorrentSplit {
+        val bestByHash = HashMap<String, StreamSource>()
+        for (s in sources) {
+            if (!isTorrentSource(s)) continue
+            val key = s.infoHash.lowercase(Locale.ROOT)
+            val cur = bestByHash[key]
+            if (cur == null || s.seeders > cur.seeders) bestByHash[key] = s
+        }
+        val kept = ArrayList<StreamSource>(sources.size)
+        val dropped = ArrayList<StreamSource>()
+        for (s in sources) {
+            if (!isTorrentSource(s)) {
+                kept.add(s)
+                continue
+            }
+            if (bestByHash[s.infoHash.lowercase(Locale.ROOT)] !== s) continue
+            // Spanish audio is scarce on torrents (The Office: one Latino release, 3 seeders, plays at
+            // ~1 MB/s), so it only needs a live seeder; everything else needs MIN_TORRENT_SEEDERS.
+            val minSeeds = if (s.langs.any { it in SpanishTorrentAudio }) 1 else MIN_TORRENT_SEEDERS
+            val deadSwarm = seedersKnown(s) && s.seeders < minSeeds
+            if (deadSwarm || isBadRelease(s)) dropped.add(s) else kept.add(s)
+        }
+        return TorrentSplit(kept, dropped)
+    }
+
+    // ---- Picker display helpers (same wording as desktop `sourceRanker.ts`) ----
+
+    /** Short quality badge: 4K / 1080p / 720p / SD, or "Auto" for adaptive / untagged streams. */
+    fun qualityLabel(s: StreamSource): String = when (s.quality) {
+        "4K", "1080p", "720p", "SD" -> s.quality
+        else -> "Auto"
+    }
+
+    private val LangOrder = listOf("latino", "castellano", "es", "en", "pt", "fr", "it", "de", "ru", "ja", "ko")
+    private val SpanishAudio = setOf("latino", "castellano", "es")
+
+    /** Audio language in plain Spanish: "Latino", "Latino + Inglés", "Subtitulado", "Idioma original". */
+    fun plainLanguageLabel(s: StreamSource): String {
+        val hasSpanishAudio = s.langs.any { it in SpanishAudio }
+        if (!hasSpanishAudio && s.hasSubsEs) return "Subtitulado"
+        val labels = LangOrder.filter { it in s.langs }.mapNotNull { LangLabels[it] }
+        if (labels.isEmpty()) return "Idioma original"
+        return labels.take(2).joinToString(" + ")
+    }
+
+    /** "Directo" (HTTP/HLS, starts at once) or "Torrent". */
+    fun typeLabel(s: StreamSource): String = if (s.isDirect) "Directo" else "Torrent"
+
+    /** The one short secondary line of a picker row: plugin name plus HDR / Dolby Atmos. */
+    fun sourceDetailLine(s: StreamSource): String = buildList {
+        add(s.addonName.ifBlank { "Plugin" })
+        if (s.isHdr) add("HDR")
+        if (s.isAtmos) add("Dolby Atmos")
+    }.joinToString(" · ")
+
+    data class PickerOption(val value: String, val label: String, val count: Int)
+    data class PickerOptions(val quality: List<PickerOption>, val lang: List<PickerOption>, val type: List<PickerOption>)
+
+    private val QualityFilters = listOf("4K" to "4K", "1080p" to "1080p", "720p" to "720p", "SD" to "SD", "unknown" to "Auto")
+    private val LangFilters = listOf(
+        "latino" to "Latino", "castellano" to "Castellano", "es" to "Español", "en" to "Inglés", "subs" to "Subtitulado",
+        "pt" to "Portugués", "fr" to "Francés", "it" to "Italiano", "de" to "Alemán", "ru" to "Ruso", "ja" to "Japonés", "ko" to "Coreano",
+    )
+
+    fun matchesQualityFilter(s: StreamSource, value: String): Boolean =
+        value == "all" || s.quality == value || (value == "unknown" && qualityLabel(s) == "Auto")
+
+    fun matchesLangFilter(s: StreamSource, value: String): Boolean = when (value) {
+        "all" -> true
+        "subs" -> s.hasSubsEs
+        else -> hasLang(s, value)
+    }
+
+    fun matchesTypeFilter(s: StreamSource, value: String): Boolean = when (value) {
+        "direct" -> s.isDirect
+        "torrent" -> !s.isDirect
+        else -> true
+    }
+
+    /** Dropdown options for the picker: "all" first, then only the values present in [sources]. */
+    fun pickerFilterOptions(sources: List<StreamSource>): PickerOptions {
+        fun opts(allLabel: String, pairs: List<Pair<String, String>>, match: (StreamSource, String) -> Boolean) =
+            listOf(PickerOption("all", allLabel, sources.size)) +
+                pairs.map { (value, label) -> PickerOption(value, label, sources.count { match(it, value) }) }
+                    .filter { it.count > 0 }
+        return PickerOptions(
+            quality = opts("Todas", QualityFilters, ::matchesQualityFilter),
+            lang = opts("Todos", LangFilters, ::matchesLangFilter),
+            type = opts("Todas", listOf("direct" to "Directas", "torrent" to "Torrents"), ::matchesTypeFilter),
+        )
     }
 
     /**

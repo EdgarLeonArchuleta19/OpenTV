@@ -1,5 +1,6 @@
 import type { EpgNowNext, EpgProgram, LiveChannel, M3uPlaylist } from '../types/models';
 import { desktopApi } from './tauri';
+import { guessGuideCountry, isPlaceholderGuide } from './liveSchedule';
 
 const ADULT_RE = /\b(xxx|adult|adulto|adultos|porn|porno|erotic|erotico|18\+|\+18|onlyfans|sex|hentai|nsfw)\b/i;
 
@@ -56,6 +57,7 @@ function playlistsKey(playlists: M3uPlaylist[]): string {
 export function clearLiveTvCache(): void {
   channelCache.clear();
   epgCache.clear();
+  supplementCache.clear();
 }
 
 export function peekLiveChannels(playlists: M3uPlaylist[]): ChannelList | undefined {
@@ -206,18 +208,98 @@ async function fetchEpgNowNext(epgUrls: string[], channels: LiveChannel[]): Prom
   return out;
 }
 
-export async function loadChannelSchedule12h(channel: LiveChannel): Promise<EpgProgram[]> {
+async function loadOwnSchedule(channel: LiveChannel): Promise<EpgProgram[]> {
   if (!channel.epgUrl) return [];
   const id = channel.tvgId || channel.tvgName || channel.name;
   if (!id) return [];
-
   const res = await desktopApi.service<{
     programmes?: Array<Record<string, unknown>>;
   }>('epgSchedule', { url: channel.epgUrl, id, allowLan: Boolean(channel.allowLan) });
-
   return (res?.programmes || [])
     .map((x) => parseProgram(x))
     .filter((x): x is EpgProgram => x !== undefined);
+}
+
+/** 12 h schedule of a channel; a missing or placeholder guide is replaced by the supplementary one. */
+export async function loadChannelSchedule12h(channel: LiveChannel): Promise<EpgProgram[]> {
+  const own = await loadOwnSchedule(channel).catch(() => [] as EpgProgram[]);
+  if (own.length > 0 && !isPlaceholderGuide(channelNames(channel), own)) return own;
+  const extra = await loadEpgSupplement(channel);
+  return extra.length > 0 ? extra : own;
+}
+
+// Supplementary guide (core `epgSupplement`, public epgshare01 guides), cached per channel.
+const SUPPLEMENT_TTL_MS = 30 * 60_000;
+const SUPPLEMENT_NOW_NEXT_MAX = 24;
+const supplementCache = new Map<string, { at: number; value: Promise<EpgProgram[]> }>();
+
+function channelNames(channel: LiveChannel): string[] {
+  return [channel.name, channel.tvgName].filter(Boolean);
+}
+
+/** Key of a channel in the now/next map (tvg-id, tvg-name, or its url when it has neither). */
+export function epgKeyOf(channel: LiveChannel): string {
+  return (channel.tvgId || channel.tvgName || `url:${channel.url}`).toLowerCase();
+}
+
+/** Programmes of `channel` in the supplementary guide (empty when no confident match). */
+export function loadEpgSupplement(channel: LiveChannel): Promise<EpgProgram[]> {
+  const country = guessGuideCountry(channel);
+  const key = `${country}|${channel.name}`;
+  const hit = supplementCache.get(key);
+  if (hit && Date.now() - hit.at < SUPPLEMENT_TTL_MS) {
+    return hit.value.then((list) => list.filter((p) => p.endMs > Date.now()));
+  }
+  const value = desktopApi
+    .service<{ programmes?: Array<Record<string, unknown>> }>('epgSupplement', { name: channel.name, country })
+    .then((res) =>
+      (res?.programmes || []).map((x) => parseProgram(x)).filter((x): x is EpgProgram => x !== undefined),
+    )
+    .catch(() => [] as EpgProgram[]);
+  supplementCache.set(key, { at: Date.now(), value });
+  return value;
+}
+
+function nowNextOf(list: EpgProgram[], now: number): EpgNowNext | undefined {
+  const current = list.find((p) => p.startMs <= now && p.endMs > now);
+  const upcoming = list.find((p) => p.startMs > (current ? current.startMs : now));
+  return current || upcoming ? { now: current, next: upcoming } : undefined;
+}
+
+/** Now/next built from a schedule (for a channel whose own guide was replaced). */
+export function nowNextFromSchedule(list: EpgProgram[]): EpgNowNext | undefined {
+  return nowNextOf(list, Date.now());
+}
+
+/**
+ * Now/next from the supplementary guide for the channels whose own guide is placeholder-only
+ * ("Azteca UNO -1" every hour). Returns only the entries to patch into the now/next map.
+ */
+export async function loadSupplementNowNext(
+  channels: LiveChannel[],
+  epgMap: Record<string, EpgNowNext>,
+): Promise<Record<string, EpgNowNext>> {
+  const seen = new Set<string>();
+  const targets = channels.filter((c) => {
+    const key = epgKeyOf(c);
+    const own = epgMap[key];
+    if (!own || seen.has(key)) return false;
+    if (!isPlaceholderGuide(channelNames(c), [own.now, own.next])) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, SUPPLEMENT_NOW_NEXT_MAX);
+
+  const out: Record<string, EpgNowNext> = {};
+  // A few at a time: the core downloads each country's guide once and answers the rest from memory.
+  for (let i = 0; i < targets.length; i += 4) {
+    await Promise.all(
+      targets.slice(i, i + 4).map(async (c) => {
+        const pair = nowNextOf(await loadEpgSupplement(c), Date.now());
+        if (pair) out[epgKeyOf(c)] = pair;
+      }),
+    );
+  }
+  return out;
 }
 
 export async function resolveLiveStream(channel: LiveChannel, forceProxy = false): Promise<string> {

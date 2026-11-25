@@ -188,7 +188,11 @@ export function rankSources(
   const isAuto = prefs.quality === 'auto';
   const points = QUALITY_POINTS[target];
   const enriched = sources.map(enrichSource);
-  const filtered = enriched.filter((s) => {
+  // Quality gate: no dead / CAM / duplicate torrents. If that would leave nothing at all,
+  // the best few of the dropped torrents are still offered instead of an empty list.
+  const { kept, dropped } = splitTorrentQuality(enriched);
+  const healthy = kept.length > 0 ? kept : dropped;
+  const filtered = healthy.filter((s) => {
     if (s.is3d) return false;
     if (prefs.exclude.includes(s.quality)) return false;
     if (prefs.exclude.includes('CAM') && s.isCam) return false;
@@ -199,7 +203,7 @@ export function rankSources(
     return true;
   });
 
-  const pool = filtered.length > 0 ? filtered : enriched;
+  const pool = filtered.length > 0 ? filtered : healthy;
   const scored = pool
     .map((s) => {
       let score = 0;
@@ -257,7 +261,152 @@ export function rankSources(
       return { ...s, score };
     })
     .sort((a, b) => b.score - a.score);
-  return promoteDirectSources(scored, prefs);
+  const ranked = promoteDirectSources(scored, prefs);
+  return kept.length > 0 ? ranked : ranked.slice(0, FALLBACK_TORRENTS);
+}
+
+/** Torrents with fewer known seeders than this are never listed (dead or near-dead swarms). */
+export const MIN_TORRENT_SEEDERS = 5;
+const SPANISH_TORRENT_AUDIO = ['latino', 'castellano', 'es'];
+/** How many dropped torrents are still offered when nothing else exists. */
+const FALLBACK_TORRENTS = 5;
+
+// Bad release tags. Short ones only count in upper case ("CAM", "TS") so titles such as
+// "Cam (2018)" or words containing "ts" are not caught; long ones match in any case.
+const BAD_RELEASE_UPPER = new Set(['CAM', 'TS', 'TC', 'SCR']);
+const BAD_RELEASE_ANYCASE = new Set([
+  'hdcam', 'camrip', 'hdcamrip', 'hqcam', 'telesync', 'telecine', 'hdts', 'hdtc', 'tsrip', 'hdtsrip',
+  'screener', 'dvdscr', 'bdscr', 'dvdscreener', 'predvd', 'predvdrip',
+]);
+const BAD_RELEASE_JOINED_RE = /\b(hd[\s._-]?(ts|tc|cam)|(dvd|bd)[\s._-]?scr(eener)?|pre[\s._-]?dvd(rip)?|tele[\s._-]?(sync|cine))\b/i;
+
+const isTorrentSource = (s: Pick<StreamSource, 'infoHash' | 'url' | 'isJsPlugin'>): boolean =>
+  Boolean(s.infoHash && !s.url && !s.isJsPlugin);
+
+/** True when the release name says CAM / TS / TC / screener (whole tokens only). */
+export function isBadRelease(s: Pick<StreamSource, 'name' | 'title' | 'filename'>): boolean {
+  // The file extension is not a release tag (".ts" is MPEG-TS).
+  const filename = (s.filename || '').replace(/\.[a-z0-9]{2,4}$/i, '');
+  const text = `${s.name || ''}\n${s.title || ''}\n${filename}`;
+  if (BAD_RELEASE_JOINED_RE.test(text)) return true;
+  for (const tok of text.split(/[^A-Za-z0-9]+/)) {
+    if (!tok) continue;
+    if (BAD_RELEASE_UPPER.has(tok) || BAD_RELEASE_ANYCASE.has(tok.toLowerCase())) return true;
+  }
+  return false;
+}
+
+/** Seeders are "known" when the plugin reported them (a number > 0 or a "👤 N" tag). */
+export function seedersKnown(s: Pick<StreamSource, 'seeders' | 'name' | 'title' | 'filename'>): boolean {
+  return s.seeders > 0 || SEEDS_RE.test(`${s.name || ''}\n${s.title || ''}\n${s.filename || ''}`);
+}
+
+/**
+ * Splits sources into the ones worth listing and the dropped torrents:
+ * - a torrent with known seeders below `MIN_TORRENT_SEEDERS` (0 included) is dropped; Spanish-audio
+ *   torrents only need one seeder;
+ * - a CAM / TS / TC / screener torrent is dropped;
+ * - the same infoHash is listed once (the copy with the most seeders).
+ * Direct (HTTP/HLS) sources are never dropped. Order is preserved.
+ */
+export function splitTorrentQuality<T extends StreamSource>(sources: T[]): { kept: T[]; dropped: T[] } {
+  const bestByHash = new Map<string, T>();
+  for (const s of sources) {
+    if (!isTorrentSource(s)) continue;
+    const key = s.infoHash.toLowerCase();
+    const cur = bestByHash.get(key);
+    if (!cur || s.seeders > cur.seeders) bestByHash.set(key, s);
+  }
+  const kept: T[] = [];
+  const dropped: T[] = [];
+  for (const s of sources) {
+    if (!isTorrentSource(s)) {
+      kept.push(s);
+      continue;
+    }
+    if (bestByHash.get(s.infoHash.toLowerCase()) !== s) continue;
+    // Spanish audio is scarce on torrents (The Office: one Latino release, 3 seeders, plays at
+    // ~1 MB/s), so it only needs a live seeder; everything else needs MIN_TORRENT_SEEDERS.
+    const minSeeds = s.langs.some((l) => SPANISH_TORRENT_AUDIO.includes(l)) ? 1 : MIN_TORRENT_SEEDERS;
+    const deadSwarm = seedersKnown(s) && s.seeders < minSeeds;
+    if (deadSwarm || isBadRelease(s)) dropped.push(s);
+    else kept.push(s);
+  }
+  return { kept, dropped };
+}
+
+// ---- Picker display helpers (same wording as Android `SourceRanker.kt`) ----
+
+/** Short quality badge: 4K / 1080p / 720p / SD, or "Auto" for adaptive / untagged streams. */
+export function qualityLabel(s: Pick<StreamSource, 'quality'>): string {
+  return s.quality === 'unknown' ? 'Auto' : s.quality;
+}
+
+const LANG_ORDER = ['latino', 'castellano', 'es', 'en', 'pt', 'fr', 'it', 'de', 'ru', 'ja', 'ko'];
+const SPANISH_AUDIO = ['latino', 'castellano', 'es'];
+
+/** Audio language in plain Spanish: "Latino", "Latino + Inglés", "Subtitulado", "Idioma original". */
+export function plainLanguageLabel(s: Pick<StreamSource, 'langs' | 'hasSubsEs'>): string {
+  const hasSpanishAudio = s.langs.some((l) => SPANISH_AUDIO.includes(l));
+  if (!hasSpanishAudio && s.hasSubsEs) return 'Subtitulado';
+  const labels = LANG_ORDER.filter((l) => s.langs.includes(l)).map((l) => LANG_LABELS[l]);
+  if (labels.length === 0) return 'Idioma original';
+  return labels.slice(0, 2).join(' + ');
+}
+
+/** "Directo" (HTTP/HLS, starts at once) or "Torrent". */
+export function typeLabel(s: Pick<StreamSource, 'url' | 'isJsPlugin'>): string {
+  return isDirectSource(s) ? 'Directo' : 'Torrent';
+}
+
+/** The one short secondary line of a picker row: plugin name plus HDR / Dolby Atmos. */
+export function sourceDetailLine(s: Pick<StreamSource, 'addonName' | 'isHdr' | 'isAtmos'>): string {
+  return [s.addonName || 'Plugin', s.isHdr ? 'HDR' : '', s.isAtmos ? 'Dolby Atmos' : ''].filter(Boolean).join(' · ');
+}
+
+export type PickerOption = { value: string; label: string; count: number };
+
+const QUALITY_FILTERS: Array<[string, string]> = [
+  ['4K', '4K'], ['1080p', '1080p'], ['720p', '720p'], ['SD', 'SD'], ['unknown', 'Auto'],
+];
+const LANG_FILTERS: Array<[string, string]> = [
+  ['latino', 'Latino'], ['castellano', 'Castellano'], ['es', 'Español'], ['en', 'Inglés'], ['subs', 'Subtitulado'],
+  ['pt', 'Portugués'], ['fr', 'Francés'], ['it', 'Italiano'], ['de', 'Alemán'], ['ru', 'Ruso'], ['ja', 'Japonés'], ['ko', 'Coreano'],
+];
+
+export function matchesQualityFilter(s: StreamSource, value: string): boolean {
+  return value === 'all' || s.quality === value;
+}
+
+export function matchesLangFilter(s: StreamSource, value: string): boolean {
+  if (value === 'all') return true;
+  if (value === 'subs') return s.hasSubsEs;
+  return sourceHasLang(s, value);
+}
+
+export function matchesTypeFilter(s: StreamSource, value: string): boolean {
+  if (value === 'direct') return isDirectSource(s);
+  if (value === 'torrent') return !isDirectSource(s);
+  return true;
+}
+
+/** Dropdown options for the picker: "all" first, then only the values present in `sources`. */
+export function pickerFilterOptions(sources: StreamSource[]): {
+  quality: PickerOption[];
+  lang: PickerOption[];
+  type: PickerOption[];
+} {
+  const opts = (allLabel: string, pairs: Array<[string, string]>, match: (s: StreamSource, v: string) => boolean) => [
+    { value: 'all', label: allLabel, count: sources.length },
+    ...pairs
+      .map(([value, label]) => ({ value, label, count: sources.filter((s) => match(s, value)).length }))
+      .filter((o) => o.count > 0),
+  ];
+  return {
+    quality: opts('Todas', QUALITY_FILTERS, matchesQualityFilter),
+    lang: opts('Todos', LANG_FILTERS, matchesLangFilter),
+    type: opts('Todas', [['direct', 'Directas'], ['torrent', 'Torrents']], matchesTypeFilter),
+  };
 }
 
 /** True for HTTP/HLS sources (JS plugins or Stremio URLs); torrents are `infoHash` without `url`. */

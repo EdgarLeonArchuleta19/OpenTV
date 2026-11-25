@@ -28,11 +28,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.util.Locale
@@ -121,15 +121,15 @@ class DownloadsForegroundService : Service() {
     private suspend fun pollLoop() {
         while (scope.isActive) {
             val snap = RustServiceBridge.callRpc("downloadSnapshot")
-            val active = snap["active"]?.jsonArray.orEmpty()
-            val finished = snap["finished"]?.jsonArray.orEmpty()
+            val active = (snap["active"] as? JsonArray).orEmpty()
+            val finished = (snap["finished"] as? JsonArray).orEmpty()
 
             if (finished.isNotEmpty() && canNotify()) {
                 for (el in finished) {
-                    val obj = el.jsonObject
-                    val id = obj["id"]?.jsonPrimitive?.contentOrNull.orEmpty()
-                    val title = obj["title"]?.jsonPrimitive?.contentOrNull ?: "Descarga completada"
-                    val status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "done"
+                    val obj = el as? JsonObject ?: continue
+                    val id = (obj["id"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+                    val title = (obj["title"] as? JsonPrimitive)?.contentOrNull ?: "Descarga completada"
+                    val status = (obj["status"] as? JsonPrimitive)?.contentOrNull ?: "done"
                     notifyFinished(id, title, status == "done")
                 }
             }
@@ -139,13 +139,13 @@ class DownloadsForegroundService : Service() {
                 return
             }
 
-            val first = active.first().jsonObject
-            val id = first["id"]?.jsonPrimitive?.contentOrNull.orEmpty()
-            val title = first["title"]?.jsonPrimitive?.contentOrNull ?: "Descargando"
-            val subtitle = first["subtitle"]?.jsonPrimitive?.contentOrNull.orEmpty()
-            val bytes = first["bytes"]?.jsonPrimitive?.longOrNull ?: 0L
-            val total = first["total"]?.jsonPrimitive?.longOrNull ?: 0L
-            val speed = first["speed"]?.jsonPrimitive?.longOrNull ?: 0L
+            val first = active.first() as? JsonObject ?: JsonObject(emptyMap())
+            val id = (first["id"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+            val title = (first["title"] as? JsonPrimitive)?.contentOrNull ?: "Descargando"
+            val subtitle = (first["subtitle"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+            val bytes = (first["bytes"] as? JsonPrimitive)?.longOrNull ?: 0L
+            val total = (first["total"] as? JsonPrimitive)?.longOrNull ?: 0L
+            val speed = (first["speed"] as? JsonPrimitive)?.longOrNull ?: 0L
             val pct = if (total > 0) ((bytes * 100) / total).toInt().coerceIn(0, 100) else -1
             val key = "${active.size}|$id|$pct|${speed / 65536}"
 

@@ -13,7 +13,9 @@ pub mod proxy;
 pub mod resolve;
 pub mod rpc;
 pub mod safe_http;
+pub mod skip_times;
 pub mod storage;
+pub mod subdl;
 pub mod subtitlecat;
 pub mod tmdb;
 pub mod torrents;
@@ -37,6 +39,7 @@ use crate::images::ImageSizer;
 use crate::local_media::LocalMediaStore;
 use crate::mpv::MpvController;
 use crate::proxy::ProxyStore;
+use crate::subdl::SubDl;
 use crate::subtitlecat::SubtitleCat;
 use crate::tmdb::TmdbClient;
 use crate::torrents::TorrentEngine;
@@ -53,6 +56,7 @@ pub struct ServiceState {
     pub proxy: ProxyStore,
     pub video_hash: VideoHasher,
     pub subtitlecat: SubtitleCat,
+    pub subdl: SubDl,
     pub images: ImageSizer,
     pub torrents: TorrentEngine,
     pub downloads: DownloadManager,
@@ -93,6 +97,7 @@ impl ServiceState {
         let proxy = ProxyStore::new(dns.clone());
         let video_hash = VideoHasher::new(dns.clone());
         let subtitlecat = SubtitleCat::new(http.clone());
+        let subdl = SubDl::new(dns.clone());
         let images = ImageSizer::new(dns.clone(), cache_dir.clone(), config.low_memory);
         let torrents = TorrentEngine::new(http.clone(), cache_dir.clone(), config.low_memory);
         let downloads = DownloadManager::new(dns.clone(), torrents.clone(), downloads_dir);
@@ -116,6 +121,7 @@ impl ServiceState {
             proxy,
             video_hash,
             subtitlecat,
+            subdl,
             images,
             torrents,
             downloads,

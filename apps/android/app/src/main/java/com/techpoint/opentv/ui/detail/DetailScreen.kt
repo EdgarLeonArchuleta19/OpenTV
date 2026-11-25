@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.techpoint.opentv.core.addons.TmdbDetail
 import com.techpoint.opentv.core.addons.StremioClient
 import com.techpoint.opentv.core.jsplugins.JsPluginHost
 import com.techpoint.opentv.core.model.Episode
@@ -154,6 +155,7 @@ fun DetailScreen(
     var detail by remember(initialItem.id) { mutableStateOf(TitleDetail(initialItem)) }
     var loadingMeta by remember(initialItem.id) { mutableStateOf(true) }
     var selectedSeason by remember(initialItem.id) { mutableIntStateOf(1) }
+    var loadingSeason by remember(initialItem.id) { mutableStateOf(false) }
     var expandSynopsis by remember(initialItem.id) { mutableStateOf(false) }
 
     var sources by remember(initialItem.id) { mutableStateOf<List<StreamSource>>(emptyList()) }
@@ -166,13 +168,30 @@ fun DetailScreen(
 
     LaunchedEffect(initialItem.id) {
         loadingMeta = true
-        val loaded = stremio.loadDetail(initialItem)
+        val savedEp = watchProgress.firstOrNull { it.itemId == initialItem.id && it.season > 0 }
+        // TMDB detail comes with the episodes of this season only; the rest load on demand.
+        val loaded = stremio.loadDetail(initialItem, preferSeason = savedEp?.season ?: 0)
         detail = loaded
         if (loaded.seasons.isNotEmpty()) {
-            val savedEp = watchProgress.firstOrNull { it.itemId == initialItem.id && it.season > 0 }
             selectedSeason = savedEp?.season?.takeIf { it in loaded.seasons } ?: loaded.seasons.first()
         }
         loadingMeta = false
+    }
+
+    // Lazy seasons: load the selected season when missing, then the next one in the background
+    // (so auto-play can continue into it from the player).
+    LaunchedEffect(initialItem.id, selectedSeason, loadingMeta) {
+        if (loadingMeta || !detail.item.isSeries) return@LaunchedEffect
+        for (season in listOf(selectedSeason, selectedSeason + 1)) {
+            if (season !in detail.seasons || detail.episodes.any { it.season == season }) continue
+            loadingSeason = season == selectedSeason
+            try {
+                val eps = stremio.loadSeasonEpisodes(detail.item, season)
+                if (eps.isNotEmpty()) detail = detail.copy(episodes = TmdbDetail.mergeEpisodes(detail.episodes, eps))
+            } finally {
+                loadingSeason = false
+            }
+        }
     }
 
     fun cachedSources(ep: Episode?): List<StreamSource>? {
@@ -335,7 +354,7 @@ fun DetailScreen(
         if (ui.isTv) {
             DetailTvContent(
                 detail = detail,
-                loadingMeta = loadingMeta,
+                loadingMeta = loadingMeta || loadingSeason,
                 selectedSeason = selectedSeason,
                 seasonEpisodes = seasonEpisodes,
                 watchProgress = watchProgress,
@@ -393,7 +412,7 @@ fun DetailScreen(
                                 modifier = Modifier.weight(0.52f),
                             )
                             DetailPreviewCard(
-                                url = item.backdrop.ifBlank { item.poster },
+                                url = if (ui.liteMode) "" else item.backdrop.ifBlank { item.poster },
                                 title = item.title,
                                 canPlay = hasSourcePlugins,
                                 onPlay = { triggerPlay(defaultEpisode, forcePicker = false) },
@@ -403,7 +422,7 @@ fun DetailScreen(
                     } else {
                         // Mobile portrait: rounded 16:9 backdrop card on top, info neatly below
                         DetailPreviewCard(
-                            url = item.backdrop.ifBlank { item.poster },
+                            url = if (ui.liteMode) "" else item.backdrop.ifBlank { item.poster },
                             title = item.title,
                             canPlay = hasSourcePlugins,
                             onPlay = { triggerPlay(defaultEpisode, forcePicker = false) },
@@ -494,7 +513,7 @@ fun DetailScreen(
                 }
             }
 
-            if (loadingMeta) {
+            if (loadingMeta || loadingSeason) {
                 item(key = "meta_loading") {
                     Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = ui.accent.color, strokeWidth = 2.5.dp, modifier = Modifier.size(26.dp))
@@ -607,7 +626,7 @@ private fun DetailInfoColumn(
                 lineHeight = if (item.title.length > 26) 31.sp else 37.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = (-0.6).sp,
-                color = Color.White,
+                color = OpenTvColors.Content,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
@@ -622,7 +641,7 @@ private fun DetailInfoColumn(
                 ) {
                     Text(
                         text = "★ ${item.score}",
-                        color = Color.White,
+                        color = OpenTvColors.Content,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                     )
@@ -682,7 +701,7 @@ private fun DetailInfoColumn(
             if (item.synopsis.length > 130) {
                 Text(
                     text = if (expandSynopsis) "Leer menos" else "Leer más",
-                    color = Color.White,
+                    color = OpenTvColors.Content,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     textDecoration = TextDecoration.Underline,
@@ -738,6 +757,7 @@ private fun DetailPreviewCard(
                     .background(Color(0x8C0E0E11))
                     .border(1.5.dp, Color(0x99FFFFFF), CircleShape),
             ) {
+                // Over artwork: stays white in every theme.
                 Icon(
                     imageVector = Icons.Rounded.PlayArrow,
                     contentDescription = "Reproducir",
@@ -767,7 +787,7 @@ private fun EpisodeRowCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(if (focused) OpenTvColors.GlassFillFocus else Color(0x0AFFFFFF))
+            .background(if (focused) OpenTvColors.GlassFillFocus else OpenTvColors.fg(0.039f))
             .border(
                 width = if (focused) 2.5.dp else 1.dp,
                 color = if (focused) ui.accent.color else OpenTvColors.GlassBorder,
@@ -776,7 +796,8 @@ private fun EpisodeRowCard(
             .clickable(interactionSource = interaction, indication = null, onClick = onPlay)
             .padding(10.dp),
     ) {
-        Box(
+        // Lite mode: the row is designed without the picture (label, title, synopsis).
+        if (!ui.liteMode) Box(
             modifier = Modifier
                 .width(if (ui.isTv) 160.dp else 128.dp)
                 .aspectRatio(16f / 9f)
@@ -795,7 +816,7 @@ private fun EpisodeRowCard(
                         .align(Alignment.BottomStart)
                         .fillMaxWidth()
                         .height(3.5.dp)
-                        .background(Color(0x55FFFFFF)),
+                        .background(Color(0x55FFFFFF)), // over artwork
                 ) {
                     Box(
                         modifier = Modifier
@@ -806,10 +827,19 @@ private fun EpisodeRowCard(
                 }
             }
         }
-        Spacer(Modifier.width(12.dp))
+        if (!ui.liteMode) Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            if (ui.liteMode) {
+                Text(
+                    text = "EPISODIO ${episode.number}",
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.6.sp,
+                    color = ui.accent.color,
+                )
+            }
             Text(
-                text = "${episode.number}. ${episode.title}",
+                text = if (ui.liteMode) episode.title else "${episode.number}. ${episode.title}",
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

@@ -101,19 +101,19 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
   }, [query, kidsOnly]);
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#0e0e11]">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-page">
       {/* Floating top-left round Back button (`buscador.jpg`) */}
       <button
         type="button"
         onClick={onBack}
         aria-label="Volver"
-        className="fixed top-[50px] left-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-[#141418]/70 text-white backdrop-blur-xl transition hover:border-white/40 hover:bg-white/15 cursor-pointer"
+        className="fixed top-[50px] left-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-fg/20 bg-surface/70 text-fg backdrop-blur-xl transition hover:border-fg/40 hover:bg-fg/15 cursor-pointer"
       >
         <ChevronLeft className="h-5 w-5" />
       </button>
 
       {/* Top Search Bar separated by hairline (`02-busqueda-menu-componentes.css:10`) */}
-      <div className="flex shrink-0 items-center justify-center border-b border-white/[0.07] px-16 py-5 sm:px-20 lg:py-7">
+      <div className="flex shrink-0 items-center justify-center border-b border-fg/[0.07] px-16 py-5 sm:px-20 lg:py-7">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -122,7 +122,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
           className="flex w-full max-w-[820px] items-center gap-2.5 sm:gap-3"
         >
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-5 h-5 w-5 -translate-y-1/2 text-white/45" />
+            <Search className="pointer-events-none absolute top-1/2 left-5 h-5 w-5 -translate-y-1/2 text-fg/45 light:text-muted" />
             <input
               ref={inputRef}
               type="text"
@@ -136,7 +136,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                 }
               }}
               placeholder="Buscar películas, series o anime"
-              className="h-[56px] w-full rounded-[16px] border border-white/[0.12] bg-white/[0.06] pr-11 pl-14 text-[18px] text-white placeholder-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/25 focus:border-white focus:bg-white/[0.09]"
+              className="h-[56px] w-full rounded-[16px] border border-fg/[0.12] bg-fg/[0.06] pr-11 pl-14 text-[18px] text-fg placeholder-fg/40 light:placeholder-faint shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.35)] outline-none transition hover:border-fg/25 focus:border-fg focus:bg-fg/[0.09]"
             />
             {query && (
               <button
@@ -147,7 +147,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                   setHasSearched(false);
                   inputRef.current?.focus();
                 }}
-                className="absolute top-1/2 right-3.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-white/55 hover:bg-white/10 hover:text-white cursor-pointer"
+                className="absolute top-1/2 right-3.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-fg/55 light:text-muted hover:bg-fg/10 hover:text-fg cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -176,13 +176,13 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
             {recentSearches.length > 0 && (
               <section className="space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <h2 className="font-display text-[20px] font-bold tracking-[-0.02em] text-white">
+                  <h2 className="font-display text-[20px] font-bold tracking-[-0.02em] text-fg">
                     Búsquedas recientes
                   </h2>
                   <button
                     type="button"
                     onClick={onClearRecents}
-                    className="rounded-lg px-3 py-1 text-[13.5px] font-medium text-white/55 transition hover:bg-white/[0.08] hover:text-white cursor-pointer"
+                    className="rounded-lg px-3 py-1 text-[13.5px] font-medium text-fg/55 light:text-muted transition hover:bg-fg/[0.08] hover:text-fg cursor-pointer"
                   >
                     Limpiar
                   </button>
@@ -193,9 +193,9 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                     <div
                       key={q}
                       onClick={() => void executeSearch(q)}
-                      className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] pr-1.5 pl-4 text-[14.5px] text-white transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.12]"
+                      className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-fg/10 bg-fg/[0.06] pr-1.5 pl-4 text-[14.5px] text-fg transition hover:-translate-y-0.5 hover:border-fg/20 hover:bg-fg/[0.12]"
                     >
-                      <Clock className="h-3.5 w-3.5 text-white/50" />
+                      <Clock className="h-3.5 w-3.5 text-fg/50 light:text-muted" />
                       <span>{q}</span>
                       <button
                         type="button"
@@ -204,7 +204,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                           onRemoveRecent(q);
                         }}
                         aria-label={`Quitar ${q}`}
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-white/45 transition hover:bg-white/15 hover:text-white cursor-pointer"
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-fg/45 light:text-muted transition hover:bg-fg/15 hover:text-fg cursor-pointer"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -218,10 +218,10 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
             {popular.length > 0 && (
               <section className="space-y-4">
                 <div className="flex items-baseline justify-between">
-                  <h2 className="font-display text-[22px] font-bold tracking-[-0.02em] text-white">
+                  <h2 className="font-display text-[22px] font-bold tracking-[-0.02em] text-fg">
                     Búsqueda popular
                   </h2>
-                  <span className="text-[14px] text-white/45">Total: {popular.length}</span>
+                  <span className="text-[14px] text-fg/45 light:text-muted">Total: {popular.length}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 lg:gap-x-5 lg:gap-y-7">
                   {popular.map((item) => (
@@ -241,11 +241,11 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
           <div className="space-y-6">
             {/* Exact `buscador.jpg` results bar: count on left, Cuadrícula | Lista capsule on right */}
             <div className="flex items-center justify-between">
-              <span className="text-[16px] font-semibold text-white/85">
+              <span className="text-[16px] font-semibold text-fg/85">
                 {searching ? 'Buscando…' : `${results.length} ${results.length === 1 ? 'resultado' : 'resultados'}`}
               </span>
 
-              <div className="inline-flex rounded-full border border-white/10 bg-white/[0.06] p-1">
+              <div className="inline-flex rounded-full border border-fg/10 bg-fg/[0.06] p-1">
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
@@ -253,7 +253,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                     viewMode === 'grid' ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined
                   }
                   className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition cursor-pointer ${
-                    viewMode === 'grid' ? '' : 'text-white/65 hover:text-white'
+                    viewMode === 'grid' ? '' : 'text-fg/65 hover:text-fg'
                   }`}
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
@@ -266,7 +266,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                     viewMode === 'list' ? { backgroundColor: 'var(--ot-accent)', color: 'var(--ot-accent-ink)' } : undefined
                   }
                   className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition cursor-pointer ${
-                    viewMode === 'list' ? '' : 'text-white/65 hover:text-white'
+                    viewMode === 'list' ? '' : 'text-fg/65 hover:text-fg'
                   }`}
                 >
                   <List className="h-3.5 w-3.5" />
@@ -279,16 +279,16 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
               <div className="flex justify-center py-24">
                 <div
                   style={{ borderTopColor: 'var(--ot-accent)' }}
-                  className="h-9 w-9 animate-spin rounded-full border-2 border-white/15"
+                  className="h-9 w-9 animate-spin rounded-full border-2 border-fg/15"
                 />
               </div>
             ) : results.length === 0 ? (
               <div className="space-y-2 py-24 text-center">
-                <div className="font-display text-[22px] font-bold text-white">No hay resultados</div>
-                <p className="text-[14.5px] text-white/55">
+                <div className="font-display text-[22px] font-bold text-fg">No hay resultados</div>
+                <p className="text-[14.5px] text-fg/55 light:text-muted">
                   Prueba con otro nombre de película, serie, director o actor, o revisa cómo está escrito.
                 </p>
-                <p className="text-[13.5px] text-white/40">
+                <p className="text-[13.5px] text-fg/40 light:text-muted">
                   Para buscar un canal, abre TV en vivo y usa la Guía.
                 </p>
               </div>
@@ -314,25 +314,25 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                       key={item.id}
                       type="button"
                       onClick={() => onOpenTitle(item)}
-                      className="flex w-full items-center gap-4 rounded-[16px] border border-white/[0.07] bg-white/[0.04] p-3 text-left transition hover:border-white/20 hover:bg-white/[0.08] cursor-pointer"
+                      className="flex w-full items-center gap-4 rounded-[16px] border border-fg/[0.07] bg-fg/[0.04] p-3 text-left transition hover:border-fg/20 hover:bg-fg/[0.08] cursor-pointer"
                     >
-                      <div className="aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-lg bg-[#1c1c22]">
+                      <div className="aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-lg bg-elev">
                         {img && <img src={img} alt={item.title} loading="lazy" className="h-full w-full object-cover" />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate text-[16px] font-bold text-white">{item.title}</span>
+                          <span className="truncate text-[16px] font-bold text-fg">{item.title}</span>
                           {item.score && (
-                            <span className="rounded bg-white/10 px-1.5 py-0.5 text-[11.5px] font-bold text-white/90">
+                            <span className="rounded bg-fg/10 px-1.5 py-0.5 text-[11.5px] font-bold text-fg/90">
                               ★ {item.score}
                             </span>
                           )}
                         </div>
-                        <div className="mt-0.5 text-[13px] text-white/55">
+                        <div className="mt-0.5 text-[13px] text-fg/55 light:text-muted">
                           {[item.year || null, kind].filter(Boolean).join(' · ')}
                         </div>
                         {item.synopsis && (
-                          <p className="mt-1 line-clamp-1 text-[13px] text-white/45">{item.synopsis}</p>
+                          <p className="mt-1 line-clamp-1 text-[13px] text-fg/45 light:text-muted">{item.synopsis}</p>
                         )}
                       </div>
                     </button>

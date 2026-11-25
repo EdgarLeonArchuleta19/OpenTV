@@ -60,6 +60,14 @@ pub struct SubtitleTrackInfo {
     pub text_based: bool,
 }
 
+/// Container chapter (MKV/MP4), e.g. "Opening" / "Ending" — used for intro/credits skipping.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct ChapterInfo {
+    pub start: f64,
+    pub end: f64,
+    pub title: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProbeResult {
     #[serde(rename = "durationSec")]
@@ -75,6 +83,8 @@ pub struct ProbeResult {
     pub audio_tracks: Vec<AudioTrackInfo>,
     #[serde(rename = "subtitleTracks")]
     pub subtitle_tracks: Vec<SubtitleTrackInfo>,
+    #[serde(default)]
+    pub chapters: Vec<ChapterInfo>,
     pub recommendation: String, // "native" | "videoCopy" | "transcode"
 }
 
@@ -317,7 +327,10 @@ pub fn parse_ffmpeg_probe(stderr: &str) -> ProbeResult {
     let mut ten_bit = false;
     let mut audio_tracks: Vec<AudioTrackInfo> = Vec::new();
     let mut subtitle_tracks: Vec<SubtitleTrackInfo> = Vec::new();
+    let mut chapters: Vec<ChapterInfo> = Vec::new();
 
+    let re_chapter =
+        Regex::new(r"^\s*Chapter #\d+:\d+:\s*start\s+(-?\d+(?:\.\d+)?),\s*end\s+(-?\d+(?:\.\d+)?)").unwrap();
     let re_input = Regex::new(r"Input #0,\s*([^,]+(?:,[^,]+)*),\s*from\s").unwrap();
     let re_dur = Regex::new(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)").unwrap();
     let re_stream =
@@ -339,10 +352,26 @@ pub fn parse_ffmpeg_probe(stderr: &str) -> ProbeResult {
         None,
         Audio(usize),
         Subtitle(usize),
+        Chapter(usize),
     }
     let mut last = LastTrack::None;
 
     for line in stderr.lines() {
+        if let Some(cap) = re_chapter.captures(line) {
+            let start: f64 = cap[1].parse().unwrap_or(0.0);
+            let end: f64 = cap[2].parse().unwrap_or(0.0);
+            if end > start && chapters.len() < 256 {
+                chapters.push(ChapterInfo {
+                    start: start.max(0.0),
+                    end,
+                    title: String::new(),
+                });
+                last = LastTrack::Chapter(chapters.len() - 1);
+            } else {
+                last = LastTrack::None;
+            }
+            continue;
+        }
         if let Some(cap) = re_stream.captures(line) {
             let lang = cap.get(1).map(|m| m.as_str().trim()).unwrap_or("").to_string();
             let kind = &cap[2];
@@ -442,6 +471,11 @@ pub fn parse_ffmpeg_probe(stderr: &str) -> ProbeResult {
                             t.label = build_track_label(&lang_name, &title, "", "", idx + 1, "Subtítulo");
                         }
                     }
+                    LastTrack::Chapter(idx) => {
+                        if let Some(c) = chapters.get_mut(idx) {
+                            c.title = title.chars().take(120).collect();
+                        }
+                    }
                     LastTrack::None => {}
                 }
             }
@@ -484,6 +518,7 @@ pub fn parse_ffmpeg_probe(stderr: &str) -> ProbeResult {
         ten_bit,
         audio_tracks,
         subtitle_tracks,
+        chapters,
         recommendation,
     }
 }
@@ -1054,6 +1089,36 @@ Input #0, matroska,webm, from 'http://127.0.0.1:8910/t/abc/movie.mkv':
         assert_eq!(res.subtitle_tracks.len(), 2);
         assert!(res.subtitle_tracks[0].text_based);
         assert!(!res.subtitle_tracks[1].text_based);
+    }
+
+    #[test]
+    fn parses_chapters_with_titles() {
+        let sample = r#"
+Input #0, matroska,webm, from 'http://127.0.0.1:8910/t/abc/ep.mkv':
+  Metadata:
+    title           : Show - 01
+  Duration: 00:23:40.02, start: 0.000000, bitrate: 2541 kb/s
+  Chapters:
+    Chapter #0:0: start 0.000000, end 89.965000
+      Metadata:
+        title           : Opening
+    Chapter #0:1: start 89.965000, end 1290.000000
+      Metadata:
+        title           : Part A
+    Chapter #0:2: start 1290.000000, end 1380.000000
+      Metadata:
+        title           : Ending
+  Stream #0:0: Video: h264 (High), yuv420p(progressive), 1920x1080, 23.98 fps
+  Stream #0:1(jpn): Audio: aac (LC), 48000 Hz, stereo, fltp (default)
+    Metadata:
+      title           : Japanese
+"#;
+        let res = parse_ffmpeg_probe(sample);
+        assert_eq!(res.chapters.len(), 3);
+        assert_eq!(res.chapters[0].title, "Opening");
+        assert!((res.chapters[0].end - 89.965).abs() < 0.001);
+        assert_eq!(res.chapters[2].title, "Ending");
+        assert_eq!(res.audio_tracks[0].title, "Japanese");
     }
 
     #[test]

@@ -5,6 +5,7 @@ import {
   isHlsUrl,
   isRefusalStatus,
   pickNextSourceIndex,
+  pickSameLanguageSourceIndex,
   pickPreferredAudioIndex,
   playbackFailureMessage,
   proactiveCompatHint,
@@ -106,5 +107,23 @@ describe('source fallback', () => {
     expect(pickNextSourceIndex(ranked, new Set(['a', 'c']), new Set(['cdn.box.com']))).toBe(1);
     expect(pickNextSourceIndex(ranked, new Set(['a', 'b', 'c']), new Set())).toBe(-1);
     expect(pickNextSourceIndex(ranked, new Set(['a']), new Set(), 1)).toBe(-1);
+  });
+});
+
+describe('pickSameLanguageSourceIndex', () => {
+  const ranked = [
+    { id: 'a', url: 'https://mg.example.com/1.mkv', langs: ['es'] },
+    { id: 'b', url: 'https://other.example.com/2.mkv', langs: ['en'] },
+    { id: 'c', url: 'https://third.example.com/3.mkv', langs: ['ES', 'en'] },
+  ];
+
+  it('prefers another source in the same language', () => {
+    expect(pickSameLanguageSourceIndex(ranked, ranked[0], new Set(['a']), new Set())).toBe(2);
+  });
+
+  it('skips failed servers and falls back to the next untried source', () => {
+    expect(pickSameLanguageSourceIndex(ranked, ranked[0], new Set(['a']), new Set(['third.example.com']))).toBe(1);
+    expect(pickSameLanguageSourceIndex(ranked, { langs: [] }, new Set(['a']), new Set())).toBe(1);
+    expect(pickSameLanguageSourceIndex(ranked, ranked[0], new Set(['a', 'b', 'c']), new Set())).toBe(-1);
   });
 });

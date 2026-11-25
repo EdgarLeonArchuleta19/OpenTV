@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { seedBuiltinPlugins } from './catalogs';
-import { autoPickReady, directWaitMs, enrichSource, rankSources, torrentRaceAlternatives } from './sourceRanker';
+import {
+  autoPickReady,
+  directWaitMs,
+  enrichSource,
+  isBadRelease,
+  pickerFilterOptions,
+  plainLanguageLabel,
+  qualityLabel,
+  rankSources,
+  splitTorrentQuality,
+  torrentRaceAlternatives,
+} from './sourceRanker';
 import type { PlaybackEnv } from './deviceProfile';
 import type { SourcePrefs } from '../types/models';
 
@@ -62,7 +73,8 @@ describe('sourceRanker', () => {
       DEFAULT_PREFS,
     );
     expect(ranked[0].id).toBe('lat');
-    expect(ranked[ranked.length - 1].id).toBe('cam');
+    // CAM torrents are not listed at all.
+    expect(ranked.map((s) => s.id)).not.toContain('cam');
   });
 
   it('selects compatible torrent race alternatives without CAM', () => {
@@ -156,5 +168,86 @@ describe('sourceRanker', () => {
     // Everything answered.
     expect(autoPickReady({ ...base, allDone: true, ranked: [], msSinceFirstResult: 0, msTotal: 100 })).toBe(true);
     expect(directWaitMs(false)).toBeGreaterThan(directWaitMs(true));
+  });
+  it('drops torrents with fewer than 5 known seeders (Spanish audio: 1), keeps unknown ones and direct sources', () => {
+    const ranked = rankSources(
+      [
+        { id: 'good', addonId: 't', addonName: 'T', title: 'Movie 1080p Latino 👤 40', infoHash: 'e1' },
+        { id: 'four', addonId: 't', addonName: 'T', title: 'Movie 1080p Latino 👤 4', infoHash: 'e2' },
+        { id: 'fourEn', addonId: 't', addonName: 'T', title: 'Movie 1080p English 👤 4', infoHash: 'e6' },
+        { id: 'zero', addonId: 't', addonName: 'T', title: 'Movie 2160p Latino 👤 0', infoHash: 'e3' },
+        { id: 'five', addonId: 't', addonName: 'T', title: 'Movie 720p Latino 👤 5', infoHash: 'e4' },
+        { id: 'unknown', addonId: 'x', addonName: 'X', title: 'Movie 1080p Latino', infoHash: 'e5' },
+        { id: 'direct', addonId: 'j', addonName: 'J', title: 'Latino', url: 'https://cdn.example/a.m3u8', isJsPlugin: true },
+      ],
+      DEFAULT_PREFS,
+      false,
+      FAST_PC,
+    );
+    const ids = ranked.map((s) => s.id);
+    // Latino is scarce: a Latino torrent with a few seeders stays; zero never does.
+    expect(ids).toEqual(expect.arrayContaining(['good', 'four', 'five', 'unknown', 'direct']));
+    expect(ids).not.toContain('fourEn');
+    expect(ids).not.toContain('zero');
+  });
+
+  it('detects CAM / TS / TC / screener releases as whole tokens only', () => {
+    const bad = ['Movie.2025.HDCAM.x264', 'Movie 2025 TS Latino', 'Movie.2025.TC.XviD', 'Movie 2025 TeleSync', 'Movie.2025.DVDSCR', 'Movie [HD-TS]', 'Movie 2025 CAM', 'Movie.2025.SCREENER', 'Movie 2025 hdts'];
+    for (const title of bad) expect(isBadRelease({ name: '', title, filename: '' }), title).toBe(true);
+    const good = ['Cam (2018) 1080p WEB-DL', 'Kids.2025.1080p', 'Movie 2025 YTS 1080p', 'Avatar 2160p UHD', 'Lights Out 720p', 'Scream 1996 BluRay'];
+    for (const title of good) expect(isBadRelease({ name: '', title, filename: '' }), title).toBe(false);
+    // A ".ts" file extension is not a release tag.
+    expect(isBadRelease({ name: '', title: 'Movie 1080p', filename: 'Movie.2025.1080p.ts' })).toBe(false);
+  });
+
+  it('never drops direct sources even if they look like CAM or .ts streams', () => {
+    const ranked = rankSources(
+      [
+        { id: 'hls', addonId: 'j', addonName: 'J', title: 'Latino TS', url: 'https://cdn.example/seg.ts', isJsPlugin: true },
+        { id: 'tor', addonId: 't', addonName: 'T', title: 'Movie 1080p Latino 👤 30', infoHash: 'f1' },
+      ],
+      DEFAULT_PREFS,
+      false,
+      FAST_PC,
+    );
+    expect(ranked.map((s) => s.id)).toContain('hls');
+  });
+
+  it('lists the same infoHash once, keeping the best seeded copy', () => {
+    const enriched = [
+      enrichSource({ id: 'a', addonId: 't', addonName: 'T', title: '1080p Latino 👤 20', infoHash: 'ABC' }),
+      enrichSource({ id: 'b', addonId: 'u', addonName: 'U', title: '1080p Latino 👤 90', infoHash: 'abc' }),
+    ];
+    const { kept, dropped } = splitTorrentQuality(enriched);
+    expect(kept.map((s) => s.id)).toEqual(['b']);
+    expect(dropped).toHaveLength(0);
+  });
+
+  it('falls back to the best dropped torrents instead of an empty list', () => {
+    const ranked = rankSources(
+      [
+        { id: 'cam', addonId: 't', addonName: 'T', title: 'Movie HDCAM Latino 👤 300', infoHash: 'g1' },
+        { id: 'dead', addonId: 't', addonName: 'T', title: 'Movie 1080p Latino 👤 1', infoHash: 'g2' },
+      ],
+      DEFAULT_PREFS,
+      false,
+      FAST_PC,
+    );
+    expect(ranked.length).toBeGreaterThan(0);
+    expect(ranked.length).toBeLessThanOrEqual(5);
+  });
+
+  it('describes sources in plain Spanish for the picker', () => {
+    const lat = enrichSource({ id: '1', addonId: 't', addonName: 'T', title: 'Movie 1080p Dual Latino English 👤 40', infoHash: 'h' });
+    const subs = enrichSource({ id: '2', addonId: 't', addonName: 'T', title: 'Movie 720p English VOSE', infoHash: 'i' });
+    const orig = enrichSource({ id: '3', addonId: 'j', addonName: 'J', title: 'Server 1', url: 'https://x.example/a.m3u8' });
+    expect(plainLanguageLabel(lat)).toBe('Latino + Inglés');
+    expect(plainLanguageLabel(subs)).toBe('Subtitulado');
+    expect(plainLanguageLabel(orig)).toBe('Idioma original');
+    expect(qualityLabel(orig)).toBe('Auto');
+    const opts = pickerFilterOptions([lat, subs, orig]);
+    expect(opts.quality.map((o) => o.label)).toEqual(['Todas', '1080p', '720p', 'Auto']);
+    expect(opts.lang.map((o) => o.label)).toEqual(['Todos', 'Latino', 'Inglés', 'Subtitulado']);
+    expect(opts.type.map((o) => o.label)).toEqual(['Todas', 'Directas', 'Torrents']);
   });
 });

@@ -20,12 +20,15 @@ data class PlaybackEnv(
     val linkMbps: Double = 0.0,
     /** Metered/cellular network or data saver. */
     val constrained: Boolean = false,
+    /** Android TV / Fire TV: auto quality is always HD (720p) so titles start faster. */
+    val isTv: Boolean = false,
 )
 
 /**
  * Owner rule (same as the PC `deviceProfile.ts`): a capable device on a fast
  * connection prefers Full HD (1080p); low RAM / 32-bit Fire TV Sticks or slow
- * networks prefer HD (720p). Auto never picks 4K: that is a manual choice.
+ * networks prefer HD (720p). TVs (Fire TV / Android TV) always prefer HD (720p) so
+ * everything loads faster. Auto never picks 4K: that is a manual choice.
  */
 object PlaybackProfile {
     /** Comfortable headroom for a 1080p HLS ladder (≈ 5 Mbit/s top variant). */
@@ -40,6 +43,11 @@ object PlaybackProfile {
 
     @Volatile
     private var appContext: Context? = null
+
+    /** Marks the device as a TV (set at app start, before any ranking runs). */
+    fun setTv(tv: Boolean) {
+        current = current.copy(isTv = tv)
+    }
 
     /** Reads RAM / ABI / active network once (cheap); call again when the network may have changed. */
     fun refresh(context: Context) {
@@ -86,6 +94,7 @@ object PlaybackProfile {
 
     /** "1080p" or "720p" for `SourcePrefs.quality == "auto"`. */
     fun autoTarget(env: PlaybackEnv): String {
+        if (env.isTv) return "720p"
         if (env.constrained) return "720p"
         // Fire TV Stick 1 GB (armeabi-v7a, low RAM): 1080p HLS + Compose UI runs out of memory.
         if (env.lowRamDevice) return "720p"

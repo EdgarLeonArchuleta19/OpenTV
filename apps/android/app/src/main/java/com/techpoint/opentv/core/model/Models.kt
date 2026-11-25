@@ -38,6 +38,8 @@ data class Episode(
     val overview: String = "",
     val thumbnail: String = "",
     val released: String = "",
+    /** TMDB episode runtime in minutes (0 = unknown); guards against wrong-content links. */
+    val runtimeMin: Int = 0,
 )
 
 @Immutable
@@ -239,6 +241,8 @@ data class AppearancePrefs(
     val textLarge: Boolean = false,
     val tvMarginIndex: Int = 0, // 0, 1, 2
     val liteMode: Boolean = false,
+    // "dark" (default) or "light"; unknown values fall back to dark.
+    val theme: String = "dark",
 )
 
 @Immutable
@@ -258,6 +262,8 @@ data class PlaybackPrefs(
     // Auto-select embedded subtitles in the preferred language (PC `subtitlesEnabled`).
     val subtitlesEnabled: Boolean = true,
     val autoNextEpisode: Boolean = true,
+    // Skip the opening automatically when real timestamps exist (AniSkip / IntroDB). Off by default.
+    val autoSkipIntro: Boolean = false,
     val autoFrameRate: Boolean = true,
     val passthroughAudio: Boolean = true,
     val subtitleStyle: SubtitleStylePrefs = SubtitleStylePrefs(),

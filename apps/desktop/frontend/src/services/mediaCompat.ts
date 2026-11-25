@@ -28,6 +28,8 @@ export interface MediaProbeResponse {
   tenBit?: boolean;
   audioTracks?: ProbedAudioTrack[];
   subtitleTracks?: ProbedSubtitleTrack[];
+  /** Container chapters (MKV/MP4), e.g. "Opening" / "Ending". */
+  chapters?: Array<{ start: number; end: number; title: string }>;
   recommendation?: 'native' | 'videoCopy' | 'transcode';
   hwEncoder?: string;
 }
@@ -162,6 +164,32 @@ export function pickNextSourceIndex(
     if (!host || !failedHosts.has(host)) return i;
   }
   return firstUntried;
+}
+
+/**
+ * Like [pickNextSourceIndex], but first looks for an untried source that shares a language with
+ * [current] (on a server that has not failed): used when a source turned out to be another
+ * version of the episode, so the swap keeps the audio the user was getting.
+ */
+export function pickSameLanguageSourceIndex(
+  ranked: ReadonlyArray<{ id: string; url?: string; langs?: ReadonlyArray<string> }>,
+  current: { langs?: ReadonlyArray<string> } | null | undefined,
+  triedIds: ReadonlySet<string>,
+  failedHosts: ReadonlySet<string>,
+  maxAttempts = 8,
+): number {
+  if (triedIds.size >= maxAttempts) return -1;
+  const wanted = new Set((current?.langs || []).map((l) => l.toLowerCase()));
+  if (wanted.size > 0) {
+    for (let i = 0; i < ranked.length; i++) {
+      const s = ranked[i];
+      if (triedIds.has(s.id)) continue;
+      const host = streamHost(s.url);
+      if (host && failedHosts.has(host)) continue;
+      if ((s.langs || []).some((l) => wanted.has(l.toLowerCase()))) return i;
+    }
+  }
+  return pickNextSourceIndex(ranked, triedIds, failedHosts, maxAttempts);
 }
 
 /** Spanish message when every tried source was refused by its server (not a format problem). */

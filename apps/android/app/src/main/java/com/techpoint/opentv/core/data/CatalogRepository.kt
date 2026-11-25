@@ -49,7 +49,11 @@ class CatalogRepository(
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val dir = File(cacheDir, "catalog_rows").apply { mkdirs() }
+    // "v2": rows saved before the "already released" filter are never shown again.
+    private val dir = File(cacheDir, "catalog_rows_v2").apply {
+        File(cacheDir, "catalog_rows").deleteRecursively()
+        mkdirs()
+    }
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
     private val rowsSerializer = ListSerializer(CatalogRow.serializer())
     private val states = ConcurrentHashMap<String, MutableStateFlow<SectionState>>()

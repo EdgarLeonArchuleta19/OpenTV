@@ -6,6 +6,40 @@
 - **Kids:** solo títulos para todo público. Películas con clasificación mexicana AA/A (y G/PG de EE. UU. con género familiar como respaldo), series del género infantil sin animación para adultos y sin títulos sin traducir. Filas: "Películas para todos", "Series infantiles", "Animadas para niños" y "Las favoritas de los niños".
 - **Anime:** "Tendencias de la temporada" con lo más seguido de la temporada actual (Kitsu). Los banners de Kids y Anime rotan cada día.
 
+### Fuentes, plugins y ajustes (PC, Android y TV)
+- Selector de fuentes más simple: fila con calidad, idioma en español claro ("Latino", "Subtitulado"…), "Directo" o "Torrent" y tamaño. La mejor opción va arriba como "Recomendada". Los filtros (Calidad, Idioma, Tipo) son listas desplegables.
+- Ya no se listan torrents con menos de 5 semillas, ni CAM/TS/TC/screener, ni torrents repetidos.
+- Plugins igual en PC y TV: "Instalados" (Mis plugins, dividido en Películas y series / TV en vivo) y "Comunidad". Los plugins de sistema no se muestran.
+- Android: el panel "Audio y subtítulos" del reproductor es una sola pantalla con columnas (Audio, Subtítulos, Opciones) y mejor navegación con el control. Ajustes sin textos explicativos y Ayuda sin la sección de atajos.
+
+### Apariencia (PC, Android y TV)
+- Tema Oscuro (por defecto) o Claro en Ajustes → Apariencia. En claro, el acento "Blanco" pasa a negro. El reproductor y el video de TV en vivo siempre quedan oscuros.
+- "Texto aumentado" escala toda la interfaz, Ajustes incluidos (zoom de la ventana en PC, escala de letra global en Android), sin reiniciar.
+
+### Reproductor: final de episodio e intros (PC, Android y TV)
+- Al llegar a los créditos aparece un botón "Siguiente episodio", igual al de "Omitir intro" (en PC se rellena durante la cuenta regresiva si está activo el siguiente automático). Al terminar el video: "Siguiente episodio", "Salir" o "Volver a ver"; en el último capítulo, "Has llegado al final". Pasa también a la siguiente temporada.
+- "Omitir intro" / "Omitir resumen" con tiempos reales: AniSkip (anime), IntroDB y TheIntroDB (series), y en PC los capítulos del archivo. Sin datos reales no aparece el botón. Nueva opción "Omitir intro automáticamente" (apagada por defecto).
+
+### Catálogo con TMDB (PC, Android y TV)
+- Inicio, Películas, Series, Kids y Anime salen de TMDB a través del núcleo: títulos, sinopsis y episodios en español, mejores carátulas y fondos. Cada fila usa Cinemeta o Kitsu solo si TMDB falla.
+- Fichas desde TMDB: reparto, director, duración, temporadas y recomendadas. Los episodios se cargan por temporada (con foto) y la siguiente se precarga.
+- Anime desde TMDB: "Tendencias de la temporada", "En emisión", "Más populares", "Mejor valorados" y "Películas de anime". Lo guardado con ids de Kitsu sigue abriendo.
+- Las filas y las recomendadas solo muestran títulos ya estrenados (fecha de estreno o primera emisión hasta hoy).
+- Cinemeta, Anime Kitsu y OpenSubtitles ya no aparecen en Plugins: son parte del sistema.
+- Subtítulos: incrustados, OpenSubtitles, SubDL (cuando hay clave en `config/subdl.json`) y SubtitleCat, con el español latino primero.
+
+### TV en vivo (nuevo diseño, PC, Android y TV)
+- TV a la izquierda, lista de canales a la derecha (desplegables de grupo y de lista, buscador, canal actual marcado "VIENDO") y la programación del canal abajo en tarjetas: Ahora (con progreso), Después y las dos siguientes.
+
+### Buscador y reproductor
+- El buscador usa TMDB a través del núcleo: títulos en español con carátula real y solo resultados con público e ID de IMDb, así que todos abren y encuentran fuentes. Cinemeta queda como respaldo (sin los resultados sin carátula). El anime sigue saliendo de Kitsu, solo si el título coincide.
+- Orden de resultados: primero los que coinciden mejor con lo escrito (título igual, empieza igual, lo contiene) y, dentro de cada grupo, los más nuevos primero.
+- Android/TV: se corrigió el cierre de la app al abrir títulos cuyo `director` viene vacío en Cinemeta (p. ej. Rick y Morty).
+- El reproductor ya no dice a qué plugin o servidor se conecta ni la calidad mientras carga: solo "Buscando la mejor fuente…" / "Cargando…".
+
+### Modo ligero (PC, Android y TV)
+- Pensado para equipos modestos e internet lento: pósters a ~60 % del tamaño, fichas con el póster en lugar de la imagen de fondo, banner de Inicio sin imagen, episodios en la misma fila de tarjetas horizontales con un diseño sin imagen (etiqueta "Episodio N", título y sinopsis), sin animaciones ni desenfoques, sin precarga de menús ni de imágenes y calidad objetivo HD.
+
 ### Rendimiento (escritorio)
 - Las filas aparecen a medida que llegan. Los catálogos se guardan y se refrescan en segundo plano, y las demás pestañas y pantallas se precargan. Películas y Series abren en menos de 0,1 s y reabrir la app tarda unos 0,26 s.
 - En el reproductor, la revisión del servidor y la resolución del enlace van en paralelo, y hay un solo análisis de FFmpeg por URL.
@@ -25,6 +59,14 @@
 - Actualizador de PC: el `SHA256SUMS` de cada release se verifica con una firma Ed25519 (`scripts/sign-release.cjs`, llave pública en `scripts/release-public-key.txt`) y el instalador se vuelve a comprobar justo antes de ejecutarse.
 
 ### Correcciones
+- Siguiente automático: la cuenta regresiva solo corre con tiempos reales de créditos; sin ellos el botón aparece sin cuenta y el capítulo pasa al terminar, sin cortar el final.
+- TV en vivo: los logos de letras conservan los números ("Canal 10" → C10) y son iguales en PC y TV. En la TV, el botón "Buscar" del teclado solo se rellena cuando tiene el foco.
+- TV en vivo: cuando la guía de un canal no existe o solo trae relleno (p. ej. "Azteca UNO -1" con "TBD" en Pluto TV), se usa la guía pública epgshare01 del país, con coincidencia segura por nombre y ajuste de horario para señales "-1 hora"/"-2 horas".
+- Si una fuente directa de un episodio dura muy distinto de lo que indica TMDB (más de 4 min y del 18 %), se toma como otra versión u otra serie y se pasa sola a otra fuente (p. ej. DeepFlix entregaba "La Oficina" mexicana en la T1 de The Office).
+- Torrents en español/latino se aceptan desde 1 semilla (el latino es escaso); los demás siguen pidiendo 5.
+- Plugins JS: una serie con el mismo título pero de otra época ya no se toma por la que abriste ("La oficina" de México en lugar de "The Office").
+- Los logos con fondo transparente (p. ej. ADN) ya no salen como cuadros blancos: el redimensionador los guarda en PNG.
+- Plugins JS: al abrir una película de una saga (p. ej. "Los juegos del hambre") ya no se mezclan fuentes de otra película de la misma saga ("En llamas"). Si el sitio tiene el título exacto, solo se usa ese; un título que contiene al otro solo cuenta con el mismo año.
 - Escritorio: la lista de temporadas tiene altura máxima con scroll y abre en la temporada elegida.
 - Escritorio: Atrás (y Esc) sigue el historial real. Desde la ficha regresa a donde se abrió (Inicio, la sección, Mi lista o Buscar) aunque se hayan abierto varios recomendados. Desde Ajustes, Plugins, Buscar o el reproductor regresa a la pantalla anterior.
 - Android: la guía de TV en vivo ("Ahora · Después" y programación) no funcionaba porque la app y el núcleo usaban nombres de campos distintos.

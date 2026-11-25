@@ -118,7 +118,7 @@ fun TvPlayerHud(
                     modifier = Modifier.align(Alignment.CenterEnd),
                 ) {
                     if (hasEpisodes) HintPill("↑ Episodios")
-                    HintPill("↓ Audio, subtítulos y más")
+                    HintPill("↓ Audio y subtítulos")
                 }
             }
         }

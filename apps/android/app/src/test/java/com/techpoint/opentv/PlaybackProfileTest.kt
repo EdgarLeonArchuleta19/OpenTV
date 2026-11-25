@@ -26,6 +26,17 @@ class PlaybackProfileTest {
     }
 
     @Test
+    fun `tv always targets 720p automatically but an explicit choice wins`() {
+        val tvShield = shield.copy(isTv = true)
+        assertEquals("720p", PlaybackProfile.autoTarget(tvShield))
+        assertEquals("720p", PlaybackProfile.autoTarget(fireTvStick1Gb.copy(isTv = true)))
+        assertEquals("720p", SourceRanker.effectiveTarget(SourcePrefs(quality = "auto"), tvShield))
+        assertEquals("1080p", SourceRanker.effectiveTarget(SourcePrefs(quality = "1080p"), tvShield))
+        // Phones keep the device / network rule.
+        assertEquals("1080p", PlaybackProfile.autoTarget(shield))
+    }
+
+    @Test
     fun `ranker uses the auto target and never auto picks 4K`() {
         val prefs = SourcePrefs(langs = listOf("latino"), quality = "auto")
         val caps4k = DeviceMediaCaps(hevc = true, hevc10 = true, uhd = true, hdr = true)
