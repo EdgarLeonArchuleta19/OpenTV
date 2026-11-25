@@ -65,7 +65,11 @@ if (cmd === 'build') {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const nsisDir = path.join(TAURI_DIR, 'src-tauri', 'target', 'release', 'bundle', 'nsis');
   if (fs.existsSync(nsisDir)) {
-    const setup = fs.readdirSync(nsisDir).find((f) => f.endsWith('-setup.exe'));
+    // The bundle folder keeps older installers: take the one of this version (else the newest).
+    const setups = fs.readdirSync(nsisDir).filter((f) => f.endsWith('-setup.exe'));
+    const setup =
+      setups.find((f) => f.includes(`_${pkg.version}_`)) ||
+      setups.sort((a, b) => fs.statSync(path.join(nsisDir, b)).mtimeMs - fs.statSync(path.join(nsisDir, a)).mtimeMs)[0];
     if (setup) {
       const distDir = path.join(ROOT, 'dist');
       fs.mkdirSync(distDir, { recursive: true });

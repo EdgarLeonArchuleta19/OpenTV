@@ -1,6 +1,6 @@
 # Cambios
 
-## Sin publicar
+## 2.0.0 — Primera versión estable de la v2 (2026-11-25)
 
 ### Contenido
 - **Kids:** solo títulos para todo público. Películas con clasificación mexicana AA/A (y G/PG de EE. UU. con género familiar como respaldo), series del género infantil sin animación para adultos y sin títulos sin traducir. Filas: "Películas para todos", "Series infantiles", "Animadas para niños" y "Las favoritas de los niños".
