@@ -61,6 +61,8 @@ for (const entry of fs.readdirSync(distDir)) {
 
 const to = path.join(distDir, dstName);
 fs.copyFileSync(from, to);
+// Same APK under a fixed name, so `…/releases/latest/download/OpenTV.apk` (Downloader) never changes.
+fs.copyFileSync(from, path.join(distDir, 'OpenTV.apk'));
 const mb = (fs.statSync(to).size / 1048576).toFixed(2);
 console.log(`APK universal (Fire TV · Android TV · Android Mobile) listo: ${path.relative(ROOT, to)} (${mb} MB)`);
 require('./write-checksums.cjs').writeChecksums();
