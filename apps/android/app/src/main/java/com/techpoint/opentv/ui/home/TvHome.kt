@@ -99,6 +99,7 @@ import com.techpoint.opentv.core.model.HomeTab
 import com.techpoint.opentv.core.model.InstalledPlugin
 import com.techpoint.opentv.core.model.MediaItem
 import com.techpoint.opentv.core.model.WatchProgress
+import com.techpoint.opentv.core.model.continueWatchingRow
 import com.techpoint.opentv.service.RustServiceBridge
 import com.techpoint.opentv.ui.theme.LocalOpenTvUi
 import com.techpoint.opentv.ui.theme.OpenTvColors
@@ -207,7 +208,7 @@ fun TvHomeCatalog(
     }
 
     val filteredContinue = remember(continueWatching, tab) {
-        continueWatching.filter { !it.isFinished }.filter { entry ->
+        continueWatching.continueWatchingRow().filter { entry ->
             when (tab) {
                 HomeTab.MOVIES -> entry.type == "movie"
                 HomeTab.SERIES -> entry.type == "series"

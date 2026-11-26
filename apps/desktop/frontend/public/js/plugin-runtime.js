@@ -18,9 +18,16 @@
   var boundKey = null;
   /* The app's own bridges must not reach this frame. A very old Android
      WebView injects Capacitor's bridge into every frame: then nothing runs. */
+  /* Tauri (WebView2) injects its IPC globals (`__TAURI_INTERNALS__`, `ipc`) into
+     EVERY frame, as non-configurable properties, so they cannot be removed here.
+     Inside this frame they are inert: opaque origin, the CSP forbids any connection
+     (including Tauri's ipc:// fetch) and WebView2 does not deliver iframe
+     postMessage to Tauri's handler, so an invoke() never gets an answer. Only
+     bridges that would really work refuse the load: Capacitor/Android, the v1
+     Electron `desktop` bridge, the global Tauri API, and the service token. */
   var exposed = typeof window.androidBridge !== 'undefined' || typeof window.Capacitor !== 'undefined' ||
-    typeof window.desktop !== 'undefined' || typeof window.__TAURI_INTERNALS__ !== 'undefined' ||
-    typeof window.__TAURI__ !== 'undefined' || typeof window.__OPENTV_TAURI_INIT__ !== 'undefined';
+    typeof window.desktop !== 'undefined' || typeof window.__TAURI__ !== 'undefined' ||
+    typeof window.__OPENTV_TAURI_INIT__ !== 'undefined';
   /* Cryptographic randomness when the engine has it (it does on every
      supported WebView); Math.random only as a last resort. */
   function randomByte() {
@@ -707,7 +714,12 @@
   }
 
   function load(msg) {
-    if (exposed) { return post({ kind: 'reply', id: msg.id, error: 'Este aparato no puede aislar los plugins JS' }); }
+    if (exposed) {
+      return post({
+        kind: 'reply', id: msg.id, error: 'Este aparato no puede aislar los plugins JS', code: 'unsupported',
+        userMessage: 'este equipo no puede aislar los plugins de forma segura'
+      });
+    }
     if (boundKey !== null && msg.key !== boundKey) {
       return post({ kind: 'reply', id: msg.id, error: 'Cada plugin corre en su propio entorno aislado', code: 'unsupported' });
     }

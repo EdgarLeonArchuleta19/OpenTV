@@ -30,6 +30,19 @@ class JsPluginMatchTest {
     }
 
     @Test
+    fun `reads the year from a Title (2025) card without a year field`() {
+        val hits = JsPluginMatch.pickSearchHits(
+            objs(
+                """[{"id":"superman-2025","title":"Superman (2025)","kind":"movie"},
+                   {"id":"superman-1978","title":"Superman (1978)","kind":"movie"},
+                   {"id":"superman-ii","title":"Superman II (1980)","kind":"movie"}]""",
+            ),
+            TitleQuery("Superman", originalTitle = "Superman", year = 2025, kind = "movie"),
+        )
+        assertEquals(listOf("superman-2025"), hits.map { it.ref })
+    }
+
+    @Test
     fun `never takes a same-named remake of a series from another decade`() {
         val hits = objs(
             """[{"ref":"s:la-oficina-mx","title":"La oficina","kind":"series","year":"2015"},

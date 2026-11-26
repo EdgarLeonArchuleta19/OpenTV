@@ -806,7 +806,10 @@ private fun OpenTvRootScreen(
                                     app.stremio.fetchStreams(route.item, targetEp, persisted.plugins) +
                                         app.jsPlugins.fetchStreamsForTitle(route.item, targetEp.season, targetEp.number, persisted.plugins)
                                 }.orEmpty()
-                                val ranked = SourceRanker.rank(raw, persisted.sourcePrefs, app.mediaCaps, isEpisode = true, isLowMemory = ui.isLowSpec)
+                                val ranked = SourceRanker.rank(
+                                    raw, persisted.sourcePrefs, app.mediaCaps, isEpisode = true, isLowMemory = ui.isLowSpec,
+                                    runtimeMin = SourceRanker.runtimeMinutesOf(route.item, targetEp),
+                                )
                                 if (ranked.isNotEmpty()) {
                                     preloadedNext.value = targetEp.id to ranked
                                 }

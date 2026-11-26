@@ -1,5 +1,7 @@
 package com.techpoint.opentv.core.ranking
 
+import com.techpoint.opentv.core.model.Episode
+import com.techpoint.opentv.core.model.MediaItem
 import com.techpoint.opentv.core.model.SourcePrefs
 import com.techpoint.opentv.core.model.StreamSource
 import com.techpoint.opentv.service.DeviceMediaCaps
@@ -58,7 +60,16 @@ object SourceRanker {
     private val healthFailures = ConcurrentHashMap<String, Int>()
     private val healthSuccess = ConcurrentHashMap<String, Int>()
 
-    fun recordHealth(key: String, success: Boolean) {
+    /** Key of ONE source: the torrent file (infoHash + fileIdx) or the stream URL without its token query. */
+    fun sourceHealthKey(s: StreamSource): String = when {
+        s.infoHash.isNotBlank() && s.url.isBlank() -> "t:${s.infoHash.lowercase(Locale.ROOT)}:${s.fileIdx ?: ""}"
+        s.url.isNotBlank() -> "u:${s.url.substringBefore('?').substringBefore('#')}"
+        else -> ""
+    }
+
+    private fun pluginHealthKey(s: StreamSource): String = s.addonId.ifBlank { s.provider }.let { if (it.isBlank()) "" else "p:$it" }
+
+    private fun bump(key: String, success: Boolean) {
         if (key.isBlank()) return
         if (success) {
             healthSuccess[key] = (healthSuccess[key] ?: 0) + 1
@@ -66,6 +77,78 @@ object SourceRanker {
         } else {
             healthFailures[key] = (healthFailures[key] ?: 0) + 1
         }
+    }
+
+    /**
+     * Records a playback outcome. A failure sinks THAT source; its plugin only loses a little,
+     * so one dead torrent does not drag every other result of the same plugin down.
+     */
+    fun recordHealth(source: StreamSource, success: Boolean) {
+        bump(sourceHealthKey(source), success)
+        bump(pluginHealthKey(source), success)
+    }
+
+    /** Test hook: forget the session's playback history. */
+    fun resetHealth() {
+        healthFailures.clear()
+        healthSuccess.clear()
+    }
+
+    private fun healthScore(s: StreamSource): Double {
+        var score = 0.0
+        val sk = sourceHealthKey(s)
+        if (sk.isNotEmpty()) {
+            score -= (healthFailures[sk] ?: 0) * SOURCE_FAIL_PENALTY
+            if ((healthSuccess[sk] ?: 0) > 0) score += 40.0
+        }
+        val pk = pluginHealthKey(s)
+        if (pk.isNotEmpty()) {
+            score -= minOf(3, healthFailures[pk] ?: 0) * 40.0
+            score += ((healthSuccess[pk] ?: 0) * 15.0).coerceAtMost(60.0)
+        }
+        return score
+    }
+
+    private const val SOURCE_FAIL_PENALTY = 400.0
+
+    // ---- Bitrate vs connection (same rules as the PC `sourceRanker.ts`) ----
+
+    /** Assumed connection when the app has not measured one yet (Mbit/s). */
+    private const val DEFAULT_BUDGET_MBPS = 20.0
+    /** Never larger than one language step (140), so a heavy file in a better language still wins. */
+    private const val MAX_BITRATE_PENALTY = 130.0
+
+    /** Runtime in minutes from TMDB/Cinemeta labels ("129 min", "2h 9min", "129"); 0 = unknown. */
+    fun parseRuntimeMinutes(label: String?): Int {
+        val s = label.orEmpty().lowercase(Locale.ROOT)
+        val h = Regex("""(\d+)\s*h""").find(s)?.groupValues?.get(1)?.toIntOrNull()
+        val m = Regex("""(\d+)\s*m""").find(s)?.groupValues?.get(1)?.toIntOrNull()
+        if (h != null || m != null) return (h ?: 0) * 60 + (m ?: 0)
+        return Regex("""^\s*(\d+)""").find(s)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 } ?: 0
+    }
+
+    /** Runtime of what is being played: the episode's TMDB runtime, else the title's duration label. */
+    fun runtimeMinutesOf(item: MediaItem?, episode: Episode?): Int =
+        if (episode != null) episode.runtimeMin.coerceAtLeast(0) else parseRuntimeMinutes(item?.duration)
+
+    /** Average video bitrate a file needs (Mbit/s); 0 when size is unknown. */
+    fun estimatedBitrateMbps(sizeBytes: Long, runtimeMin: Int, isEpisode: Boolean): Double {
+        if (sizeBytes <= 0L) return 0.0
+        val minutes = if (runtimeMin > 0) runtimeMin else if (isEpisode) 45 else 120
+        return sizeBytes * 8.0 / (minutes * 60.0) / 1_000_000.0
+    }
+
+    /**
+     * Mbit/s the connection can sustain for playback (80 % of the measured speed). The
+     * link speed is the Wi-Fi/Ethernet link, not the internet, so it is never trusted here.
+     */
+    fun bitrateBudgetMbps(env: PlaybackEnv): Double =
+        if (env.measuredMbps > 0.0) env.measuredMbps * 0.8 else DEFAULT_BUDGET_MBPS
+
+    /** Penalty for a torrent heavier than the connection can stream without stalls. */
+    fun bitratePenalty(bitrateMbps: Double, budgetMbps: Double): Double {
+        if (bitrateMbps <= 0.0 || budgetMbps <= 0.0 || bitrateMbps <= budgetMbps) return 0.0
+        return ((bitrateMbps / budgetMbps - 1.0) * 120.0).coerceAtMost(MAX_BITRATE_PENALTY)
     }
 
     fun enrich(raw: StreamSource): StreamSource {
@@ -156,8 +239,11 @@ object SourceRanker {
         isEpisode: Boolean = false,
         isLowMemory: Boolean = false,
         env: PlaybackEnv = PlaybackProfile.current,
+        /** TMDB runtime of the movie/episode (0 = unknown: 120 min movie, 45 min episode). */
+        runtimeMin: Int = 0,
     ): List<StreamSource> {
         val target = effectiveTarget(prefs, env)
+        val budgetMbps = bitrateBudgetMbps(env)
         val enriched = sources.map(::enrich)
         // Quality gate: no dead / CAM / duplicate torrents. If that would leave nothing at all,
         // the best few of the dropped torrents are still offered instead of an empty list.
@@ -176,7 +262,12 @@ object SourceRanker {
         }
         val pool = filtered.ifEmpty { healthy }
         val scored = pool
-            .map { it.copy(score = scoreSource(it, prefs, caps, isLowMemory, target)) }
+            .map { s ->
+                var score = scoreSource(s, prefs, caps, isLowMemory, target)
+                // Torrent heavier than the connection: it would stall while playing.
+                if (!s.isDirect) score -= bitratePenalty(estimatedBitrateMbps(s.sizeBytes, runtimeMin, isEpisode), budgetMbps)
+                s.copy(score = score)
+            }
             .sortedByDescending { it.score }
         val ranked = if (isLowMemory) promoteDirectOnLowMemory(scored, prefs, caps) else scored
         return if (split.kept.isNotEmpty()) ranked else ranked.take(FALLBACK_TORRENTS)
@@ -480,13 +571,11 @@ object SourceRanker {
             if (isLowMemory && gb > 12.0) score -= (gb - 12.0) * 20.0
             if (s.isRemux && isLowMemory) score -= 180.0
         }
+        // A remux is overkill for "auto" on any device (huge, lossless audio).
+        if (isAuto && s.isRemux && !s.isDirect) score -= 80.0
 
-        // 7. Observed runtime server health
-        val healthKey = s.addonId.ifBlank { s.provider }
-        val fails = healthFailures[healthKey] ?: 0
-        val oks = healthSuccess[healthKey] ?: 0
-        score -= fails * 120.0
-        score += (oks * 15.0).coerceAtMost(60.0)
+        // 7. Playback history: per source, plus a little per plugin
+        score += healthScore(s)
 
         return score
     }

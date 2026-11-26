@@ -15,8 +15,8 @@ android {
         applicationId = "com.techpoint.opentv"
         minSdk = 23
         targetSdk = 35
-        versionCode = 8
-        versionName = "2.0.0"
+        versionCode = 9
+        versionName = "2.0.1"
 
 
         // Only bundle Spanish and English resources to keep APK lean.

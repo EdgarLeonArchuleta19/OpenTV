@@ -111,8 +111,18 @@ function hitKind(hit: Record<string, unknown>): 'movie' | 'series' | '' {
   return '';
 }
 
+/** Sites like CineHD Plus title their cards "Superman (2025)" with no separate year. */
+const TITLE_YEAR_RE = /\s*[([]((?:19|20)\d{2})[)\]]\s*$/;
+
+function hitTitle(hit: Record<string, unknown>): string {
+  return String(hit.title || hit.name || '').replace(TITLE_YEAR_RE, '').trim();
+}
+
 function hitYear(hit: Record<string, unknown>): number {
-  return parseInt(String(hit.year ?? hit.releaseYear ?? '').slice(0, 4), 10) || 0;
+  const own = parseInt(String(hit.year ?? hit.releaseYear ?? '').slice(0, 4), 10) || 0;
+  if (own) return own;
+  const m = TITLE_YEAR_RE.exec(String(hit.title || hit.name || ''));
+  return m ? parseInt(m[1], 10) : 0;
 }
 
 export interface RankedHit {
@@ -140,8 +150,8 @@ export function pickSearchHits(hitsRaw: Array<Record<string, unknown>>, q: Title
     if (!ref) return;
     const kind = hitKind(hit);
     if (kind && kind !== q.kind) return;
-    const title = String(hit.title || hit.name || '');
-    const sim = Math.max(0, ...names.map((n) => titleSimilarity(n, title)));
+    const title = hitTitle(hit);
+    const sim =Math.max(0, ...names.map((n) => titleSimilarity(n, title)));
     const year = hitYear(hit);
     const yearKnown = Boolean(year && q.year);
     const yearDiff = yearKnown ? Math.abs(year - (q.year || 0)) : 0;

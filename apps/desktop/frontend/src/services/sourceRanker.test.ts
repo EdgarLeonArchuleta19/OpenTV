@@ -8,7 +8,10 @@ import {
   pickerFilterOptions,
   plainLanguageLabel,
   qualityLabel,
+  parseRuntimeMinutes,
   rankSources,
+  recordSourceHealth,
+  resetSourceHealth,
   splitTorrentQuality,
   torrentRaceAlternatives,
 } from './sourceRanker';
@@ -249,5 +252,56 @@ describe('sourceRanker', () => {
     expect(opts.quality.map((o) => o.label)).toEqual(['Todas', '1080p', '720p', 'Auto']);
     expect(opts.lang.map((o) => o.label)).toEqual(['Todos', 'Latino', 'Inglés', 'Subtitulado']);
     expect(opts.type.map((o) => o.label)).toEqual(['Todas', 'Directas', 'Torrents']);
+  });
+
+  describe('bitrate vs connection', () => {
+    const SLOW_PC: PlaybackEnv = { memoryGb: 8, cores: 8, measuredMbps: 15, apiMbps: 0, constrained: false };
+    const PREFS_1080: SourcePrefs = { ...DEFAULT_PREFS, quality: '1080p' };
+    const remux = {
+      id: 'remux', addonId: 't', addonName: 'Torrentio', name: '1080p',
+      title: 'Movie 2025 1080p BluRay Latino 👤 300 💾 30 GB', infoHash: 'r1',
+    };
+    const webdl = {
+      id: 'web', addonId: 't', addonName: 'Torrentio', name: '1080p',
+      title: 'Movie 2025 1080p WEB-DL Latino 👤 60 💾 2.4 GB', infoHash: 'w1',
+    };
+
+    it('parses runtime labels', () => {
+      expect(parseRuntimeMinutes('129 min')).toBe(129);
+      expect(parseRuntimeMinutes('2h 9min')).toBe(129);
+      expect(parseRuntimeMinutes('45')).toBe(45);
+      expect(parseRuntimeMinutes('')).toBe(0);
+    });
+
+    it('prefers a file the connection can stream over a heavier one with more seeders', () => {
+      const ranked = rankSources([remux, webdl], PREFS_1080, false, SLOW_PC, 120);
+      expect(ranked.map((s) => s.id)).toEqual(['web', 'remux']);
+    });
+
+    it('keeps the heavy file first when the connection is fast enough', () => {
+      const ranked = rankSources([remux, webdl], PREFS_1080, false, { ...FAST_PC, measuredMbps: 100 }, 120);
+      expect(ranked[0].id).toBe('remux');
+    });
+
+    it('never lets the bitrate penalty beat the viewer language', () => {
+      const castellano = { ...webdl, id: 'cast', infoHash: 'c1', title: 'Movie 2025 1080p WEB-DL Castellano 👤 60 💾 2.4 GB' };
+      const ranked = rankSources([castellano, remux], PREFS_1080, false, SLOW_PC, 120);
+      expect(ranked[0].id).toBe('remux');
+    });
+  });
+
+  describe('playback history', () => {
+    it('sinks the failed torrent but barely moves the rest of its plugin', () => {
+      resetSourceHealth();
+      const a = { id: 'a', addonId: 'tio', addonName: 'Torrentio', name: '1080p', title: 'Movie 1080p Latino 👤 200 💾 2 GB', infoHash: 'aa' };
+      const b = { id: 'b', addonId: 'tio', addonName: 'Torrentio', name: '1080p', title: 'Movie 1080p Latino 👤 120 💾 2 GB', infoHash: 'bb' };
+      const c = { id: 'c', addonId: 'other', addonName: 'Otro', name: '720p', title: 'Movie 720p Latino 👤 120 💾 1 GB', infoHash: 'cc' };
+      const prefs: SourcePrefs = { ...DEFAULT_PREFS, quality: '1080p' };
+      expect(rankSources([a, b, c], prefs, false, FAST_PC).map((s) => s.id)).toEqual(['a', 'b', 'c']);
+      recordSourceHealth(enrichSource(a), false);
+      // `a` drops to the bottom; `b` (same plugin) still beats the 720p one from another plugin.
+      expect(rankSources([a, b, c], prefs, false, FAST_PC).map((s) => s.id)).toEqual(['b', 'c', 'a']);
+      resetSourceHealth();
+    });
   });
 });

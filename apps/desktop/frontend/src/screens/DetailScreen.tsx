@@ -26,7 +26,7 @@ import { mergeSeasonEpisodes } from '../services/tmdbDetail';
 import { peekLocalized } from '../services/localize';
 import { getSourceSearch, type SourceSearch } from '../services/sourceSearch';
 import { formatDuration, localizedGenres } from '../services/locales';
-import { rankSources } from '../services/sourceRanker';
+import { rankSources, runtimeMinutesOf } from '../services/sourceRanker';
 import { desktopApi, resizedImageUrl } from '../services/tauri';
 import { isLiteMode } from '../services/liteMode';
 import { PosterCard, ScrollRow, SourcePickerModal, useDragScroll } from '../components/CommonComponents';
@@ -295,7 +295,7 @@ export const DetailScreen: React.FC<DetailScreenProps> = ({
     setLoadingSources(!search.done);
     return new Promise((resolve) => {
       unwatchRef.current = search.subscribe((st) => {
-        const ranked = rankSources(st.raw, sourcePrefs, ep !== null);
+        const ranked = rankSources(st.raw, sourcePrefs, ep !== null, undefined, runtimeMinutesOf(item, ep));
         setSources(ranked);
         const done = st.stremioDone && st.jsDone;
         setLoadingSources(!done);

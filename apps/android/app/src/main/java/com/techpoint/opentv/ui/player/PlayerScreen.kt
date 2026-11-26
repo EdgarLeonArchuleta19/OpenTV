@@ -1279,7 +1279,10 @@ private suspend fun searchPlayerSources(
     suspend fun rankAll(): List<StreamSource> {
         val all = stremioList.orEmpty() + synchronized(jsList) { jsList.toList() }
         return withContext(Dispatchers.Default) {
-            SourceRanker.rank(all, sourcePrefs, mediaCaps, isEpisode = episode != null, isLowMemory = isLowMemory)
+            SourceRanker.rank(
+                all, sourcePrefs, mediaCaps, isEpisode = episode != null, isLowMemory = isLowMemory,
+                runtimeMin = SourceRanker.runtimeMinutesOf(item, episode),
+            )
         }
     }
 

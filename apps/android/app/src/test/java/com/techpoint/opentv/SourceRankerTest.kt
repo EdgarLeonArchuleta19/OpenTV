@@ -5,6 +5,7 @@ import com.techpoint.opentv.core.data.AppUpdatePolicy
 import com.techpoint.opentv.core.model.InstalledPlugin
 import com.techpoint.opentv.core.model.SourcePrefs
 import com.techpoint.opentv.core.model.StreamSource
+import com.techpoint.opentv.core.ranking.PlaybackEnv
 import com.techpoint.opentv.core.ranking.SourceRanker
 import com.techpoint.opentv.service.DeviceMediaCaps
 import com.techpoint.opentv.ui.components.formatDurationEs
@@ -279,5 +280,44 @@ class SourceRankerTest {
         assertEquals(listOf("Todas", "1080p", "720p", "Auto"), opts.quality.map { it.label })
         assertEquals(listOf("Todos", "Latino", "Inglés", "Subtitulado"), opts.lang.map { it.label })
         assertEquals(listOf("Todas", "Directas", "Torrents"), opts.type.map { it.label })
+    }
+
+    private val capsAll = DeviceMediaCaps(hevc = true, hevc10 = true, uhd = true)
+    private val prefs1080 = SourcePrefs(langs = listOf("latino", "castellano"), quality = "1080p")
+    private val remux = tor("remux", "Movie 2025 1080p BluRay Latino 👤 300 💾 30 GB", "r1")
+    private val webdl = tor("web", "Movie 2025 1080p WEB-DL Latino 👤 60 💾 2.4 GB", "w1")
+
+    @Test
+    fun `parses runtime labels`() {
+        assertEquals(129, SourceRanker.parseRuntimeMinutes("129 min"))
+        assertEquals(129, SourceRanker.parseRuntimeMinutes("2h 9min"))
+        assertEquals(45, SourceRanker.parseRuntimeMinutes("45"))
+        assertEquals(0, SourceRanker.parseRuntimeMinutes(""))
+    }
+
+    @Test
+    fun `prefers a file the connection can stream and never beats the language`() {
+        val slow = PlaybackEnv(measuredMbps = 15.0)
+        assertEquals(
+            listOf("web", "remux"),
+            SourceRanker.rank(listOf(remux, webdl), prefs1080, capsAll, env = slow, runtimeMin = 120).map { it.id },
+        )
+        val fast = PlaybackEnv(measuredMbps = 100.0)
+        assertEquals("remux", SourceRanker.rank(listOf(remux, webdl), prefs1080, capsAll, env = fast, runtimeMin = 120).first().id)
+        val castellano = tor("cast", "Movie 2025 1080p WEB-DL Castellano 👤 60 💾 2.4 GB", "c1")
+        assertEquals("remux", SourceRanker.rank(listOf(castellano, remux), prefs1080, capsAll, env = slow, runtimeMin = 120).first().id)
+    }
+
+    @Test
+    fun `a failure sinks that torrent but barely moves the rest of its plugin`() {
+        SourceRanker.resetHealth()
+        val a = tor("a", "Movie 1080p Latino 👤 200 💾 2 GB", "aa")
+        val b = tor("b", "Movie 1080p Latino 👤 120 💾 2 GB", "bb")
+        val c = StreamSource(id = "c", addonId = "other", addonName = "Otro", title = "Movie 720p Latino 👤 120 💾 1 GB", infoHash = "cc")
+        val env = PlaybackEnv(measuredMbps = 50.0)
+        assertEquals(listOf("a", "b", "c"), SourceRanker.rank(listOf(a, b, c), prefs1080, capsAll, env = env).map { it.id })
+        SourceRanker.recordHealth(a, false)
+        assertEquals(listOf("b", "c", "a"), SourceRanker.rank(listOf(a, b, c), prefs1080, capsAll, env = env).map { it.id })
+        SourceRanker.resetHealth()
     }
 }

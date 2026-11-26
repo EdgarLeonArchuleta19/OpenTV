@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BookmarkPlus, Check, Info, Play } from 'lucide-react';
 import type { CatalogRow, HomeTabId, InstalledPlugin, MediaItem, WatchProgress } from '../types/models';
 import { loadCatalogSection } from '../services/stremio';
+import { continueWatchingRow } from '../services/continueWatching';
 import { formatHeroMeta, localizedGenres } from '../services/locales';
 import { localizeItem, peekLocalized } from '../services/localize';
 import { resizedImageUrl } from '../services/tauri';
@@ -164,9 +165,7 @@ const HomeScreenView: React.FC<HomeScreenProps> = ({
 
   const filteredContinue = useMemo(
     () =>
-      continueWatching
-        .filter((e) => !(e.durationMs > 60_000 && e.positionMs / e.durationMs >= 0.95))
-        .filter((e) => {
+      continueWatchingRow(continueWatching).filter((e) => {
           if (tab === 'movies') return e.type === 'movie';
           if (tab === 'series') return e.type === 'series';
           if (tab === 'anime') return e.type === 'anime';

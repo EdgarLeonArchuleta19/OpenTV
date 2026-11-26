@@ -34,7 +34,7 @@ export function getProxyPort(): number {
 }
 
 export function getAppVersion(): string {
-  return window.__OPENTV_TAURI_INIT__?.version || '2.0.0';
+  return window.__OPENTV_TAURI_INIT__?.version || '2.0.1';
 }
 
 export function getServiceToken(): string {

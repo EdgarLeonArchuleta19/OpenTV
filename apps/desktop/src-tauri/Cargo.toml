@@ -1,6 +1,6 @@
 [package]
 name = "opentv-tauri"
-version = "2.0.0"
+version = "2.0.1"
 description = "OpenTV v2 — Native Windows PC wrapper (Tauri v2 + embedded Rust core)"
 authors = ["TECHPOINT Software"]
 edition = "2021"

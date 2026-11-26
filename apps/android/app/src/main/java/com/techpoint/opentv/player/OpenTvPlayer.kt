@@ -233,7 +233,7 @@ class OpenTvPlayer(
                     startupWatchdog?.cancel()
                     if (!_state.value.firstFrameReady) {
                         currentSource?.let {
-                            SourceRanker.recordHealth(it.addonId.ifBlank { it.provider }, true)
+                            SourceRanker.recordHealth(it, true)
                             Log.i(TAG, "playing: ${it.addonName} · ${it.title.take(80)} (direct=${it.isDirect})")
                         }
                     }
@@ -279,7 +279,7 @@ class OpenTvPlayer(
             override fun onPlayerError(error: PlaybackException) {
                 startupWatchdog?.cancel()
                 currentSource?.let {
-                    SourceRanker.recordHealth(it.addonId.ifBlank { it.provider }, false)
+                    SourceRanker.recordHealth(it, false)
                     Log.w(TAG, "source failed: ${it.addonName} (${error.errorCodeName})")
                     val httpRefusal = error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
                         error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
@@ -438,7 +438,7 @@ class OpenTvPlayer(
                     Log.w(TAG, "source refused by server: ${source.addonName} - ${hostOf(source.url)}")
                     lastFailureRefused = true
                     hostOf(source.url)?.let { failedHosts.add(it) }
-                    SourceRanker.recordHealth(source.addonId.ifBlank { source.provider }, false)
+                    SourceRanker.recordHealth(source, false)
                     if (!tryNextFallback()) {
                         _state.update { it.copy(isBuffering = false, isPlaying = false, errorMessage = REFUSED_MESSAGE, statusBanner = "") }
                     }
@@ -460,7 +460,7 @@ class OpenTvPlayer(
             delay(DIRECT_STARTUP_TIMEOUT_MS)
             if (currentSource?.id != source.id || _state.value.firstFrameReady || currentIsLive) return@launch
             Log.w(TAG, "source timed out: ${source.addonName}")
-            SourceRanker.recordHealth(source.addonId.ifBlank { source.provider }, false)
+            SourceRanker.recordHealth(source, false)
             exo?.stop()
             lastFailureRefused = true
             hostOf(source.url)?.let { failedHosts.add(it) }

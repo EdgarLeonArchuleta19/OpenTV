@@ -216,6 +216,7 @@ fun DetailScreen(
             caps = mediaCaps,
             isEpisode = ep != null,
             isLowMemory = ui.isLowSpec,
+            runtimeMin = SourceRanker.runtimeMinutesOf(detail.item, ep),
         )
 
         loadingSources = true

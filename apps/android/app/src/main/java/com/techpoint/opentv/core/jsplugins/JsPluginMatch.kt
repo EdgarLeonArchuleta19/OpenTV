@@ -116,6 +116,8 @@ object JsPluginMatch {
 
     private fun yearOf(el: JsonElement?): Int = str(el).take(4).toIntOrNull() ?: 0
 
+    private val TITLE_YEAR_RE = Regex("""\s*[(\[]((?:19|20)\d{2})[)\]]\s*$""")
+
     /** Same rules as the PC: close title, or the site's first same-year hit; yearless first hit needs `details()`. */
     fun pickSearchHits(hits: List<JsonObject>, q: TitleQuery, max: Int = 2): List<Hit> {
         val names = listOf(q.title, q.originalTitle).filter { it.isNotBlank() }
@@ -126,9 +128,15 @@ object JsPluginMatch {
             val ref = listOf("ref", "id", "imdb_id", "imdbId").map { str(hit[it]).trim() }.firstOrNull { it.isNotEmpty() } ?: return@forEachIndexed
             val kind = hitKind(hit)
             if (kind.isNotEmpty() && kind != q.kind) return@forEachIndexed
-            val title = str(hit["title"]).ifEmpty { str(hit["name"]) }
+            val rawTitle = str(hit["title"]).ifEmpty { str(hit["name"]) }
+            // Sites like CineHD Plus title their cards "Superman (2025)" with no separate year.
+            val titleYear = TITLE_YEAR_RE.find(rawTitle)
+            val title = if (titleYear != null) rawTitle.substring(0, titleYear.range.first).trim() else rawTitle
             val sim = names.maxOfOrNull { titleSimilarity(it, title) } ?: 0.0
-            val year = yearOf(hit["year"]).takeIf { it > 0 } ?: yearOf(hit["releaseYear"])
+            val year = yearOf(hit["year"]).takeIf { it > 0 }
+                ?: yearOf(hit["releaseYear"]).takeIf { it > 0 }
+                ?: titleYear?.groupValues?.get(1)?.toIntOrNull()
+                ?: 0
             val yearKnown = year > 0 && q.year > 0
             val yearDiff = if (yearKnown) abs(year - q.year) else 0
             // Movies must match ±1. Series years drift a little (first air date vs. season), but a

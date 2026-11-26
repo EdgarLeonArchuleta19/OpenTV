@@ -31,7 +31,7 @@ import type {
   SubtitleStylePrefs,
 } from '../types/models';
 import { fetchExternalSubtitles } from '../services/stremio';
-import { rankSources, recordSourceHealth, torrentRaceAlternatives } from '../services/sourceRanker';
+import { rankSources, recordSourceHealth, runtimeMinutesOf, torrentRaceAlternatives } from '../services/sourceRanker';
 import { describeSearch, getSourceSearch, peekSourceSearch } from '../services/sourceSearch';
 import {
   buildCompatStreamUrl,
@@ -327,6 +327,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     if (!search) return;
     let alive = true;
     const isEpisode = Boolean(session.episode);
+    const runtimeMin = runtimeMinutesOf(session.item, session.episode);
     const capable = isCapablePc();
     let rankedFor = -1;
     let ranked: StreamSource[] = [];
@@ -338,7 +339,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       setSearchPending(!(st.stremioDone && st.jsDone));
       const count = st.raw.length;
       if (count !== rankedFor) {
-        ranked = rankSources(st.raw, sourcePrefsRef.current, isEpisode);
+        ranked = rankSources(st.raw, sourcePrefsRef.current, isEpisode, undefined, runtimeMin);
         rankedFor = count;
         // After the pick (or for a manual pick), late sources only extend the picker and fallbacks.
         if (!awaitingPickRef.current && ranked.length > 0) setRankedSources(ranked);
@@ -739,10 +740,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           }
           if (!alive) return;
           if (res?.url) {
-            recordSourceHealth(src.addonId || src.provider, true);
+            recordSourceHealth(src, true);
             mediaUrl = res.url;
           } else {
-            recordSourceHealth(src.addonId || src.provider, false);
+            recordSourceHealth(src, false);
             setErrorMsg(res?.errorText || 'No se pudo iniciar el torrent');
             setLoading(false);
             return;
@@ -778,7 +779,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               const host = streamHost(src.url);
               if (host) failedHostsRef.current.add(host);
               lastFailureRefusedRef.current = true;
-              recordSourceHealth(src.addonId || src.provider, false);
+              recordSourceHealth(src, false);
               tryFallbackSourceRef.current();
               return;
             }
@@ -1001,7 +1002,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           return;
         }
       }
-      if (activeSource) recordSourceHealth(activeSource.addonId || activeSource.provider, false);
+      if (activeSource) recordSourceHealth(activeSource, false);
       lastFailureRefusedRef.current = false;
       tryFallbackSource();
     };

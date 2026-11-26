@@ -36,7 +36,21 @@ const SIZE_RE = /(?:💾\s*|\b)(\d+(?:[.,]\d+)?)\s*(TB|GB|MB)\b/i;
 const healthFailures = new Map<string, number>();
 const healthSuccess = new Map<string, number>();
 
-export function recordSourceHealth(key: string, ok: boolean): void {
+type HealthSource = Pick<StreamSource, 'infoHash' | 'url' | 'addonId' | 'provider'> & { fileIdx?: number };
+
+/** Key of ONE source: the torrent file (infoHash + fileIdx) or the stream URL without its token query. */
+export function sourceHealthKey(s: HealthSource): string {
+  if (s.infoHash && !s.url) return `t:${s.infoHash.toLowerCase()}:${s.fileIdx ?? ''}`;
+  if (s.url) return `u:${s.url.split(/[?#]/)[0]}`;
+  return '';
+}
+
+function pluginHealthKey(s: HealthSource): string {
+  const k = s.addonId || s.provider || '';
+  return k ? `p:${k}` : '';
+}
+
+function bump(key: string, ok: boolean): void {
   if (!key) return;
   if (ok) {
     healthSuccess.set(key, (healthSuccess.get(key) ?? 0) + 1);
@@ -44,6 +58,84 @@ export function recordSourceHealth(key: string, ok: boolean): void {
   } else {
     healthFailures.set(key, (healthFailures.get(key) ?? 0) + 1);
   }
+}
+
+/**
+ * Records a playback outcome. A failure sinks THAT source; its plugin only loses a little,
+ * so one dead torrent does not drag every other result of the same plugin down.
+ */
+export function recordSourceHealth(src: HealthSource, ok: boolean): void {
+  bump(sourceHealthKey(src), ok);
+  bump(pluginHealthKey(src), ok);
+}
+
+/** Score adjustment from the session's playback history (see `recordSourceHealth`). */
+function healthScore(s: StreamSource): number {
+  const sk = sourceHealthKey(s);
+  const pk = pluginHealthKey(s);
+  let score = 0;
+  if (sk) {
+    score -= (healthFailures.get(sk) ?? 0) * SOURCE_FAIL_PENALTY;
+    if ((healthSuccess.get(sk) ?? 0) > 0) score += 40;
+  }
+  if (pk) {
+    score -= Math.min(3, healthFailures.get(pk) ?? 0) * 40;
+    score += Math.min(60, (healthSuccess.get(pk) ?? 0) * 15);
+  }
+  return score;
+}
+
+const SOURCE_FAIL_PENALTY = 400;
+
+/** Test hook: forget the session's playback history. */
+export function resetSourceHealth(): void {
+  healthFailures.clear();
+  healthSuccess.clear();
+}
+
+// ---- Bitrate vs connection ----
+
+/** Assumed connection when the app has not measured one yet (Mbit/s). */
+const DEFAULT_BUDGET_MBPS = 20;
+/** Never larger than one language step (140), so a heavy file in a better language still wins. */
+const MAX_BITRATE_PENALTY = 130;
+
+/** Runtime in minutes from TMDB/Cinemeta labels ("129 min", "2h 9min", "129"); 0 = unknown. */
+export function parseRuntimeMinutes(label: string | number | undefined | null): number {
+  if (typeof label === 'number') return label > 0 ? Math.round(label) : 0;
+  const s = String(label || '').toLowerCase();
+  const h = /(\d+)\s*h/.exec(s);
+  const m = /(\d+)\s*m/.exec(s);
+  if (h || m) return (h ? Number(h[1]) * 60 : 0) + (m ? Number(m[1]) : 0);
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Runtime of what is being played: the episode's TMDB runtime, else the title's duration label. */
+export function runtimeMinutesOf(item: { duration?: string } | null | undefined, episode?: { runtimeMin?: number } | null): number {
+  if (episode) return episode.runtimeMin && episode.runtimeMin > 0 ? episode.runtimeMin : 0;
+  return parseRuntimeMinutes(item?.duration);
+}
+
+/** Average video bitrate a file needs (Mbit/s); 0 when size is unknown. */
+export function estimatedBitrateMbps(sizeBytes: number, runtimeMin: number, isEpisode: boolean): number {
+  if (!sizeBytes || sizeBytes <= 0) return 0;
+  const minutes = runtimeMin > 0 ? runtimeMin : isEpisode ? 45 : 120;
+  return (sizeBytes * 8) / (minutes * 60) / 1_000_000;
+}
+
+/** Mbit/s the connection can sustain for playback (80 % of the measured speed). */
+export function bitrateBudgetMbps(env: PlaybackEnv): number {
+  if (env.measuredMbps > 0) return env.measuredMbps * 0.8;
+  // `downlink` saturates at 10: only a value below that is a real (slow) reading.
+  if (env.apiMbps > 0 && env.apiMbps < 10) return env.apiMbps * 0.8;
+  return DEFAULT_BUDGET_MBPS;
+}
+
+/** Penalty for a torrent heavier than the connection can stream without stalls. */
+export function bitratePenalty(bitrateMbps: number, budgetMbps: number): number {
+  if (bitrateMbps <= 0 || budgetMbps <= 0 || bitrateMbps <= budgetMbps) return 0;
+  return Math.min(MAX_BITRATE_PENALTY, (bitrateMbps / budgetMbps - 1) * 120);
 }
 
 function parseSizeBytes(text: string): number {
@@ -183,8 +275,12 @@ export function rankSources(
   prefs: SourcePrefs,
   isEpisode = false,
   env?: PlaybackEnv,
+  /** TMDB runtime of the movie/episode (0 = unknown: 120 min movie, 45 min episode). */
+  runtimeMin = 0,
 ): StreamSource[] {
-  const target = effectiveTargetQuality(prefs, env);
+  const playbackEnv = env ?? detectPlaybackEnv();
+  const target = effectiveTargetQuality(prefs, playbackEnv);
+  const budgetMbps = bitrateBudgetMbps(playbackEnv);
   const isAuto = prefs.quality === 'auto';
   const points = QUALITY_POINTS[target];
   const enriched = sources.map(enrichSource);
@@ -253,10 +349,15 @@ export function rankSources(
       if (s.isDts) score -= 180;
       if (s.isTrueHd) score -= 180;
 
-      // 6. Runtime health
-      const hKey = s.addonId || s.provider;
-      score -= (healthFailures.get(hKey) ?? 0) * 120;
-      score += Math.min(60, (healthSuccess.get(hKey) ?? 0) * 15);
+      // 6. Torrent heavier than the connection: it would stall while playing.
+      if (!isDirect) {
+        score -= bitratePenalty(estimatedBitrateMbps(s.sizeBytes, runtimeMin, isEpisode), budgetMbps);
+        // A remux is overkill for "auto" (huge, lossless audio WebView2 cannot decode).
+        if (isAuto && s.isRemux) score -= 80;
+      }
+
+      // 7. Playback history: per source, plus a little per plugin
+      score += healthScore(s);
 
       return { ...s, score };
     })

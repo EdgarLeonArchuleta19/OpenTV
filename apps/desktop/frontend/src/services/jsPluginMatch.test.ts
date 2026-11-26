@@ -14,6 +14,18 @@ import {
 } from './jsPluginMatch';
 
 describe('pickSearchHits', () => {
+  it('reads the year from a "Title (2025)" card that has no year field (CineHD Plus)', () => {
+    const hits = pickSearchHits(
+      [
+        { id: 'superman-2025', title: 'Superman (2025)', kind: 'movie' },
+        { id: 'superman-1978', title: 'Superman (1978)', kind: 'movie' },
+        { id: 'superman-ii', title: 'Superman II (1980)', kind: 'movie' },
+      ],
+      { title: 'Superman', originalTitle: 'Superman', year: 2025, kind: 'movie' },
+    );
+    expect(hits.map((h) => h.ref)).toEqual(['superman-2025']);
+  });
+
   it('never takes a same-named remake of a series from another decade', () => {
     const hits = pickSearchHits(
       [

@@ -221,6 +221,16 @@ data class WatchProgress(
     val isFinished: Boolean get() = durationMs > 60_000L && progress >= 0.92f
 }
 
+/**
+ * "Seguir viendo" rows: one card per title, the episode watched most recently.
+ * Older episodes stay in the history (Detail resume) but never show as extra cards,
+ * and a finished last episode hides the title instead of surfacing an older one.
+ */
+fun List<WatchProgress>.continueWatchingRow(): List<WatchProgress> =
+    sortedByDescending { it.updatedAt }
+        .distinctBy { it.itemId }
+        .filter { !it.isFinished }
+
 @Immutable
 @Serializable
 data class SourcePrefs(

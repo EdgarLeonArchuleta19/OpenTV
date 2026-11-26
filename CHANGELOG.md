@@ -1,5 +1,16 @@
 # Cambios
 
+## 2.0.1 — Correcciones (2026-11-25)
+
+### Plugins y fuentes
+- PC: los plugins JS (películas y series) vuelven a funcionar. Se negaban a cargar y siempre decían "no hay fuentes".
+- Los plugins encuentran títulos que el sitio publica con el año en el nombre, como "Superman (2025)" (PC, Android y TV).
+- La mejor fuente toma en cuenta tu internet: un torrent demasiado pesado para tu conexión baja en la lista, sin pasar nunca por encima de tu idioma preferido (PC, Android y TV).
+- Si una fuente falla, solo esa baja en la lista; las demás del mismo plugin conservan su lugar (PC, Android y TV).
+
+### Seguir viendo
+- Cada serie aparece una sola vez, con el último episodio que viste (PC, Android y TV).
+
 ## 2.0.0 — Primera versión estable de la v2 (2026-11-25)
 
 ### Contenido
