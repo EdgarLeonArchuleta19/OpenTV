@@ -108,8 +108,9 @@ pub fn default_allowed_origins() -> Vec<String> {
 }
 
 /// Origins each shipping platform actually uses.
-/// - `desktop` (Tauri v2 on Windows/WebView2): `http(s)://tauri.localhost`, plus the
-///   Vite dev server only in debug builds.
+/// - `desktop` (Tauri v2 on Windows/WebView2): `http://opentv.localhost` (the app's own
+///   protocol since 2.0.2), `http(s)://tauri.localhost` (Tauri's built-in one, still
+///   registered), plus the Vite dev server only in debug builds.
 /// - `android`: the UI is native Compose and talks to the core through JNI; ExoPlayer,
 ///   Coil and OkHttp send no `Origin`, so no web origin is trusted at all.
 /// - anything else: the legacy list.
@@ -118,6 +119,7 @@ pub fn allowed_origins_for(platform: &str) -> Vec<String> {
         "android" => Vec::new(),
         "desktop" => {
             let mut origins = vec![
+                "http://opentv.localhost".to_string(),
                 "http://tauri.localhost".to_string(),
                 "https://tauri.localhost".to_string(),
             ];

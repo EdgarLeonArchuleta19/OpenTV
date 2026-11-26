@@ -278,6 +278,31 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const titleHeading = episode ? `${item.title} · T${episode.season} E${episode.number}` : item.title;
   const loadingArt = useMemo(() => resizedImageUrl(item.backdrop || item.poster, 1280), [item.backdrop, item.poster]);
 
+  // Windows media overlay (WebView2 feeds it from the page's media session): show the
+  // title, "OpenTV" and the poster instead of an empty card. Its top line (the page
+  // origin) cannot be changed from the page.
+  useEffect(() => {
+    const ms = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined;
+    if (!ms || typeof MediaMetadata === 'undefined') return;
+    const poster = /^https:\/\//i.test(item.poster || '') ? item.poster : '';
+    try {
+      ms.metadata = new MediaMetadata({
+        title: episode ? `${episode.title || `Episodio ${episode.number}`}` : item.title,
+        artist: episode ? `${item.title} · T${episode.season} E${episode.number} · OpenTV` : 'OpenTV',
+        artwork: poster ? [{ src: poster, sizes: '500x750', type: 'image/jpeg' }] : [],
+      });
+    } catch {
+      /* metadata is cosmetic */
+    }
+    return () => {
+      try {
+        ms.metadata = null;
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [item.title, item.poster, episode]);
+
   useEffect(() => {
     setActiveSource(session.chosen);
     setRankedSources(session.ranked);

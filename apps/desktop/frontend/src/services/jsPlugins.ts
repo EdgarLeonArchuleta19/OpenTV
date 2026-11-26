@@ -569,7 +569,7 @@ export class IsolatedJsPluginRunner {
             kind: 'load',
             key,
             code,
-            setup: { storage: this.storageFor(key), config: configDefaults(manifest), appVersion: '2.0.1' },
+            setup: { storage: this.storageFor(key), config: configDefaults(manifest), appVersion: '2.0.2' },
             jar: this.jarFor(key),
           },
           TIMEOUTS.load,

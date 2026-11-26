@@ -774,7 +774,9 @@ mod tests {
         use crate::config::allowed_origins_for;
         assert!(allowed_origins_for("android").is_empty());
         let desktop = allowed_origins_for("desktop");
+        assert!(origin_allowed(&desktop, "http://opentv.localhost"));
         assert!(origin_allowed(&desktop, "http://tauri.localhost"));
+        assert!(!origin_allowed(&desktop, "http://evil.opentv.localhost"));
         assert!(!origin_allowed(&desktop, "http://localhost"));
         assert!(!origin_allowed(&desktop, "capacitor://localhost"));
         assert!(!origin_allowed(&desktop, "null"));

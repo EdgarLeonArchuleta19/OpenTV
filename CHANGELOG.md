@@ -1,5 +1,11 @@
 # Cambios
 
+## 2.0.2 — PC: OpenTV en los controles multimedia de Windows (2026-11-25)
+
+- PC: el recuadro de controles multimedia de Windows (el que sale al subir el volumen) ahora muestra el título, "OpenTV" y la carátula, y la app aparece como `opentv.localhost` en lugar de `tauri.localhost`.
+- PC: por ese cambio, la app arranca una vez como recién instalada: hay que volver a crear perfiles, agregar plugins y elegir ajustes.
+- Android, Android TV y Fire TV: sin cambios de funciones; solo sube el número de versión.
+
 ## 2.0.1 — Correcciones (2026-11-25)
 
 ### Plugins y fuentes

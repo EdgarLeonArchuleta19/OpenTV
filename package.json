@@ -1,7 +1,7 @@
 {
   "name": "opentv",
   "productName": "OpenTV",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "OpenTV v2 — Tauri v2 + React/TS (PC) + Kotlin nativo (Android y TV) + Núcleo unificado Rust",
   "author": "TECHPOINT Software™",
   "license": "SEE LICENSE IN LICENSE",

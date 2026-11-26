@@ -166,7 +166,7 @@ fn append_log(user_data_dir: &Path, line: &str) {
 
 /// Windows-only polish for the frameless window:
 /// - Hides the WebView2 status bar that pops up bottom-left with URLs such as
-///   `http://tauri.localhost/...` when the pointer hovers a link.
+///   `http://opentv.localhost/...` when the pointer hovers a link.
 /// - Paints the DWM 1px window border in the dark theme tone until the UI applies the
 ///   saved theme (`desktop_appearance`).
 #[cfg(target_os = "windows")]
@@ -180,6 +180,38 @@ fn apply_windows_chrome(win: &tauri::WebviewWindow) {
     });
 
     appearance::apply_border_color(win, false);
+}
+
+/// Own protocol for the bundled UI. WebView2 serves custom schemes as
+/// `http://<scheme>.localhost`, so the app runs at `http://opentv.localhost` (the name
+/// Windows shows in its media overlay) instead of Tauri's `http://tauri.localhost`.
+/// Tauri treats registered schemes as local, so IPC and capabilities work as before.
+const APP_PROTOCOL: &str = "opentv";
+const APP_ORIGIN: &str = "http://opentv.localhost";
+
+/// Serves the embedded frontend (`dist-ui`) through Tauri's asset resolver: same files,
+/// MIME types and `index.html` fallback as the built-in `tauri` protocol.
+fn serve_app_asset<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: &tauri::http::Request<Vec<u8>>,
+) -> tauri::http::Response<Vec<u8>> {
+    let path = request.uri().path().to_string();
+    match app.asset_resolver().get(path) {
+        Some(asset) => {
+            let mut res = tauri::http::Response::builder()
+                .status(200)
+                .header("Content-Type", asset.mime_type.as_str())
+                .header("X-Content-Type-Options", "nosniff");
+            if let Some(csp) = asset.csp_header.as_deref() {
+                res = res.header("Content-Security-Policy", csp);
+            }
+            res.body(asset.bytes).unwrap_or_default()
+        }
+        None => tauri::http::Response::builder()
+            .status(404)
+            .body(Vec::new())
+            .unwrap_or_default(),
+    }
 }
 
 fn main() {
@@ -238,6 +270,7 @@ fn main() {
     );
 
     let app = tauri::Builder::default()
+        .register_uri_scheme_protocol(APP_PROTOCOL, |ctx, request| serve_app_asset(ctx.app_handle(), &request))
         .manage(ctx)
         .invoke_handler(tauri::generate_handler![
             commands::desktop_service,
@@ -263,11 +296,15 @@ fn main() {
             let _ = fs::create_dir_all(&webview_data);
             let saved_win = load_window_state(&user_data_dir);
 
-            let mut builder = WebviewWindowBuilder::new(
-                app,
-                "main",
-                WebviewUrl::App("index.html".into()),
-            )
+            // Dev keeps Vite's dev server (HMR); installed builds load our own protocol.
+            let start_url = if tauri::is_dev() {
+                WebviewUrl::App("index.html".into())
+            } else {
+                WebviewUrl::CustomProtocol(
+                    format!("{APP_ORIGIN}/index.html").parse().expect("valid app URL"),
+                )
+            };
+            let mut builder = WebviewWindowBuilder::new(app, "main", start_url)
             .title("OpenTV")
             .inner_size(1360.0, 840.0)
             .min_inner_size(960.0, 600.0)
@@ -284,6 +321,8 @@ fn main() {
                     return true;
                 }
                 s == "about:blank"
+                    || s.starts_with("http://opentv.localhost/")
+                    || s == APP_ORIGIN
                     || s.starts_with("http://tauri.localhost/")
                     || s.starts_with("https://tauri.localhost/")
                     || s.starts_with("tauri://localhost/")
@@ -295,7 +334,11 @@ fn main() {
 
             #[cfg(target_os = "windows")]
             {
-                builder = builder.additional_browser_args("--autoplay-policy=no-user-gesture-required");
+                // Custom args replace Tauri's defaults, so those are repeated here.
+                builder = builder.additional_browser_args(
+                    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
+                     --autoplay-policy=no-user-gesture-required",
+                );
             }
 
             let main_win = builder.build()?;

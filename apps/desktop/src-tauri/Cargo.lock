@@ -3436,7 +3436,7 @@ dependencies = [
 
 [[package]]
 name = "opentv-tauri"
-version = "2.0.1"
+version = "2.0.2"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
